@@ -1,0 +1,139 @@
+/* Booking inbox for __BIZ__. Version 2. Paste this into script.google.com, then follow the steps in Hustle Builder. */
+const CFG = __CFG__;
+
+function calendar_() {
+  const found = CalendarApp.getCalendarsByName(CFG.calendarName);
+  return found.length ? found[0] : CalendarApp.createCalendar(CFG.calendarName);
+}
+function stamp_(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm"); }
+function clean_(v, n) { return String(v || "").replace(/[\r\n]+/g, " ").slice(0, n); }
+function text_(t) { return ContentService.createTextOutput(t); }
+function reply_(obj, prefix) {
+  const body = JSON.stringify(obj);
+  if (prefix && /^[A-Za-z_][A-Za-z0-9_]*$/.test(prefix)) {
+    return ContentService.createTextOutput(prefix + "(" + body + ")").setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);
+}
+function to_() { return [CFG.parentEmail, CFG.parentEmail2].filter(function (x) { return x; }).join(","); }
+function mail_(subject, body, attachments) {
+  const opt = { to: to_(), subject: subject, body: body, name: CFG.business + " bookings" };
+  if (attachments) opt.attachments = attachments;
+  MailApp.sendEmail(opt);
+}
+function today_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd"); }
+function bump_(name, max) {
+  const props = PropertiesService.getScriptProperties();
+  const key = name + "_" + today_();
+  const n = Number(props.getProperty(key) || 0);
+  if (n >= max) return false;
+  props.setProperty(key, String(n + 1));
+  return true;
+}
+function waitlist_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("waitlist") || "[]"); } catch (e) { return []; }
+}
+function saveWaitlist_(list) { PropertiesService.getScriptProperties().setProperty("waitlist", JSON.stringify(list.slice(-30))); }
+
+// Run this one time (pick "setup" at the top and press Run) to approve access.
+function setup() {
+  calendar_();
+  if (CFG.weekly) ensureWeekly_();
+  mail_("Your booking inbox is ready", "Great news. When someone books " + CFG.student + " on the " + CFG.business + " website, you will get an email here and a hold on the calendar called " + CFG.calendarName + "." + (CFG.weekly ? " You will also get a short summary of the week ahead every Sunday evening." : ""));
+}
+function ensureWeekly_() {
+  const has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === "weeklySummary"; });
+  if (!has) ScriptApp.newTrigger("weeklySummary").timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(18).create();
+}
+function weeklySummary() {
+  const now = new Date(), end = new Date(now.getTime() + 7 * 24 * 3600 * 1000), tz = Session.getScriptTimeZone();
+  const evs = calendar_().getEvents(now, end);
+  const lines = evs.map(function (ev) { return Utilities.formatDate(ev.getStartTime(), tz, "EEE MMM d, h:mm a") + "   " + ev.getTitle(); });
+  const todayIso = Utilities.formatDate(now, tz, "yyyy-MM-dd");
+  const wl = waitlist_().filter(function (w) { return w.date >= todayIso; });
+  saveWaitlist_(wl);
+  const parts = ["Here is the week ahead for " + CFG.business + ".", "", lines.length ? lines.join("\n") : "Nothing is on the calendar yet. Share the website with a neighbor!"];
+  if (wl.length) {
+    parts.push("", "Waiting for a day to open up:");
+    wl.forEach(function (w) { parts.push(w.date + "   " + w.name + "   " + w.contact); });
+  }
+  mail_("Your week: " + evs.length + " on the calendar" + (wl.length ? ", " + wl.length + " waiting" : ""), parts.join("\n"));
+}
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  const prefix = p.prefix;
+  if (p.action === "busy") {
+    const now = new Date(), end = new Date(now.getTime() + 125 * 24 * 3600 * 1000);
+    const busy = calendar_().getEvents(now, end).map(function (ev) { return [stamp_(ev.getStartTime()), stamp_(ev.getEndTime())]; });
+    return reply_({ busy: busy }, prefix);
+  }
+  if (p.action === "book") {
+    try {
+      const d = JSON.parse(p.d || "{}");
+      if (d.key !== CFG.secret) return reply_({ ok: false, error: "key" }, prefix);
+      const start = new Date(clean_(d.start, 20));
+      if (isNaN(start.getTime())) return reply_({ ok: false, error: "date" }, prefix);
+      const end = new Date(start.getTime() + CFG.hours * 3600 * 1000);
+      const cal = calendar_();
+      if (!d.test && cal.getEvents(start, end).length) return reply_({ ok: false, error: "taken" }, prefix);
+      if (!bump_("n", CFG.maxPerDay)) return reply_({ ok: false, error: "limit" }, prefix);
+      const bid = Utilities.getUuid().slice(0, 6);
+      const tag = d.test ? "TEST: " : "HOLD: ";
+      const lines = [
+        "Not confirmed yet. Reply to the customer, then change HOLD to the job name.",
+        "Customer: " + clean_(d.name, 60),
+        "Reach them at: " + clean_(d.contact, 80),
+        "Job: " + clean_(d.service, 80),
+        "Size: " + (clean_(d.size, 20) || "not sure"),
+        "How often: " + clean_(d.freq, 40),
+        "Address: " + clean_(d.address, 120),
+        "Note: " + (clean_(d.note, 300) || "none"),
+        "Booking ID: " + bid
+      ];
+      cal.createEvent(tag + clean_(d.service, 60) + " - " + clean_(d.name, 40), start, end, { location: clean_(d.address, 120), description: lines.join("\n") });
+      mail_((d.test ? "TEST " : "") + "Booking request: " + clean_(d.service, 60) + ", " + clean_(d.when, 60),
+        lines.join("\n") + "\n\nWhen: " + clean_(d.when, 60) + (d.photo ? "\nA photo of the job site is coming in a second email." : "") + "\n\nIt is on your \"" + CFG.calendarName + "\" calendar as a HOLD. Reply to the customer to confirm, or delete the hold to decline.");
+      return reply_({ ok: true, bid: bid }, prefix);
+    } catch (err) {
+      return reply_({ ok: false, error: "error" }, prefix);
+    }
+  }
+  if (p.action === "wait") {
+    try {
+      const d = JSON.parse(p.d || "{}");
+      if (d.key !== CFG.secret) return reply_({ ok: false, error: "key" }, prefix);
+      const date = clean_(d.date, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return reply_({ ok: false, error: "date" }, prefix);
+      if (!bump_("w", CFG.maxPerDay)) return reply_({ ok: false, error: "limit" }, prefix);
+      const entry = { date: date, name: clean_(d.name, 60), contact: clean_(d.contact, 80), service: clean_(d.service, 80), note: clean_(d.note, 200) };
+      const list = waitlist_();
+      list.push(entry);
+      saveWaitlist_(list);
+      mail_("Waitlist: " + entry.name + " wants " + date,
+        "That day is full on the website. " + entry.name + " asked to be told if it opens up.\n\nDay: " + date + "\nReach them at: " + entry.contact + "\nJob: " + entry.service + "\nNote: " + (entry.note || "none") + "\n\nIf a hold gets deleted, you can message them.");
+      return reply_({ ok: true }, prefix);
+    } catch (err) {
+      return reply_({ ok: false, error: "error" }, prefix);
+    }
+  }
+  return text_("Booking inbox for " + CFG.business + " is running.");
+}
+
+// Photos arrive as a form post from the website, after a booking is accepted.
+function doPost(e) {
+  const p = (e && e.parameter) || {};
+  try {
+    if (p.key !== CFG.secret) return text_("no");
+    const m = /^data:image\/jpeg;base64,([A-Za-z0-9+\/=]+)$/.exec(String(p.photo || ""));
+    if (!m || m[1].length > 600000) return text_("bad");
+    const bytes = Utilities.base64Decode(m[1]);
+    if (bytes.length < 4 || (bytes[0] & 255) !== 255 || (bytes[1] & 255) !== 216) return text_("bad");
+    if (!bump_("p", CFG.maxPhotosPerDay)) return text_("limit");
+    const blob = Utilities.newBlob(bytes, "image/jpeg", "job-photo-" + clean_(p.bid, 12) + ".jpg");
+    mail_("Photo for booking " + clean_(p.bid, 12) + " from " + clean_(p.name, 40), "Here is the photo from " + clean_(p.name, 40) + ". " + clean_(p.when, 60) + "\nBooking ID: " + clean_(p.bid, 12), [blob]);
+    return text_("ok");
+  } catch (err) {
+    return text_("error");
+  }
+}
