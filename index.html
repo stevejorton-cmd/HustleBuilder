@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Hustle Builder v32. Copyright (c) 2026 Hustle Builder. All rights reserved. Third-party notices (Barlow fonts, SIL OFL 1.1; qrcode-generator, MIT) are included in this file and listed in the About and legal screen. -->
+<!-- Hustle Builder v33. Copyright (c) 2026 Hustle Builder. All rights reserved. Third-party notices (Barlow fonts, SIL OFL 1.1; qrcode-generator, MIT) are included in this file and listed in the About and legal screen. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -492,27 +492,6 @@ body.printing .studio{display:none}
 .ms.done .mt b{opacity:.6;text-decoration:line-through}
 .ms .mact{display:flex;align-items:center;min-height:36px}
 .ms small{color:var(--muted)}
-body.class-on .shell{display:none}
-#classv{display:none;max-width:780px;margin:0 auto;padding:24px 20px 120px}
-body.class-on #classv{display:block}
-#classv h2{font-size:clamp(50px,14vw,78px);font-weight:900;margin-bottom:12px}
-.seg2{display:flex;gap:8px;margin:0 0 18px}
-.seg2 button{flex:1;border:2px solid var(--line);background:var(--surface);padding:10px;font-family:var(--display);font-style:italic;font-weight:800;font-size:20px;text-transform:uppercase;cursor:pointer;min-height:48px}
-.seg2 button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.sharelist{list-style:none;margin:0 0 14px;padding:0}
-.sharelist li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
-.sharelist li:first-child{border-top:0}
-.sharelist b{font-family:var(--display);font-style:italic;font-weight:900;font-size:22px}
-.srow{border:1px solid var(--line);background:var(--bg);border-left:5px solid var(--accent);padding:12px 14px;margin-bottom:10px}
-.srow .shead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.srow .shead b{font-size:20px}
-.srow .sbiz{color:var(--muted);font-size:14px}
-.srow .sline{margin:6px 0 0;color:var(--muted);font-size:15px}
-.srow .sline b{color:var(--ink)}
-.crit{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;flex-wrap:wrap}
-.crit span{font-size:15px;font-weight:600}
-.crit .chips{margin:0;gap:6px}
-.crit .chips button{min-width:40px;padding:6px 0;min-height:36px}
 .board{list-style:none;margin:0 0 12px;padding:0;counter-reset:b}
 .board li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);counter-increment:b}
 .board li::before{content:counter(b);font-family:var(--display);font-style:italic;font-weight:900;font-size:24px;min-width:28px}
@@ -598,7 +577,6 @@ details.help li{margin-bottom:10px}
     <button type="button" id="mBuild" aria-pressed="true">Build</button>
     <button type="button" id="mFlyers" aria-pressed="false">Print</button>
     <button type="button" id="mBoss" aria-pressed="false" aria-label="Boss mode">Boss</button>
-    <button type="button" id="mClass" aria-pressed="false">Class</button>
   </div>
 </header>
 
@@ -768,8 +746,6 @@ details.help li{margin-bottom:10px}
 </div>
 
 <section id="boss" aria-label="Boss mode"><div id="bossBody"></div></section>
-
-<section id="classv" aria-label="Class"><div id="classBody"></div></section>
 
 <section id="flyers" aria-label="Flyers">
   <h2>Print and post.</h2>
@@ -2260,23 +2236,19 @@ $("#boss").addEventListener("click",e=>{
 $("#boss").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".job")){e.preventDefault();e.target.click();}});
 
 function setMode(m){
-  const boss=m==="boss",fl=m==="flyers",cl=m==="class";
+  const boss=m==="boss",fl=m==="flyers";
   document.body.classList.toggle("boss-on",boss);
   document.body.classList.toggle("flyers-on",fl);
-  document.body.classList.toggle("class-on",cl);
   $("#mBuild").setAttribute("aria-pressed",String(m==="build"));
   $("#mFlyers").setAttribute("aria-pressed",String(fl));
   $("#mBoss").setAttribute("aria-pressed",String(boss));
-  $("#mClass").setAttribute("aria-pressed",String(cl));
   if(boss){lastProfit=0;renderBoss();}
   if(fl){renderFlyerChips();refreshFlyers();}
-  if(cl){renderClass();}
   window.scrollTo(0,0);
 }
 $("#mBuild").onclick=()=>setMode("build");
 $("#mFlyers").onclick=()=>setMode("flyers");
 $("#mBoss").onclick=()=>setMode("boss");
-$("#mClass").onclick=()=>setMode("class");
 
 
 
@@ -2653,105 +2625,6 @@ function renderRevs(){
 $("#addProof").onclick=()=>{if(S.proof.length<4){S.proof.push({a:"",b:"",cap:""});save();renderProof();}};
 $("#addRev").onclick=()=>{if(S.reviews.length<5){S.reviews.push({n:"",q:"",r:5});save();renderRevs();const ins=document.querySelectorAll("#revList .rcard input[type=text]");const last=ins[ins.length-1];if(last)last.focus();}};
 
-/* ============ Class mode (no server: codes and files only) ============ */
-const CK="hustle-class-v1";
-let CL={students:{},scores:{}};
-try{const r=localStorage.getItem(CK);if(r){CL=Object.assign(CL,JSON.parse(r));}}catch(e){}
-function saveCL(){try{localStorage.setItem(CK,JSON.stringify(CL));}catch(e){}}
-let classRole="student",cMoney=false,cStatus="",cScoreOpen=false,cArm=false;
-function progressReport(includeMoney){
-  const st=stats(),c=resolve(true),ri=rankIndex(st.count);
-  const first=B.jobs.length?B.jobs.slice().sort((a,b)=>a.date<b.date?-1:1)[0].date:"";
-  return {v:1,n:(S.first.trim()||"Student").slice(0,40),biz:c.biz.slice(0,60),rank:RANKS[ri].n,ri:ri,jobs:st.count,customers:st.customers,repeat:st.reps.length,streak:st.streak,missions:Object.keys(B.mdone).filter(k=>k.indexOf("|")>0).length,mstreak:missionStreak(),first:first,site:!!normUrl(S.siteUrl),proof:S.proof.filter(p=>p.a&&p.b).length,reviews:S.reviews.filter(r=>r.n&&r.q).length,money:includeMoney?{c:st.collected,p:st.profit}:null,t:todayISO()};
-}
-function encodeReport(o){const bytes=new TextEncoder().encode(JSON.stringify(o));let bin="";bytes.forEach(b=>{bin+=String.fromCharCode(b);});return "HB1:"+btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
-function decodeReport(str){
-  try{
-    str=String(str).trim();if(str.indexOf("HB1:")!==0)return null;
-    let b=str.slice(4).replace(/-/g,"+").replace(/_/g,"/");while(b.length%4)b+="=";
-    const bin=atob(b),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-    const o=JSON.parse(new TextDecoder().decode(bytes));
-    if(!o||o.v!==1||!o.n)return null;
-    const n=x=>{x=Number(x);return isFinite(x)?x:0;};
-    return {v:1,n:String(o.n).slice(0,40),biz:String(o.biz||"").slice(0,60),rank:String(o.rank||"Rookie").slice(0,20),ri:n(o.ri),jobs:n(o.jobs),customers:n(o.customers),repeat:n(o.repeat),streak:n(o.streak),missions:n(o.missions),mstreak:n(o.mstreak),first:String(o.first||"").slice(0,10),site:!!o.site,proof:n(o.proof),reviews:n(o.reviews),money:o.money&&typeof o.money==="object"?{c:n(o.money.c),p:n(o.money.p)}:null,t:String(o.t||"").slice(0,10)};
-  }catch(e){return null;}
-}
-function studentKey(r){return (r.n+"|"+r.biz).toLowerCase();}
-function addCodes(text){
-  let added=0,skipped=0;
-  String(text).split(/\s+/).filter(t=>t.indexOf("HB1:")===0).forEach(tok=>{
-    const r=decodeReport(tok);if(!r){skipped++;return;}
-    const k=studentKey(r),old=CL.students[k];
-    if(!old||String(old.t)<=String(r.t))CL.students[k]=r;
-    added++;
-  });
-  saveCL();return {added,skipped};
-}
-function classTotals(){
-  const list=Object.values(CL.students);let jobs=0,withJob=0,sites=0,money=0,shared=0;
-  list.forEach(r=>{jobs+=r.jobs;if(r.jobs>0)withJob++;if(r.site)sites++;if(r.money){money+=r.money.c;shared++;}});
-  return {n:list.length,jobs,withJob,sites,money,shared};
-}
-const CRIT=["Clear pitch","Fair pricing","Customer focus","Safety and parents","Delivery"];
-function scoreTotal(k){const a=CL.scores[k];return a?a.reduce((x,y)=>x+(y||0),0):0;}
-function renderClass(){
-  const root=$("#classBody");
-  const head='<h2>Class.</h2><div class="seg2" role="group" aria-label="View"><button type="button" data-act="role" data-role="student" aria-pressed="'+(classRole==="student")+'">My progress</button><button type="button" data-act="role" data-role="teacher" aria-pressed="'+(classRole==="teacher")+'">Teacher view</button></div>';
-  if(classRole==="student"){
-    const r=progressReport(cMoney);
-    root.innerHTML=head+'<p class="lead">Share your progress with your teacher. You choose what goes in. Nothing is sent automatically.</p>'
-    +'<div class="bcard"><h3>What you’ll share</h3><ul class="sharelist">'
-    +'<li><span>First name</span><b>'+esc(r.n)+'</b></li><li><span>Business</span><b>'+esc(r.biz)+'</b></li><li><span>Rank</span><b>'+esc(r.rank)+'</b></li>'
-    +'<li><span>Jobs logged</span><b>'+r.jobs+'</b></li><li><span>Missions done</span><b>'+r.missions+'</b></li><li><span>Website live</span><b>'+(r.site?"Yes":"Not yet")+'</b></li>'
-    +'<li><span>Photos and reviews</span><b>'+r.proof+' / '+r.reviews+'</b></li>'+(cMoney?'<li><span>Money collected</span><b>'+money(r.money.c)+'</b></li>':"")
-    +'</ul><label class="check"><input type="checkbox" id="cMoney"'+(cMoney?" checked":"")+'><span>Include how much money I’ve collected</span></label>'
-    +'<div class="mbtns"><button type="button" class="btn" data-act="copyCode">Copy my progress code</button><button type="button" class="btn ghost" data-act="saveCode">Save as a file</button></div>'
-    +'<p class="small2">Send the code or file to your teacher however they ask. It has your first name only, never an address, phone number, or photo.</p><p class="status" role="status">'+esc(cStatus)+'</p></div>'+legalLink();
-    return;
-  }
-  const tt=classTotals(),list=Object.keys(CL.students).map(k=>({k,r:CL.students[k]})).sort((a,b)=>b.r.jobs-a.r.jobs||b.r.ri-a.r.ri);
-  const rows=list.map(o=>{const r=o.r;return '<div class="srow"><div class="shead"><b>'+esc(r.n)+'</b><span class="chip paid" aria-hidden="true">'+esc(r.rank)+'</span></div><div class="sbiz">'+esc(r.biz)+'</div><p class="sline"><b>'+r.jobs+'</b> jobs / <b>'+r.missions+'</b> missions / <b>'+r.streak+'</b> wk streak / site '+(r.site?"<b>live</b>":"not yet")+(r.money?" / <b>"+money(r.money.c)+"</b> collected":"")+(r.t?" / updated "+esc(r.t):"")+'</p><button type="button" class="link" data-act="rmStudent" data-key="'+esc(o.k)+'">Remove</button></div>';}).join("");
-  let score="";
-  if(cScoreOpen&&list.length){
-    const ranked=list.slice().sort((a,b)=>scoreTotal(b.k)-scoreTotal(a.k));
-    score='<div class="bcard"><h3>Pitch day scorecard</h3><p class="sub">Score each pitch from 1 to 5 on each line. Scores save on this device.</p><ol class="board">'+ranked.map(o=>'<li><span>'+esc(o.r.n)+' / '+esc(o.r.biz)+'</span><b>'+(CL.scores[o.k]?scoreTotal(o.k)+"/25":"--")+'</b></li>').join("")+'</ol>'
-      +list.map(o=>'<div class="srow"><div class="shead"><b>'+esc(o.r.n)+'</b><span>'+(CL.scores[o.k]?scoreTotal(o.k)+"/25":"--")+'</span></div>'+CRIT.map((cn,i)=>'<div class="crit"><span>'+cn+'</span><div class="chips">'+[1,2,3,4,5].map(v=>'<button type="button" data-act="score" data-key="'+esc(o.k)+'" data-i="'+i+'" data-v="'+v+'" aria-pressed="'+((CL.scores[o.k]||[])[i]===v)+'">'+v+'</button>').join("")+'</div></div>').join("")+'</div>').join("")+'</div>';
-  }
-  root.innerHTML=head+'<p class="lead">Collect progress codes from your students and see the whole class at a glance. Everything stays on this device.</p>'
-  +'<div class="bcard"><h3>Add students</h3><textarea class="code" id="cPaste" placeholder="Paste progress codes here, one per line"></textarea><div class="mbtns" style="margin-top:10px"><button type="button" class="btn" data-act="addCodes">Add to class</button><label class="btn ghost" style="cursor:pointer">Add files<input type="file" id="cFiles" accept=".txt,.json,text/plain" multiple hidden></label></div><p class="status" role="status">'+esc(cStatus)+'</p></div>'
-  +(tt.n?'<div class="bcard"><h3>Your class</h3><div class="t3"><div><b>'+tt.n+'</b><span>Students</span></div><div><b>'+tt.withJob+'</b><span>First job done</span></div><div><b>'+tt.sites+'</b><span>Sites live</span></div></div><div class="t3"><div><b>'+tt.jobs+'</b><span>Jobs logged</span></div><div><b>'+(tt.shared?money(tt.money):"--")+'</b><span>Collected (shared)</span></div><div><b>'+tt.shared+'</b><span>Shared earnings</span></div></div></div>'+rows
-  +'<div class="actions" style="margin-top:6px"><button type="button" class="btn ghost" data-act="toggleScore">'+(cScoreOpen?"Hide scorecard":"Pitch day scorecard")+'</button><button type="button" class="btn ghost" data-act="exportClass">Export</button></div>'+score
-  +'<button type="button" class="btn outline" data-act="clearClass" style="margin-top:6px">Clear the class</button>':'<p class="empty">No students yet. Ask students to open Class, tap My progress, and copy their code.</p>')
-  +'<div class="bcard" style="margin-top:14px"><h3>Put Hustle Builder on your school’s site</h3><p class="sub">It’s one file. It never contacts a server, and it has no accounts and no AI.</p><ol class="steps"><li>Upload the file to your school website, Google Sites, or a free host like Netlify.</li><li>Share the link. Students open it in any browser, on a phone or a Chromebook.</li><li>Each student’s work saves on their own device. Students share progress with you only by sending a code.</li></ol><p class="small2">Check your district’s rules on student data and approved tools before you start.</p></div>'+legalLink();
-}
-async function exportClass(){
-  const rows=[["Name","Business","Rank","Jobs","Customers","Repeat customers","Week streak","Missions","Mission streak","First job","Site live","Photo jobs","Reviews","Collected","Profit","Updated"].concat(CRIT).concat(["Pitch total"])];
-  Object.keys(CL.students).forEach(k=>{const r=CL.students[k],sc=CL.scores[k]||[];rows.push([r.n,r.biz,r.rank,r.jobs,r.customers,r.repeat,r.streak,r.missions,r.mstreak,r.first,r.site?"Yes":"No",r.proof,r.reviews,r.money?r.money.c:"",r.money?r.money.p:"",r.t].concat(CRIT.map((c,i)=>sc[i]||"")).concat([CL.scores[k]?scoreTotal(k):""]));});
-  const res=await saveFile("class-progress.csv",rows.map(r=>r.map(csvEsc).join(",")).join("\n"),"text/csv");
-  cStatus=res.ok?(res.how==="browser"?"Saved to your downloads folder.":"Saved."):(res.declined?"No problem.":res.copied?"Copied. Paste it into a spreadsheet.":"Couldn’t save the file. Try again.");renderClass();
-}
-$("#classv").addEventListener("click",e=>{
-  const el=e.target.closest("[data-act]");if(!el)return;
-  const act=el.dataset.act;
-  if(act==="role"){classRole=el.dataset.role;cStatus="";renderClass();return;}
-  if(act==="copyCode"){const code=encodeReport(progressReport(cMoney));copyText(code,"Progress code copied. Send it to your teacher.");cStatus="";return;}
-  if(act==="saveCode"){(async()=>{const r=progressReport(cMoney);const res=await saveFile((r.n||"student").toLowerCase().replace(/[^a-z0-9]+/g,"-")+"-progress.txt",encodeReport(r),"text/plain");cStatus=res.ok?(res.how==="browser"?"Saved to your downloads folder. Send it to your teacher.":"Saved. Send it to your teacher."):(res.declined?"No problem.":res.copied?"Copied. Send it to your teacher.":"Couldn’t save the file. Try the copy button instead.");renderClass();})();return;}
-  if(act==="addCodes"){const r=addCodes($("#cPaste").value);cStatus=r.added?"Added "+r.added+(r.added===1?" student":" students")+(r.skipped?". Skipped "+r.skipped+" that couldn’t be read.":"."):(r.skipped?"Couldn’t read those codes. Check they were copied whole.":"Paste at least one progress code first.");renderClass();return;}
-  if(act==="rmStudent"){delete CL.students[el.dataset.key];delete CL.scores[el.dataset.key];saveCL();renderClass();return;}
-  if(act==="toggleScore"){cScoreOpen=!cScoreOpen;renderClass();return;}
-  if(act==="score"){const k=el.dataset.key,i=Number(el.dataset.i),v=Number(el.dataset.v);const a=CL.scores[k]||[0,0,0,0,0];a[i]=a[i]===v?0:v;CL.scores[k]=a;saveCL();renderClass();return;}
-  if(act==="exportClass"){exportClass();return;}
-  if(act==="clearClass"){if(!cArm){cArm=true;el.textContent="Tap again to clear";el.classList.add("danger");setTimeout(()=>{cArm=false;},4000);return;}cArm=false;CL={students:{},scores:{}};saveCL();cStatus="";renderClass();}
-});
-$("#classv").addEventListener("change",async e=>{
-  if(e.target.id==="cMoney"){cMoney=e.target.checked;renderClass();return;}
-  if(e.target.id==="cFiles"){
-    const files=Array.from(e.target.files||[]);let added=0,skipped=0;
-    for(const f of files){try{const t=await f.text();const r=addCodes(t);added+=r.added;skipped+=r.skipped;}catch(err){skipped++;}}
-    cStatus=added?"Added "+added+(added===1?" student":" students")+(skipped?". Skipped "+skipped+".":"."):"Couldn’t read those files.";renderClass();
-  }
-});
-
 /* ============ Name and tagline ideas ============ */
 const NAME_IDEAS={
   lawn:["{F} Lawn Co.","{F}’s Lawn Care","{F} Yard Services","{F} Outdoor Services","{F}’s Mowing and Edging","{F} Turf Care","{T} Lawn Co.","{T} Lawn Care","{T} Yard Services","{T} Mowing Co.","{T} Lawn and Edge","Ironline Lawn Co.","Ridgeline Lawn Care","Northgate Lawn Care","Prairie Edge Lawn Co.","Bluestem Lawn Co.","Blueline Lawn Care","Trueline Lawn Care","True North Lawn Co.","Heartland Lawn Care","Meridian Lawn Care","Vanguard Lawn Care","Anchor Lawn Co.","Foundation Lawn Care","Fieldstone Lawn Co.","Timberline Lawn Care","Redline Lawn Co.","Crosscut Lawn Co.","The Standard Lawn Co.","Steady Hand Lawn Care","Level Ground Lawn Care","Even Cut Lawn Co.","Fine Line Lawn Care","Hard Edge Lawn Co.","Precision Cut Lawn Care","Firstline Lawn Care","Straight Line Lawn Co.","Prime Cut Lawn Co.","Edge and Stripe Lawn Co."],
@@ -2841,7 +2714,7 @@ $("#surprise").onclick=()=>{
 };
 
 /* ============ About and legal ============ */
-const APP_VERSION="32";
+const APP_VERSION="33";
 const LIC_OFL="Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)\n\n-----------------------------------------------------------\nSIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\n-----------------------------------------------------------\n\nPREAMBLE\nThe goals of the Open Font License (OFL) are to stimulate worldwide\ndevelopment of collaborative font projects, to support the font creation\nefforts of academic and linguistic communities, and to provide a free and\nopen framework in which fonts may be shared and improved in partnership\nwith others.\n\nThe OFL allows the licensed fonts to be used, studied, modified and\nredistributed freely as long as they are not sold by themselves. The\nfonts, including any derivative works, can be bundled, embedded,\nredistributed and/or sold with any software provided that any reserved\nnames are not used by derivative works. The fonts and derivatives,\nhowever, cannot be released under any other type of license. The\nrequirement for fonts to remain under this license does not apply\nto any document created using the fonts or their derivatives.\n\nDEFINITIONS\n\"Font Software\" refers to the set of files released by the Copyright\nHolder(s) under this license and clearly marked as such. This may\ninclude source files, build scripts and documentation.\n\n\"Reserved Font Name\" refers to any names specified as such after the\ncopyright statement(s).\n\n\"Original Version\" refers to the collection of Font Software components as\ndistributed by the Copyright Holder(s).\n\n\"Modified Version\" refers to any derivative made by adding to, deleting,\nor substituting -- in part or in whole -- any of the components of the\nOriginal Version, by changing formats or by porting the Font Software to a\nnew environment.\n\n\"Author\" refers to any designer, engineer, programmer, technical\nwriter or other person who contributed to the Font Software.\n\nPERMISSION & CONDITIONS\nPermission is hereby granted, free of charge, to any person obtaining\na copy of the Font Software, to use, study, copy, merge, embed, modify,\nredistribute, and sell modified and unmodified copies of the Font\nSoftware, subject to the following conditions:\n\n1) Neither the Font Software nor any of its individual components,\nin Original or Modified Versions, may be sold by itself.\n\n2) Original or Modified Versions of the Font Software may be bundled,\nredistributed and/or sold with any software, provided that each copy\ncontains the above copyright notice and this license. These can be\nincluded either as stand-alone text files, human-readable headers or\nin the appropriate machine-readable metadata fields within text or\nbinary files as long as those fields can be easily viewed by the user.\n\n3) No Modified Version of the Font Software may use the Reserved Font\nName(s) unless explicit written permission is granted by the corresponding\nCopyright Holder. This restriction only applies to the primary font name as\npresented to the users.\n\n4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font\nSoftware shall not be used to promote, endorse or advertise any\nModified Version, except to acknowledge the contribution(s) of the\nCopyright Holder(s) and the Author(s) or with their explicit written\npermission.\n\n5) The Font Software, modified or unmodified, in part or in whole,\nmust be distributed entirely under this license, and must not be\ndistributed under any other license. The requirement for fonts to\nremain under this license does not apply to any document created\nusing the Font Software.\n\nTERMINATION\nThis license becomes null and void if any of the above conditions are\nnot met.\n\nDISCLAIMER\nTHE FONT SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT\nOF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE\nCOPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nINCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL\nDAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM\nOTHER DEALINGS IN THE FONT SOFTWARE.";
 const LIC_MIT="MIT License\n\nCopyright (c) 2009 Kazuhiko Arase\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.";
 function legalLink(){return '<p class="small2"><button type="button" class="link" data-about>About and legal</button> &nbsp;&nbsp; <button type="button" class="link" data-backup>Back up or load my business</button></p>';}
@@ -2856,7 +2729,7 @@ function openAbout(){
    +'<li><b>Your website file shows what you entered:</b> first name, town, parent contact, prices, photos, and reviews. It becomes public when you upload it to a website host.</li>'
    +'<li><b>Photos</b> are resized on your device and hidden location data is removed.</li>'
    +'<li><b>Deleting:</b> clearing your browser data, or tapping Erase everything in Boss, removes your records. Export first if you want a copy.</li>'
-   +'<li><b>Class codes</b> contain only what you choose to share with your teacher.</li></ul></details>'
+   +'</ul></details>'
    +'<details class="lg"><summary>Important notes</summary><ul>'
    +'<li>Students under 18 should have a parent or guardian approve the business, the website, and every job.</li>'
    +'<li>Use equipment safely and take breaks in heat and cold.</li>'
@@ -3208,7 +3081,6 @@ function bkCollect(o){
   const bo=JSON.parse(JSON.stringify(B));
   if(!o.contacts){(bo.jobs||[]).forEach(j=>{j.phone="";});(bo.upcoming||[]).forEach(j=>{j.phone="";j.address="";});}
   const out={app:"hustle-builder",format:1,version:APP_VERSION,saved:new Date().toISOString(),build:b,boss:bo};
-  if(CL&&((CL.students&&Object.keys(CL.students).length)||(CL.scores&&Object.keys(CL.scores).length)))out.cls=JSON.parse(JSON.stringify(CL));
   return out;
 }
 async function bkEncode(data){const txt=JSON.stringify(data),z=await bkGz(txt);return z?("HBK1:"+bkB64(z)):("HBK0:"+bkB64(new TextEncoder().encode(txt)));}
@@ -3220,12 +3092,11 @@ async function bkDecode(text){
   if(m[1]==="1"){if(typeof DecompressionStream==="undefined")throw new Error("nogz");return JSON.parse(await bkGunz(bytes));}
   return JSON.parse(new TextDecoder().decode(bytes));
 }
-function bkValid(d){return !!(d&&typeof d==="object"&&d.app==="hustle-builder"&&d.format===1&&(d.build||d.boss||d.cls));}
+function bkValid(d){return !!(d&&typeof d==="object"&&d.app==="hustle-builder"&&d.format===1&&(d.build||d.boss));}
 function bkMerge(cur,inc){const add=(a,b)=>{const ids=new Set((a||[]).map(x=>x.id));return (a||[]).concat((b||[]).filter(x=>!ids.has(x.id)));};return Object.assign({},cur,{jobs:add(cur.jobs,inc.jobs),costs:add(cur.costs,inc.costs),upcoming:add(cur.upcoming,inc.upcoming)});}
 function bkApply(d,o){
   if(o.build&&d.build)localStorage.setItem(LS,JSON.stringify(d.build));
   if(o.boss!=="skip"&&d.boss){const empty=!(B.jobs&&B.jobs.length)&&!(B.upcoming&&B.upcoming.length)&&!(B.costs&&B.costs.length);const nb=(o.boss==="combine"&&!empty)?bkMerge(B,d.boss):d.boss;localStorage.setItem(BK,JSON.stringify(nb));}
-  if(o.cls&&d.cls)localStorage.setItem(CK,JSON.stringify(d.cls));
 }
 function bkStamp(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function openBackup(){
@@ -3264,26 +3135,24 @@ function openBackup(){
     if(!String(text).trim()){err.textContent="Pick a backup file or paste a backup code first.";return;}
     let d;try{d=await bkDecode(text);}catch(e){err.textContent=(e&&e.message==="nogz")?"This phone can’t read that kind of code. Ask for a backup file instead.":"That doesn’t look like a Hustle Builder backup. Check that you copied the whole thing.";return;}
     if(!bkValid(d)){err.textContent="That doesn’t look like a Hustle Builder backup.";return;}
-    const b=d.build||{},bo=d.boss||{},photos=(b.proof||[]).reduce((n,p)=>n+(p.a?1:0)+(p.b?1:0),0),students=d.cls&&d.cls.students?Object.keys(d.cls.students).length:0;
+    const b=d.build||{},bo=d.boss||{},photos=(b.proof||[]).reduce((n,p)=>n+(p.a?1:0)+(p.b?1:0),0);
     const row=(a,v)=>'<div class="bkrow"><span>'+a+'</span><span>'+esc(String(v))+'</span></div>';
     let h='<p style="margin:12px 0 4px"><b>This backup has:</b></p>';
     if(d.build)h+=row("Business",(b.bizName||"(no name yet)"))+row("Work",b.type==="snow"?"Snow":b.type==="both"?"Lawn and snow":"Lawn")+row("Services",(b.services||[]).length)+row("Photos",photos);
     if(d.boss)h+=row("Jobs logged",(bo.jobs||[]).length)+row("Scheduled jobs",(bo.upcoming||[]).length)+row("Costs",(bo.costs||[]).length);
-    if(d.cls)h+=row("Class students",students);
     h+=row("Made on",d.saved?new Date(d.saved).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"unknown");
     h+='<p style="margin:14px 0 4px"><b>What should I load?</b></p>';
     if(d.build)h+='<label class="check"><input type="checkbox" id="ld-b" checked><span>My business setup (name, rates, schedule, website look). <b>Replaces</b> what is on this device.</span></label>';
     if(d.boss)h+='<label class="check"><input type="checkbox" id="ld-j" checked><span>My jobs and money records</span></label><div class="chips" id="ld-jm" style="margin:6px 0 10px"><button type="button" data-m="combine" aria-pressed="true">Add to what I have</button><button type="button" data-m="replace" aria-pressed="false">Replace what I have</button></div>';
-    if(d.cls)h+='<label class="check"><input type="checkbox" id="ld-c"><span>The class data (teacher view). <b>Replaces</b> what is on this device.</span></label>';
     h+='<div class="mbtns"><button type="button" class="btn" id="ld-go">Load it</button></div>';
     prev.innerHTML=h;
     let mode="combine";prev.querySelectorAll("#ld-jm button").forEach(x=>x.onclick=()=>{mode=x.dataset.m;prev.querySelectorAll("#ld-jm button").forEach(y=>y.setAttribute("aria-pressed",String(y===x)));});
     let armed=false;const go=prev.querySelector("#ld-go");
     go.onclick=()=>{
-      const o={build:!!(prev.querySelector("#ld-b")&&prev.querySelector("#ld-b").checked),boss:(prev.querySelector("#ld-j")&&prev.querySelector("#ld-j").checked)?mode:"skip",cls:!!(prev.querySelector("#ld-c")&&prev.querySelector("#ld-c").checked)};
-      if(!o.build&&o.boss==="skip"&&!o.cls){err.textContent="Pick at least one thing to load.";return;}
+      const o={build:!!(prev.querySelector("#ld-b")&&prev.querySelector("#ld-b").checked),boss:(prev.querySelector("#ld-j")&&prev.querySelector("#ld-j").checked)?mode:"skip"};
+      if(!o.build&&o.boss==="skip"){err.textContent="Pick at least one thing to load.";return;}
       const hasWork=(S.bizName||"").trim()||B.jobs.length||B.upcoming.length;
-      if((o.build||o.boss==="replace"||o.cls)&&hasWork&&!armed){armed=true;go.textContent="Tap again to load";go.classList.add("danger");err.textContent="This will replace some of what is on this device.";return;}
+      if((o.build||o.boss==="replace")&&hasWork&&!armed){armed=true;go.textContent="Tap again to load";go.classList.add("danger");err.textContent="This will replace some of what is on this device.";return;}
       try{bkApply(d,o);}catch(e){err.textContent="This device couldn’t save that backup. It may be too big. Try a backup without photos.";return;}
       toast("Loaded. Restarting.");setTimeout(()=>location.reload(),500);
     };
