@@ -240,6 +240,12 @@ body.boss-on .shell{display:none}
 .rankup p{color:var(--muted);margin:0 0 22px}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;background:var(--ink);color:var(--bg);padding:12px 22px;font-weight:700;z-index:80;transition:opacity .25s,transform .25s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+.ideas{margin:-6px 0 24px}
+.ideas-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:24px}
+.ideas-head .link{font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-size:16px}
+.tagopt{display:block;width:100%;text-align:left;border:2px solid var(--line);background:var(--surface);padding:12px 14px;border-radius:8px;margin-bottom:8px;font-size:16.5px;cursor:pointer;min-height:48px;line-height:1.3}
+.tagopt[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 6px 0 0 var(--accent);padding-left:20px}
+
 .ms{padding:12px 0;border-top:1px solid var(--line)}
 .ms:nth-of-type(1){border-top:0}
 .ms .mt{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
@@ -375,12 +381,15 @@ details.help li{margin-bottom:10px}
     <section class="step" data-step="1">
       <h2>Put your name on it.</h2>
       <p class="lead">First name only. Never your last name or street address.</p>
+      <button type="button" class="btn ghost" id="surprise" style="margin-bottom:22px">Surprise me</button>
       <div class="two">
         <label class="field"><span>Your first name</span><input type="text" data-k="first" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Alex"></label>
         <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
       </div>
-      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><small>Leave it blank and we’ll build one from your name.</small></label>
+      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
+      <div class="ideas"><div class="ideas-head"><span>Name ideas</span><button type="button" class="link" id="shuffleNames">Shuffle</button></div><div class="chips" id="nameChips"></div><p class="help2" id="nameHint"></p></div>
       <label class="field"><span>Tagline</span><input type="text" data-k="tagline" id="tagline" autocomplete="off"></label>
+      <div class="ideas"><div class="ideas-head"><span>Tagline ideas</span><button type="button" class="link" id="shuffleTags">Shuffle</button></div><div id="tagList"></div></div>
     </section>
 
     <section class="step" data-step="2">
@@ -992,6 +1001,7 @@ document.querySelectorAll("[data-k]").forEach(el=>{
 function syncPlaceholders(){
   $("#bizName").placeholder=autoBiz(S.type,S.first.trim()||"Alex");
   $("#tagline").placeholder=TAGS[S.type];
+  if(typeof renderIdeas==="function")renderIdeas();
 }
 
 function renderServices(){
@@ -2045,6 +2055,53 @@ $("#classv").addEventListener("change",async e=>{
     cStatus=added?"Added "+added+(added===1?" student":" students")+(skipped?". Skipped "+skipped+".":"."):"Couldn’t read those files.";renderClass();
   }
 });
+
+/* ============ Name and tagline ideas ============ */
+const NAME_IDEAS={
+  lawn:["{F}’s Lawn Co.","{F} Lawn Care","{F}’s Fresh Cut","{F} Yard Works","{T} Lawn Crew","{T} Mow Crew","Straight Line Lawn Co.","Clean Cut Lawn Care","Sharp Edge Lawn Co.","Edge and Stripe","Prime Cut Lawn Co.","First Cut Lawn Co.","Dialed In Lawn Care","Mow and Order Lawn Co.","Stripe Show Lawn Care","Greenline Lawn Co.","Blade Runners Lawn Care","The Mow Crew","Grass Masters","Fresh Lines Lawn Co.","Perfect Pass Lawn Care","Zero Gap Lawn Co.","Full Send Lawn Care"],
+  snow:["{F}’s Snow Removal","{F} Snow Crew","{F}’s Plow and Shovel","{T} Snow Crew","{T} Snow Removal","Clear Path Snow Co.","Frost Line Snow Removal","Blizzard Crew","First Light Snow Co.","Drift Busters","Clean Slate Snow Co.","Sub-Zero Snow Crew","Dawn Patrol Snow Removal","Whiteout Snow Co.","Cold Front Snow Removal","Salt and Shovel Co.","Zero Degrees Snow Co.","Bare Pavement Snow Co.","Snow Method","Shovel Squad","Hard Freeze Snow Crew","Down to Pavement Snow Co."],
+  both:["{F}’s Yard and Snow Co.","{F} Year-Round Yard Care","{F}’s Four Seasons","{T} Yard Crew","{T} Yard and Snow","Every Season Yard Co.","Mow and Snow Co.","All Season Hustle","Year Round Yard Crew","Grass and Glacier Co.","Sun to Snow Yard Co.","Thaw and Mow","Ground Crew Yard Care","Boots on the Ground Yard Co.","Open Season Yard Co.","Blade and Shovel Co.","Seasons Edge Yard Care","Frost and Fescue","No Off-Season Yard Co.","Spring to Snowfall Yard Co.","Hot and Cold Yard Crew"]
+};
+const TAG_IDEAS={
+  lawn:["Straight lines. Clean edges. Done right.","Your lawn, dialed in.","Every stripe on purpose.","Cut clean. Leave clean.","The sharpest lawn on the block.","Stripes you can see from the street.","Mowed like we mean it.","Fresh cut. Zero excuses.","Edges you could set a ruler to.","Built on straight lines.","Green, clean, done.","The neighborhood standard.","Work hard. Mow harder.","Precision in every pass.","Respect the edge.","Lawns done like it matters.","Quality cut. Fair price.","Starts at the curb. Ends at the fence.","We show up. The grass stays down.","Your neighbors will ask who does your lawn.","Done before the grill is hot.","Small crew. Big standards."],
+  snow:["Up before the sun. Your driveway’s clear before you are.","Clear by sunrise.","Snow doesn’t stop us.","Down to the pavement.","First one out. Last one done.","Cold work. Clean results.","Edge to edge. Curb to garage.","Shoveled like we mean it.","We beat the plow truck.","Dawn patrol. Driveways cleared.","Cleared. Salted. Done.","Wake up to a clear driveway.","Bring on the blizzard.","Zero snow. Zero stress.","Safe steps. Clean drive.","Weather happens. We handle it.","Cold hands. Warm customers.","Snow day for you. Work day for us.","We don’t wait for the thaw.","Be home. We’ve got the snow.","Nothing but pavement."],
+  both:["Every season. Handled.","Mowing in the summer. Shoveling in the winter.","Sun or snow, we show.","Four seasons. One crew.","Rain, shine, or blizzard.","Year-round hustle.","Grass to glacier.","Your yard, all year.","Spring to snowfall.","No off-season.","Seasons change. Standards don’t.","Hot or cold, we’re on it.","All year. All in.","Cut it in June. Clear it in January.","Your yard never takes a day off. Neither do we.","Handled from thaw to freeze.","Boots on the ground, all year.","Work ethic that runs all year."]
+};
+const TAG_ANY=["Show up. Do it right. Leave it better.","Student-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a student. Backed by a parent.","Work first. Brag later."];
+let ideaSeed=Math.floor(Math.random()*1e9), namePage=0, tagPage=0;
+function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuffled(arr,seed){const a=arr.slice(),r=rng(seed);for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function nameList(){
+  const F=S.first.trim(),T=S.town.trim();
+  const poss=n=>/s$/i.test(n)?n+"’":n+"’s";
+  const out=[];
+  NAME_IDEAS[S.type].forEach(t=>{
+    if(t.indexOf("{F}")>=0&&!F)return;
+    if(t.indexOf("{T}")>=0&&!T)return;
+    out.push(t.replace("{F}’s",poss(F)).replace(/\{F\}/g,F).replace(/\{T\}/g,T));
+  });
+  return out;
+}
+function tagList(){return TAG_IDEAS[S.type].concat(TAG_ANY);}
+function applyName(v){S.bizName=v;const el=$("#bizName");if(el)el.value=v;queue();renderIdeas();}
+function applyTag(v){S.tagline=v;const el=$("#tagline");if(el)el.value=v;queue();renderIdeas();}
+function renderIdeas(){
+  const nc=$("#nameChips"),tl=$("#tagList");if(!nc||!tl)return;
+  const names=shuffled(nameList(),ideaSeed),per=6,pages=Math.max(1,Math.ceil(names.length/per));
+  const pg=namePage%pages,show=names.slice(pg*per,pg*per+per);
+  nc.innerHTML="";show.forEach(n=>{const b=document.createElement("button");b.type="button";b.textContent=n;b.setAttribute("aria-pressed",String(S.bizName===n));b.onclick=()=>applyName(n);nc.appendChild(b);});
+  $("#nameHint").textContent=S.first.trim()?"":"Add your first name above to unlock names that use it.";
+  const tags=shuffled(tagList(),ideaSeed+7),tper=5,tpages=Math.max(1,Math.ceil(tags.length/tper));
+  const tp=tagPage%tpages,tshow=tags.slice(tp*tper,tp*tper+tper);
+  tl.innerHTML="";tshow.forEach(t=>{const b=document.createElement("button");b.type="button";b.className="tagopt";b.textContent=t;b.setAttribute("aria-pressed",String(S.tagline===t));b.onclick=()=>applyTag(t);tl.appendChild(b);});
+}
+$("#shuffleNames").onclick=()=>{namePage++;renderIdeas();};
+$("#shuffleTags").onclick=()=>{tagPage++;renderIdeas();};
+$("#surprise").onclick=()=>{
+  ideaSeed=Math.floor(Math.random()*1e9);namePage=0;tagPage=0;
+  const n=shuffled(nameList(),ideaSeed)[0],t=shuffled(tagList(),ideaSeed+7)[0];
+  S.bizName=n;S.tagline=t;$("#bizName").value=n;$("#tagline").value=t;queue();renderIdeas();
+};
 shell.dataset.type=S.type;
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();go(0);refresh();
 })();
