@@ -745,7 +745,7 @@ details.help li{margin-bottom:10px}
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
       <div id="pubBox">
         <button type="button" class="btn block" id="askParent">Ask my parent</button>
-        <p class="small2">The email says the first 3 jobs are free for 14 days. A parent still verifies their email and agrees before the page goes live.</p>
+        <p class="small2">The email says the first 3 jobs are free for 14 days. After that, a season is $19.99 and a year is $29.99. A parent still verifies their email and agrees before the page goes live.</p>
         <p class="small2">They get a link on their phone. They say yes, and the page goes up.</p>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
@@ -3646,8 +3646,8 @@ function showPublished(url){
 async function pubPlans(){
   const box=$("#pubPlans"); if(!box||box.childElementCount)return;
   let plans=[
-    {id:"season",price:"$39",name:"Season",includes:"The page stays online through the end of the season. Booking emails are included."},
-    {id:"year",price:"$59",name:"Full year",includes:"The page stays online for 365 days. Booking emails are included."}
+    {id:"season",price:"$19.99",name:"Season",includes:"The page stays online through the end of the season. Booking emails are included."},
+    {id:"year",price:"$29.99",name:"Full year",includes:"The page stays online for 365 days. Booking emails are included."}
   ];
   try{
     const data=await pubApi("/api/plans",{method:"GET"});

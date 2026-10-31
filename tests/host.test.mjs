@@ -318,7 +318,18 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     const res = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
     assert.equal(res.body.ok, true);
     assert.equal(res.body.url, "https://checkout.stripe.test/c");
-    assert.equal(new URLSearchParams(seen).get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    const params = new URLSearchParams(seen);
+    assert.equal(params.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.equal(params.get("line_items[0][price_data][currency]"), "usd");
+    assert.equal(params.get("line_items[0][price_data][unit_amount]"), "1999");
+    assert.equal(params.get("line_items[0][price]"), null);
+    const yearParent = await parent("card-year@example.com");
+    const year = await json(await call("POST", "/api/checkout", { token: yearParent.token, body: { plan: "year" } }));
+    assert.equal(year.body.ok, true);
+    const yearParams = new URLSearchParams(seen);
+    assert.equal(yearParams.get("line_items[0][price_data][currency]"), "usd");
+    assert.equal(yearParams.get("line_items[0][price_data][unit_amount]"), "2999");
+    assert.equal(yearParams.get("line_items[0][price]"), null);
   } finally {
     global.fetch = prev;
     process.env.PAYWALL_MODE = "test";
@@ -395,6 +406,7 @@ test("a paid account cannot open another checkout", async () => {
   const second = await json(await call("POST", "/api/checkout", { token, body: { plan: "year" } }));
   assert.equal(second.body.alreadyPaid, true);
   assert.equal(second.body.plan, "season");
+  assert.equal(second.body.paidUntil, first.body.paidUntil);
 });
 
 test("a pending stripe checkout is not opened twice", async () => {
@@ -581,6 +593,8 @@ function bookAt(n) {
 test("plans offer a named season or a year, and not a month", async () => {
   const plans = await json(await call("GET", "/api/plans"));
   assert.deepEqual(plans.body.plans.map((p) => p.id), ["season", "year"]);
+  assert.deepEqual(plans.body.plans.map((p) => p.price), ["$19.99", "$29.99"]);
+  assert.deepEqual(plans.body.plans.map((p) => p.amount), [1999, 2999]);
   assert.equal(JSON.stringify(plans.body).includes("$6"), false);
   assert.match(plans.body.free, /first 3 jobs/);
   const summer = seasonOffer(new Date("2026-06-15T12:00:00Z"));
@@ -613,7 +627,7 @@ test("three free jobs are delivered, then requests are held until the parent pay
   assert.equal(me.body.trialLeft, 0);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.equal(box.body.messages.filter((m) => /used up/.test(m.subject)).length, 1);
-  assert.match(box.body.messages.map((m) => m.text).join("\n"), /\$39 season/);
+  assert.match(box.body.messages.map((m) => m.text).join("\n"), /\$19\.99 season/);
   const held = await json(await call("POST", "/api/book", { body: bookAt(4), headers: { "x-forwarded-for": "203.0.113.40" } }));
   assert.equal(held.body.held, true);
   const after = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -730,8 +744,8 @@ test("a free trial lasts TRIAL_DAYS or 3 jobs, then the page takes a break and b
     assert.equal(again.body.due.filter((row) => row.kind === "trial-3").length, 0);
     const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
     const note = mail.body.messages.find((m) => /trial ends in 3 days/.test(m.subject));
-    assert.match(note.text, /\$39 for the season/);
-    assert.match(note.html, /Pay \$39 for the season/);
+    assert.match(note.text, /\$19\.99 for the season/);
+    assert.match(note.html, /Pay \$19\.99 for the season/);
     const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), 23, 59, 0)).toISOString();
     await patchAccount((account) => { account.trialEndsAt = today; });
     const endRun = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
