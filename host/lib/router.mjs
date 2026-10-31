@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
+import { feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs } from "./calendar.mjs";
 import { checkPage, checkSlug, pageOk } from "./moderate.mjs";
 import { store } from "./store.mjs";
 
@@ -95,23 +96,28 @@ function withCors(result, reqOrigin) {
   return { ...result, headers };
 }
 
-async function sendMail({ to, subject, text }) {
+async function sendMail({ to, subject, text, ics }) {
   const clean = String(text || "").slice(0, 8000);
   const sub = String(subject || "").replace(/[\r\n]+/g, " ").slice(0, 140);
+  const icsText = ics ? String(ics).slice(0, 20000) : "";
   if (testMode()) {
     const key = "outbox/" + sha(to) + ".json";
     const prev = (await readJson(key)) || [];
-    prev.push({ at: new Date().toISOString(), to, subject: sub, text: clean });
+    const entry = { at: new Date().toISOString(), to, subject: sub, text: clean };
+    if (icsText) entry.ics = icsText;
+    prev.push(entry);
     await writeJson(key, prev.slice(-20));
     return { ok: true, test: true };
   }
   const key = process.env.RESEND_API_KEY;
   const from = process.env.BOOKING_FROM;
   if (!key || !from) return { ok: false, error: "mail" };
+  const payload = { from, to: [to], subject: sub, text: clean };
+  if (icsText) payload.attachments = [{ filename: "booking.ics", content: Buffer.from(icsText, "utf8").toString("base64") }];
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject: sub, text: clean })
+    body: JSON.stringify(payload)
   });
   if (!res.ok) return { ok: false, error: "mail" };
   return { ok: true };
@@ -122,8 +128,9 @@ function privacyPage() {
 <main style="max-width:40rem;margin:2rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem">
 <h1>Privacy</h1>
 <p>Hustle Builder hosting is for a parent and their child. The parent’s email is stored so we can verify it and send booking emails. The public page they approve is stored so neighbors can open the link.</p>
-<p>Customer names, phone numbers, street addresses, and the job log stay on the phone or computer that built the page. A booking email is sent to the parent and is not kept as a customer list.</p>
-<p>A parent can take the page offline or delete the account from the builder. Deleting the account removes the email, the consent record, and the page.</p>
+<p>When a neighbor books, we store that job for the parent’s family calendar: the service, the customer name they typed, the address, the date and time, and a short note. We delete it about 30 days after the job, or sooner if the parent deletes the account. The phone number from a booking stays in the email only.</p>
+<p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
+<p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link.</p>
 <p>This notice is a plain summary. Have a lawyer read it before real families use hosting.</p>
 </main></body></html>`);
 }
@@ -165,6 +172,86 @@ async function publicOrigin(reqOrigin) {
   return String(process.env.PUBLIC_ORIGIN || reqOrigin || "").replace(/\/$/, "");
 }
 
+function jobsKey(accountId) { return "caljobs/" + accountId + ".json"; }
+
+async function loadJobs(accountId) {
+  const raw = await readJson(jobsKey(accountId));
+  const jobs = Array.isArray(raw) ? raw : [];
+  const kept = pruneJobs(jobs).slice(-200);
+  if (kept.length !== jobs.length) await saveJobs(accountId, kept);
+  return kept;
+}
+async function saveJobs(accountId, jobs) {
+  const kept = pruneJobs(jobs).sort((a, b) => String(a.start).localeCompare(String(b.start))).slice(-200);
+  await writeJson(jobsKey(accountId), kept);
+}
+
+async function ensureCalToken(account) {
+  if (account.calToken && /^[a-f0-9]{32,128}$/i.test(account.calToken)) return account;
+  account.calToken = rand(24);
+  await (await store()).put("caltokens/" + sha(account.calToken), account.id);
+  await saveAccount(account);
+  return account;
+}
+async function resetCalToken(account) {
+  const prev = account.calToken || "";
+  account.calToken = rand(24);
+  await (await store()).put("caltokens/" + sha(account.calToken), account.id);
+  if (prev) await (await store()).del("caltokens/" + sha(prev));
+  await saveAccount(account);
+  return account;
+}
+async function accountByCalToken(token) {
+  if (!/^[a-f0-9]{32,128}$/i.test(token)) return null;
+  const id = await (await store()).get("caltokens/" + sha(token));
+  if (!id) return null;
+  const account = await readJson("accounts/" + id.trim() + ".json");
+  if (!account || !safeEqual(account.calToken || "", token)) return null;
+  return account;
+}
+
+function clipField(v, n) { return String(v || "").replace(/[\r\n]+/g, " ").trim().slice(0, n); }
+
+function cleanDeviceJob(input) {
+  const id = String((input && input.id) || "").trim();
+  const start = String((input && input.start) || "").trim();
+  if (!/^[A-Za-z0-9_-]{6,80}$/.test(id)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start) || jobInstant(start) == null) return null;
+  const job = {
+    id,
+    source: "device",
+    service: clipField(input.service, 80),
+    customer: clipField(input.customer, 60),
+    address: clipField(input.address, 120),
+    start,
+    note: clipField(input.note, 300),
+    createdAt: new Date().toISOString()
+  };
+  const amount = clipField(input.amount, 20);
+  if (amount) job.amount = amount;
+  if (checkPage("<!-- hb-public -->" + [job.service, job.customer, job.address, job.note, job.amount || ""].join(" "))) return null;
+  return job;
+}
+
+function calendarResponse(status, body) {
+  return {
+    status,
+    headers: {
+      "content-type": "text/calendar; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff"
+    },
+    body
+  };
+}
+
+async function serveCalendar(token) {
+  const account = await accountByCalToken(token);
+  if (!account) return json(404, { ok: false, error: "missing" });
+  const jobs = await loadJobs(account.id);
+  return calendarResponse(200, jobsToIcs(jobs));
+}
+
 export async function handleRequest(req) {
   const method = String(req.method || "GET").toUpperCase();
   let path = String(req.path || "/");
@@ -179,7 +266,12 @@ export async function handleRequest(req) {
     return withCors(await serveSlug(slug), req.headers && req.headers.origin);
   }
 
-  const body = method === "GET" || method === "DELETE" ? {} : parseBody(req.body);
+  const calFeed = route.match(/^cal\/([a-f0-9]{32,128})\.ics$/i);
+  if (method === "GET" && calFeed) {
+    return withCors(await serveCalendar(calFeed[1]), req.headers && req.headers.origin);
+  }
+
+  const body = method === "GET" ? {} : parseBody(req.body);
   if (body === null) return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin);
   const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
 
@@ -202,7 +294,7 @@ export async function handleRequest(req) {
     const mailed = await sendMail({
       to: email,
       subject: "Your Hustle Builder code",
-      text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name, town, and your phone or email. Customer lists stay on the device."
+      text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name, town, and your phone or email. A booked job’s name, address, and time are saved for the family calendar for about 30 days."
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     const out = { ok: true, test: !!mailed.test };
@@ -231,11 +323,13 @@ export async function handleRequest(req) {
   if (method === "GET" && route === "me") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    await ensureCalToken(account);
     const base = origin || "";
     return withCors(json(200, {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
       plan: account.plan || "", paidUntil: account.paidUntil || "", paid: paid(account),
-      slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode()
+      slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
+      ...feedLinks(base, account.calToken)
     }), req.headers && req.headers.origin);
   }
 
@@ -275,6 +369,7 @@ export async function handleRequest(req) {
       params.set("line_items[0][price_data][product_data][name]", "Hustle Builder hosting, " + plan.label);
       params.set("metadata[accountId]", account.id);
       params.set("metadata[plan]", plan.id);
+      params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
       const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
         method: "POST",
         headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
@@ -353,6 +448,8 @@ export async function handleRequest(req) {
       await (await store()).del("pages/" + account.slug + ".json");
     }
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
+    if (account.calToken) await (await store()).del("caltokens/" + sha(account.calToken));
+    await (await store()).del("caljobs/" + account.id + ".json");
     await (await store()).del("email/" + sha(account.email));
     await (await store()).del("outbox/" + sha(account.email) + ".json");
     await (await store()).del("accounts/" + account.id + ".json");
@@ -380,8 +477,22 @@ export async function handleRequest(req) {
       freq: clip(body.freq, 40)
     };
     if (!fields.name || !fields.address || !fields.contact) return withCors(json(400, { ok: false, error: "fields" }), req.headers && req.headers.origin);
-    const blob = Object.values(fields).join(" ");
+    const start = String(body.start || "").trim();
+    const startOk = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start) && jobInstant(start) != null;
+    const blob = Object.values(fields).join(" ") + " " + start;
     if (checkPage("<!-- hb-public -->" + blob)) return withCors(json(400, { ok: false, error: "moderation" }), req.headers && req.headers.origin);
+    const job = startOk ? {
+      id: "b" + rand(8),
+      source: "book",
+      service: fields.service,
+      customer: fields.name,
+      address: fields.address,
+      start,
+      note: fields.note,
+      createdAt: new Date().toISOString()
+    } : null;
+    const gcal = job ? gcalTemplate(job) : "";
+    const ics = job ? jobsToIcs([job]) : "";
     const text = [
       "New booking request. Nothing is booked until you reply.",
       "",
@@ -394,13 +505,62 @@ export async function handleRequest(req) {
       "Address: " + fields.address,
       "Note: " + (fields.note || "none"),
       "",
-      "This email is the only copy. It is not saved as a customer list."
-    ].join("\n");
-    const mailed = await sendMail({ to: account.email, subject: "Booking request: " + (fields.service || "a job"), text });
+      gcal ? "Add this job to Google Calendar:\n" + gcal : "",
+      "",
+      "This job is also on your family calendar link, if you already added it. We keep the name, address, and time for that calendar for about 30 days. It is not a customer list."
+    ].filter((line, i, arr) => !(line === "" && arr[i - 1] === "")).join("\n");
+    const mailed = await sendMail({ to: account.email, subject: "Booking request: " + (fields.service || "a job"), text, ics });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
+    if (job) {
+      await ensureCalToken(account);
+      const jobs = await loadJobs(account.id);
+      jobs.push(job);
+      await saveJobs(account.id, jobs);
+    }
     meta.bookCount = (meta.bookCount || 0) + 1;
     await writeJson("pages/" + slug + ".json", meta);
     return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+  }
+
+  if ((method === "POST" || method === "DELETE") && route === "jobs") {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    if (method === "DELETE") {
+      const id = String(body.id || "");
+      if (!/^[A-Za-z0-9_-]{6,80}$/.test(id)) return withCors(json(400, { ok: false, error: "id" }), req.headers && req.headers.origin);
+      const jobs = (await loadJobs(account.id)).filter((j) => j.id !== id);
+      await saveJobs(account.id, jobs);
+      return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+    }
+    if (body.replaceDevice === true) {
+      const incoming = Array.isArray(body.jobs) ? body.jobs.slice(0, 60) : null;
+      if (!incoming) return withCors(json(400, { ok: false, error: "jobs" }), req.headers && req.headers.origin);
+      const device = [];
+      for (const raw of incoming) {
+        const job = cleanDeviceJob(raw);
+        if (job) device.push(job);
+      }
+      const kept = (await loadJobs(account.id)).filter((j) => j.source !== "device");
+      await saveJobs(account.id, kept.concat(device));
+      return withCors(json(200, { ok: true, count: device.length }), req.headers && req.headers.origin);
+    }
+    const job = cleanDeviceJob(body);
+    if (!job) return withCors(json(400, { ok: false, error: "job" }), req.headers && req.headers.origin);
+    const jobs = await loadJobs(account.id);
+    const prev = jobs.find((j) => j.id === job.id);
+    if (prev && prev.source === "book") return withCors(json(409, { ok: false, error: "book" }), req.headers && req.headers.origin);
+    if (prev && prev.createdAt) job.createdAt = prev.createdAt;
+    const next = jobs.filter((j) => j.id !== job.id);
+    next.push(job);
+    await saveJobs(account.id, next);
+    return withCors(json(200, { ok: true, id: job.id }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "cal/reset") {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    await resetCalToken(account);
+    return withCors(json(200, { ok: true, ...feedLinks(origin || "", account.calToken) }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "admin/takedown") {

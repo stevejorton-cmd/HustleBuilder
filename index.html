@@ -350,6 +350,11 @@ a.link{display:inline;padding:0;font:inherit;font-weight:700}
 .merr{color:var(--danger);font-weight:700;min-height:24px;margin:0 0 8px}
 .mbtns{display:flex;gap:10px;flex-wrap:wrap}
 .mbtns .btn{flex:1;min-width:130px}
+#calBox{margin-top:18px}
+#calBox .mbtns{margin-top:12px}
+#calBox .mbtns a.btn,#calBox .mbtns .btn{flex:1 1 100%;text-decoration:none;text-align:center;white-space:normal;line-height:1.15;padding:12px 16px;font-size:20px}
+#calLink{overflow-wrap:anywhere;margin:8px 0 0}
+.job .maprow button{color:var(--ink);font-weight:700;text-decoration:underline;font-size:15px;background:none;border:0;padding:8px 0;min-height:44px;cursor:pointer;font-family:inherit}
 .rankup{text-align:center;padding:14px 0 calc(22px + env(safe-area-inset-bottom,0px))}
 .rankup .nm{font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:clamp(46px,14vw,84px);line-height:.85;margin:6px 0 10px;overflow-wrap:anywhere}
 .rankup p{color:var(--muted);margin:0 0 22px}
@@ -716,7 +721,6 @@ details.help li{margin-bottom:10px}
       <p class="small2" id="openSiteHelp">Opens the real page in a new tab. It is the same file you download. Try the calendar here. Neighbors only see it after it is online.</p>
       <p class="status" id="dlStatus" role="status"></p>
       <p class="small2" id="sizeWarn" hidden></p>
-      <div class="callout" id="inboxCard" style="margin-top:18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><div><b>Get booking alerts.</b> <span id="inboxState"></span><br><button type="button" class="link" id="inboxOpen">Set up booking alerts</button></div></div>
       <div class="callout" style="margin-top:18px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v0M17 20h4v-3"/></svg>
         <div><b>Next: print flyers.</b> Every flyer gets a QR code that books you.<br><button type="button" class="link" id="toFlyers">Make my flyers and cards</button></div>
@@ -731,7 +735,7 @@ details.help li{margin-bottom:10px}
         <label class="field" for="pubCode"><span>Code from the email</span><input type="text" id="pubCode" inputmode="numeric" autocomplete="one-time-code" spellcheck="false"></label>
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
         <div id="pubReady" hidden>
-          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name, a town, and my phone or email. Customer names and addresses stay on this device.</span></label>
+          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name, a town, and my phone or email. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
           <p class="small2"><a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
           <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Test mode does not charge a card.</small></div>
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-yard"><small>Use a first name or a business nickname, like sam or sam-yard. Do not use a last name.</small></label>
@@ -744,6 +748,21 @@ details.help li{margin-bottom:10px}
           <button type="button" class="btn" id="pubUpdate">Update my website</button>
           <button type="button" class="btn outline" id="pubDown">Take the page offline</button>
           <button type="button" class="btn outline" id="pubDelete">Delete the parent account</button>
+        </div>
+        <div id="calBox" hidden>
+          <h3 class="h3">Family calendar</h3>
+          <p class="lead" style="margin-bottom:8px">Add this once. New jobs show up on the family’s calendar.</p>
+          <p class="small2" id="calLink"></p>
+          <div class="mbtns">
+            <a class="btn" id="calGoogle" href="" target="_blank" rel="noopener">Add to Google Calendar</a>
+            <a class="btn" id="calApple" href="">Add to iPhone / Mac</a>
+            <button type="button" class="btn ghost" id="calCopy">Copy link</button>
+            <button type="button" class="btn outline" id="calNew">Make a new link</button>
+          </div>
+          <p class="small2">Skylight: add this in the Google or Apple calendar Skylight already uses.</p>
+          <p class="small2">Google may take a few hours to show a new job.</p>
+          <p class="small2">iPhone refreshes faster.</p>
+          <label class="check"><input type="checkbox" id="calSync" checked><span>Sync jobs I schedule here to the family calendar</span></label>
         </div>
       </div>
 
@@ -1127,6 +1146,29 @@ function siteMain(){
   C.services.forEach(function(s){var o=document.createElement("option");o.value=s.n;o.textContent=s.n+(s.p?" ("+s.p+")":"");sel.appendChild(o);});
   var other=document.createElement("option");other.value="Something else";other.textContent="Something else (tell me in the note)";sel.appendChild(other);
   function calLine(nm,addr,svc){var l=gcalLink(svc+" for "+nm,addr,"Booked from the "+C.biz+" website. Not confirmed until "+C.first+"’s parent replies.");return l?"\nAdd to calendar: "+l:"";}
+  function bookPlain(){
+    var price="";
+    for(var i=0;i<C.services.length;i++){if(C.services[i].n===sel.value){price=C.services[i].p||"";break;}}
+    var timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
+    return "Service: "+sel.value+"\nCustomer: "+$("nm").value.trim()+"\nAddress: "+$("addr").value.trim()+"\nDate/Time: "+(picked?longDate(picked):"")+timeTxt+"\nPrice: "+price+"\nNotes: "+$("note").value.trim();
+  }
+  function copyPlain(text, btn){
+    function ok(){if(!btn)return;var prev=btn.getAttribute("data-label")||"Copy job";btn.textContent="Copied!";clearTimeout(btn._t);btn._t=setTimeout(function(){btn.textContent=prev;},2200);}
+    function fallback(){
+      var ta=document.createElement("textarea");
+      ta.value=text;ta.setAttribute("readonly","readonly");
+      ta.style.position="fixed";ta.style.top="0";ta.style.left="0";ta.style.fontSize="16px";ta.style.opacity="0";
+      document.body.appendChild(ta);ta.focus();ta.select();
+      try{ta.setSelectionRange(0,text.length);}catch(e){}
+      var good=false;try{good=document.execCommand("copy");}catch(e){}
+      ta.remove();if(good)ok();
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(ok,fallback);
+    else fallback();
+  }
+  var copyBook=$("copyBook");
+  if(copyBook){copyBook.setAttribute("data-label","Copy job");copyBook.onclick=function(){copyPlain(bookPlain(),copyBook);};}
+  function showCopy(on){if(copyBook)copyBook.hidden=!on;}
   function build(needContact){
     var err=$("err"); err.textContent="";
     var nm=$("nm").value.trim(), addr=$("addr").value.trim(), note=$("note").value.trim(), ct=$("ct")?$("ct").value.trim():"";
@@ -1150,15 +1192,16 @@ function siteMain(){
     if(waiting){
       si.disabled=true;si.textContent="Sending...";
       var wd={key:C.inbox.key,name:$("nm").value.trim().slice(0,60),contact:$("ct").value.trim().slice(0,80),date:ymd(picked),service:sel.value.slice(0,80),note:$("note").value.trim().slice(0,200)};
+      showCopy(false);
       jsonp({action:"wait",d:JSON.stringify(wd)},function(r){si.disabled=false;si.textContent="Join the waitlist";var bx=$("sentBox");bx.hidden=false;bx.textContent=(r&&r.ok)?"You’re on the list. "+C.first+"’s parent will message you at "+wd.contact+" if "+longDate(picked)+" opens up.":"I couldn’t send that. Please use Text it instead or Email it instead.";if(!(r&&r.ok))$("outWrap").hidden=false;},10000);
       return;
     }
     var st=pickedStart(),iso=ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
     var d={key:C.inbox.key,name:$("nm").value.trim().slice(0,60),contact:$("ct").value.trim().slice(0,80),service:sel.value.slice(0,80),size:$("sz").value,freq:$("freq").value,photo:!!photoData,address:$("addr").value.trim().slice(0,120),note:$("note").value.trim().slice(0,300),start:iso,when:longDate(picked)+timeTxt,biz:C.biz,student:C.first};
-    si.disabled=true;si.textContent="Sending...";
+    si.disabled=true;si.textContent="Sending...";showCopy(false);
     jsonp({action:"book",d:JSON.stringify(d)},function(r){
       si.disabled=false;si.textContent="Send my request";var box=$("sentBox");box.hidden=false;
-      if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got it and will confirm with you at "+d.contact+". Nothing is booked until they confirm.";if(photoData){postPhoto(r.bid||"",d.name,d.when);box.textContent+=" Your photo is on its way too.";}}
+      if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got it and will confirm with you at "+d.contact+". Nothing is booked until they confirm.";showCopy(true);if(photoData){postPhoto(r.bid||"",d.name,d.when);box.textContent+=" Your photo is on its way too.";}}
       else if(r&&r.error==="taken"){box.textContent="That time was just taken. Please pick a different time.";jsonp({action:"busy"},function(b){if(b&&b.busy){busy=[];for(var i=0;i<b.busy.length;i++){var a1=parseLocal(b.busy[i][0]),b1=parseLocal(b.busy[i][1]);if(a1&&b1)busy.push([a1,b1]);}render();showPicked();}},8000);}
       else{box.textContent="I couldn’t send that. Please use Text it instead or Email it instead.";$("outWrap").hidden=false;}
     },10000);
@@ -1167,13 +1210,13 @@ function siteMain(){
   if(shost){shost.onclick=function(){
     var m=build(true); if(!m)return;
     var ct=$("ct")?$("ct").value.trim():"";
-    var timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
-    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:$("sz").value,freq:$("freq").value};
-    shost.disabled=true; shost.textContent="Sending...";
+    var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
+    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:$("sz").value,freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes())};
+    shost.disabled=true; shost.textContent="Sending..."; showCopy(false);
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
       var box=$("sentBox"); box.hidden=false;
-      if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got an email and will confirm with you. Nothing is booked until they reply."; $("outWrap").hidden=true;}
+      if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got an email and will confirm with you. Nothing is booked until they reply."; showCopy(true); $("outWrap").hidden=true;}
       else{box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;}
     }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;});
   };}
@@ -1420,6 +1463,7 @@ footer p{margin:0 20px}
 .season .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;color:var(--accent);overflow-wrap:anywhere;text-align:right}
 .day.full{border-style:dashed;color:var(--mute);opacity:.75}
 .sent{margin:14px 0 0;border-left:5px solid var(--accent);background:var(--card);padding:14px 16px;font-size:17px;line-height:1.45}
+#copyBook{display:inline-flex;margin-top:12px;background:none;border:0;padding:8px 0;min-height:44px;color:var(--ink);font:inherit;font-weight:700;font-size:17px;text-decoration:underline;cursor:pointer}
 .btns a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .promise{margin:0;border-left:5px solid var(--accent);background:var(--card);padding:18px;font-size:19px;line-height:1.45}
 ${day?dayCss(rig.c):""}
@@ -1486,6 +1530,7 @@ ${promiseHTML}
       ${(hasContact||inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:(inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`:"")}${(hostOn||inboxOn)?buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">Booking buttons show up here once a parent adds a phone number or email.</p>`}
       <p class="err" id="err" role="alert"></p>
       <div id="sentBox" class="sent" hidden role="status"></div>
+      <button type="button" id="copyBook" hidden>Copy job</button>
       <div id="outWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}${c.phone?" at "+esc(c.phone):""}<textarea id="out" readonly></textarea></label></div>
     </form>
   </div>
@@ -2161,6 +2206,10 @@ function icsEvent(j){const c=resolve(true),w=jobWhen(j),utc=new Date().toISOStri
   return ["BEGIN:VEVENT","UID:"+j.id+"@hustle-builder","DTSTAMP:"+utc,"DTSTART:"+icsLocal(w[0]),"DTEND:"+icsLocal(w[1]),"SUMMARY:"+icsEsc((j.service||"Job")+" - "+j.customer),"LOCATION:"+icsEsc(j.address||""),"DESCRIPTION:"+icsEsc(c.biz+(j.amount?". "+money(j.amount):"")+(j.phone?". Phone: "+j.phone:"")+(j.note?". "+j.note:"")),"BEGIN:VALARM","TRIGGER:-PT1H","ACTION:DISPLAY","DESCRIPTION:Job in 1 hour","END:VALARM","END:VEVENT"].join("\r\n");}
 function icsCalendar(jobs){return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Hustle Builder//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH"].concat(jobs.map(icsEvent)).concat(["END:VCALENDAR"]).join("\r\n")+"\r\n";}
 function jobGcal(j){const c=resolve(true),w=jobWhen(j);return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent((j.service||"Job")+" - "+j.customer)+"&dates="+icsLocal(w[0])+"/"+icsLocal(w[1])+"&details="+encodeURIComponent(c.biz+(j.amount?". "+money(j.amount):"")+(j.note?". "+j.note:""))+"&location="+encodeURIComponent(j.address||"");}
+function jobPlain(j){
+  const when=j.date?(parseISO(j.date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})+(j.time?" at "+fmtTime(j.time):"")):"";
+  return ["Service: "+(j.service||""),"Customer: "+(j.customer||""),"Address: "+(j.address||""),"Date/Time: "+when,"Price: "+(j.amount?money(j.amount):""),"Notes: "+(j.note||"")].join("\n");
+}
 function confirmMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,""),d=parseISO(j.date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});return "Hi "+j.customer+", it’s "+c.first+" from "+bz+". I’m confirming your "+(j.service?j.service.toLowerCase():"job")+" on "+d+(j.time?" at "+fmtTime(j.time):"")+(j.amount?" for "+money(j.amount):", and I’ll confirm the price before I start")+(j.address?" at "+j.address:"")+". A parent has seen your request. Please reply YES to confirm, or text me if you need to change anything. - "+c.first;}
 function referMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", thanks again for choosing "+bz+"! If a neighbor could use some help, I’d love an introduction. You can send them my link: "+linkOrPlaceholder()+". Neighbors who see my work are my favorite customers. - "+c.first;}
 function sendSMS(phone,msg){
@@ -2194,13 +2243,12 @@ function todayHTML(){
       +'<div class="tjb'+(one?" one":"")+'">'+prim+'</div>'
       +'<div class="links">'+dirAnchor(j.address)
       +(j.phone?'<a href="tel:'+digitsOf(j.phone)+'">Call</a>':"")
-      +'<button type="button" data-act="cal" data-id="'+j.id+'">Add to calendar</button>'+(j.confirmed?'<span class="okc">Confirmed</span>':'<button type="button" data-act="confirm" data-id="'+j.id+'">Confirm by text</button>')+'<button type="button" data-act="editSched" data-id="'+j.id+'">Edit</button></div></div>';
+      +'<button type="button" data-act="cal" data-id="'+j.id+'">Add to calendar</button><button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button>'+(j.confirmed?'<span class="okc">Confirmed</span>':'<button type="button" data-act="confirm" data-id="'+j.id+'">Confirm by text</button>')+'<button type="button" data-act="editSched" data-id="'+j.id+'">Edit</button></div></div>';
   };
   const row=(j,miss)=>{
     const hit='<div class="who"><b>'+esc(j.customer)+'</b><span>'+dayLabel(j.date)+(j.time?" at "+fmtTime(j.time):"")+" / "+esc(j.service||"Job")+'</span></div><div class="amt">'+(j.amount?money(j.amount):"Quote")+'</div>'+(miss?'<span class="chip owed" aria-hidden="true">Missed</span>':(j.confirmed?'<span class="chip ok" aria-hidden="true">Confirmed</span>':""));
     const link=addrLink(j.address);
-    if(!link)return '<div class="job" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div>';
-    return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+link+dirAnchor(j.address)+'</div></div>';
+    return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+(link||"")+dirAnchor(j.address)+'<button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button></div></div>';
   };
   return '<div class="bcard"><div class="thead"><h3>Today</h3><span class="tdate">'+parseISO(t).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})+'</span></div>'
     +(today.length?today.map(card).join(""):'<p class="empty">Nothing on the schedule today. Line up your next job and get after it.</p>')
@@ -2252,9 +2300,9 @@ function openSched(id){
     if(!$m("#sf-d").value){err.textContent="Pick a date.";return;}
     const rec=Object.assign({},ex||{},{id:ex?ex.id:uid(),customer:cust,service:$m("#sf-s").value.trim(),amount:r2(num($m("#sf-a").value)),time:$m("#sf-t").value,date:$m("#sf-d").value,address:$m("#sf-ad").value.trim(),phone:$m("#sf-p").value.trim(),note:$m("#sf-n").value.trim(),status:ex?ex.status:"scheduled",omw:ex?!!ex.omw:false});
     if(ex){B.upcoming[B.upcoming.findIndex(x=>x.id===ex.id)]=rec;}else{B.upcoming.push(rec);}
-    saveB();closeModal();renderBoss();toast(ex?"Job updated.":"Job scheduled.");
+    saveB();closeModal();renderBoss();toast(ex?"Job updated.":"Job scheduled.");syncCalJob(rec);
   };
-  if(ex)$m("#sf-del").onclick=()=>{const b=$m("#sf-del");if(!delArmed){delArmed=true;b.textContent="Tap again to remove";b.classList.add("danger");return;}B.upcoming=B.upcoming.filter(x=>x.id!==ex.id);saveB();closeModal();renderBoss();toast("Removed from schedule.");};
+  if(ex)$m("#sf-del").onclick=()=>{const b=$m("#sf-del");if(!delArmed){delArmed=true;b.textContent="Tap again to remove";b.classList.add("danger");return;}B.upcoming=B.upcoming.filter(x=>x.id!==ex.id);saveB();closeModal();renderBoss();toast("Removed from schedule.");unsyncCalJob(ex.id);};
 }
 
 function openFinish(id){
@@ -2278,7 +2326,7 @@ function openFinish(id){
     const rec={id:uid(),date:todayISO(),customer:j.customer,service:j.service,phone:j.phone||"",amount:r2(amt),tip:r2(num($m("#ff-t").value)),hours:num($m("#ff-h").value),paid};
     const sms=$m("#ff-sms").checked,ph=$m("#ff-photo").checked;
     const before=rankIndex(B.jobs.length);
-    B.jobs.push(rec);B.upcoming=B.upcoming.filter(x=>x.id!==j.id);saveB();closeModal();renderBoss();
+    B.jobs.push(rec);B.upcoming=B.upcoming.filter(x=>x.id!==j.id);saveB();unsyncCalJob(j.id);closeModal();renderBoss();
     if(sms){sendSMS(j.phone,doneMsg(rec,r2(rec.amount+rec.tip),paid,ph));if(ph)setTimeout(()=>toast("Now attach your after photo. Lawn or driveway only."),1500);}
     const after=rankIndex(B.jobs.length);
     if(after>before)setTimeout(()=>openRankUp(after),sms?900:0);else if(!sms)toast("Job finished and logged.");
@@ -2399,6 +2447,7 @@ $("#boss").addEventListener("click",e=>{
   if(e.target.closest("a"))return;
   const el=e.target.closest("[data-act]"); if(!el)return;
   const act=el.dataset.act, id=el.dataset.id;
+  if(act==="copyJob"){e.stopPropagation();const j=B.upcoming.find(x=>x.id===id);if(j)copyText(jobPlain(j),"Copied!");return;}
   if(act==="togglePaid"){e.stopPropagation();const j=B.jobs.find(x=>x.id===id);if(j){j.paid=!j.paid;saveB();renderBoss();toast(j.paid?"Marked paid.":"Marked not paid.");}return;}
   if(act==="mbump"){bumpMission(id);return;}
   if(act==="schedule"){openSched();return;}
@@ -2419,7 +2468,8 @@ $("#boss").addEventListener("click",e=>{
   else if(act==="seasonMsg"){const c=resolve(true),names=stats().reps.map(r=>r.name);copyText(`Hey ${names.join(", ")}, it’s ${c.first} from ${c.biz}. ${S.type==="snow"?"Snow season is coming.":"Mowing season is back."} Want me on your calendar? Book here: ${linkOrPlaceholder()}`,"Message copied.");}
   else if(act==="reset"){
     if(!resetArmed){resetArmed=true;el.textContent="Tap again to erase";el.classList.add("danger");setTimeout(()=>{resetArmed=false;},4000);return;}
-    resetArmed=false;B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};saveB();lastProfit=0;renderBoss();toast("Everything erased.");
+    const gone=(B.upcoming||[]).map(j=>j.id);
+    resetArmed=false;B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};saveB();gone.forEach(unsyncCalJob);lastProfit=0;renderBoss();toast("Everything erased.");
   }
 });
 $("#boss").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".job, .jobhit")){e.preventDefault();e.target.click();}});
@@ -3373,77 +3423,8 @@ function openArt(){
 }
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-art]"))openArt();});
 
-/* ============ Booking alerts (a parent's own Google script) ============ */
+/* Old Google Apps Script inboxes still work if a parent already saved one. New families use the family calendar. */
 function inboxValid(u){return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+\/|macros\/)s\/[A-Za-z0-9_-]+\/exec$/.test(String(u||"").trim());}
-function inboxMakeKey(){if(!S.inboxKey){const a=new Uint8Array(10);(window.crypto||{getRandomValues:x=>{for(let i=0;i<x.length;i++)x[i]=Math.floor(Math.random()*256);}}).getRandomValues(a);S.inboxKey=Array.from(a,x=>"abcdefghijkmnpqrstuvwxyz23456789".charAt(x%32)).join("");save();}return S.inboxKey;}
-const INBOX_TPL="/* Booking inbox for __BIZ__. Version 2. Paste this into script.google.com, then follow the steps in Hustle Builder. */\nconst CFG = __CFG__;\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CFG.calendarName);\n  return found.length ? found[0] : CalendarApp.createCalendar(CFG.calendarName);\n}\nfunction stamp_(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), \"yyyy-MM-dd'T'HH:mm\"); }\nfunction clean_(v, n) { return String(v || \"\").replace(/[\\r\\n]+/g, \" \").slice(0, n); }\nfunction text_(t) { return ContentService.createTextOutput(t); }\nfunction reply_(obj, prefix) {\n  const body = JSON.stringify(obj);\n  if (prefix && /^[A-Za-z_][A-Za-z0-9_]*$/.test(prefix)) {\n    return ContentService.createTextOutput(prefix + \"(\" + body + \")\").setMimeType(ContentService.MimeType.JAVASCRIPT);\n  }\n  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);\n}\nfunction to_() { return [CFG.parentEmail, CFG.parentEmail2].filter(function (x) { return x; }).join(\",\"); }\nfunction mail_(subject, body, attachments) {\n  const opt = { to: to_(), subject: subject, body: body, name: CFG.business + \" bookings\" };\n  if (attachments) opt.attachments = attachments;\n  MailApp.sendEmail(opt);\n}\nfunction today_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), \"yyyyMMdd\"); }\nfunction bump_(name, max) {\n  const props = PropertiesService.getScriptProperties();\n  const key = name + \"_\" + today_();\n  const n = Number(props.getProperty(key) || 0);\n  if (n >= max) return false;\n  props.setProperty(key, String(n + 1));\n  return true;\n}\nfunction waitlist_() {\n  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(\"waitlist\") || \"[]\"); } catch (e) { return []; }\n}\nfunction saveWaitlist_(list) { PropertiesService.getScriptProperties().setProperty(\"waitlist\", JSON.stringify(list.slice(-30))); }\n\n// Run this one time (pick \"setup\" at the top and press Run) to approve access.\nfunction setup() {\n  calendar_();\n  if (CFG.weekly) ensureWeekly_();\n  mail_(\"Your booking inbox is ready\", \"Great news. When someone books \" + CFG.student + \" on the \" + CFG.business + \" website, you will get an email here and a hold on the calendar called \" + CFG.calendarName + \".\" + (CFG.weekly ? \" You will also get a short summary of the week ahead every Sunday evening.\" : \"\"));\n}\nfunction ensureWeekly_() {\n  const has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === \"weeklySummary\"; });\n  if (!has) ScriptApp.newTrigger(\"weeklySummary\").timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(18).create();\n}\nfunction weeklySummary() {\n  const now = new Date(), end = new Date(now.getTime() + 7 * 24 * 3600 * 1000), tz = Session.getScriptTimeZone();\n  const evs = calendar_().getEvents(now, end);\n  const lines = evs.map(function (ev) { return Utilities.formatDate(ev.getStartTime(), tz, \"EEE MMM d, h:mm a\") + \"   \" + ev.getTitle(); });\n  const todayIso = Utilities.formatDate(now, tz, \"yyyy-MM-dd\");\n  const wl = waitlist_().filter(function (w) { return w.date >= todayIso; });\n  saveWaitlist_(wl);\n  const parts = [\"Here is the week ahead for \" + CFG.business + \".\", \"\", lines.length ? lines.join(\"\\n\") : \"Nothing is on the calendar yet. Share the website with a neighbor!\"];\n  if (wl.length) {\n    parts.push(\"\", \"Waiting for a day to open up:\");\n    wl.forEach(function (w) { parts.push(w.date + \"   \" + w.name + \"   \" + w.contact); });\n  }\n  mail_(\"Your week: \" + evs.length + \" on the calendar\" + (wl.length ? \", \" + wl.length + \" waiting\" : \"\"), parts.join(\"\\n\"));\n}\n\nfunction doGet(e) {\n  const p = (e && e.parameter) || {};\n  const prefix = p.prefix;\n  if (p.action === \"busy\") {\n    const now = new Date(), end = new Date(now.getTime() + 125 * 24 * 3600 * 1000);\n    const busy = calendar_().getEvents(now, end).map(function (ev) { return [stamp_(ev.getStartTime()), stamp_(ev.getEndTime())]; });\n    return reply_({ busy: busy }, prefix);\n  }\n  if (p.action === \"book\") {\n    try {\n      const d = JSON.parse(p.d || \"{}\");\n      if (d.key !== CFG.secret) return reply_({ ok: false, error: \"key\" }, prefix);\n      const start = new Date(clean_(d.start, 20));\n      if (isNaN(start.getTime())) return reply_({ ok: false, error: \"date\" }, prefix);\n      const end = new Date(start.getTime() + CFG.hours * 3600 * 1000);\n      const cal = calendar_();\n      if (!d.test && cal.getEvents(start, end).length) return reply_({ ok: false, error: \"taken\" }, prefix);\n      if (!bump_(\"n\", CFG.maxPerDay)) return reply_({ ok: false, error: \"limit\" }, prefix);\n      const bid = Utilities.getUuid().slice(0, 6);\n      const tag = d.test ? \"TEST: \" : \"HOLD: \";\n      const lines = [\n        \"Not confirmed yet. Reply to the customer, then change HOLD to the job name.\",\n        \"Customer: \" + clean_(d.name, 60),\n        \"Reach them at: \" + clean_(d.contact, 80),\n        \"Job: \" + clean_(d.service, 80),\n        \"Size: \" + (clean_(d.size, 20) || \"not sure\"),\n        \"How often: \" + clean_(d.freq, 40),\n        \"Address: \" + clean_(d.address, 120),\n        \"Note: \" + (clean_(d.note, 300) || \"none\"),\n        \"Booking ID: \" + bid\n      ];\n      cal.createEvent(tag + clean_(d.service, 60) + \" - \" + clean_(d.name, 40), start, end, { location: clean_(d.address, 120), description: lines.join(\"\\n\") });\n      mail_((d.test ? \"TEST \" : \"\") + \"Booking request: \" + clean_(d.service, 60) + \", \" + clean_(d.when, 60),\n        lines.join(\"\\n\") + \"\\n\\nWhen: \" + clean_(d.when, 60) + (d.photo ? \"\\nA photo of the job site is coming in a second email.\" : \"\") + \"\\n\\nIt is on your \\\"\" + CFG.calendarName + \"\\\" calendar as a HOLD. Reply to the customer to confirm, or delete the hold to decline.\");\n      return reply_({ ok: true, bid: bid }, prefix);\n    } catch (err) {\n      return reply_({ ok: false, error: \"error\" }, prefix);\n    }\n  }\n  if (p.action === \"wait\") {\n    try {\n      const d = JSON.parse(p.d || \"{}\");\n      if (d.key !== CFG.secret) return reply_({ ok: false, error: \"key\" }, prefix);\n      const date = clean_(d.date, 10);\n      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return reply_({ ok: false, error: \"date\" }, prefix);\n      if (!bump_(\"w\", CFG.maxPerDay)) return reply_({ ok: false, error: \"limit\" }, prefix);\n      const entry = { date: date, name: clean_(d.name, 60), contact: clean_(d.contact, 80), service: clean_(d.service, 80), note: clean_(d.note, 200) };\n      const list = waitlist_();\n      list.push(entry);\n      saveWaitlist_(list);\n      mail_(\"Waitlist: \" + entry.name + \" wants \" + date,\n        \"That day is full on the website. \" + entry.name + \" asked to be told if it opens up.\\n\\nDay: \" + date + \"\\nReach them at: \" + entry.contact + \"\\nJob: \" + entry.service + \"\\nNote: \" + (entry.note || \"none\") + \"\\n\\nIf a hold gets deleted, you can message them.\");\n      return reply_({ ok: true }, prefix);\n    } catch (err) {\n      return reply_({ ok: false, error: \"error\" }, prefix);\n    }\n  }\n  return text_(\"Booking inbox for \" + CFG.business + \" is running.\");\n}\n\n// Photos arrive as a form post from the website, after a booking is accepted.\nfunction doPost(e) {\n  const p = (e && e.parameter) || {};\n  try {\n    if (p.key !== CFG.secret) return text_(\"no\");\n    const m = /^data:image\\/jpeg;base64,([A-Za-z0-9+\\/=]+)$/.exec(String(p.photo || \"\"));\n    if (!m || m[1].length > 600000) return text_(\"bad\");\n    const bytes = Utilities.base64Decode(m[1]);\n    if (bytes.length < 4 || (bytes[0] & 255) !== 255 || (bytes[1] & 255) !== 216) return text_(\"bad\");\n    if (!bump_(\"p\", CFG.maxPhotosPerDay)) return text_(\"limit\");\n    const blob = Utilities.newBlob(bytes, \"image/jpeg\", \"job-photo-\" + clean_(p.bid, 12) + \".jpg\");\n    mail_(\"Photo for booking \" + clean_(p.bid, 12) + \" from \" + clean_(p.name, 40), \"Here is the photo from \" + clean_(p.name, 40) + \". \" + clean_(p.when, 60) + \"\\nBooking ID: \" + clean_(p.bid, 12), [blob]);\n    return text_(\"ok\");\n  } catch (err) {\n    return text_(\"error\");\n  }\n}\n";
-function inboxScript(){
-  const c=resolve(true),cfg={parentEmail:(S.email||"parent@example.com").trim(),parentEmail2:(S.email2||"").trim(),secret:inboxMakeKey(),business:c.biz,student:c.first,calendarName:(S.calName||"Hustle Jobs").trim()||"Hustle Jobs",hours:1,maxPerDay:15,maxPhotosPerDay:10,weekly:S.weekly!==false};
-  return INBOX_TPL.replace("__BIZ__",()=>c.biz.replace(/\*\//g,"")).replace("__CFG__",()=>JSON.stringify(cfg,null,2));
-}
-function inboxPreview(){
-  const c=resolve(true),em=[(S.email||"parent@example.com").trim(),(S.email2||"").trim()].filter(Boolean).join(" and "),cn=(S.calName||"Hustle Jobs").trim()||"Hustle Jobs";
-  const d=new Date(Date.now()+4*864e5),wd=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}),svc=(S.services[0]&&S.services[0].n)||"Full mow";
-  return '<details class="lg" open><summary>What you will get</summary>'
-   +'<p class="small2" style="margin:8px 0 6px">An email to <b>'+esc(em)+'</b> like this:</p>'
-   +'<div class="mock"><div class="mock-h">Booking request: '+esc(svc)+', '+esc(wd)+' at 4:30 PM</div><div class="mock-b">Not confirmed yet. Reply to the customer, then change HOLD to the job name.<br>Customer: Sample Customer<br>Reach them at: 402-555-0188<br>Job: '+esc(svc)+'<br>Address: 123 Sample St<br>Note: Gate code 1234</div></div>'
-   +'<p class="small2" style="margin:12px 0 6px">A hold on the calendar “'+esc(cn)+'”:</p>'
-   +'<div class="mock cal"><b>HOLD: '+esc(svc)+' - Sample Customer</b><br>'+esc(wd)+', 4:30 to 5:30 PM</div>'
-   +'<p class="small2" style="margin:12px 0 0">'+(S.weekly!==false?'Every Sunday evening, a short summary of the week ahead. ':'')+'On your website, full days turn grey, taken times disappear, a customer can join a waitlist, and they can attach a photo of the yard. A second email brings the photo.</p></details>';
-}
-function appJsonp(url,params,ms){
-  return new Promise(res=>{
-    const name="hbcb"+Math.floor(Math.random()*1e9),sc=document.createElement("script");let done=false;
-    const q=Object.keys(params).map(k=>encodeURIComponent(k)+"="+encodeURIComponent(params[k])).join("&");
-    const fin=r=>{if(done)return;done=true;try{delete window[name];}catch(e){window[name]=undefined;}if(sc.parentNode)sc.parentNode.removeChild(sc);res(r);};
-    window[name]=r=>fin(r);sc.onerror=()=>fin(null);sc.src=url+"?"+q+"&prefix="+name;document.head.appendChild(sc);setTimeout(()=>fin(null),ms||10000);
-  });
-}
-function renderInboxCard(){
-  const st=$("#inboxState"),bt=$("#inboxOpen");if(!st)return;
-  const on=inboxValid(S.inboxUrl);
-  st.textContent=on?"On. A parent gets an email and a calendar hold when someone books.":"When someone books, a parent gets an email and a hold on a Google calendar. Skylight, iPhones, and Outlook can show it too.";
-  bt.textContent=on?"Change booking alerts":"Set up booking alerts";
-}
-function openInbox(){
-  const n=(i,t)=>'<li style="margin:0 0 14px"><b>'+t+'</b>'+i+'</li>';
-  openModal('<h3>Booking alerts</h3>'
-   +'<p class="small2" style="margin:0 0 10px">When a customer books, a parent gets an <b>email</b> and a <b>hold</b> goes on a Google calendar named “<span id="bi-cn"></span>”. The website also hides times that are already taken. It uses a small script that lives in the <b>parent’s own Google account</b>. Nothing is sent to us. It takes about 10 minutes, one time.</p>'
-   +'<details class="lg"><summary>What the parent needs</summary><p>A personal Google account (a regular Gmail). School accounts often block this. The parent should do these steps.</p></details>'
-   +'<div id="bi-prev"></div>'
-   +'<p class="small2" style="margin:10px 0 0"><b>Already set this up?</b> This version adds a waitlist, photos, a weekly summary, and a backup parent. Paste the new code in step 3, press Run on setup, then Deploy, Manage deployments, New version.</p>'
-   +'<ol style="list-style:none;padding-left:0;margin:14px 0 0">'
-   +n('<br><label class="field" style="margin-top:8px"><span>Parent’s email (where alerts go)</span><input type="email" id="bi-em" autocomplete="off" autocapitalize="none" spellcheck="false"></label><label class="field"><span>Calendar name</span><input type="text" id="bi-cal" autocomplete="off"></label><label class="check"><input type="checkbox" id="bi-wk"><span>Email a summary of the week every Sunday evening</span></label>','1. Check these two things.')
-   +n('<br>Go to <b>script.google.com</b> and click <b>New project</b>.','2. Open Google Apps Script.')
-   +n('<br>Delete everything in the editor, then paste the code below.<textarea id="bi-code" rows="7" readonly style="font:12px/1.4 ui-monospace,Menlo,monospace"></textarea><div class="mbtns"><button type="button" class="btn ghost" id="bi-copy">Copy the code</button></div>','3. Paste the code.')
-   +n('<br>At the top, pick <b>setup</b> and press <b>Run</b>. Google asks for permission. Choose the parent’s account, click <b>Advanced</b>, then <b>Go to project</b>, then <b>Allow</b>. Google shows a warning because this is the parent’s own script, not a store app. You should get an email that says the booking inbox is ready.','4. Approve it once.')
-   +n('<br>Click <b>Deploy</b>, then <b>New deployment</b>. Click the gear and pick <b>Web app</b>. Set <b>Execute as</b> to <b>Me</b> and <b>Who has access</b> to <b>Anyone</b>. Click <b>Deploy</b> and copy the <b>Web app URL</b>.','5. Publish it.')
-   +n('<br><label class="field" style="margin-top:8px"><span>Paste the Web app URL</span><input type="text" id="bi-url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec"></label><p class="merr" id="bi-err" role="alert"></p><div class="mbtns"><button type="button" class="btn" id="bi-save">Save it</button><button type="button" class="btn ghost" id="bi-test">Send a test booking</button></div><p class="small2" id="bi-st" role="status"></p>','6. Connect it.')
-   +'</ol>'
-   +'<details class="lg"><summary>Good to know</summary><p>Skylight, iPhone Calendar, and Outlook can show the “'+'Hustle Jobs'+'” calendar once the parent adds the same Google account (Skylight: Synced calendars, then Google). Customers’ names and addresses go only to the parent’s email and calendar. If you ever change the code, use <b>Deploy</b>, then <b>Manage deployments</b>, then <b>New version</b>. To turn alerts off, clear the URL and save.</p></details>'
-   +'<div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="bi-done">Done</button></div></div>');
-  const $m=q=>mbody.querySelector(q);
-  const fill=()=>{$m("#bi-code").value=inboxScript();$m("#bi-cn").textContent=(S.calName||"Hustle Jobs");$m("#bi-prev").innerHTML=inboxPreview();};
-  $m("#bi-wk").checked=S.weekly!==false;$m("#bi-wk").onchange=()=>{S.weekly=$m("#bi-wk").checked;save();fill();};$m("#bi-em").value=S.email||"";$m("#bi-cal").value=S.calName||"Hustle Jobs";$m("#bi-url").value=S.inboxUrl||"";fill();
-  $m("#bi-em").oninput=()=>{S.email=$m("#bi-em").value.trim();save();fill();};
-  $m("#bi-cal").oninput=()=>{S.calName=$m("#bi-cal").value.trim()||"Hustle Jobs";save();fill();};
-  $m("#bi-copy").onclick=()=>copyText($m("#bi-code").value,"Code copied.");
-  $m("#bi-done").onclick=()=>{closeModal();renderInboxCard();};
-  $m("#bi-save").onclick=()=>{const u=$m("#bi-url").value.trim(),e=$m("#bi-err");e.textContent="";
-    if(!u){S.inboxUrl="";save();queue();renderInboxCard();$m("#bi-st").textContent="Booking alerts are off.";return;}
-    if(!inboxValid(u)){e.textContent="That doesn’t look right. It should start with https://script.google.com/macros/s/ and end with /exec";return;}
-    S.inboxUrl=u;save();queue();renderInboxCard();$m("#bi-st").textContent="Saved. Download your website again so it uses the alerts, then send a test.";};
-  $m("#bi-test").onclick=async()=>{
-    const st=$m("#bi-st"),e=$m("#bi-err");e.textContent="";
-    if(!inboxValid(S.inboxUrl)){e.textContent="Save the Web app URL first.";return;}
-    st.textContent="Sending a test...";
-    const t=new Date(Date.now()+2*864e5),p=n=>String(n).padStart(2,"0"),c=resolve(true);
-    const d={key:inboxMakeKey(),test:true,name:"Test Customer",contact:"402-555-0100",service:"Test booking",size:"Medium",freq:"Just this time",address:"123 Test St",note:"This is a test from Hustle Builder. You can delete the event.",start:t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate())+"T10:00",when:"a test day at 10:00 AM",biz:c.biz,student:c.first};
-    const r=await appJsonp(S.inboxUrl,{action:"book",d:JSON.stringify(d)},12000);
-    st.textContent=(r&&r.ok)?"It worked. Check the parent’s email and the calendar for a TEST event, then delete it.":(r&&r.error==="key")?"The script has a different key. Paste the newest code from step 3 again, then Deploy, Manage deployments, New version.":"I couldn’t reach it. Check that Who has access is set to Anyone, then try again.";
-  };
-}
-document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#inboxOpen"))openInbox();});
 /* ============ One-tap publish ============ */
 const PUB_KEY="hb-parent-session";
 function publishOrigin(){
@@ -3454,6 +3435,20 @@ function publishOrigin(){
 }
 function pubSession(){try{return JSON.parse(localStorage.getItem(PUB_KEY)||"null");}catch(e){return null;}}
 function pubSaveSession(s){if(s)localStorage.setItem(PUB_KEY,JSON.stringify(s));else localStorage.removeItem(PUB_KEY);}
+function calSyncOn(){return !!(publishOrigin()&&pubSession()&&localStorage.getItem("hb-cal-sync")!=="0");}
+function calJobBody(j){return {id:j.id,service:j.service||"",customer:j.customer||"",address:j.address||"",start:(j.date||"")+"T"+(j.time||"09:00"),note:j.note||"",amount:j.amount?String(j.amount):""};}
+function syncCalJob(j){if(!calSyncOn()||!j)return;pubApi("/api/jobs",{body:calJobBody(j)}).catch(function(){});}
+function unsyncCalJob(id){if(!calSyncOn()||!id)return;pubApi("/api/jobs",{method:"DELETE",body:{id:id}}).catch(function(){});}
+function syncCalUpcoming(){if(!calSyncOn())return;(B.upcoming||[]).forEach(syncCalJob);}
+function showCalendar(me){
+  const box=$("#calBox"); if(!box)return;
+  if(!me||!me.calUrl){box.hidden=true;return;}
+  const link=$("#calLink"); if(link)link.textContent=me.calUrl;
+  const g=$("#calGoogle"); if(g)g.href=me.calGoogle||"";
+  const a=$("#calApple"); if(a)a.href=me.calWebcal||"";
+  const sync=$("#calSync"); if(sync)sync.checked=localStorage.getItem("hb-cal-sync")!=="0";
+  box.hidden=false;
+}
 async function pubApi(path, opt){
   const origin=publishOrigin();
   if(!origin)throw new Error("no-host");
@@ -3510,6 +3505,7 @@ async function initPublish(){
     if(me.slug){if($("#pubSlug")){$("#pubSlug").value=me.slug; $("#pubSlug").readOnly=true;} showPublished(me.url|| (origin+"/"+me.slug));}
     const help=$("#pubPlanHelp");
     if(help)help.textContent=me.testMode?"Test mode. No card is charged. Pick a plan, then publish.":(me.paid?"Plan paid through "+(me.paidUntil||"")+".":"Pick a plan. A parent pays on the next screen.");
+    showCalendar(me); syncCalUpcoming();
   }catch(e){}
 }
 $("#pubSend").onclick=async()=>{
@@ -3531,6 +3527,7 @@ $("#pubVerify").onclick=async()=>{
     if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
     $("#pubOk").textContent="Email verified. A parent checks the box, picks a plan, and publishes.";
     const help=$("#pubPlanHelp"); if(help)help.textContent="Test mode does not charge a card. A live setup opens a payment page.";
+    try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
   }catch(e){pubErr("Could not verify. Try again.");}
 };
 async function pubCheckout(){
@@ -3583,10 +3580,23 @@ $("#pubDelete").onclick=async()=>{
   if(!data.ok){pubErr("Could not delete the account."); return;}
   pubSaveSession(null);
   $("#pubReady").hidden=true; $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
-  $("#pubSlug").readOnly=false; $("#pubOk").textContent="Deleted. The page and the parent email are gone.";
+  const calBox=$("#calBox"); if(calBox)calBox.hidden=true;
+  $("#pubSlug").readOnly=false; $("#pubOk").textContent="Deleted. The page, the calendar, and the parent email are gone.";
 };
+const calCopyBtn=$("#calCopy");
+if(calCopyBtn)calCopyBtn.onclick=()=>{const t=$("#calLink")&&$("#calLink").textContent;if(t)copyText(t,"Link copied.");};
+const calNewBtn=$("#calNew");
+if(calNewBtn)calNewBtn.onclick=async()=>{
+  try{
+    const data=await pubApi("/api/cal/reset",{body:{}});
+    if(!data.ok){pubErr("Could not make a new link.");return;}
+    showCalendar(data); pubErr("");
+    $("#pubOk").textContent="New calendar link. The old one stopped working.";
+  }catch(e){pubErr("Could not make a new link.");}
+};
+const calSyncEl=$("#calSync");
+if(calSyncEl)calSyncEl.onchange=()=>{localStorage.setItem("hb-cal-sync",calSyncEl.checked?"1":"0");if(calSyncEl.checked)syncCalUpcoming();};
 initPublish();
-renderInboxCard();
 syncLiveUrlFields();
 shell.dataset.type=S.type;
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();go(0);refresh();
