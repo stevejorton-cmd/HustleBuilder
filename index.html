@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hustle Builder</title>
+<script>window.HB_PUBLISH_ORIGIN="";</script>
 <meta name="theme-color" content="#0D0F11">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -708,7 +709,7 @@ details.help li{margin-bottom:10px}
 
     <section class="step" data-step="7">
       <h2>Go live.</h2>
-      <p class="lead">Download your website. It’s one file that works on any free website host.</p>
+      <p class="lead">A parent publishes the page. You get one link, and it stays the same when you update the page.</p>
       <div class="missing" id="missing" hidden></div>
       <button type="button" class="btn block" id="download" disabled>Download my website</button>
       <button type="button" class="btn ghost block" id="openSite" disabled style="margin-top:10px">Open my website</button>
@@ -721,18 +722,44 @@ details.help li{margin-bottom:10px}
         <div><b>Next: print flyers.</b> Every flyer gets a QR code that books you.<br><button type="button" class="link" id="toFlyers">Make my flyers and cards</button></div>
       </div>
 
-      <h3 class="h3">Put it online</h3>
-      <ol class="order">
-        <li>Tap Download my website. The file has to be named <b>index.html</b>. If it saved as index (1).html, rename it before you upload, or the link will not open your page.</li>
-        <li>A parent opens <a class="link" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Netlify Drop</a> and signs in. A free account is fine. Sign in first. If you skip it, the link asks for a password and neighbors cannot open your site. If that page is blocked on a school computer, do this part at home.</li>
-        <li>Drag <b>index.html</b> onto that page. Copy the link that ends in netlify.app.</li>
-        <li>Paste the link in the box below. Then open it on a phone that is not signed in to Netlify, or in a private window. You should see your site with no password. If it asks for a password or a Netlify login, a parent needs to claim the site and make it public before you share it.</li>
-        <li>On that live page, pick a day and send a test request to the parent’s phone or email.</li>
-        <li>Changed a price, a photo, or your hours later? Download again. A parent replaces the file on the <b>same</b> site so your link does not change. Dropping it as a brand new site makes a new link. Then open the live link and check that the change is there.</li>
-      </ol>
-      <label class="field" for="liveUrl"><span>Your website link</span><input type="text" id="liveUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="something.netlify.app"><small id="liveUrlHelp">Paste it after you upload. It fills in your announcement and the QR code on your flyers.</small></label>
-      <p class="merr" id="liveUrlErr" role="alert"></p>
-      <p class="small2" id="liveOpenWrap" hidden><a class="link" id="liveOpen" href="" target="_blank" rel="noopener">Open my live site</a></p>
+      <h3 class="h3">Publish</h3>
+      <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
+      <div id="pubBox">
+        <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
+        <button type="button" class="btn ghost" id="pubSend">Email me a code</button>
+        <p class="status" id="pubCodeMsg" role="status"></p>
+        <label class="field" for="pubCode"><span>Code from the email</span><input type="text" id="pubCode" inputmode="numeric" autocomplete="one-time-code" spellcheck="false"></label>
+        <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
+        <div id="pubReady" hidden>
+          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name, a town, and my phone or email. Customer names and addresses stay on this device.</span></label>
+          <p class="small2"><a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
+          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Test mode does not charge a card.</small></div>
+          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-yard"><small>Use a first name or a business nickname, like sam or sam-yard. Do not use a last name.</small></label>
+          <button type="button" class="btn block" id="pubGo" disabled>Publish my website</button>
+        </div>
+        <p class="merr" id="pubErr" role="alert"></p>
+        <p class="status" id="pubOk" role="status"></p>
+        <p class="small2" id="pubUrlWrap" hidden><a class="link" id="pubUrl" target="_blank" rel="noopener"></a></p>
+        <div class="mbtns" id="pubManage" hidden>
+          <button type="button" class="btn" id="pubUpdate">Update my website</button>
+          <button type="button" class="btn outline" id="pubDown">Take the page offline</button>
+          <button type="button" class="btn outline" id="pubDelete">Delete the parent account</button>
+        </div>
+      </div>
+
+      <details class="help" id="downloadInstead">
+        <summary>Download the file instead</summary>
+        <p>Use this only if Publish is not available. The file still has to be named index.html.</p>
+        <ol class="order">
+          <li>Tap Download my website. If it saved as index (1).html, rename it to <b>index.html</b>.</li>
+          <li>A parent opens <a class="link" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Netlify Drop</a> and signs in first, or the link asks for a password.</li>
+          <li>Drag index.html onto that page. Paste the link below. Open it in a private window and make sure there is no password.</li>
+          <li>Changed the page later? Download again and replace the file on the same site so the link does not change.</li>
+        </ol>
+        <label class="field" for="liveUrl"><span>Your website link</span><input type="text" id="liveUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="something.netlify.app"><small id="liveUrlHelp">Paste it after you upload. Publish fills this in for you.</small></label>
+        <p class="merr" id="liveUrlErr" role="alert"></p>
+        <p class="small2" id="liveOpenWrap" hidden><a class="link" id="liveOpen" href="" target="_blank" rel="noopener">Open my live site</a></p>
+      </details>
 
       <h3 class="h3">Your announcement</h3>
       <label class="field"><span>Send this to neighbors, family friends, and parent group chats.</span><textarea id="share" rows="6"></textarea></label>
@@ -1136,6 +1163,20 @@ function siteMain(){
       else{box.textContent="I couldn’t send that. Please use Text it instead or Email it instead.";$("outWrap").hidden=false;}
     },10000);
   };}
+  var shost=$("sendHost");
+  if(shost){shost.onclick=function(){
+    var m=build(true); if(!m)return;
+    var ct=$("ct")?$("ct").value.trim():"";
+    var timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
+    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:$("sz").value,freq:$("freq").value};
+    shost.disabled=true; shost.textContent="Sending...";
+    fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
+      shost.disabled=false; shost.textContent="Send my request";
+      var box=$("sentBox"); box.hidden=false;
+      if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got an email and will confirm with you. Nothing is booked until they reply."; $("outWrap").hidden=true;}
+      else{box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;}
+    }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;});
+  };}
   render(); showPicked();
   if(C.inbox){jsonp({action:"busy"},function(r){if(r&&r.busy){busy=[];for(var i=0;i<r.busy.length;i++){var a=parseLocal(r.busy[i][0]),b=parseLocal(r.busy[i][1]);if(a&&b)busy.push([a,b]);}render();showPicked();}},8000);}
   var sh=$("shareSite");
@@ -1221,7 +1262,7 @@ function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
   const sched=(Array.isArray(c.sched)&&c.sched.length===7)?c.sched:c.days.map((on,i)=>Object.assign({on:!!on},defHours(i)));
-  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
+  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
   const hasContact=!!(c.phoneDigits||c.email);
   const rows=c.services.map(s=>`<li><span class="n">${esc(s.n)}</span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
@@ -1245,6 +1286,7 @@ function genSite(c){
   const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"?["Just this time","Every week","Every other week","Every snowfall this winter"]:["Just this time","Every week","Every other week"];
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
+  const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
   const contactHTML=`<section id="contact">
   <h2>Questions?</h2>
   <p class="small">${esc(c.parentName||"My parent")} helps run this business. Text, call, or write any time.</p>
@@ -1267,6 +1309,7 @@ function genSite(c){
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(c.biz)}${c.town?" - "+esc(c.town):""}</title>
+<!-- hb-public -->
 <!-- This website was made with Hustle Builder. It embeds the Barlow fonts under the SIL Open Font License 1.1; the notice and license text are in the style block below. -->
 <meta name="description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. Book a day online.">
 <meta name="theme-color" content="${day?"#FBF8F2":"#0E1012"}">
@@ -1435,12 +1478,12 @@ ${promiseHTML}
       <label>How big is the ${target}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>
       <label>How often?<select id="freq">${freqOpts}</select></label>
       <label>Your first name<input id="nm" autocomplete="given-name"></label>
-      ${inboxOn?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="tel"></label>`:""}
+      ${(inboxOn||hostOn)?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="tel"></label>`:""}
       <label>Address for the job<input id="addr" autocomplete="street-address"></label>
       <label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>
       ${inboxOn?`<label>A photo of the ${target}, if you want (optional)<input type="file" id="ph" accept="image/*"></label><p class="small" id="phNote" style="margin:-6px 0 12px">Photos of your yard or driveway only, please. No people. It goes to my parent only.</p><img id="phPrev" alt="Your photo" hidden style="max-width:100%;max-height:180px;border-radius:8px;margin:0 0 12px">`:""}
       <div class="q"><b>3</b><span>Send it</span></div>
-      ${(hasContact||inboxOn)?`<div class="btns">${inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`+buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">Booking buttons show up here once a parent adds a phone number or email.</p>`}
+      ${(hasContact||inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:(inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`:"")}${(hostOn||inboxOn)?buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">Booking buttons show up here once a parent adds a phone number or email.</p>`}
       <p class="err" id="err" role="alert"></p>
       <div id="sentBox" class="sent" hidden role="status"></div>
       <div id="outWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}${c.phone?" at "+esc(c.phone):""}<textarea id="out" readonly></textarea></label></div>
@@ -1500,7 +1543,8 @@ if(!Array.isArray(S.proof))S.proof=[];
 if(!Array.isArray(S.reviews))S.reviews=[];
 function save(){try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}}
 
-function resolve(preview){
+function resolve(preview, opt){
+  opt=opt||{};
   const first=S.first.trim()||(preview?"Alex":"");
   const town=S.town.trim()||(preview?"your neighborhood":"");
   const biz=S.bizName.trim()||autoBiz(S.type,first||"Alex");
@@ -1511,7 +1555,7 @@ function resolve(preview){
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
   return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:String(S.phone2||"").replace(/\D/g,""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
-    proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim())};
+    proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()),publish:opt.publish||null};
 }
 
 /* ============ Builder UI ============ */
@@ -1778,7 +1822,9 @@ function updateLaunch(){
     });
     box.append(". Tap one to fill it in.");
     btn.disabled=true; if(open)open.disabled=true;
-  }else{box.hidden=true;btn.disabled=false;if(open)open.disabled=false;}
+    ["#pubGo","#pubUpdate"].forEach(id=>{const b=$(id); if(b)b.disabled=true;});
+  }else{box.hidden=true;btn.disabled=false;if(open)open.disabled=false;
+    ["#pubGo","#pubUpdate"].forEach(id=>{const b=$(id); if(b)b.disabled=false;});}
   syncLiveUrlFields();
   applyShare();
   const warn=$("#sizeWarn");
@@ -3398,6 +3444,148 @@ function openInbox(){
   };
 }
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#inboxOpen"))openInbox();});
+/* ============ One-tap publish ============ */
+const PUB_KEY="hb-parent-session";
+function publishOrigin(){
+  const custom=String(window.HB_PUBLISH_ORIGIN||"").trim().replace(/\/$/,"");
+  if(custom)return custom;
+  if(/github\.io$/i.test(location.hostname)||location.protocol==="file:")return "";
+  return location.origin;
+}
+function pubSession(){try{return JSON.parse(localStorage.getItem(PUB_KEY)||"null");}catch(e){return null;}}
+function pubSaveSession(s){if(s)localStorage.setItem(PUB_KEY,JSON.stringify(s));else localStorage.removeItem(PUB_KEY);}
+async function pubApi(path, opt){
+  const origin=publishOrigin();
+  if(!origin)throw new Error("no-host");
+  opt=opt||{};
+  const headers=Object.assign({"Content-Type":"application/json"}, opt.headers||{});
+  const session=pubSession();
+  if(session&&session.token)headers.Authorization="Bearer "+session.token;
+  const res=await fetch(origin+path, {method:opt.method||"POST", headers, body:opt.body?JSON.stringify(opt.body):undefined});
+  const data=await res.json().catch(()=>({ok:false,error:"json"}));
+  data.status=res.status;
+  return data;
+}
+function pubErr(msg){const e=$("#pubErr"); if(e)e.textContent=msg||""; }
+function suggestSlug(){
+  const el=$("#pubSlug"); if(!el||el.value.trim())return;
+  const first=(S.first||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  if(first.length>=3)el.value=first;
+}
+function showPublished(url){
+  const wrap=$("#pubUrlWrap"), a=$("#pubUrl");
+  if(url&&wrap&&a){wrap.hidden=false; a.href=url; a.textContent=url;}
+  else if(wrap)wrap.hidden=true;
+  if(url)setSiteUrl(url);
+  const manage=$("#pubManage"); if(manage)manage.hidden=!url;
+  const ready=$("#pubReady"); if(ready&&url)ready.hidden=false;
+  const go=$("#pubGo"); if(go&&url)go.hidden=true;
+}
+function pubPlans(){
+  const box=$("#pubPlans"); if(!box||box.childElementCount)return;
+  [["month","$6 a month"],["season","$39 a season"],["year","$59 a year"]].forEach((it,i)=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=it[1]; b.dataset.plan=it[0];
+    b.setAttribute("aria-pressed", String(i===1));
+    b.onclick=()=>{box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));};
+    box.appendChild(b);
+  });
+}
+function chosenPlan(){const b=$("#pubPlans button[aria-pressed='true']"); return b?b.dataset.plan:"season";}
+function publishedHtml(slug){
+  const origin=publishOrigin();
+  return genSite(resolve(false, {publish:{slug, book:origin+"/api/book"}}));
+}
+async function initPublish(){
+  pubPlans();
+  const origin=publishOrigin();
+  const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
+  if(!origin){pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
+  const session=pubSession();
+  if(!session||!session.token)return;
+  try{
+    const me=await pubApi("/api/me", {method:"GET"});
+    if(!me.ok){pubSaveSession(null); return;}
+    if($("#pubEmail"))$("#pubEmail").value=me.email||session.email||"";
+    if(me.consent)$("#pubReady").hidden=false;
+    if(me.slug){if($("#pubSlug")){$("#pubSlug").value=me.slug; $("#pubSlug").readOnly=true;} showPublished(me.url|| (origin+"/"+me.slug));}
+    const help=$("#pubPlanHelp");
+    if(help)help.textContent=me.testMode?"Test mode. No card is charged. Pick a plan, then publish.":(me.paid?"Plan paid through "+(me.paidUntil||"")+".":"Pick a plan. A parent pays on the next screen.");
+  }catch(e){}
+}
+$("#pubSend").onclick=async()=>{
+  pubErr(""); $("#pubCodeMsg").textContent="Sending...";
+  try{
+    const data=await pubApi("/api/auth/start", {body:{email:$("#pubEmail").value.trim()}});
+    if(!data.ok)$("#pubCodeMsg").textContent=data.error==="mail"?"Email is not set up yet.":"Enter a parent’s email.";
+    else $("#pubCodeMsg").textContent=data.devCode?("Test mode. The code is "+data.devCode+". A real setup emails it to the parent only."):"Code sent. Ask the parent to check their email.";
+  }catch(e){ $("#pubCodeMsg").textContent=e.message==="no-host"?"Publish is not set up on this link yet.":"Could not reach the host. Try again."; }
+};
+$("#pubVerify").onclick=async()=>{
+  pubErr("");
+  try{
+    const data=await pubApi("/api/auth/verify", {body:{email:$("#pubEmail").value.trim(), code:$("#pubCode").value.trim()}});
+    if(!data.ok){pubErr("That code did not work. Send a new one."); return;}
+    pubSaveSession({token:data.token, email:data.email, slug:data.slug||""});
+    $("#pubReady").hidden=false;
+    suggestSlug();
+    if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
+    $("#pubOk").textContent="Email verified. A parent checks the box, picks a plan, and publishes.";
+    const help=$("#pubPlanHelp"); if(help)help.textContent="Test mode does not charge a card. A live setup opens a payment page.";
+  }catch(e){pubErr("Could not verify. Try again.");}
+};
+async function pubCheckout(){
+  const data=await pubApi("/api/checkout", {body:{plan:chosenPlan()}});
+  if(data.mode==="stripe"&&data.url){location.href=data.url; return false;}
+  if(!data.ok){pubErr(data.error==="stripe-key"?"Payment is not set up yet.":"Pick a plan and try again."); return false;}
+  return true;
+}
+async function pubPush(){
+  pubErr("");
+  if(missing().length){pubErr("Fill in the missing steps first."); return;}
+  const session=pubSession();
+  if(!session||!session.token){pubErr("Verify the parent’s email first."); return;}
+  if(!session.slug && !$("#pubConsent").checked){
+    const prior=await pubApi("/api/me", {method:"GET"});
+    if(!prior.consent){pubErr("A parent has to check the box before the first publish."); return;}
+  }
+  const slug=($("#pubSlug").value||session.slug||"").trim().toLowerCase();
+  try{
+    if(!session.slug){
+      const agreed=await pubApi("/api/consent", {body:{consent:true}});
+      if(!agreed.ok){pubErr("A parent has to agree before the page can go online."); return;}
+    }
+    const me=await pubApi("/api/me", {method:"GET"});
+    if(!me.paid){const paid=await pubCheckout(); if(!paid)return;}
+    const html=publishedHtml(slug);
+    const data=await pubApi("/api/publish", {body:{slug, html}});
+    if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
+    session.slug=data.slug; pubSaveSession(session);
+    $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
+    showPublished(data.url);
+    $("#pubOk").textContent=data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
+  }catch(e){pubErr("Could not publish. Try again.");}
+}
+$("#pubGo").onclick=pubPush;
+$("#pubUpdate").onclick=pubPush;
+let pubDownArmed=false, pubDelArmed=false;
+$("#pubDown").onclick=async()=>{
+  const b=$("#pubDown");
+  if(!pubDownArmed){pubDownArmed=true; b.textContent="Tap again to take it offline"; return;}
+  pubDownArmed=false; b.textContent="Take the page offline";
+  const data=await pubApi("/api/unpublish", {body:{}});
+  if(data.ok){$("#pubOk").textContent="The page is offline. Update puts it back on the same link."; $("#pubUrlWrap").hidden=true;}
+  else pubErr("Could not take the page offline.");
+};
+$("#pubDelete").onclick=async()=>{
+  const b=$("#pubDelete");
+  if(!pubDelArmed){pubDelArmed=true; b.textContent="Tap again to delete the account"; return;}
+  const data=await pubApi("/api/account", {method:"DELETE"});
+  if(!data.ok){pubErr("Could not delete the account."); return;}
+  pubSaveSession(null);
+  $("#pubReady").hidden=true; $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
+  $("#pubSlug").readOnly=false; $("#pubOk").textContent="Deleted. The page and the parent email are gone.";
+};
+initPublish();
 renderInboxCard();
 syncLiveUrlFields();
 shell.dataset.type=S.type;
