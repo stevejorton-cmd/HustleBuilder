@@ -139,6 +139,7 @@ button,input,textarea{font:inherit;color:inherit}
 [hidden]{display:none!important}
 .shell{min-height:100vh}
 .edit{max-width:620px;margin:0 auto;padding:16px 20px 160px}
+.edit :where(button,a,input,textarea,select,label,summary){scroll-margin-top:84px;scroll-margin-bottom:140px}
 .brand{display:flex;align-items:center;gap:10px;padding:6px 0 18px}
 .brand .word{font-family:var(--display);font-style:italic;font-weight:900;font-size:25px;text-transform:uppercase;letter-spacing:.01em}
 .brand .slash{width:22px;height:26px;background:var(--accent);clip-path:polygon(34% 0,100% 0,66% 100%,0 100%)}
@@ -303,6 +304,7 @@ body.boss-on .shell{display:none}
 .ins{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 .small2{font-size:14px;color:var(--muted);margin:12px 0 0}
 .link{background:none;border:0;padding:6px 0;color:var(--ink);font-weight:700;text-decoration:underline;cursor:pointer;font-size:15px}
+a.link{display:inline;padding:0;font:inherit;font-weight:700}
 .chart{width:100%;height:auto;display:block}
 .chart .bar{fill:var(--accent);opacity:.5}
 .chart .bar.cur{opacity:1}
@@ -692,7 +694,7 @@ details.help li{margin-bottom:10px}
       <p class="lead">Before and after photos sell better than anything. Add your best jobs, plus reviews from happy customers. Everything here is optional.</p>
       <div class="callout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
-        <div>Photos of lawns and driveways only. No people, faces, house numbers, street signs, or license plates. A parent and the customer should both say yes first. We strip hidden location data from every photo.</div>
+        <div>Photos of lawns and driveways only. No people, faces, house numbers, street signs, or license plates. A parent and the customer should both say yes first. We strip hidden location data from every photo. Use a regular JPEG or PNG. iPhone HEIC photos will not load. Save the photo as a JPEG, or a parent can set the camera to Most Compatible.</div>
       </div>
       <h3 class="h3">Before and after</h3>
       <div id="proofList"></div>
@@ -709,7 +711,10 @@ details.help li{margin-bottom:10px}
       <p class="lead">Download your website. It’s one file that works on any free website host.</p>
       <div class="missing" id="missing" hidden></div>
       <button type="button" class="btn block" id="download" disabled>Download my website</button>
+      <button type="button" class="btn ghost block" id="openSite" disabled style="margin-top:10px">Open my website</button>
+      <p class="small2" id="openSiteHelp">Opens the real page in a new tab. It is the same file you download. Try the calendar here. Neighbors only see it after it is online.</p>
       <p class="status" id="dlStatus" role="status"></p>
+      <p class="small2" id="sizeWarn" hidden></p>
       <div class="callout" id="inboxCard" style="margin-top:18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><div><b>Get booking alerts.</b> <span id="inboxState"></span><br><button type="button" class="link" id="inboxOpen">Set up booking alerts</button></div></div>
       <div class="callout" style="margin-top:18px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v0M17 20h4v-3"/></svg>
@@ -718,11 +723,16 @@ details.help li{margin-bottom:10px}
 
       <h3 class="h3">Put it online</h3>
       <ol class="order">
-        <li>Ask a parent to help you sign up for a free host such as Netlify. Netlify Drop lets you upload a file and get a link.</li>
-        <li>Upload the file you downloaded. Keep its name as <b>index.html</b>.</li>
-        <li>Copy your link and paste it into the message below.</li>
-        <li>Test it. Pick a day on your own site and send yourself a request.</li>
+        <li>Tap Download my website. The file has to be named <b>index.html</b>. If it saved as index (1).html, rename it before you upload, or the link will not open your page.</li>
+        <li>A parent opens <a class="link" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Netlify Drop</a> and signs in. A free account is fine. Sign in first. If you skip it, the link asks for a password and neighbors cannot open your site. If that page is blocked on a school computer, do this part at home.</li>
+        <li>Drag <b>index.html</b> onto that page. Copy the link that ends in netlify.app.</li>
+        <li>Paste the link in the box below. Then open it on a phone that is not signed in to Netlify, or in a private window. You should see your site with no password. If it asks for a password or a Netlify login, a parent needs to claim the site and make it public before you share it.</li>
+        <li>On that live page, pick a day and send a test request to the parent’s phone or email.</li>
+        <li>Changed a price, a photo, or your hours later? Download again. A parent replaces the file on the <b>same</b> site so your link does not change. Dropping it as a brand new site makes a new link. Then open the live link and check that the change is there.</li>
       </ol>
+      <label class="field" for="liveUrl"><span>Your website link</span><input type="text" id="liveUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="something.netlify.app"><small id="liveUrlHelp">Paste it after you upload. It fills in your announcement and the QR code on your flyers.</small></label>
+      <p class="merr" id="liveUrlErr" role="alert"></p>
+      <p class="small2" id="liveOpenWrap" hidden><a class="link" id="liveOpen" href="" target="_blank" rel="noopener">Open my live site</a></p>
 
       <h3 class="h3">Your announcement</h3>
       <label class="field"><span>Send this to neighbors, family friends, and parent group chats.</span><textarea id="share" rows="6"></textarea></label>
@@ -753,7 +763,7 @@ details.help li{margin-bottom:10px}
   <aside class="stage" id="stage" aria-label="Live preview">
     <div class="bar"><strong>Your site</strong><button type="button" class="btn outline" id="closeSheet" style="min-height:44px;font-size:18px">Back to editing</button></div>
     <div class="phone"><div class="notch"></div><iframe id="frame" title="Preview of your website" sandbox="allow-scripts"></iframe></div>
-    <p class="caption">Live preview. Tap a day to try the calendar.</p>
+    <p class="caption">Preview of the phone page. On the last step, use Open my website to try booking for real.</p>
   </aside>
 
   <nav class="nav" aria-label="Steps">
@@ -1011,7 +1021,10 @@ function siteMain(){
   var earliest=new Date(today.getFullYear(),today.getMonth(),today.getDate()+1);
   var latest=new Date(today.getFullYear(),today.getMonth(),today.getDate()+120);
   var view=new Date(today.getFullYear(),today.getMonth(),1);
+  function monthHasOpen(y,m){var dim=new Date(y,m+1,0).getDate();for(var n=1;n<=dim;n++){var d=new Date(y,m,n);if(d>=earliest&&d<=latest&&C.days[d.getDay()])return true;}return false;}
+  if(!monthHasOpen(view.getFullYear(),view.getMonth()))view=new Date(view.getFullYear(),view.getMonth()+1,1);
   var picked=null;
+  var monthOpen=true;
   var busy=[],waiting=false,photoData="";
   function postPhoto(bid,name,when){
     var fr=document.createElement("iframe");fr.name="hbph"+Math.floor(Math.random()*1e6);fr.style.display="none";document.body.appendChild(fr);
@@ -1048,11 +1061,13 @@ function siteMain(){
     DOW.forEach(function(n){var s=document.createElement("span");s.className="dow";s.textContent=n;g.appendChild(s);});
     for(var i=0;i<view.getDay();i++){g.appendChild(document.createElement("span"));}
     var dim=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+    monthOpen=false;
     for(var n=1;n<=dim;n++){
       var d=new Date(view.getFullYear(),view.getMonth(),n);
       var b=document.createElement("button");
       b.type="button"; b.className="day"; b.textContent=String(n);
       var open=d>=earliest && d<=latest && C.days[d.getDay()], isFull=!!(open&&C.inbox&&slotsFor(d).length===0);
+      if(open)monthOpen=true;
       b.disabled=!open; if(isFull){b.className+=" full";}
       b.setAttribute("aria-pressed",(picked && d.getTime()===picked.getTime())?"true":"false");
       b.setAttribute("aria-label",longDate(d)+(isFull?" (full, join the waitlist)":""));
@@ -1067,7 +1082,7 @@ function siteMain(){
   function hhmm(m){var h=Math.floor(m/60),mm=m%60;return (h<10?"0":"")+h+":"+(mm<10?"0":"")+mm;}
   function showPicked(){
     var tw=$("timeWrap"),tm=$("tm");
-    if(!picked){$("picked").textContent="Tap a day to pick it.";tw.hidden=true;waiting=false;return;}
+    if(!picked){$("picked").textContent=monthOpen?"Tap a day to pick it.":"No open days this month. Tap the next arrow.";tw.hidden=true;waiting=false;return;}
     var sc=(C.sched&&C.sched[picked.getDay()])||null,txt="Locked in: "+longDate(picked)+".";
     if(sc&&sc.from&&sc.to){
       txt+=" I’m free "+t12(sc.from)+" to "+t12(sc.to)+".";
@@ -1089,7 +1104,7 @@ function siteMain(){
     var err=$("err"); err.textContent="";
     var nm=$("nm").value.trim(), addr=$("addr").value.trim(), note=$("note").value.trim(), ct=$("ct")?$("ct").value.trim():"";
     if(!picked){err.textContent="Pick a day first.";return null;}
-    if(!nm){err.textContent="Add your name so I know who’s asking.";return null;}
+    if(!nm){err.textContent="Add your first name so I know who’s asking.";return null;}
     if(!addr){err.textContent="Add the address for the job.";return null;}
     if(needContact&&!ct){err.textContent="Add a phone number or email so my parent can reach you.";return null;}
     var m="Hi "+C.first+"! This is "+nm+". I’d like to book: "+sel.value+" on "+longDate(picked)+(($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value))+". "+($("sz").value?"Size: "+$("sz").value+". ":"")+"How often: "+$("freq").value+". Address: "+addr+"."+(note?" Note: "+note:"")+(ct?" Reply to: "+ct+".":"")+" (Sent from the "+C.biz+" website)"+calLine(nm,addr,sel.value);
@@ -1124,7 +1139,7 @@ function siteMain(){
   render(); showPicked();
   if(C.inbox){jsonp({action:"busy"},function(r){if(r&&r.busy){busy=[];for(var i=0;i<r.busy.length;i++){var a=parseLocal(r.busy[i][0]),b=parseLocal(r.busy[i][1]);if(a&&b)busy.push([a,b]);}render();showPicked();}},8000);}
   var sh=$("shareSite");
-  if(sh){sh.onclick=function(){var u=location.href.split("#")[0];if(navigator.share){navigator.share({title:C.biz,text:C.biz+". Book a day online.",url:u}).catch(function(){});}else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(function(){sh.textContent="Link copied";},function(){window.prompt("Copy this link",u);});}else{window.prompt("Copy this link",u);}};}
+  if(sh){sh.onclick=function(){var u=location.href.split("#")[0];if(C.publicUrl&&(location.protocol==="file:"||location.protocol==="blob:"||location.protocol==="data:"))u=C.publicUrl;if(navigator.share){navigator.share({title:C.biz,text:C.biz+". Book a day online.",url:u}).catch(function(){});}else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(function(){sh.textContent="Link copied";},function(){window.prompt("Copy this link",u);});}else{window.prompt("Copy this link",u);}};}
   document.querySelectorAll(".ba").forEach(function(ba){
     var r=ba.querySelector("input");
     function set(){ba.style.setProperty("--pos",r.value+"%");}
@@ -1206,7 +1221,7 @@ function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
   const sched=(Array.isArray(c.sched)&&c.sched.length===7)?c.sched:c.days.map((on,i)=>Object.assign({on:!!on},defHours(i)));
-  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
+  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
   const hasContact=!!(c.phoneDigits||c.email);
   const rows=c.services.map(s=>`<li><span class="n">${esc(s.n)}</span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
@@ -1272,7 +1287,7 @@ img.scene{object-fit:cover;object-position:63% 56%;display:block;height:62%;-web
 @keyframes fall{from{transform:translate(0,-30px)}to{transform:translate(26px,420px)}}
 .hero-in{position:relative;z-index:2;width:100%;max-width:820px;margin:0 auto;padding:0 22px 52px}
 .hero h1{font-weight:900;font-size:clamp(62px,18vw,138px);line-height:.84;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:anywhere}
-.hero .tag{margin:20px 0 28px;font-size:clamp(19px,4.6vw,24px);font-weight:500;max-width:30ch;color:#E4E1DB;border-left:5px solid var(--accent);padding-left:14px}
+.hero .tag{margin:20px 0 28px;font-size:clamp(19px,4.6vw,24px);font-weight:500;max-width:30ch;color:#E4E1DB;border-left:5px solid var(--accent);padding-left:14px;overflow-wrap:anywhere}
 .cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .btn{display:inline-flex;align-items:center;justify-content:center;border:0;background:var(--accent);color:var(--on);font-family:var(--display);font-style:italic;font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.02em;padding:0 34px;min-height:60px;cursor:pointer;text-decoration:none;clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);transition:filter .15s,transform .08s}
 .btn:hover{filter:brightness(1.1)}
@@ -1294,8 +1309,8 @@ section h2{font-weight:900;font-size:clamp(52px,13vw,84px);margin-bottom:26px}
 @media (min-width:720px){.std{grid-template-columns:repeat(3,minmax(0,1fr));gap:26px}}
 .rates{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
 .rates li{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:18px 0;border-bottom:1px solid var(--line)}
-.rates .n{font-size:20px;font-weight:600}
-.rates .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;color:var(--accent);white-space:nowrap}
+.rates .n{font-size:20px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.rates .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;color:var(--accent);text-align:right;overflow-wrap:anywhere;max-width:46%}
 .small{font-size:14.5px;color:var(--mute);margin:14px 0 0}
 .panel{background:var(--card);border:1px solid var(--line);padding:24px 18px;position:relative}
 .panel::before{content:"";position:absolute;left:-1px;top:-1px;width:64px;height:5px;background:var(--accent)}
@@ -1359,7 +1374,7 @@ footer p{margin:0 20px}
 .season{display:flex;justify-content:space-between;align-items:center;gap:16px;border:2px solid var(--accent);background:var(--card);padding:16px 18px;margin-top:18px}
 .season strong{display:block;font-size:20px}
 .season p{margin:2px 0 0;color:var(--mute);font-size:15px}
-.season .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;color:var(--accent);white-space:nowrap}
+.season .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;color:var(--accent);overflow-wrap:anywhere;text-align:right}
 .day.full{border-style:dashed;color:var(--mute);opacity:.75}
 .sent{margin:14px 0 0;border-left:5px solid var(--accent);background:var(--card);padding:14px 16px;font-size:17px;line-height:1.45}
 .btns a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
@@ -1419,7 +1434,7 @@ ${promiseHTML}
       <label>What do you need?<select id="svc"></select></label>
       <label>How big is the ${target}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>
       <label>How often?<select id="freq">${freqOpts}</select></label>
-      <label>Your name<input id="nm" autocomplete="name"></label>
+      <label>Your first name<input id="nm" autocomplete="given-name"></label>
       ${inboxOn?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="tel"></label>`:""}
       <label>Address for the job<input id="addr" autocomplete="street-address"></label>
       <label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>
@@ -1494,7 +1509,7 @@ function resolve(preview){
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=S.type==="snow"?"driveway":S.type==="both"?"property":"yard";
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
-  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",parent2:(S.parent2||"").trim(),phone2Digits:String(S.phone2||"").replace(/\D/g,""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits,email,venmo,about,
+  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:String(S.phone2||"").replace(/\D/g,""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim())};
 }
@@ -1715,11 +1730,11 @@ function renderRigs(){
 
 function missing(){
   const m=[];
-  if(!S.first.trim())m.push("your first name");
-  if(!S.town.trim())m.push("your town or neighborhood");
-  if(!S.phone.trim()&&!S.email.trim())m.push("a parent’s phone or email");
-  if(!S.services.some(s=>s.n.trim()))m.push("at least one service");
-  if(!S.sched.some(x=>x.on))m.push("the days you work");
+  if(!S.first.trim())m.push({t:"your first name",step:1});
+  if(!S.town.trim())m.push({t:"your town or neighborhood",step:1});
+  if(!S.phone.trim()&&!S.email.trim())m.push({t:"a parent’s phone or email",step:4});
+  if(!S.services.some(s=>s.n.trim()))m.push({t:"at least one service",step:2});
+  if(!S.sched.some(x=>x.on))m.push({t:"the days you work",step:3});
   return m;
 }
 function shareText(){
@@ -1729,21 +1744,70 @@ function shareText(){
 }
 let shareEdited=false;
 $("#share").addEventListener("input",()=>{shareEdited=true;});
+function syncLiveUrlFields(){
+  const raw=S.siteUrl||"", u=normUrl(raw);
+  const live=$("#liveUrl"); if(live&&document.activeElement!==live)live.value=raw;
+  const f=$("#fUrl"); if(f&&document.activeElement!==f)f.value=raw;
+  const err=$("#liveUrlErr"); if(err){err.textContent=raw.trim()&&!u?"That link doesn’t look right. It should look like yoursite.netlify.app.":"";err.hidden=!err.textContent;}
+  const wrap=$("#liveOpenWrap"), a=$("#liveOpen");
+  if(wrap&&a){if(u){wrap.hidden=false;a.href=u;}else wrap.hidden=true;}
+}
+function setSiteUrl(v){
+  S.siteUrl=v;
+  syncLiveUrlFields();
+  queue();
+  if(document.body.classList.contains("flyers-on"))refreshFlyers();
+}
+function applyShare(){
+  const ta=$("#share"); if(!ta)return;
+  const next=shareText();
+  if(!shareEdited){ta.value=next;return;}
+  const u=normUrl(S.siteUrl);
+  if(u&&ta.value.indexOf("[paste your link]")>=0)ta.value=ta.value.split("[paste your link]").join(u);
+}
 function updateLaunch(){
-  const m=missing(), box=$("#missing"), btn=$("#download");
-  if(m.length){box.hidden=false;box.innerHTML="<b>Still needed</b>Add "+m.join(", ").replace(/, ([^,]*)$/,", and $1")+". Tap Back to fill it in.";btn.disabled=true;}
-  else{box.hidden=true;btn.disabled=false;}
-  if(!shareEdited)$("#share").value=shareText();
+  const m=missing(), box=$("#missing"), btn=$("#download"), open=$("#openSite");
+  if(m.length){
+    box.hidden=false; box.replaceChildren();
+    const b=document.createElement("b"); b.textContent="Still needed"; box.appendChild(b);
+    box.append(" Add ");
+    m.forEach((item,i)=>{
+      if(i)box.append(i===m.length-1?" and ":", ");
+      const jump=document.createElement("button"); jump.type="button"; jump.className="link"; jump.textContent=item.t;
+      jump.onclick=()=>go(item.step); box.appendChild(jump);
+    });
+    box.append(". Tap one to fill it in.");
+    btn.disabled=true; if(open)open.disabled=true;
+  }else{box.hidden=true;btn.disabled=false;if(open)open.disabled=false;}
+  syncLiveUrlFields();
+  applyShare();
+  const warn=$("#sizeWarn");
+  if(warn){
+    const big=!m.length&&($("#frame").srcdoc||"").length>7000000;
+    warn.hidden=!big;
+    warn.textContent=big?"This page is very big because of the photos. If the upload spins forever, remove a photo, download again, and try once more.":"";
+  }
 }
 $("#download").onclick=async()=>{
   const st=$("#dlStatus");st.textContent="";
   const r=await saveFile("index.html",genSite(resolve(false)),"text/html");
-  st.textContent=r.ok?(r.how==="browser"?"Saved to your downloads folder. Now upload it to a free host and test your booking calendar.":"Saved. Now upload it to a free host and test your booking calendar."):(r.declined?"No problem. Tap the button when you’re ready.":r.copied?"Downloads aren’t available here, so the site code was copied. Paste it into a file named index.html.":"Downloads aren’t available in this view. Open Hustle Builder in the Claude app or on claude.ai to save your file.");
+  st.textContent=r.ok?(r.how==="browser"?"Saved. Look for index.html in your downloads. If the name has a (1) in it, rename it to index.html, then follow Put it online.":"Saved. Rename it to index.html if it isn’t already, then follow Put it online."):(r.declined?"No problem. Tap the button when you’re ready.":r.copied?"Downloads aren’t available here, so the site code was copied. Paste it into a file named index.html.":"Downloads aren’t available in this view. Open Hustle Builder in the Claude app or on claude.ai to save your file.");
 };
+$("#openSite").onclick=()=>{
+  if(missing().length)return;
+  const html=genSite(resolve(false));
+  const url=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+  const w=window.open(url,"_blank");
+  const st=$("#dlStatus");
+  st.textContent=w?"That’s the real page. Try booking on it. Neighbors only see it after you put the file online and paste the link below.":"The new tab was blocked. Tap Download my website, then open the file named index.html.";
+};
+$("#liveUrl").addEventListener("input",()=>setSiteUrl($("#liveUrl").value));
 $("#copyShare").onclick=async()=>{
   const st=$("#copyStatus"), ta=$("#share");
-  try{await navigator.clipboard.writeText(ta.value);st.textContent="Copied.";}
-  catch(e){ta.focus();ta.select();try{document.execCommand("copy");st.textContent="Copied.";}catch(_){st.textContent="Select the text and copy it.";}}
+  const hole=!normUrl(S.siteUrl)||ta.value.indexOf("[paste your link]")>=0;
+  const ok=hole?"Copied, but it still says [paste your link]. Paste your website link above, then copy it again.":"Copied.";
+  try{await navigator.clipboard.writeText(ta.value);st.textContent=ok;}
+  catch(e){ta.focus();ta.select();try{document.execCommand("copy");st.textContent=ok;}catch(_){st.textContent="Select the text and copy it.";}}
 };
 
 
@@ -2054,8 +2118,10 @@ function jobGcal(j){const c=resolve(true),w=jobWhen(j);return "https://calendar.
 function confirmMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,""),d=parseISO(j.date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});return "Hi "+j.customer+", it’s "+c.first+" from "+bz+". I’m confirming your "+(j.service?j.service.toLowerCase():"job")+" on "+d+(j.time?" at "+fmtTime(j.time):"")+(j.amount?" for "+money(j.amount):", and I’ll confirm the price before I start")+(j.address?" at "+j.address:"")+". A parent has seen your request. Please reply YES to confirm, or text me if you need to change anything. - "+c.first;}
 function referMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", thanks again for choosing "+bz+"! If a neighbor could use some help, I’d love an introduction. You can send them my link: "+linkOrPlaceholder()+". Neighbors who see my work are my favorite customers. - "+c.first;}
 function sendSMS(phone,msg){
+  const digits=digitsOf(phone);
+  if(!digits){copyText(msg,"Message copied. Add a phone number next time to open Messages.");return;}
   copyText(msg,"Message copied. Opening Messages.");
-  try{window.location.href="sms:"+digitsOf(phone)+"?&body="+encodeURIComponent(msg);}catch(e){}
+  try{window.location.href="sms:"+digits+"?&body="+encodeURIComponent(msg);}catch(e){}
 }
 function parseBooking(txt){
   const t=String(txt).replace(/\s+/g," ").trim();
@@ -2113,7 +2179,7 @@ function openSched(id){
    +(svcs.length?'<div class="chips" id="sf-sc">'+svcs.map(s=>'<button type="button" data-v="'+esc(s.n)+'" data-p="'+esc(s.p)+'">'+esc(s.n)+'</button>').join("")+'</div>':"")+'</div>'
    +'<div class="mf"><div class="row2"><label>Price ($)<input type="text" inputmode="decimal" id="sf-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Time (optional)<input type="time" id="sf-t" value="'+esc(j.time)+'"></label></div></div>'
    +'<div class="mf"><label for="sf-d">Date</label><input type="date" id="sf-d" value="'+esc(j.date)+'"></div>'
-   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Stays on this device. Add a street and you can tap it to open the map.</small><div id="sf-map" class="jobmap" hidden></div></div>'
+   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Saved on this device. If you add a street, a map shows up and Google sees that address.</small><div id="sf-map" class="jobmap" hidden></div></div>'
    +'<div class="mf"><label for="sf-p">Customer phone (optional)</label><input type="tel" inputmode="tel" id="sf-p" value="'+esc(j.phone)+'" autocomplete="off"><small class="help2">Only used to text “on my way” and “done.” Ask a parent before you text a customer.</small></div>'
    +'<div class="mf"><label for="sf-n">Notes</label><input type="text" id="sf-n" value="'+esc(j.note)+'" autocomplete="off" placeholder="Gate code, pets, where to put the snow"></div>'
    +(ex?'<div class="mbtns" style="margin:0 0 6px"><button type="button" class="btn ghost" id="sf-confirm">Text to confirm</button><button type="button" class="btn ghost" id="sf-ics">Add to calendar</button><button type="button" class="btn ghost" id="sf-gcal">Google Calendar</button><button type="button" class="btn outline" id="sf-del">Remove from schedule</button></div>':"")
@@ -2320,7 +2386,7 @@ function setMode(m){
   $("#mFlyers").setAttribute("aria-pressed",String(fl));
   $("#mBoss").setAttribute("aria-pressed",String(boss));
   if(boss){lastProfit=0;renderBoss();}
-  if(fl){renderFlyerChips();refreshFlyers();}
+  if(fl){syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
   window.scrollTo(0,0);
 }
 $("#mBuild").onclick=()=>setMode("build");
@@ -2640,7 +2706,7 @@ function renderFlyerChips(){
   $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Black and white. Uses little ink and prints fine on any printer.":"Dark background with your brand color. Uses a lot of ink and leaves a white edge when printed.";
 }
 $("#fUrl").value=S.siteUrl||"";
-$("#fUrl").addEventListener("input",()=>{S.siteUrl=$("#fUrl").value;save();refreshFlyers();updateLaunch();});
+$("#fUrl").addEventListener("input",()=>setSiteUrl($("#fUrl").value));
 $("#fPhone").checked=!!S.flyerPhone;
 $("#fPhone").addEventListener("change",()=>{S.flyerPhone=$("#fPhone").checked;save();refreshFlyers();});
 $("#fPdf").onclick=()=>saveFlyer("pdf");
@@ -2666,8 +2732,12 @@ function renderProof(){
       inp.onchange=async()=>{
         const f=inp.files&&inp.files[0];if(!f)return;
         const err=$("#proofErr");err.textContent="";
-        try{const d=await processPhoto(f);const old=p[key];p[key]=d;if(!saveStrict()){p[key]=old;err.textContent="That photo is too big to save on this device. Remove a photo and try again.";return;}renderProof();queue();}
-        catch(e){err.textContent="Couldn’t read that photo. Try a different one.";}
+        const n=(f.name||"").toLowerCase(), t=(f.type||"").toLowerCase();
+        if(t==="image/heic"||t==="image/heif"||/\.(heic|heif)$/.test(n)){err.textContent="That’s an iPhone HEIC photo, and this app can’t use it. Open the photo, tap Share, then save it as a JPEG. Or a parent can set Settings, Camera, Formats, to Most Compatible. Then add the photo again.";inp.value="";return;}
+        if(f.size>20*1024*1024){err.textContent="That photo is too big. Take a new one, or pick a smaller picture.";inp.value="";return;}
+        if((t&&t.indexOf("image/")!==0)||/\.(pdf|txt|doc|docx|zip|mov|mp4)$/.test(n)){err.textContent="That’s not a photo. Choose a picture from your camera roll.";inp.value="";return;}
+        try{const d=await processPhoto(f);const old=p[key];p[key]=d;if(!saveStrict()){p[key]=old;err.textContent="That photo is too big to save on this device. Remove a photo and try again.";renderProof();return;}renderProof();queue();}
+        catch(e){err.textContent="Couldn’t read that photo. Try a different picture. If it came from an iPhone, save it as a JPEG first.";}
       };
       row.appendChild(lab);
     });
@@ -3329,6 +3399,7 @@ function openInbox(){
 }
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#inboxOpen"))openInbox();});
 renderInboxCard();
+syncLiveUrlFields();
 shell.dataset.type=S.type;
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();go(0);refresh();
 })();
