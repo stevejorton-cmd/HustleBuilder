@@ -1,6 +1,8 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs } from "./calendar.mjs";
-import { checkPage, checkSlug, pageOk } from "./moderate.mjs";
+import { cardPng } from "./card.mjs";
+import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
+import { decoratePage, hidePhone } from "./preview.mjs";
 import { store } from "./store.mjs";
 
 export const PLANS = {
@@ -96,14 +98,22 @@ function withCors(result, reqOrigin) {
   return { ...result, headers };
 }
 
-async function sendMail({ to, subject, text, ics }) {
+function supportReply() {
+  const e = String(process.env.REPLY_TO || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : "";
+}
+
+async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo }) {
   const clean = String(text || "").slice(0, 8000);
   const sub = String(subject || "").replace(/[\r\n]+/g, " ").slice(0, 140);
   const icsText = ics ? String(ics).slice(0, 20000) : "";
+  const markup = htmlBody ? String(htmlBody).slice(0, 20000) : "";
+  const reply = String(replyTo || "").trim();
   if (testMode()) {
     const key = "outbox/" + sha(to) + ".json";
     const prev = (await readJson(key)) || [];
-    const entry = { at: new Date().toISOString(), to, subject: sub, text: clean };
+    const entry = { at: new Date().toISOString(), to, subject: sub, text: clean, replyTo: reply };
+    if (markup) entry.html = markup;
     if (icsText) entry.ics = icsText;
     prev.push(entry);
     await writeJson(key, prev.slice(-20));
@@ -113,6 +123,8 @@ async function sendMail({ to, subject, text, ics }) {
   const from = process.env.BOOKING_FROM;
   if (!key || !from) return { ok: false, error: "mail" };
   const payload = { from, to: [to], subject: sub, text: clean };
+  if (markup) payload.html = markup;
+  if (reply) payload.reply_to = reply;
   if (icsText) payload.attachments = [{ filename: "booking.ics", content: Buffer.from(icsText, "utf8").toString("base64") }];
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -130,6 +142,8 @@ function privacyPage() {
 <p>Hustle Builder hosting is for a parent and their child. The parent’s email is stored so we can verify it and send booking emails. The public page they approve is stored so neighbors can open the link.</p>
 <p>When a neighbor books, we store that job for the parent’s family calendar: the service, the customer name they typed, the address, the date and time, and a short note. We delete it about 30 days after the job, or sooner if the parent deletes the account. The phone number from a booking stays in the email only.</p>
 <p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
+<p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
+<p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
 <p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link.</p>
 <p>This notice is a plain summary. Have a lawyer read it before real families use hosting.</p>
 </main></body></html>`);
@@ -252,6 +266,38 @@ async function serveCalendar(token) {
   return calendarResponse(200, jobsToIcs(jobs));
 }
 
+function clientIp(req) {
+  const h = (req && req.headers) || {};
+  const fwd = h["x-forwarded-for"] || h["X-Forwarded-For"] || "";
+  return String(fwd).split(",")[0].trim().slice(0, 80) || String(h["x-real-ip"] || "local").slice(0, 80);
+}
+async function bumpIp(ip) {
+  const day = new Date().toISOString().slice(0, 10);
+  const key = "iplimit/" + sha(ip + "|" + day);
+  const n = Number((await (await store()).get(key)) || 0) + 1;
+  await (await store()).put(key, String(n));
+  return n;
+}
+const IP_LIMIT = 12;
+const MIN_FORM_MS = 2500;
+
+function contactEmail(value) {
+  const m = String(value || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return m ? m[0].toLowerCase() : "";
+}
+function contactPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) return "";
+  return digits.length === 10 ? "1" + digits : digits;
+}
+function mailEscape(value) {
+  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function pngResponse(buf) {
+  return { status: 200, headers: { "content-type": "image/png", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body: buf };
+}
+
 export async function handleRequest(req) {
   const method = String(req.method || "GET").toUpperCase();
   let path = String(req.path || "/");
@@ -269,6 +315,22 @@ export async function handleRequest(req) {
   const calFeed = route.match(/^cal\/([a-f0-9]{32,128})\.ics$/i);
   if (method === "GET" && calFeed) {
     return withCors(await serveCalendar(calFeed[1]), req.headers && req.headers.origin);
+  }
+
+  const cardHit = route.match(/^card\/([a-z0-9][a-z0-9-]{1,40})\.png$/);
+  if (method === "GET" && cardHit) {
+    const meta = await readJson("pages/" + cardHit[1] + ".json");
+    const card = (meta && meta.card) || { title: cardHit[1], line: "Book a day", accent: "#FF5B14" };
+    return pngResponse(cardPng(card));
+  }
+
+  if (method === "GET" && route === "slug") {
+    const name = String((req.query && req.query.get && req.query.get("name")) || "").trim().toLowerCase();
+    const why = checkSlug(name);
+    if (why) return withCors(json(200, { ok: true, available: false, message: why }), req.headers && req.headers.origin);
+    const meta = await readJson("pages/" + name + ".json");
+    const available = !meta;
+    return withCors(json(200, { ok: true, available, message: available ? "That link is free." : "That link is taken. Try another." }), req.headers && req.headers.origin);
   }
 
   const body = method === "GET" ? {} : parseBody(req.body);
@@ -291,10 +353,14 @@ export async function handleRequest(req) {
     account.verifyExpires = Date.now() + 20 * 60 * 1000;
     account.verifyTries = 0;
     await saveAccount(account);
+    const reply = supportReply();
+    const unread = reply ? "" : "\n\nReplies to this email aren't read.";
     const mailed = await sendMail({
       to: email,
+      replyTo: reply,
       subject: "Your Hustle Builder code",
-      text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name, town, and your phone or email. A booked job’s name, address, and time are saved for the family calendar for about 30 days."
+      text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name and a town. A booked job’s name, address, and time are saved for the family calendar for about 30 days." + unread,
+      html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">Your code is <b>" + code + "</b>. It expires in 20 minutes.</p>" + (reply ? "" : "<p style=\"font:18px/1.45 system-ui,sans-serif\">Replies to this email aren't read.</p>")
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     const out = { ok: true, test: !!mailed.test };
@@ -329,6 +395,7 @@ export async function handleRequest(req) {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
       plan: account.plan || "", paidUntil: account.paidUntil || "", paid: paid(account),
       slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
+      payMode: paywallMode(), indexable: !!account.indexable,
       ...feedLinks(base, account.calToken)
     }), req.headers && req.headers.origin);
   }
@@ -349,6 +416,13 @@ export async function handleRequest(req) {
     const plan = PLANS[body.plan];
     if (!plan) return withCors(json(400, { ok: false, error: "plan" }), req.headers && req.headers.origin);
     const mode = paywallMode();
+    if (paid(account)) {
+      return withCors(json(200, { ok: true, alreadyPaid: true, mode, plan: account.plan || plan.id, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
+    }
+    const pendingAt = Date.parse(account.checkoutPendingAt || "");
+    if (mode === "stripe" && pendingAt && Date.now() - pendingAt < 20 * 60 * 1000) {
+      return withCors(json(200, { ok: true, pending: true, mode: "stripe" }), req.headers && req.headers.origin);
+    }
     if (mode === "test" || mode === "off") {
       account.plan = plan.id;
       account.paidUntil = new Date(Date.now() + (mode === "off" ? 3650 : plan.days) * 864e5).toISOString();
@@ -370,6 +444,8 @@ export async function handleRequest(req) {
       params.set("metadata[accountId]", account.id);
       params.set("metadata[plan]", plan.id);
       params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
+      account.checkoutPendingAt = new Date().toISOString();
+      await saveAccount(account);
       const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
         method: "POST",
         headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
@@ -396,6 +472,7 @@ export async function handleRequest(req) {
         account.plan = plan.id;
         account.paidUntil = new Date(Date.now() + plan.days * 864e5).toISOString();
         account.payMode = "stripe";
+        account.checkoutPendingAt = "";
         await saveAccount(account);
       }
     }
@@ -419,9 +496,22 @@ export async function handleRequest(req) {
     const existing = await readJson("pages/" + slug + ".json");
     if (existing && existing.accountId !== account.id) return withCors(json(409, { ok: false, error: "taken" }), req.headers && req.headers.origin);
     if (existing && existing.status === "down") return withCors(json(403, { ok: false, error: "down" }), req.headers && req.headers.origin);
-    await (await store()).put("pages/" + slug + ".html", htmlIn);
-    await writeJson("pages/" + slug + ".json", { slug, accountId: account.id, status: "live", updatedAt: new Date().toISOString(), bytes: htmlIn.length });
+    const titleMatch = htmlIn.match(/<title>([^<]*)<\/title>/i);
+    const cardTitle = clipField(body.cardTitle || (titleMatch && titleMatch[1]) || slug, 60);
+    const cardLine = clipField(body.cardLine || "Book a day", 80);
+    const accent = /^#[0-9a-fA-F]{6}$/.test(String(body.accent || "")) ? String(body.accent) : "#FF5B14";
+    const indexable = body.indexable === true;
+    const pageUrl = (origin || "") + "/" + slug;
+    const image = (origin || "") + "/api/card/" + slug + ".png";
+    let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
+    if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
+    await (await store()).put("pages/" + slug + ".html", stored);
+    await writeJson("pages/" + slug + ".json", {
+      slug, accountId: account.id, status: "live", updatedAt: new Date().toISOString(), bytes: stored.length,
+      indexable, card: { title: cardTitle, line: cardLine, accent }
+    });
     account.slug = slug;
+    account.indexable = indexable;
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
     return withCors(json(200, { ok: true, slug, url, updated: !!existing }), req.headers && req.headers.origin);
@@ -462,6 +552,12 @@ export async function handleRequest(req) {
     if (!meta || meta.status !== "live") return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     const account = await readJson("accounts/" + meta.accountId + ".json");
     if (!account) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const ip = clientIp(req);
+    const hits = await bumpIp(ip);
+    if (String(body.hp || body.company || "").trim()) return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+    const waited = Number(body.t);
+    if (!Number.isFinite(waited) || waited < MIN_FORM_MS) return withCors(json(400, { ok: false, error: "fast", message: "Wait a few seconds, then send it again." }), req.headers && req.headers.origin);
+    if (hits > IP_LIMIT) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     const day = new Date().toISOString().slice(0, 10);
     if (meta.bookDay !== day) { meta.bookDay = day; meta.bookCount = 0; }
     if ((meta.bookCount || 0) >= 30) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
@@ -476,11 +572,12 @@ export async function handleRequest(req) {
       size: clip(body.size, 20),
       freq: clip(body.freq, 40)
     };
-    if (!fields.name || !fields.address || !fields.contact) return withCors(json(400, { ok: false, error: "fields" }), req.headers && req.headers.origin);
     const start = String(body.start || "").trim();
+    if (!fields.name || !fields.address || !fields.contact || !fields.service || !(fields.when || start)) return withCors(json(400, { ok: false, error: "fields" }), req.headers && req.headers.origin);
     const startOk = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start) && jobInstant(start) != null;
     const blob = Object.values(fields).join(" ") + " " + start;
-    if (checkPage("<!-- hb-public -->" + blob)) return withCors(json(400, { ok: false, error: "moderation" }), req.headers && req.headers.origin);
+    const hitsWords = wordHits(blob);
+    if (hitsWords.block) return withCors(json(400, { ok: false, error: "moderation", message: "That request has a word that is not allowed: \"" + hitsWords.block + "\"." }), req.headers && req.headers.origin);
     const job = startOk ? {
       id: "b" + rand(8),
       source: "book",
@@ -493,8 +590,18 @@ export async function handleRequest(req) {
     } : null;
     const gcal = job ? gcalTemplate(job) : "";
     const ics = job ? jobsToIcs([job]) : "";
+    const reply = contactEmail(fields.contact);
+    const phone = contactPhone(fields.contact);
+    const tel = phone ? "tel:+" + phone : "";
+    const sms = phone ? "sms:+" + phone : "";
+    const unread = reply ? "" : "Replies to this email aren't read; text or call the customer below.";
+    const flagLine = hitsWords.flag ? "Check this one before you reply. The word \"" + hitsWords.flag + "\" was in the request." : "";
     const text = [
-      "New booking request. Nothing is booked until you reply.",
+      unread,
+      phone ? "Call: " + tel + "\nText: " + sms : "",
+      reply ? "Email: " + reply : "",
+      flagLine,
+      "New booking request. Nothing is booked until you reply to the customer.",
       "",
       "Name: " + fields.name,
       "Reach them at: " + fields.contact,
@@ -508,8 +615,23 @@ export async function handleRequest(req) {
       gcal ? "Add this job to Google Calendar:\n" + gcal : "",
       "",
       "This job is also on your family calendar link, if you already added it. We keep the name, address, and time for that calendar for about 30 days. It is not a customer list."
-    ].filter((line, i, arr) => !(line === "" && arr[i - 1] === "")).join("\n");
-    const mailed = await sendMail({ to: account.email, subject: "Booking request: " + (fields.service || "a job"), text, ics });
+    ].filter((line, i, arr) => line !== "" && !(line === "" && arr[i - 1] === "")).join("\n");
+    const link = (href, label) => href ? "<a href=\"" + mailEscape(href) + "\" style=\"font-weight:700\">" + mailEscape(label) + "</a>" : "";
+    const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\">"
+      + (unread ? "<p><b>" + mailEscape(unread) + "</b></p>" : "")
+      + "<p>" + [link(tel, "Call " + fields.name), link(sms, "Text " + fields.name), link(reply ? "mailto:" + reply : "", reply ? "Email " + fields.name : "")].filter(Boolean).join(" &nbsp; ") + "</p>"
+      + (flagLine ? "<p>" + mailEscape(flagLine) + "</p>" : "")
+      + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
+      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(fields.service) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none") + "</p>"
+      + (gcal ? "<p><a href=\"" + mailEscape(gcal) + "\">Add this job to Google Calendar</a></p>" : "")
+      + "<p>This job is also on your family calendar link, if you already added it. We keep the name, address, and time for about 30 days.</p>"
+      + "</div>";
+    const mailed = await sendMail({
+      to: account.email,
+      replyTo: reply || supportReply(),
+      subject: (hitsWords.flag ? "Check this booking: " : "Booking request: ") + (fields.service || "a job"),
+      text, html: htmlMail, ics
+    });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     if (job) {
       await ensureCalToken(account);

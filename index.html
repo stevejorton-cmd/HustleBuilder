@@ -675,10 +675,11 @@ details.help li{margin-bottom:10px}
         <label class="field"><span>Parent’s phone, for texts</span><input type="tel" data-k="phone" autocomplete="off" inputmode="tel" placeholder="402-555-0123"></label>
         <label class="field"><span>Parent’s email (optional)</span><input type="email" data-k="email" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com"></label>
       </div>
+      <label class="check"><input type="checkbox" id="showPhone"><span>Show my parent’s phone on the website (Call and Text). Off means neighbors use the booking form only.</span></label>
       <details class="lg" style="margin:4px 0 16px"><summary>Backup parent or guardian (optional)</summary>
         <label class="field"><span>Their first name</span><input type="text" data-k="parent2" autocomplete="off" placeholder="Pat"></label>
         <div class="two">
-          <label class="field"><span>Phone, shown on your website</span><input type="tel" data-k="phone2" autocomplete="off" inputmode="tel" placeholder="402-555-0199"></label>
+          <label class="field"><span>Their phone</span><input type="tel" data-k="phone2" autocomplete="off" inputmode="tel" placeholder="402-555-0199"></label>
           <label class="field"><span>Email, gets booking alerts too</span><input type="email" data-k="email2" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com"></label>
         </div>
       </details>
@@ -714,19 +715,9 @@ details.help li{margin-bottom:10px}
 
     <section class="step" data-step="7">
       <h2>Go live.</h2>
-      <p class="lead">A parent publishes the page. You get one link, and it stays the same when you update the page.</p>
+      <p class="lead">Publish to hustlebuilder.org. You get one link, and it stays the same when you update the page.</p>
       <div class="missing" id="missing" hidden></div>
-      <button type="button" class="btn block" id="download" disabled>Download my website</button>
-      <button type="button" class="btn ghost block" id="openSite" disabled style="margin-top:10px">Open my website</button>
-      <p class="small2" id="openSiteHelp">Opens the real page in a new tab. It is the same file you download. Try the calendar here. Neighbors only see it after it is online.</p>
-      <p class="status" id="dlStatus" role="status"></p>
-      <p class="small2" id="sizeWarn" hidden></p>
-      <div class="callout" style="margin-top:18px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v0M17 20h4v-3"/></svg>
-        <div><b>Next: print flyers.</b> Every flyer gets a QR code that books you.<br><button type="button" class="link" id="toFlyers">Make my flyers and cards</button></div>
-      </div>
-
-      <h3 class="h3">Publish</h3>
+      <h3 class="h3">Publish to hustlebuilder.org</h3>
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
       <div id="pubBox">
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
@@ -735,10 +726,12 @@ details.help li{margin-bottom:10px}
         <label class="field" for="pubCode"><span>Code from the email</span><input type="text" id="pubCode" inputmode="numeric" autocomplete="one-time-code" spellcheck="false"></label>
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
         <div id="pubReady" hidden>
-          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name, a town, and my phone or email. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
+          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
           <p class="small2"><a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
-          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Test mode does not charge a card.</small></div>
-          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-yard"><small>Use a first name or a business nickname, like sam or sam-yard. Do not use a last name.</small></label>
+          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">A parent pays on the next screen.</small></div>
+          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-yard"><small>Use a first name or a business nickname, like sam or sam-yard.</small><p class="small2" id="slugStatus" role="status"></p></label>
+          <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
+          <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
           <button type="button" class="btn block" id="pubGo" disabled>Publish my website</button>
         </div>
         <p class="merr" id="pubErr" role="alert"></p>
@@ -766,19 +759,13 @@ details.help li{margin-bottom:10px}
         </div>
       </div>
 
-      <details class="help" id="downloadInstead">
-        <summary>Download the file instead</summary>
-        <p>Use this only if Publish is not available. The file still has to be named index.html.</p>
-        <ol class="order">
-          <li>Tap Download my website. If it saved as index (1).html, rename it to <b>index.html</b>.</li>
-          <li>A parent opens <a class="link" href="https://app.netlify.com/drop" target="_blank" rel="noopener">Netlify Drop</a> and signs in first, or the link asks for a password.</li>
-          <li>Drag index.html onto that page. Paste the link below. Open it in a private window and make sure there is no password.</li>
-          <li>Changed the page later? Download again and replace the file on the same site so the link does not change.</li>
-        </ol>
-        <label class="field" for="liveUrl"><span>Your website link</span><input type="text" id="liveUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="something.netlify.app"><small id="liveUrlHelp">Paste it after you upload. Publish fills this in for you.</small></label>
-        <p class="merr" id="liveUrlErr" role="alert"></p>
-        <p class="small2" id="liveOpenWrap" hidden><a class="link" id="liveOpen" href="" target="_blank" rel="noopener">Open my live site</a></p>
-      </details>
+      <div class="callout" style="margin-top:18px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v0M17 20h4v-3"/></svg>
+        <div><b>Next: print flyers.</b> Every flyer gets a QR code that books you.<br><button type="button" class="link" id="toFlyers">Make my flyers and cards</button></div>
+      </div>
+      <label class="field" for="liveUrl"><span>Your website link</span><input type="text" id="liveUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="hustlebuilder.org/sam"><small id="liveUrlHelp">Publish fills this in. Flyers and your announcement use it.</small></label>
+      <p class="merr" id="liveUrlErr" role="alert"></p>
+      <p class="small2" id="liveOpenWrap" hidden><a class="link" id="liveOpen" href="" target="_blank" rel="noopener">Open my live site</a></p>
 
       <h3 class="h3">Your announcement</h3>
       <label class="field"><span>Send this to neighbors, family friends, and parent group chats.</span><textarea id="share" rows="6"></textarea></label>
@@ -803,6 +790,11 @@ details.help li{margin-bottom:10px}
       <label class="check"><input type="checkbox"><span>I know how to use my equipment safely, and I take breaks in heat or cold.</span></label>
       <label class="check"><input type="checkbox"><span>I checked the rules for my age, and I only use equipment a parent says is OK.</span></label>
       <p class="small2" style="margin-top:22px"><button type="button" class="link" data-about>About and legal</button> &nbsp;&nbsp; <button type="button" class="link" data-backup>Back up or load my business</button></p>
+      <p class="small2" id="sizeWarn" hidden></p>
+      <p class="small2" style="margin-top:28px">Backup, if Publish is not available.</p>
+      <p class="small2"><button type="button" class="link" id="download" disabled>Download my site</button> · <button type="button" class="link" id="openSite" disabled>Open the file</button></p>
+      <p class="status" id="dlStatus" role="status"></p>
+      <p class="small2" id="openSiteHelp">This saves the file on this device. Neighbors use the hustlebuilder.org link.</p>
     </section>
   </main>
 
@@ -832,7 +824,7 @@ details.help li{margin-bottom:10px}
   <div class="mf"><label>Pick a style</label><div class="chips" id="fStyle"></div><small class="help2" id="fStyleHelp"></small></div>
   <div class="mf"><label>Where should the QR code send people?</label><div class="chips" id="fQr"></div></div>
   <div class="mf" id="fUrlWrap"><label for="fUrl">Your website link</label>
-    <input type="text" id="fUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="yoursite.netlify.app" style="width:100%;min-height:54px;padding:12px 15px;border:2px solid var(--line);border-radius:8px;background:var(--surface);font-size:17.5px">
+    <input type="text" id="fUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="hustlebuilder.org/sam" style="width:100%;min-height:54px;padding:12px 15px;border:2px solid var(--line);border-radius:8px;background:var(--surface);font-size:17.5px">
     <small class="help2">Paste the link you got when you put your site online. No site yet? Pick “Text my parent” above.</small></div>
   <label class="check"><input type="checkbox" id="fPhone"><span>Show my parent’s phone number on the flyer</span></label>
 
@@ -1059,6 +1051,7 @@ function sceneArt(kind,id){
 /* ============ Generated site runtime ============ */
 function siteMain(){
   var C=window.__C;
+  var openedAt=Date.now();
   var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
   var DOW=["Su","Mo","Tu","We","Th","Fr","Sa"];
   var FULL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -1211,13 +1204,15 @@ function siteMain(){
     var m=build(true); if(!m)return;
     var ct=$("ct")?$("ct").value.trim():"";
     var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
-    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:$("sz").value,freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes())};
+    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:$("sz").value,freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt};
     shost.disabled=true; shost.textContent="Sending..."; showCopy(false);
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
       var box=$("sentBox"); box.hidden=false;
       if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got an email and will confirm with you. Nothing is booked until they reply."; showCopy(true); $("outWrap").hidden=true;}
-      else{box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;}
+      else if(r&&r.error==="fast"){box.textContent=r.message||"Wait a few seconds, then send it again.";}
+      else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
+      else{box.textContent="I couldn’t send that. Please try again in a minute.";}
     }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;});
   };}
   render(); showPicked();
@@ -1295,6 +1290,7 @@ input,select,textarea{border-radius:12px;background:#fff}
 .ba{border-radius:16px}.ba .kn{clip-path:none;border-radius:999px}
 .ba .tg{border-radius:999px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:700;font-size:15px}
 .err{color:#B3261E}
+.hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
 .flake{fill:#BFD6EA}
 .how b{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:20px}
 .promise{border-radius:14px;border-left:1px solid var(--line);border-top:5px solid var(--accent)}
@@ -1330,14 +1326,15 @@ function genSite(c){
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
+  const publicPhone=!!(c.showPhone&&c.phoneDigits);
   const contactHTML=`<section id="contact">
   <h2>Questions?</h2>
-  <p class="small">${esc(c.parentName||"My parent")} helps run this business. Text, call, or write any time.</p>
-  <div class="btns">${c.phoneDigits?`<a class="btn alt" href="tel:${c.phoneDigits}">Call</a><a class="btn alt" href="sms:${c.phoneDigits}">Text</a>`:""}${c.email?`<a class="btn alt" href="mailto:${esc(c.email)}">Email</a>`:""}${c.phone2Digits?`<a class="btn alt" href="sms:${c.phone2Digits}">Text ${esc(c.parent2||"backup")}</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
+  <p class="small">${esc(c.parentName||"My parent")} helps run this business. ${publicPhone?"Text, call, or write any time.":"Send a booking, or write any time."}</p>
+  <div class="btns">${publicPhone?`<a class="btn alt" href="tel:${c.phoneDigits}">Call</a><a class="btn alt" href="sms:${c.phoneDigits}">Text</a>`:""}${c.email?`<a class="btn alt" href="mailto:${esc(c.email)}">Email</a>`:""}${publicPhone&&c.phone2Digits?`<a class="btn alt" href="sms:${c.phone2Digits}">Text ${esc(c.parent2||"backup")}</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
 </section>`;
   const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Season plan</strong><p>I clear your driveway every time it snows this winter. Pick “Every snowfall this winter” below.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
   const pay=c.venmo?`<a class="venmo" href="https://venmo.com/u/${encodeURIComponent(c.venmo)}" target="_blank" rel="noopener">Pay ${esc(c.first)} on Venmo</a><p class="small">Venmo username: @${esc(c.venmo)}</p>`:`<p>Ask ${esc(c.first)} how to pay.</p>`;
-  const buttons=(c.phoneDigits?`<button type="button" class="btn" id="sendText">Text my request</button>`:"")+(c.email?`<button type="button" class="btn ${c.phoneDigits?"alt":""}" id="sendMail">Email my request</button>`:"");
+  const buttons=(publicPhone?`<button type="button" class="btn" id="sendText">Text my request</button>`:"")+(c.email?`<button type="button" class="btn ${publicPhone?"alt":""}" id="sendMail">Email my request</button>`:"");
   const type=c.type==="snow"?"Snow removal":c.type==="both"?"Lawn care and snow removal":"Lawn care";
   const target=c.type==="snow"?"driveway":c.type==="both"?"property":"yard";
   const rightLine=c.type==="snow"?"Cleared edge to edge. No shortcuts.":c.type==="both"?"Straight lines and clean edges, any season.":"Straight lines. Clean edges. No shortcuts.";
@@ -1348,13 +1345,23 @@ function genSite(c){
   const star=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>`;
   const proofHTML=(c.proof&&c.proof.length)?`<section id="work"><h2>The work</h2><div class="work">${c.proof.map(p=>`<figure class="fig"><div class="ba"><img src="${esc(p.a)}" alt="After"><div class="bef"><img src="${esc(p.b)}" alt="Before"></div><span class="tg l">Before</span><span class="tg r">After</span><i class="ln"></i><i class="kn">${arrows}</i><input type="range" min="0" max="100" value="50" aria-label="Slide to compare before and after"></div>${p.cap?`<figcaption class="capt">${esc(p.cap)}</figcaption>`:""}</figure>`).join("")}</div></section>`:"";
   const revHTML=(c.reviews&&c.reviews.length)?`<section id="reviews"><h2>What neighbors say</h2><div class="revs">${c.reviews.map(r=>`<div class="rev"><div class="stars" role="img" aria-label="${r.r||5} out of 5 stars">${star.repeat(r.r||5)}</div><q>${esc(r.q)}</q><div class="rwho">${esc(r.n)}</div></div>`).join("")}</div></section>`:"";
-  const revForm=hasContact?`<section id="review"><h2>Been a customer?</h2><p>Tell me how I did. Your review helps the next neighbor decide.</p><div class="panel"><label>Your first name<input id="rvName" autocomplete="given-name"></label><label>How did I do?<select id="rvStars"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option></select></label><label>Your review<textarea id="rvText"></textarea></label><div class="btns">${c.phoneDigits?'<button type="button" class="btn" id="sendRvText">Text my review</button>':""}${c.email?'<button type="button" class="btn '+(c.phoneDigits?"alt":"")+'" id="sendRvMail">Email my review</button>':""}</div><p class="err" id="rvErr" role="alert"></p><div id="rvOutWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}${c.phone?" at "+esc(c.phone):""}<textarea id="rvOut" readonly></textarea></label></div></div></section>`:"";
+  const revForm=(publicPhone||c.email)?`<section id="review"><h2>Been a customer?</h2><p>Tell me how I did. Your review helps the next neighbor decide.</p><div class="panel"><label>Your first name<input id="rvName" autocomplete="given-name"></label><label>How did I do?<select id="rvStars"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option></select></label><label>Your review<textarea id="rvText"></textarea></label><div class="btns">${publicPhone?'<button type="button" class="btn" id="sendRvText">Text my review</button>':""}${c.email?'<button type="button" class="btn '+(publicPhone?"alt":"")+'" id="sendRvMail">Email my review</button>':""}</div><p class="err" id="rvErr" role="alert"></p><div id="rvOutWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}<textarea id="rvOut" readonly></textarea></label></div></div></section>`:"";
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(c.biz)}${c.town?" - "+esc(c.town):""}</title>
 <!-- hb-public -->
 <!-- This website was made with Hustle Builder. It embeds the Barlow fonts under the SIL Open Font License 1.1; the notice and license text are in the style block below. -->
-<meta name="description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. Book a day online.">
+<meta name="description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. ${esc(c.first||"I")} can help. Book a day online.">
+<meta name="robots" content="${(c.publish&&c.publish.indexable)?"index,follow":"noindex,nofollow"}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${esc(c.biz)}">
+<meta property="og:description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. Book a day online.">
+${c.publish&&c.publish.url?`<meta property="og:url" content="${esc(c.publish.url)}">`:""}
+${c.publish&&c.publish.image?`<meta property="og:image" content="${esc(c.publish.image)}">`:""}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(c.biz)}">
+<meta name="twitter:description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. Book a day online.">
+${c.publish&&c.publish.image?`<meta name="twitter:image" content="${esc(c.publish.image)}">`:""}
 <meta name="theme-color" content="${day?"#FBF8F2":"#0E1012"}">
 <style>
 ${FONT_CSS}
@@ -1525,13 +1532,14 @@ ${promiseHTML}
       ${(inboxOn||hostOn)?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="tel"></label>`:""}
       <label>Address for the job<input id="addr" autocomplete="street-address"></label>
       <label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>
+      <div class="hp" aria-hidden="true"><label>Company<input id="hp" name="company" tabindex="-1" autocomplete="off"></label></div>
       ${inboxOn?`<label>A photo of the ${target}, if you want (optional)<input type="file" id="ph" accept="image/*"></label><p class="small" id="phNote" style="margin:-6px 0 12px">Photos of your yard or driveway only, please. No people. It goes to my parent only.</p><img id="phPrev" alt="Your photo" hidden style="max-width:100%;max-height:180px;border-radius:8px;margin:0 0 12px">`:""}
       <div class="q"><b>3</b><span>Send it</span></div>
       ${(hasContact||inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:(inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`:"")}${(hostOn||inboxOn)?buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">Booking buttons show up here once a parent adds a phone number or email.</p>`}
       <p class="err" id="err" role="alert"></p>
       <div id="sentBox" class="sent" hidden role="status"></div>
       <button type="button" id="copyBook" hidden>Copy job</button>
-      <div id="outWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}${c.phone?" at "+esc(c.phone):""}<textarea id="out" readonly></textarea></label></div>
+      <div id="outWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}<textarea id="out" readonly></textarea></label></div>
     </form>
   </div>
   <p class="small">Your request goes to my parent’s ${c.phoneDigits&&c.email?"phone or email":c.email?"email":"phone"} first. We can go back and forth by text about the details.</p>
@@ -1571,7 +1579,7 @@ const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
   return {type:"lawn",first:"",town:"",bizName:"",tagline:"",services:PRESETS.lawn.map(s=>({n:s[0],p:s[1]})),svcEdited:false,
-    palette:"ember",look:"night",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
+    palette:"ember",look:"night",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
 let savedRaw=null;
@@ -1598,7 +1606,7 @@ function resolve(preview, opt){
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=S.type==="snow"?"driveway":S.type==="both"?"property":"yard";
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
-  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:String(S.phone2||"").replace(/\D/g,""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits,email,venmo,about,
+  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()),publish:opt.publish||null};
 }
@@ -1650,6 +1658,8 @@ document.querySelectorAll("[data-k]").forEach(el=>{
   el.value=S[el.dataset.k]||"";
   el.addEventListener("input",()=>{S[el.dataset.k]=el.value;syncPlaceholders();queue();});
 });
+const showPhoneEl=$("#showPhone");
+if(showPhoneEl){showPhoneEl.checked=!!S.showPhone;showPhoneEl.addEventListener("change",()=>{S.showPhone=showPhoneEl.checked;queue();});}
 function syncPlaceholders(){
   $("#bizName").placeholder=autoBiz(S.type,S.first.trim()||"Alex");
   $("#tagline").placeholder=TAGS[S.type];
@@ -1821,7 +1831,6 @@ function missing(){
   const m=[];
   if(!S.first.trim())m.push({t:"your first name",step:1});
   if(!S.town.trim())m.push({t:"your town or neighborhood",step:1});
-  if(!S.phone.trim()&&!S.email.trim())m.push({t:"a parent’s phone or email",step:4});
   if(!S.services.some(s=>s.n.trim()))m.push({t:"at least one service",step:2});
   if(!S.sched.some(x=>x.on))m.push({t:"the days you work",step:3});
   return m;
@@ -1837,7 +1846,7 @@ function syncLiveUrlFields(){
   const raw=S.siteUrl||"", u=normUrl(raw);
   const live=$("#liveUrl"); if(live&&document.activeElement!==live)live.value=raw;
   const f=$("#fUrl"); if(f&&document.activeElement!==f)f.value=raw;
-  const err=$("#liveUrlErr"); if(err){err.textContent=raw.trim()&&!u?"That link doesn’t look right. It should look like yoursite.netlify.app.":"";err.hidden=!err.textContent;}
+  const err=$("#liveUrlErr"); if(err){err.textContent=raw.trim()&&!u?"That link doesn’t look right. It should look like hustlebuilder.org/sam.":"";err.hidden=!err.textContent;}
   const wrap=$("#liveOpenWrap"), a=$("#liveOpen");
   if(wrap&&a){if(u){wrap.hidden=false;a.href=u;}else wrap.hidden=true;}
 }
@@ -1882,7 +1891,7 @@ function updateLaunch(){
 $("#download").onclick=async()=>{
   const st=$("#dlStatus");st.textContent="";
   const r=await saveFile("index.html",genSite(resolve(false)),"text/html");
-  st.textContent=r.ok?(r.how==="browser"?"Saved. Look for index.html in your downloads. If the name has a (1) in it, rename it to index.html, then follow Put it online.":"Saved. Rename it to index.html if it isn’t already, then follow Put it online."):(r.declined?"No problem. Tap the button when you’re ready.":r.copied?"Downloads aren’t available here, so the site code was copied. Paste it into a file named index.html.":"Downloads aren’t available in this view. Open Hustle Builder in the Claude app or on claude.ai to save your file.");
+  st.textContent=r.ok?(r.how==="browser"?"Saved. Look for index.html in your downloads. Neighbors should use your hustlebuilder.org link.":"Saved. Neighbors should use your hustlebuilder.org link."):(r.declined?"No problem. Tap the button when you’re ready.":r.copied?"Downloads aren’t available here, so the site code was copied. Paste it into a file named index.html.":"Downloads aren’t available in this view. Open Hustle Builder in a browser to save your file.");
 };
 $("#openSite").onclick=()=>{
   if(missing().length)return;
@@ -2725,7 +2734,7 @@ function flyerCfg(){
     else why="Add a parent’s phone number in Build, step 5, to use the text option.";
   }else{
     if(url){qrText=url;urlText=url.replace(/^https?:\/\//i,"").replace(/\/$/,"");ok=true;}
-    else why=S.siteUrl.trim()?"That link doesn’t look right. It should look like yoursite.netlify.app.":"Paste your website link to make the QR code.";
+    else why=S.siteUrl.trim()?"That link doesn’t look right. It should look like hustlebuilder.org/sam.":"Paste your website link to make the QR code.";
   }
   return {fmt:S.flyerFmt,style:S.flyerStyle,qrMode:S.flyerQr,biz:c.biz,tagline:c.tagline,town:S.town.trim(),first:c.first,services:c.services.slice(),accent:(RIGS[S.palette]||RIGS.ember).c,qrText,urlText,ok,why,showPhone:!!(S.flyerPhone&&S.phone.trim()),phone:S.phone.trim(),parentName:c.parentName};
 }
@@ -3262,7 +3271,7 @@ function renderPanel(){
     {const svcs=resolve(true).services||[];const box=document.createElement("div");box.appendChild(note("Tap services to bundle them into one package price. It shows on your poster with your rates."));if(!svcs.length){box.appendChild(note("Add jobs in Build, step 3, and they'll show up here to bundle."));}else{const cw=document.createElement("div");cw.className="chips";svcs.forEach(function(s){const b=document.createElement("button");b.type="button";b.textContent=s.n+" \u2014 "+(fmtPrice(s.p)||"$0");b.setAttribute("aria-pressed",String((S.studio.pkg||[]).includes(s.n)));b.onclick=function(){const pk=(S.studio.pkg||[]).slice();const ix=pk.indexOf(s.n);if(ix>=0)pk.splice(ix,1);else pk.push(s.n);stSet({pkg:pk});};cw.appendChild(b);});box.appendChild(cw);const pk=pkgInfo(svcs,S.studio.pkg||[]);box.appendChild(note(pk?("Package: "+pk.label+" = "+money(pk.total)):"No package yet \u2014 tap services above to build one."));}mf("Package price",box);}
     if(pHasPhoto()){mf("Use my own photo",chips([["off","No photo"],["on","Use my photo"]],st.photo?"on":"off",v=>stSet({photo:v==="on"})));el.lastChild.appendChild(note("Shows up in Skyline and Split. Pick a photo of a lawn or driveway, never a person."));}
     else mf("Use my own photo",note("Add an After photo in Build, step 7, and you can put it on a Skyline or Split poster."));
-    const u=document.createElement("input");u.type="text";u.value=S.siteUrl||"";u.placeholder="yoursite.netlify.app";u.autocomplete="off";u.autocapitalize="none";u.spellcheck=false;u.setAttribute("aria-label","Your website link");u.oninput=()=>{S.siteUrl=u.value;save();drawStudio();updateLaunch();};
+    const u=document.createElement("input");u.type="text";u.value=S.siteUrl||"";u.placeholder="hustlebuilder.org/sam";u.autocomplete="off";u.autocapitalize="none";u.spellcheck=false;u.setAttribute("aria-label","Your website link");u.oninput=()=>{S.siteUrl=u.value;save();drawStudio();updateLaunch();};
     const d=mf("Your website link (for the QR code)",u);d.appendChild(note("Paste the link you got when you put your site online."));
     const row=document.createElement("div");row.className="mbtns";row.style.marginTop="8px";const b1=document.createElement("button");b1.type="button";b1.className="btn ghost";b1.textContent="Surprise me";b1.onclick=stSurprise;const b2=document.createElement("button");b2.type="button";b2.className="btn outline";b2.textContent="Start over";b2.onclick=()=>stSet(studioDefaults());row.appendChild(b1);row.appendChild(b2);el.appendChild(row);
   }
@@ -3462,10 +3471,44 @@ async function pubApi(path, opt){
   return data;
 }
 function pubErr(msg){const e=$("#pubErr"); if(e)e.textContent=msg||""; }
-function suggestSlug(){
-  const el=$("#pubSlug"); if(!el||el.value.trim())return;
+function niceDate(iso){
+  const t=Date.parse(iso||"");
+  if(!t)return "";
+  return new Date(t).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+}
+function planHelp(me){
+  if(!me)return "A parent pays on the next screen.";
+  const mode=me.payMode||(me.testMode?"test":"stripe");
+  if(me.paid)return "Paid through "+(niceDate(me.paidUntil)||"this plan")+".";
+  if(mode==="test"||mode==="off")return "Test mode. No card is charged.";
+  return "A parent pays on the next screen.";
+}
+function pendingPublish(){try{return JSON.parse(localStorage.getItem("hb-publish-pending")||"null");}catch(e){return null;}}
+function savePending(slug){localStorage.setItem("hb-publish-pending",JSON.stringify({slug,at:Date.now()}));}
+function clearPending(){localStorage.removeItem("hb-publish-pending");}
+let slugTimer=0;
+async function slugStatus(name){
+  const el=$("#slugStatus"); if(!el)return;
+  const v=String(name||"").trim().toLowerCase();
+  if(!v){el.textContent="";return;}
+  el.textContent="Checking…";
+  try{
+    const data=await pubApi("/api/slug?name="+encodeURIComponent(v),{method:"GET"});
+    if(($("#pubSlug").value||"").trim().toLowerCase()!==v)return;
+    el.textContent=data.message||(data.available?"That link is free.":"That link is taken. Try another.");
+  }catch(e){el.textContent="";}
+}
+async function suggestSlug(){
+  const el=$("#pubSlug"); if(!el||el.value.trim()||el.readOnly)return;
   const first=(S.first||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-  if(first.length>=3)el.value=first;
+  const ideas=[first,first+"-yard",first+"-lawn",first+"-mow",first+"-snow"].filter(s=>s.length>=3&&s.length<=24);
+  for(const s of ideas){
+    try{
+      const data=await pubApi("/api/slug?name="+encodeURIComponent(s),{method:"GET"});
+      if(data.available){el.value=s;slugStatus(s);return;}
+    }catch(e){}
+  }
+  if(first.length>=3){el.value=first;slugStatus(first);}
 }
 function showPublished(url){
   const wrap=$("#pubUrlWrap"), a=$("#pubUrl");
@@ -3488,7 +3531,21 @@ function pubPlans(){
 function chosenPlan(){const b=$("#pubPlans button[aria-pressed='true']"); return b?b.dataset.plan:"season";}
 function publishedHtml(slug){
   const origin=publishOrigin();
-  return genSite(resolve(false, {publish:{slug, book:origin+"/api/book"}}));
+  const indexable=!!($("#pubIndex")&&$("#pubIndex").checked);
+  return genSite(resolve(false, {publish:{slug, book:origin+"/api/book", indexable, url:origin+"/"+slug, image:origin+"/api/card/"+slug+".png"}}));
+}
+function publishExtras(slug){
+  const origin=publishOrigin();
+  return {
+    slug,
+    html:publishedHtml(slug),
+    indexable:!!($("#pubIndex")&&$("#pubIndex").checked),
+    showPhone:!!S.showPhone,
+    phone:S.phone||"",
+    cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Alex"),
+    cardLine:(S.type==="snow"?"Snow removal":S.type==="both"?"Lawn care and snow removal":"Lawn care")+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
+    accent:(RIGS[S.palette]||RIGS.ember).c
+  };
 }
 async function initPublish(){
   pubPlans();
@@ -3504,7 +3561,8 @@ async function initPublish(){
     if(me.consent)$("#pubReady").hidden=false;
     if(me.slug){if($("#pubSlug")){$("#pubSlug").value=me.slug; $("#pubSlug").readOnly=true;} showPublished(me.url|| (origin+"/"+me.slug));}
     const help=$("#pubPlanHelp");
-    if(help)help.textContent=me.testMode?"Test mode. No card is charged. Pick a plan, then publish.":(me.paid?"Plan paid through "+(me.paidUntil||"")+".":"Pick a plan. A parent pays on the next screen.");
+    if(help)help.textContent=planHelp(me);
+    if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;
     showCalendar(me); syncCalUpcoming();
   }catch(e){}
 }
@@ -3526,19 +3584,40 @@ $("#pubVerify").onclick=async()=>{
     suggestSlug();
     if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
     $("#pubOk").textContent="Email verified. A parent checks the box, picks a plan, and publishes.";
-    const help=$("#pubPlanHelp"); if(help)help.textContent="Test mode does not charge a card. A live setup opens a payment page.";
+    const help=$("#pubPlanHelp");
+    try{const me=await pubApi("/api/me",{method:"GET"}); if(help&&me.ok)help.textContent=planHelp(me); if(me.ok&&$("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}catch(e){}
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
   }catch(e){pubErr("Could not verify. Try again.");}
 };
+async function pollPaid(ms){
+  const start=Date.now();
+  while(Date.now()-start<ms){
+    try{const me=await pubApi("/api/me",{method:"GET"}); if(me&&me.paid)return me;}catch(e){}
+    await new Promise(r=>setTimeout(r,2000));
+  }
+  return null;
+}
 async function pubCheckout(){
+  const nowMe=await pubApi("/api/me",{method:"GET"});
+  if(nowMe&&nowMe.paid)return true;
+  const pending=pendingPublish();
+  if(pending&&Date.now()-pending.at<20*60*1000){
+    $("#pubOk").textContent="Payment is still processing. You will not be charged twice.";
+    const waited=await pollPaid(20000);
+    if(waited)return true;
+    pubErr("Still waiting on the payment. Try again in a minute. You will not be charged twice.");
+    return false;
+  }
   const data=await pubApi("/api/checkout", {body:{plan:chosenPlan()}});
-  if(data.mode==="stripe"&&data.url){location.href=data.url; return false;}
+  if(data.alreadyPaid)return true;
+  if(data.pending){pubErr("A payment is already in progress. You will not be charged twice."); return false;}
+  if(data.mode==="stripe"&&data.url){savePending(($("#pubSlug").value||"").trim().toLowerCase()); location.href=data.url; return false;}
   if(!data.ok){pubErr(data.error==="stripe-key"?"Payment is not set up yet.":"Pick a plan and try again."); return false;}
   return true;
 }
 async function pubPush(){
   pubErr("");
-  if(missing().length){pubErr("Fill in the missing steps first."); return;}
+  if(missing().length){updateLaunch(); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
   const session=pubSession();
   if(!session||!session.token){pubErr("Verify the parent’s email first."); return;}
   if(!session.slug && !$("#pubConsent").checked){
@@ -3553,10 +3632,9 @@ async function pubPush(){
     }
     const me=await pubApi("/api/me", {method:"GET"});
     if(!me.paid){const paid=await pubCheckout(); if(!paid)return;}
-    const html=publishedHtml(slug);
-    const data=await pubApi("/api/publish", {body:{slug, html}});
+    const data=await pubApi("/api/publish", {body:publishExtras(slug)});
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
-    session.slug=data.slug; pubSaveSession(session);
+    session.slug=data.slug; pubSaveSession(session); clearPending();
     $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
     showPublished(data.url);
     $("#pubOk").textContent=data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
@@ -3596,10 +3674,37 @@ if(calNewBtn)calNewBtn.onclick=async()=>{
 };
 const calSyncEl=$("#calSync");
 if(calSyncEl)calSyncEl.onchange=()=>{localStorage.setItem("hb-cal-sync",calSyncEl.checked?"1":"0");if(calSyncEl.checked)syncCalUpcoming();};
+const slugInput=$("#pubSlug");
+if(slugInput)slugInput.addEventListener("input",()=>{clearTimeout(slugTimer);const v=slugInput.value;slugTimer=setTimeout(()=>slugStatus(v),300);});
+async function resumeHosting(kind){
+  try{history.replaceState({},"",location.pathname);}catch(e){}
+  go(7);
+  const box=$("#pubOk");
+  if(kind==="cancel"){
+    if(box)box.textContent="Payment was not finished. If the card was charged, wait here. You will not be charged twice.";
+  }else if(box)box.textContent="Payment received, publishing…";
+  const me=await pollPaid(kind==="cancel"?20000:45000);
+  if(!me){
+    if(box)box.textContent="Payment is still processing. Tap Try again. You will not be charged twice.";
+    let b=$("#pubRetry");
+    if(!b&&box){b=document.createElement("button");b.type="button";b.className="btn";b.id="pubRetry";b.textContent="Try again";box.after(b);b.onclick=()=>resumeHosting("paid");}
+    if(b)b.hidden=false;
+    return;
+  }
+  if($("#pubPlanHelp"))$("#pubPlanHelp").textContent=planHelp(me);
+  const pending=pendingPublish();
+  const slug=(pending&&pending.slug)||me.slug||($("#pubSlug")&&$("#pubSlug").value||"").trim().toLowerCase();
+  if($("#pubSlug")&&slug){$("#pubSlug").value=slug;}
+  if($("#pubConsent")&&!$("#pubConsent").checked)$("#pubConsent").checked=true;
+  await pubPush();
+}
 initPublish();
+const hostQ=new URLSearchParams(location.search).get("hosting");
+if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
+else go(0);
 syncLiveUrlFields();
 shell.dataset.type=S.type;
-renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();go(0);refresh();
+renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();refresh();
 })();
 </script>
 </body>
