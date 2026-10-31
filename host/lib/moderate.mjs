@@ -16,7 +16,9 @@ const PHRASES = [
   "weed eating", "weed eater", "weed eaters", "weed whacking", "weed whacker", "weed wacker",
   "weed whack", "weeding", "pulling weeds", "pull weeds", "kill weeds", "kill the weeds",
   "killing weeds", "kill dandelions", "kill the dandelions", "killing dandelions",
-  "dandelion", "dandelions", "pet care", "dog walking", "dog walker", "pooper scooper"
+  "dandelion", "dandelions", "pet care", "dog walking", "dog walker", "pooper scooper",
+  "poop scoop", "poop scooping", "dog poo", "dog poop", "poo", "poop", "litter box",
+  "kitty litter", "kitty", "litter", "pet sitting", "cat sitting"
 ];
 
 const SURNAMES = new Set(`
