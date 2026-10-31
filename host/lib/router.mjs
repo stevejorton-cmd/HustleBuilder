@@ -190,6 +190,14 @@ async function publicOrigin(reqOrigin) {
   return String(process.env.PUBLIC_ORIGIN || reqOrigin || "").replace(/\/$/, "");
 }
 
+export function petOgImage(origin) {
+  const base = String(origin || "").replace(/\/$/, "");
+  let host = "";
+  try { host = new URL(base).hostname; } catch { host = ""; }
+  if (!base || /(^|\.)hustlebuilder\.org$/i.test(host)) return "https://hustlebuilder.org/assets/pets/pet-og.jpg";
+  return base + "/assets/pets/pet-og.jpg";
+}
+
 function jobsKey(accountId) { return "caljobs/" + accountId + ".json"; }
 
 async function loadJobs(accountId) {
@@ -605,7 +613,7 @@ export async function handleRequest(req) {
     const pets = Array.isArray(body.pets) ? [...new Set(body.pets.map((v) => String(v)))].filter((v) => petIds.has(v)).slice(0, 5) : [];
     const indexable = body.indexable === true;
     const pageUrl = (origin || "") + "/" + slug;
-    const image = (origin || "") + "/api/card/" + slug + ".png";
+    const image = pets.length ? petOgImage(origin) : (origin || "") + "/api/card/" + slug + ".png";
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
     await (await store()).put("pages/" + slug + ".html", stored);

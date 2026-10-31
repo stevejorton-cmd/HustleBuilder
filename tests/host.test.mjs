@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
-import { handleRequest, stripeSignatureOk } from "../host/lib/router.mjs";
+import { handleRequest, petOgImage, stripeSignatureOk } from "../host/lib/router.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
@@ -590,9 +590,20 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(note.body.messages[0].text.includes("lockbox"), false);
   assert.equal(note.body.messages[0].text.includes(email), false);
   const plain = cardPng({ title: "Sam Pets", line: "Pet care", accent: "#0F6E6A" });
-  const pictured = cardPng({ title: "Sam Pets", line: "Pet care", accent: "#0F6E6A", pets: ["dog", "cat", "fish", "bird"] });
-  assert.equal(pictured[0], 137);
-  assert.notEqual(Buffer.compare(plain, pictured), 0);
+  assert.equal(plain[0], 137);
+  assert.equal(petOgImage("https://hustlebuilder.org"), "https://hustlebuilder.org/assets/pets/pet-og.jpg");
+  assert.equal(petOgImage("https://www.hustlebuilder.org"), "https://hustlebuilder.org/assets/pets/pet-og.jpg");
+  assert.equal(petOgImage("http://sites.test"), "http://sites.test/assets/pets/pet-og.jpg");
+  const preview = await json(await call("POST", "/api/publish", {
+    token,
+    body: { slug: "sam-pets", html: page("Sam Pets"), pets: ["dog", "cat", "bird"] }
+  }));
+  assert.equal(preview.body.ok, true);
+  const shared = await call("GET", "/api/site/sam-pets");
+  assert.match(shared.body, /property="og:image" content="http:\/\/sites\.test\/assets\/pets\/pet-og\.jpg"/);
+  assert.match(src, /assets\/pets\/pet-hero\.webp/);
+  assert.match(src, /pet-dog\.webp/);
+  assert.equal(src.includes("function petAnimal"), false);
 });
 
 
