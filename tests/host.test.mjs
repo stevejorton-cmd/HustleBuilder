@@ -854,8 +854,29 @@ test("every job type has at least 12 name ideas and funny names", async () => {
       const page1 = ideas.slice(6, 12);
       if (page1.length < 6 || page0.join("|") === page1.join("|")) throw new Error(type + " shuffle page is short");
       const funny = FUNNY[type];
-      const count = funny ? Object.values(funny).reduce((n, list) => n + list.length, 0) : 0;
-      if (count < 12) throw new Error(type + " has " + count + " funny names");
+      if (!funny || !funny["Keep it simple"]) throw new Error(type + " is missing Keep it simple");
+      const jokes = Object.values(funny).reduce((all, list) => all.concat(list), []);
+      if (jokes.length < 12) throw new Error(type + " has " + jokes.length + " funny names");
+      const norm = (item) => item.toLowerCase().replace(/[{]F[}]/g, "john").replace(/[{]T[}]/g, "lincoln").replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "");
+      const near = (a, b) => {
+        if (!a || !b || a === b) return a === b && !!a;
+        const short = a.length < b.length ? a : b;
+        const long = a.length < b.length ? b : a;
+        if (short.length >= 8 && long.includes(short)) return true;
+        const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+        for (let j = 0; j <= b.length; j++) rows[0][j] = j;
+        for (let i = 1; i <= a.length; i++) {
+          for (let j = 1; j <= b.length; j++) {
+            rows[i][j] = a[i - 1] === b[j - 1] ? rows[i - 1][j - 1] : 1 + Math.min(rows[i - 1][j], rows[i][j - 1], rows[i - 1][j - 1]);
+          }
+        }
+        return rows[a.length][b.length] / Math.max(a.length, b.length) <= 0.28;
+      };
+      for (const joke of jokes) {
+        for (const idea of ideas) {
+          if (near(norm(joke), norm(idea))) throw new Error(type + " overlaps: " + joke + " / " + idea);
+        }
+      }
     }
   `, {}, { timeout: 1000 });
 });
