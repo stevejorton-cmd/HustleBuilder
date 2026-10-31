@@ -3272,20 +3272,20 @@ const FUNNY={
   "Puns":["The Poop Troop","Sit, Stay, Play","Leash of My Worries","Who’s a Good Business","Bark Rangers","Purrfect Timing","Dog Gone It","Tail Waggin’"],
   "Silly crew":["The Treat Committee","Goldfish Goals","Bird Is the Word","Walk This Way","Fetch Happens"]},
  odd:{"Keep it simple":["Chore and Order","Odd One Out","The Yes I Can","Chore Score"],
-  "Puns":["Done and Dusted","Many Chores, Light Work","The Little Job That Could","Helping Handful","Saturday Sidekick","One More Thing","Sweep Dreams","Task Force Fun"],
+  "Puns":["Done and Dusted","Many Chores, Light Work","The Little Job That Could","Dust Bust","Saturday Sidekick","One More Thing","Sweep Dreams","Task Force Fun"],
   "Silly crew":["The Odd Squad","Errand League","The Choreographers","Job Well Fun","Extra Extra"]},
  wash:{"Keep it simple":["Suds Buds","Wash and Learn","The Soap Stars","Shine On"],
   "Puns":["Bubble Trouble","Squeaky Clean Machine","Wax On, Wax Off","So Fresh, So Clean","Spot On","Foam Sweet Foam","The Car Diem","Lather Rinse Repeat"],
   "Silly crew":["Bucket List","Towel Story","Rinse and Repeat","Suds and the City","Bubble Buddies"]},
-  help:{"Keep it simple":["Helping Handful","Double Hands","Right-Hand Kid","The Can-Do Kid"],
-  "Puns":["Parent’s Sidekick","I’ve Got Two Hands","Little But Mighty","Ask and I’ll Assist","The Second Set","House Squad","Help Is Here","Chore Companion"],
-  "Silly crew":["The Helper Hero","Busy Bees","Home Team Jr.","Lend a Hand Gang","The Yes Kids"]},
+  help:{"Keep it simple":["Mother’s Little Helper","Tidy Whirlwind","Sitter Glitter","Help Me Rhonda"],
+  "Puns":["Tidy Up Buttercup","The Neat Feat","Fold and Behold","Sweeping Beauty","Dust Bunny Duty","Chore-us Line"],
+  "Silly crew":["The Tidy Titans","Sock Drawer Squad","Helper Bell","Whistle While We Work"]},
  tutor:{"Keep it simple":["Page Turner","The Read Deal","Bookworm Buddy","Once Upon a Reader"],
   "Puns":["Chapter Cheer","Turn the Page","Cover Story","Bookmark Buddies","The Next Page","Tale of Two Readers","Read It Loud","Story Sprouts"],
   "Silly crew":["The Loud Library","Spine Squad","Word Worms","Chapter Champs","Out Loud Club"]},
- other:{"Keep it simple":["The Favor Factory","You Name It","Consider It Fun","The Yes Crew"],
-  "Puns":["Ask Me, I’ll Do It","Small Favor, Big Smile","On My Way","The Can-Do Crew","Errand and Error","One Favor at a Time","Happy to Help… Really","I’ve Got This"],
-  "Silly crew":["Show Up Squad","The Big Yes","Just Down the Block","Favor Finders","The Extra Neighbors"]}
+ other:{"Keep it simple":["Jack of All Trades","Odd Job Squad","Gig Kid","The Go-To Goat"],
+  "Puns":["Mission: Possible","The Gig Is Up","Jack and the Jobs","The Side Quest","Favor the Brave","Errand Boy Wonder"],
+  "Silly crew":["The Mix and Fix","Giggling Gigs","The Swiss Army Kid","Oddball Official"]}
 };
 let funnyPage=0;
 function funnyFor(type){
@@ -3736,6 +3736,9 @@ function bkApply(d,o){
   if(o.boss!=="skip"&&d.boss){const empty=!(B.jobs&&B.jobs.length)&&!(B.upcoming&&B.upcoming.length)&&!(B.costs&&B.costs.length);const nb=(o.boss==="combine"&&!empty)?bkMerge(B,d.boss):d.boss;localStorage.setItem(BK,JSON.stringify(nb));}
 }
 function bkStamp(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function workLabel(type){
+  return ({lawn:"Lawn",snow:"Snow",both:"Lawn and snow",pet:"Pet care",wash:"Car wash",odd:"Odd jobs",help:"Parent’s helper",tutor:"Reading buddy",other:"Something else"})[type]||"Something else";
+}
 function openBackup(){
   openModal('<h3>Back up or load my business</h3>'
    +'<p class="small2" style="margin:0 0 6px">Move your business to another phone or computer, or give a copy to a parent. Nothing leaves this device unless you send it.</p>'
@@ -3775,7 +3778,7 @@ function openBackup(){
     const b=d.build||{},bo=d.boss||{},photos=(b.proof||[]).reduce((n,p)=>n+(p.a?1:0)+(p.b?1:0),0);
     const row=(a,v)=>'<div class="bkrow"><span>'+a+'</span><span>'+esc(String(v))+'</span></div>';
     let h='<p style="margin:12px 0 4px"><b>This backup has:</b></p>';
-    if(d.build)h+=row("Business",(b.bizName||"(no name yet)"))+row("Work",b.type==="snow"?"Snow":b.type==="both"?"Lawn and snow":"Lawn")+row("Services",(b.services||[]).length)+row("Photos",photos);
+    if(d.build)h+=row("Business",(b.bizName||"(no name yet)"))+row("Work",workLabel(b.type))+row("Services",(b.services||[]).length)+row("Photos",photos);
     if(d.boss)h+=row("Jobs logged",(bo.jobs||[]).length)+row("Scheduled jobs",(bo.upcoming||[]).length)+row("Costs",(bo.costs||[]).length);
     h+=row("Made on",d.saved?new Date(d.saved).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"unknown");
     h+='<p style="margin:14px 0 4px"><b>What should I load?</b></p>';

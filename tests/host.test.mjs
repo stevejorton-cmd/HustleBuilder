@@ -913,6 +913,7 @@ test("every job type has at least 12 name ideas and funny names", async () => {
   };
   const types = ["lawn", "snow", "both", "pet", "odd", "wash", "help", "tutor", "other"];
   runInNewContext(cut("const NAME_IDEAS=", "const TAG_IDEAS=") + cut("const FUNNY=", "let funnyPage=") + `
+    const seen = {};
     for (const type of ${JSON.stringify(types)}) {
       const ideas = NAME_IDEAS[type] || [];
       if (ideas.length < 12) throw new Error(type + " has " + ideas.length + " name ideas");
@@ -940,12 +941,46 @@ test("every job type has at least 12 name ideas and funny names", async () => {
         }
         return rows[a.length][b.length] / Math.max(a.length, b.length) <= 0.28;
       };
+      if ((type === "help" || type === "other") && jokes.length > 15) throw new Error(type + " has " + jokes.length + " funny names");
       for (const joke of jokes) {
         for (const idea of ideas) {
           if (near(norm(joke), norm(idea))) throw new Error(type + " overlaps: " + joke + " / " + idea);
         }
+        const key = norm(joke);
+        if (seen[key]) throw new Error(type + " duplicates " + seen[key] + ": " + joke);
+        seen[key] = type;
       }
     }
+    if (FUNNY.help["Keep it simple"].indexOf("Mother\u2019s Little Helper") < 0) throw new Error("helper puns missing");
+    if (FUNNY.other["Keep it simple"].indexOf("Jack of All Trades") < 0) throw new Error("something else puns missing");
+    const helperJokes = Object.values(FUNNY.help).reduce((all, list) => all.concat(list), []);
+    if (FUNNY.odd["Puns"].indexOf("Helping Handful") >= 0 || helperJokes.indexOf("Helping Handful") >= 0) throw new Error("Helping Handful is still shared");
   `, {}, { timeout: 1000 });
+});
+
+test("a backup preview names every business type", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("function workLabel(");
+  const end = src.indexOf("function openBackup(", start);
+  if (start < 0 || end < 0) throw new Error("missing work label");
+  const workLabel = runInNewContext(src.slice(start, end) + "workLabel");
+  const expect = {
+    lawn: "Lawn",
+    snow: "Snow",
+    both: "Lawn and snow",
+    pet: "Pet care",
+    wash: "Car wash",
+    odd: "Odd jobs",
+    help: "Parent\u2019s helper",
+    tutor: "Reading buddy",
+    other: "Something else"
+  };
+  for (const [type, label] of Object.entries(expect)) {
+    assert.equal(workLabel(type), label);
+  }
+  assert.equal(src.includes('b.type==="snow"?"Snow":b.type==="both"?"Lawn and snow":"Lawn"'), false);
+  assert.match(src, /workLabel\(b\.type\)/);
 });
 
