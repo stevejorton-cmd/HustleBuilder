@@ -6,11 +6,66 @@ import { decoratePage, hidePhone } from "./preview.mjs";
 import { store } from "./store.mjs";
 
 export const PLANS = {
-  month: { id: "month", amount: 600, days: 31, label: "$6 a month" },
-  season: { id: "season", amount: 3900, days: 183, label: "$39 for the season" },
-  year: { id: "year", amount: 5900, days: 365, label: "$59 for the year" }
+  season: { id: "season", amount: 3900, label: "$39" },
+  year: { id: "year", amount: 5900, label: "$59" }
 };
 export const CONSENT_VERSION = "2026-10-31";
+export const FREE_JOBS = 3;
+export const GRACE_DAYS = 7;
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export function niceDate(iso) {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear();
+}
+
+export function seasonOffer(now = new Date()) {
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const end = (yy, month, day) => new Date(Date.UTC(yy, month, day, 23, 59, 59)).toISOString();
+  if (m >= 3 && m <= 7) {
+    return {
+      id: "summer",
+      name: "Summer season, May–Aug",
+      end: end(y, 7, 31),
+      includes: "The page stays online, neighbors can book, and booking emails go to you through August 31, " + y + "."
+    };
+  }
+  const endYear = m >= 8 ? y + 1 : y;
+  return {
+    id: "winter",
+    name: "Winter season, Nov–Mar",
+    end: end(endYear, 2, 31),
+    includes: "The page stays online, neighbors can book, and booking emails go to you through March 31, " + endYear + "."
+  };
+}
+
+export function yearOffer(now = new Date()) {
+  const end = new Date(now.getTime() + 365 * 864e5).toISOString();
+  return {
+    id: "year",
+    name: "Full year",
+    end,
+    includes: "The page stays online for 365 days, through " + niceDate(end) + ". Booking emails and the family calendar are included."
+  };
+}
+
+export function planOffer(planId, now = new Date()) {
+  return planId === "year" ? yearOffer(now) : seasonOffer(now);
+}
+
+function utcDay(ms) {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+export function daysUntil(endIso, now = Date.now()) {
+  const end = Date.parse(endIso || "");
+  if (!Number.isFinite(end)) return null;
+  return Math.round((utcDay(end) - utcDay(now)) / 864e5);
+}
 
 const sha = (s) => createHash("sha256").update(String(s)).digest("hex");
 const rand = (n = 32) => randomBytes(n).toString("hex");
@@ -69,8 +124,137 @@ async function saveAccount(account) {
   if (account.tokenHash) await (await store()).put("tokens/" + account.tokenHash, account.id);
 }
 
-function paid(account) {
-  return !!(account && account.paidUntil && Date.parse(account.paidUntil) > Date.now());
+function paid(account, now = Date.now()) {
+  return !!(account && account.paidUntil && Date.parse(account.paidUntil) > now);
+}
+
+function graceLeftDays(account, now = Date.now()) {
+  const end = Date.parse(account && account.paidUntil || "");
+  if (!Number.isFinite(end) || end > now) return 0;
+  const left = end + GRACE_DAYS * 864e5 - now;
+  if (left <= 0) return 0;
+  return Math.max(1, Math.ceil(left / 864e5));
+}
+
+function inGrace(account, now = Date.now()) {
+  return graceLeftDays(account, now) > 0;
+}
+
+function onBreak(account, now = Date.now()) {
+  const end = Date.parse(account && account.paidUntil || "");
+  if (!Number.isFinite(end)) return false;
+  return now > end + GRACE_DAYS * 864e5;
+}
+
+function firstName(name) {
+  const part = String(name || "").trim().split(/\s+/)[0] || "Neighbor";
+  return part.slice(0, 40);
+}
+
+function streetOnly(address) {
+  return String(address || "").replace(/^\s*\d+\s*/, "").split(",")[0].trim().slice(0, 80);
+}
+
+function applyPlan(account, planId, now = new Date()) {
+  const offer = planOffer(planId, now);
+  account.plan = planId === "year" ? "year" : "season";
+  account.planName = offer.name;
+  account.paidUntil = offer.end;
+  account.payMode = paywallMode();
+  if (!account.renewToken) account.renewToken = rand(16);
+}
+
+async function trialCount(email) {
+  const rec = await readJson("trials/" + sha(email) + ".json");
+  const n = rec && Number(rec.used);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+async function setTrialCount(email, used) {
+  await writeJson("trials/" + sha(email) + ".json", { used, at: new Date().toISOString() });
+}
+
+async function trackPlan(account) {
+  if (!account || !account.paidUntil) return;
+  const ids = (await readJson("plan-ids.json")) || [];
+  if (!ids.includes(account.id)) {
+    ids.push(account.id);
+    await writeJson("plan-ids.json", ids.slice(-5000));
+  }
+}
+
+async function loadRequests(accountId) {
+  return (await readJson("requests/" + accountId + ".json")) || [];
+}
+
+async function saveRequests(accountId, rows) {
+  await writeJson("requests/" + accountId + ".json", rows.slice(-80));
+}
+
+function kidJob(row, account) {
+  const place = account && account.shareStreet ? (streetOnly(row.address) || "In your neighborhood") : "In your neighborhood";
+  return {
+    id: row.id,
+    service: row.service || "A job",
+    when: row.when || "",
+    firstName: row.firstName || "Neighbor",
+    status: row.status || "new",
+    place
+  };
+}
+
+function payLinks(origin, account) {
+  const base = (origin || "") + "/api/renew/" + account.renewToken;
+  return { season: base + "?plan=season", year: base + "?plan=year" };
+}
+
+async function releaseHeld(account, origin) {
+  const rows = await loadRequests(account.id);
+  let changed = false;
+  for (const row of rows) {
+    if (row.status !== "held") continue;
+    row.status = "new";
+    changed = true;
+    const mailed = await sendMail(parentBookingMail(row, origin));
+    if (mailed.ok && row.calJob) {
+      await ensureCalToken(account);
+      const jobs = await loadJobs(account.id);
+      jobs.push(row.calJob);
+      await saveJobs(account.id, jobs);
+      row.calJob = null;
+    }
+  }
+  if (changed) await saveRequests(account.id, rows);
+}
+
+function parentBookingMail(row, origin) {
+  const fields = row.fields || {};
+  const action = (origin || "") + "/api/job/" + row.actionToken;
+  const text = [
+    "New booking request. Nothing is booked until you reply to the customer.",
+    "Mark it confirmed or done: " + action,
+    "",
+    "Name: " + (fields.name || row.firstName),
+    "Reach them at: " + (fields.contact || ""),
+    "Job: " + (fields.service || row.service),
+    "When: " + (fields.when || row.when),
+    "Address: " + (fields.address || ""),
+    "Note: " + (fields.note || "none")
+  ].join("\n");
+  const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif\">"
+    + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
+    + "<p><a href=\"" + mailEscape(action) + "\">Mark confirmed or done</a></p>"
+    + "<p>Name: " + mailEscape(fields.name || row.firstName) + "<br>Reach them at: " + mailEscape(fields.contact || "")
+    + "<br>Job: " + mailEscape(fields.service || row.service) + "<br>When: " + mailEscape(fields.when || row.when)
+    + "<br>Address: " + mailEscape(fields.address || "") + "</p></div>";
+  return {
+    to: row.parentEmail,
+    replyTo: row.replyTo || supportReply(),
+    subject: "Booking request: " + (fields.service || "a job"),
+    text,
+    html: htmlMail,
+    ics: row.ics || ""
+  };
 }
 
 function allowOrigin(originHeader) {
@@ -146,7 +330,9 @@ function privacyPage() {
 <p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
 <p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
-<p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link.</p>
+<p>A family can publish with no payment and receive the first 3 real booking requests free. One trial belongs to the parent’s email and does not start over with a new link. After that, new requests are saved and held until a parent pays. A paid plan is $39 for the current season (summer, May–August, or winter, November–March) or $59 for 365 days. We email the parent 14 days before, 3 days before, and on the day the plan ends. The page stays up for 7 more days, then it shows a taking-a-break page and bookings pause.</p>
+<p>The kid’s My jobs list shows the service, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on. Even then it shows the street name, not the house number.</p>
+<p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link. The free-trial count for that email stays, so a new account cannot start the 3 free jobs again.</p>
 <p>This notice is a plain summary. Have a lawyer read it before real families use hosting.</p>
 </main></body></html>`);
 }
@@ -154,6 +340,14 @@ function privacyPage() {
 function missingPage(slug, down) {
   const title = down ? "This page was taken down" : "This page is not up";
   return html(404, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem"><h1>${title}</h1><p>${down ? "The host removed this page." : "Check the link, or ask them to publish again."}</p></body></html>`);
+}
+
+function breakPage() {
+  return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Taking a break</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">
+<h1>Taking a break</h1>
+<p>This page is resting for now. Bookings are paused, so nothing new is being scheduled.</p>
+<p>If you know the family, ask them when they are working again.</p>
+</body></html>`);
 }
 
 async function serveSlug(slug) {
@@ -164,6 +358,8 @@ async function serveSlug(slug) {
   if (!meta) return missingPage(slug, false);
   if (meta.status === "down") return missingPage(slug, true);
   if (meta.status !== "live") return missingPage(slug, false);
+  const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
+  if (account && onBreak(account)) return breakPage();
   const page = await (await store()).get("pages/" + slug + ".html");
   if (!page) return missingPage(slug, false);
   return html(200, page);
@@ -310,11 +506,12 @@ function draftCode() {
   const bytes = randomBytes(8);
   return Array.from(bytes, (b) => DRAFT_ALPHABET[b % DRAFT_ALPHABET.length]).join("");
 }
-async function notifyNeighbor({ origin, reply, fields, account }) {
+async function notifyNeighbor({ origin, reply, fields, account, requestId }) {
   const cancel = rand(18);
   await writeJson("cancels/" + cancel + ".json", {
     accountId: account.id,
     parentEmail: account.email,
+    requestId: requestId || "",
     customer: fields.name,
     service: fields.service,
     when: fields.when,
@@ -382,6 +579,7 @@ export async function handleRequest(req) {
   if (qMark >= 0) path = path.slice(0, qMark);
   const origin = await publicOrigin(req.origin);
   if (method === "OPTIONS") return withCors({ status: 204, headers: {}, body: "" }, req.headers && req.headers.origin);
+  if (method === "GET" && path === "/favicon.ico") return { status: 204, headers: { "cache-control": "public, max-age=86400" }, body: "" };
   const route = path.startsWith("/api/") ? path.slice(5) : "";
 
   if (method === "GET" && (route.startsWith("site/") || path.startsWith("/api/site/"))) {
@@ -491,9 +689,16 @@ export async function handleRequest(req) {
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     await ensureCalToken(account);
     const base = origin || "";
+    const used = await trialCount(account.email);
+    const season = seasonOffer();
+    const year = yearOffer();
     return withCors(json(200, {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
-      plan: account.plan || "", paidUntil: account.paidUntil || "", paid: paid(account),
+      plan: account.plan || "", planName: account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account),
+      grace: inGrace(account), graceDays: graceLeftDays(account),
+      trialUsed: used, trialLeft: Math.max(0, FREE_JOBS - used),
+      seasonName: season.name, seasonEnd: season.end, yearEnd: year.end,
+      shareStreet: !!account.shareStreet, jobCode: account.jobCode || account.draftCode || "",
       slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
       payMode: paywallMode(), indexable: !!account.indexable, draftCode: account.draftCode || "",
       ...feedLinks(base, account.calToken)
@@ -524,11 +729,12 @@ export async function handleRequest(req) {
       return withCors(json(200, { ok: true, pending: true, mode: "stripe" }), req.headers && req.headers.origin);
     }
     if (mode === "test" || mode === "off") {
-      account.plan = plan.id;
-      account.paidUntil = new Date(Date.now() + (mode === "off" ? 3650 : plan.days) * 864e5).toISOString();
-      account.payMode = mode;
+      applyPlan(account, plan.id);
+      if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
       await saveAccount(account);
-      return withCors(json(200, { ok: true, mode, plan: plan.id, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
+      await trackPlan(account);
+      await releaseHeld(account, origin);
+      return withCors(json(200, { ok: true, mode, plan: plan.id, planName: account.planName, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
     }
     if (mode === "stripe") {
       if (!process.env.STRIPE_SECRET_KEY) return withCors(json(503, { ok: false, error: "stripe-key" }), req.headers && req.headers.origin);
@@ -540,7 +746,7 @@ export async function handleRequest(req) {
       params.set("line_items[0][quantity]", "1");
       params.set("line_items[0][price_data][currency]", "usd");
       params.set("line_items[0][price_data][unit_amount]", String(plan.amount));
-      params.set("line_items[0][price_data][product_data][name]", "Hustle Builder hosting, " + plan.label);
+      params.set("line_items[0][price_data][product_data][name]", "Hustle Builder hosting, " + planOffer(plan.id).name + ", " + plan.label);
       params.set("metadata[accountId]", account.id);
       params.set("metadata[plan]", plan.id);
       params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
@@ -569,11 +775,12 @@ export async function handleRequest(req) {
       const plan = PLANS[meta.plan];
       const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
       if (account && plan) {
-        account.plan = plan.id;
-        account.paidUntil = new Date(Date.now() + plan.days * 864e5).toISOString();
+        applyPlan(account, plan.id);
         account.payMode = "stripe";
         account.checkoutPendingAt = "";
         await saveAccount(account);
+        await trackPlan(account);
+        await releaseHeld(account, origin);
       }
     }
     return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
@@ -583,7 +790,7 @@ export async function handleRequest(req) {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     if (!account.consentAt) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
-    if (!paid(account)) return withCors(json(402, { ok: false, error: "payment" }), req.headers && req.headers.origin);
+    if (onBreak(account)) return withCors(json(402, { ok: false, error: "break", message: "This plan is taking a break. Renew it, then publish again." }), req.headers && req.headers.origin);
     const slug = String(body.slug || account.slug || "").trim().toLowerCase();
     if (account.slug && slug !== account.slug) return withCors(json(409, { ok: false, error: "slug-locked", slug: account.slug }), req.headers && req.headers.origin);
     const slugErr = checkSlug(slug);
@@ -612,9 +819,13 @@ export async function handleRequest(req) {
     });
     account.slug = slug;
     account.indexable = indexable;
+    const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
+    account.jobCode = /^[a-z0-9]{8}$/.test(jobCode) ? jobCode : account.jobCode || rand(4).slice(0, 8);
+    await (await store()).put("jobcode/" + account.jobCode, account.id);
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
-    return withCors(json(200, { ok: true, slug, url, updated: !!existing }), req.headers && req.headers.origin);
+    const used = await trialCount(account.email);
+    return withCors(json(200, { ok: true, slug, url, updated: !!existing, jobCode: account.jobCode, trialLeft: Math.max(0, FREE_JOBS - used) }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "unpublish") {
@@ -665,8 +876,8 @@ export async function handleRequest(req) {
       to: email,
       replyTo: supportReply(),
       subject: "Your kid asked you to publish their page",
-      text: "Your kid is ready to publish a Hustle Builder page.\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n\nYou will confirm you are the parent, then the page can go online.\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
-      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days. You confirm you are the parent, then the page can go online.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
+      text: "Your kid is ready to publish a Hustle Builder page.\n\nTry free: your first 3 jobs are on us. You still confirm you are the parent. No payment is needed to go live.\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
+      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><b>Try free: your first 3 jobs are on us.</b> You still confirm you are the parent. No payment is needed to go live.</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     return withCors(json(200, { ok: true, token, link, expires }), req.headers && req.headers.origin);
@@ -729,6 +940,14 @@ export async function handleRequest(req) {
       rec.used = true;
       rec.cancelledAt = new Date().toISOString();
       await writeJson("cancels/" + cancelPost[1] + ".json", rec);
+      if (rec.requestId && rec.accountId) {
+        const rows = await loadRequests(rec.accountId);
+        const row = rows.find((item) => item.id === rec.requestId);
+        if (row && row.status !== "done") {
+          row.status = "cancelled";
+          await saveRequests(rec.accountId, rows);
+        }
+      }
       const support = supportReply();
       await sendMail({
         to: rec.parentEmail,
@@ -741,12 +960,139 @@ export async function handleRequest(req) {
     return cancelPage(cancelPost[1], true, false);
   }
 
+  if (method === "GET" && route === "plans") {
+    const season = seasonOffer();
+    const year = yearOffer();
+    return withCors(json(200, {
+      ok: true,
+      free: "Try free: your first 3 jobs are on us.",
+      plans: [
+        { id: "season", price: "$39", name: season.name, ends: season.end, endsLabel: niceDate(season.end), includes: season.includes },
+        { id: "year", price: "$59", name: year.name, ends: year.end, endsLabel: niceDate(year.end), includes: year.includes }
+      ]
+    }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "share") {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    account.shareStreet = body.on === true;
+    await saveAccount(account);
+    return withCors(json(200, { ok: true, shareStreet: account.shareStreet }), req.headers && req.headers.origin);
+  }
+
+  if (method === "GET" && route === "my-jobs") {
+    let account = await me();
+    const code = String((req.query && req.query.get && req.query.get("code")) || "").trim().toLowerCase();
+    if (!account && /^[a-z0-9]{8}$/.test(code)) {
+      const id = await (await store()).get("jobcode/" + code);
+      if (id) account = await readJson("accounts/" + id.trim() + ".json");
+      if (!account) {
+        const draft = await readJson("drafts/" + code + ".json");
+        if (draft && draft.accountId) account = await readJson("accounts/" + draft.accountId + ".json");
+      }
+    }
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    const rows = await loadRequests(account.id);
+    const jobs = rows.map((row) => kidJob(row, account));
+    const fresh = jobs.filter((row) => row.status === "new").length;
+    return withCors(json(200, { ok: true, jobs, fresh, shareStreet: !!account.shareStreet }), req.headers && req.headers.origin);
+  }
+
+  const jobAct = route.match(/^job\/([a-f0-9]{16,80})$/i);
+  if (jobAct && (method === "GET" || method === "POST")) {
+    const pointer = await (await store()).get("jobact/" + jobAct[1]);
+    const parts = String(pointer || "").split(":");
+    const account = parts[0] ? await readJson("accounts/" + parts[0] + ".json") : null;
+    const rows = account ? await loadRequests(account.id) : [];
+    const row = rows.find((item) => item.id === parts[1]);
+    if (!account || !row) return html(404, "<!DOCTYPE html><html><body><p>This link is finished.</p></body></html>");
+    if (method === "POST") {
+      const next = String(body.status || "");
+      if (next !== "confirmed" && next !== "done" && next !== "cancelled") return json(400, { ok: false, error: "status" });
+      row.status = next;
+      await saveRequests(account.id, rows);
+    }
+    const title = row.status === "new" ? "New request" : row.status[0].toUpperCase() + row.status.slice(1);
+    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem">
+<h1>${mailEscape(row.service || "A job")}</h1>
+<p>${mailEscape(row.firstName || "Neighbor")} · ${mailEscape(row.when || "")}</p>
+<p>Status: <b id="st">${mailEscape(row.status)}</b></p>
+<p>${mailEscape((row.fields && row.fields.contact) || "")}<br>${mailEscape((row.fields && row.fields.address) || "")}</p>
+<button type="button" id="yes" style="font:18px system-ui;padding:12px 16px;margin-right:8px">Confirmed</button>
+<button type="button" id="done" style="font:18px system-ui;padding:12px 16px">Done</button>
+<script>
+async function mark(status){
+  const res=await fetch(location.pathname,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});
+  if(res.ok) document.getElementById("st").textContent=status;
+}
+document.getElementById("yes").onclick=()=>mark("confirmed");
+document.getElementById("done").onclick=()=>mark("done");
+</script>
+</body></html>`);
+  }
+
+  const renewGet = route.match(/^renew\/([a-f0-9]{16,80})$/i);
+  if (method === "GET" && renewGet) {
+    const id = await (await store()).get("renew/" + renewGet[1]);
+    const account = id ? await readJson("accounts/" + id.trim() + ".json") : null;
+    if (!account) return html(404, "<!DOCTYPE html><html><body><p>This renew link is finished.</p></body></html>");
+    const planId = (req.query && req.query.get && req.query.get("plan")) === "year" ? "year" : "season";
+    if (paywallMode() === "stripe" && process.env.STRIPE_SECRET_KEY) {
+      return html(200, "<!DOCTYPE html><html><body><p>Open the builder to pay with a card. Test mode is off.</p></body></html>");
+    }
+    applyPlan(account, planId);
+    await saveAccount(account);
+    await trackPlan(account);
+    await releaseHeld(account, origin);
+    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Renewed</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're renewed</h1><p>${mailEscape(account.planName)} is on through ${mailEscape(niceDate(account.paidUntil))}.</p><p>Any requests that were waiting have been emailed to you.</p></body></html>`);
+  }
+
+  if (method === "GET" && route === "cron/renewals") {
+    const secret = process.env.CRON_SECRET || process.env.ADMIN_SECRET || "";
+    const header = (req.headers && (req.headers.authorization || req.headers.Authorization || req.headers["x-cron-secret"])) || "";
+    const token = String(header).replace(/^Bearer\s+/i, "");
+    if (!secret || !safeEqual(token, secret)) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    const dry = !!(req.query && req.query.get && req.query.get("dry") === "1");
+    const ids = (await readJson("plan-ids.json")) || [];
+    const due = [];
+    for (const id of ids) {
+      const account = await readJson("accounts/" + id + ".json");
+      if (!account || !account.paidUntil) continue;
+      const days = daysUntil(account.paidUntil);
+      if (days !== 14 && days !== 3 && days !== 0) continue;
+      const key = days + ":" + String(account.paidUntil).slice(0, 10);
+      account.sentReminders = account.sentReminders || {};
+      if (account.sentReminders[key]) continue;
+      if (!account.renewToken) account.renewToken = rand(16);
+      await (await store()).put("renew/" + account.renewToken, account.id);
+      const links = payLinks(origin, account);
+      const when = days === 0 ? "today" : "in " + days + " days";
+      const subject = days === 0 ? "Your Hustle Builder plan ends today" : "Your Hustle Builder plan ends in " + days + " days";
+      const text = "Your " + (account.planName || "plan") + " ends " + when + ", on " + niceDate(account.paidUntil) + ".\n\nRenew in one tap.\n\n$39 for the season:\n" + links.season + "\n\n$59 for the year:\n" + links.year + "\n\nAfter the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.";
+      due.push({ email: account.email, kind: String(days), days });
+      if (!dry) {
+        await sendMail({
+          to: account.email,
+          replyTo: supportReply(),
+          subject,
+          text,
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your <b>" + mailEscape(account.planName || "plan") + "</b> ends " + when + ", on " + mailEscape(niceDate(account.paidUntil)) + ".</p><p>Renew in one tap.</p><p><a href=\"" + mailEscape(links.season) + "\">Renew, $39 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Renew, $59 for the year</a></p><p>After the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.</p></div>"
+        });
+        account.sentReminders[key] = new Date().toISOString();
+        await saveAccount(account);
+      }
+    }
+    return withCors(json(200, { ok: true, dry, due }), req.headers && req.headers.origin);
+  }
+
   if (method === "POST" && route === "book") {
     const slug = String(body.slug || "").trim().toLowerCase();
     const meta = await readJson("pages/" + slug + ".json");
     if (!meta || meta.status !== "live") return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     const account = await readJson("accounts/" + meta.accountId + ".json");
     if (!account) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    if (onBreak(account)) return withCors(json(403, { ok: false, error: "break", message: "This page is taking a break. Bookings are paused." }), req.headers && req.headers.origin);
     const ip = clientIp(req);
     const hits = await bumpIp(ip);
     if (String(body.hp || body.company || "").trim()) return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
@@ -821,11 +1167,52 @@ export async function handleRequest(req) {
       + (gcal ? "<p><a href=\"" + mailEscape(gcal) + "\">Add this job to Google Calendar</a></p>" : "")
       + "<p>This job is also on your family calendar link, if you already added it. We keep the name, address, and time for about 30 days.</p>"
       + "</div>";
+    if (!account.renewToken) account.renewToken = rand(16);
+    await (await store()).put("renew/" + account.renewToken, account.id);
+    const links = payLinks(origin, account);
+    const used = await trialCount(account.email);
+    const mode = (paid(account) || inGrace(account)) ? "paid" : (used < FREE_JOBS ? "trial" : "hold");
+    const requestId = "r" + rand(8);
+    const actionToken = rand(12);
+    const row = {
+      id: requestId,
+      actionToken,
+      parentEmail: account.email,
+      replyTo: reply || supportReply(),
+      firstName: firstName(fields.name),
+      service: fields.service,
+      when: fields.when || start,
+      address: fields.address,
+      status: mode === "hold" ? "held" : "new",
+      fields,
+      ics,
+      calJob: job,
+      createdAt: new Date().toISOString()
+    };
+    await (await store()).put("jobact/" + actionToken, account.id + ":" + requestId);
+    const rows = await loadRequests(account.id);
+    rows.push(row);
+    await saveRequests(account.id, rows);
+    if (mode === "hold") {
+      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + fields.service + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n$39 season:\n" + links.season + "\n\n$59 year:\n" + links.year + "\n";
+      const held = await sendMail({
+        to: account.email,
+        replyTo: supportReply(),
+        subject: "You have a new request waiting",
+        text: heldText,
+        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(fields.service) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $39 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $59 for the year</a></p></div>"
+      });
+      if (!held.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
+      return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
+    }
+    const actionUrl = (origin || "") + "/api/job/" + actionToken;
+    const fullText = text + "\n\nMark it confirmed or done:\n" + actionUrl;
+    const fullHtml = htmlMail.replace("</div>", "<p><a href=\"" + mailEscape(actionUrl) + "\">Mark confirmed or done</a></p></div>");
     const mailed = await sendMail({
       to: account.email,
       replyTo: reply || supportReply(),
       subject: (hitsWords.flag ? "Check this booking: " : "Booking request: ") + (fields.service || "a job"),
-      text, html: htmlMail, ics
+      text: fullText, html: fullHtml, ics
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     if (job) {
@@ -833,11 +1220,27 @@ export async function handleRequest(req) {
       const jobs = await loadJobs(account.id);
       jobs.push(job);
       await saveJobs(account.id, jobs);
+      row.calJob = null;
+      await saveRequests(account.id, rows);
+    }
+    if (mode === "trial") {
+      const next = used + 1;
+      await setTrialCount(account.email, next);
+      if (next >= FREE_JOBS) {
+        const trialText = "Your 3 free jobs are used up.\n\nNew requests will wait until you pick a plan.\n\n$39 season:\n" + links.season + "\n\n$59 year:\n" + links.year + "\n";
+        await sendMail({
+          to: account.email,
+          replyTo: supportReply(),
+          subject: "Your 3 free jobs are used up",
+          text: trialText,
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>Your 3 free jobs are used up.</b></p><p>New requests will wait until you pick a plan.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $39 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $59 for the year</a></p></div>"
+        });
+      }
     }
     meta.bookCount = (meta.bookCount || 0) + 1;
     await writeJson("pages/" + slug + ".json", meta);
-    if (reply) await notifyNeighbor({ origin, reply, fields, account });
-    return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId });
+    return withCors(json(200, { ok: true, trialLeft: mode === "trial" ? Math.max(0, FREE_JOBS - used - 1) : undefined }), req.headers && req.headers.origin);
   }
 
   if ((method === "POST" || method === "DELETE") && route === "jobs") {

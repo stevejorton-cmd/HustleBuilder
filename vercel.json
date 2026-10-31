@@ -2,5 +2,8 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/handler?hbpath=$1" },
     { "source": "/((?!api/)[^/]+)", "destination": "/api/handler?hbsite=$1" }
+  ],
+  "crons": [
+    { "path": "/api/cron/renewals", "schedule": "0 14 * * *" }
   ]
 }

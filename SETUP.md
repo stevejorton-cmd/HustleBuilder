@@ -81,11 +81,14 @@ A parent’s phone is not on the kid page unless they turn on “Show my parent�
 
 Plans shown in the app:
 
-- $6 a month
-- $39 for the season (about six months)
-- $59 for the year
+- $39 for the current season. Summer is May–August. Winter is November–March. The app names the season and the end date.
+- $59 for 365 days from the day a parent pays.
 
-`PAYWALL_MODE=test` marks the plan paid and does not call Stripe. Use that to click through the app.
+There is no monthly plan.
+
+A family can also go live with no payment. The parent still verifies their email and checks the consent box. The first 3 real booking requests are delivered free. The parent sees how many are left. The third one also emails that the trial is used up, with links for the $39 season and the $59 year. Later requests are saved and held. The parent gets “You have a new request waiting. Pay to unlock it.” Paying sends those held requests right away. One trial belongs to the parent’s email. A new link under the same email does not start it over, and deleting the account does not reset it.
+
+`PAYWALL_MODE=test` marks the plan paid and does not call Stripe. Use that to click through the app. Renewal emails, the trial-used email, and the held-request email stay in the test outbox. They are not sent.
 
 When you are ready to charge:
 
@@ -100,7 +103,9 @@ The parent is marked paid only after Stripe signs the webhook. A test-mode plan 
 
 ## Ask a parent, drafts, and booking notes
 
-- **Ask my parent.** On Go live, the kid enters the parent’s email and taps Ask my parent. The server emails a link that expires in 7 days. Opening it on the parent’s phone signs that email in, loads the kid’s page, and the parent still checks the consent box and pays. After payment the page publishes itself, the same way a checkout return does. Sends are limited to 5 per email per day and 8 per IP per day.
+- **Ask my parent.** On Go live, the kid enters the parent’s email and taps Ask my parent. The server emails a link that expires in 7 days and says the first 3 jobs are free. Opening it on the parent’s phone signs that email in, loads the kid’s page, and the parent still checks the consent box. They can publish with the free trial or pay. Sends are limited to 5 per email per day and 8 per IP per day.
+- **My jobs.** The kid’s builder lists incoming requests: service, day and time, neighbor first name, and status (new, confirmed, done, cancelled, or waiting). The list is loaded with the kid’s draft code or the parent’s sign-in. It never includes the neighbor’s email, phone, or house number. A parent can turn on the street name. The parent marks confirmed or done from the link in the booking email. A badge counts new requests.
+- **Renewals.** A daily cron calls `GET /api/cron/renewals` with `Authorization: Bearer` set to `CRON_SECRET` or `ADMIN_SECRET`. It emails the parent 14 days before the plan ends, 3 days before, and on the end day, each with a one-tap renew link. The same reminder is not sent twice. `?dry=1` lists what would send and does not email. For 7 days after the end date the page stays up. The builder shows the parent a banner. Neighbors do not see it. After those 7 days the link shows a taking-a-break page and new bookings are paused.
 - **Drafts.** The page also saves on the server under an 8-character code, so another phone can open `/?draft=CODE`. The phone still keeps a local copy. GitHub Pages with no host skips the server save. A signed-in parent’s account keeps the latest code. Drafts older than 90 days are dropped.
 - **More work.** Besides lawn and snow, a kid can pick pet care, odd jobs, car washing, a parent’s helper, reading buddy, or something else. Helper and reading copy says a parent stays home or nearby.
 - **Neighbor note.** If a booking leaves an email, that person gets “We got your request,” what they asked for, and a cancel link. The cancel page needs a tap so mail scanners do not cancel it by opening the link. Cancelling emails the parent. The neighbor note does not include the parent’s email or phone. Reply-to is `REPLY_TO` when that is set. Otherwise the note says replies are not read.
