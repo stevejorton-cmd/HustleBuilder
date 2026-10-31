@@ -1042,6 +1042,9 @@ test("a parent account lists the site, trial, receipts, and requests", async () 
   assert.equal(hidden.status, 200);
   assert.match(hidden.body, /Paused for now/);
   assert.equal(hidden.body.includes(email), false);
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam again") } });
+  const stillPaused = await call("GET", "/api/site/sam-yard");
+  assert.match(stillPaused.body, /Paused for now/);
   const back = await json(await call("POST", "/api/account/resume", { token, body: { slug: "sam-yard" } }));
   assert.equal(back.body.status, "live");
   const again = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));

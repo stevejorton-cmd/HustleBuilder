@@ -821,7 +821,7 @@ export async function handleRequest(req) {
       applyPlan(account, plan.id);
       if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
       await addReceipt(account, origin, {
-        id: "pay-" + plan.id + "-" + String(account.paidUntil).slice(0, 10),
+        id: "pay-" + account.id + "-" + rand(4),
         plan: plan.id,
         planName: account.planName,
         amountLabel: plan.label,
@@ -921,8 +921,9 @@ export async function handleRequest(req) {
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
     await (await store()).put("pages/" + slug + ".html", stored);
+    const keptStatus = existing && existing.status === "paused" ? "paused" : "live";
     await writeJson("pages/" + slug + ".json", {
-      slug, accountId: account.id, status: "live", updatedAt: new Date().toISOString(), bytes: stored.length,
+      slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
       indexable, card: { title: cardTitle, line: cardLine, accent, pets }
     });
     account.slug = slug;
@@ -1162,7 +1163,7 @@ document.getElementById("done").onclick=()=>mark("done");
     applyPlan(account, planId);
     const offer = PLANS[planId];
     await addReceipt(account, origin, {
-      id: "pay-" + planId + "-" + String(account.paidUntil).slice(0, 10),
+      id: "pay-" + account.id + "-" + rand(4),
       plan: planId,
       planName: account.planName,
       amountLabel: offer.label,
