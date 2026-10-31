@@ -73,6 +73,8 @@ With `PUBLISH_TEST_MODE=0`, a booking is emailed to the parent from `BOOKING_FRO
 
 Empty and bot bookings do not count toward the 30-a-day page cap. The form has a hidden field and a short wait, and one internet address can send only a limited number per day.
 
+The first time a page goes live, the parent gets one email with the link, a QR code, and two next steps: print a flyer, and share the link. Paying sends one receipt email with the plan, the amount, the end date, and a link to the account page. A repeat publish or a repeated Stripe webhook does not send those again.
+
 After Stripe Checkout, the parent returns to Go live. The app waits until the payment is recorded, then publishes. A second tap does not open another checkout while that payment is still processing, or after the account is paid. Card statements use the suffix `HUSTLE BLDR`.
 
 A parent’s phone is not on the kid page unless they turn on “Show my parent’s phone.” Search engines are asked not to list the page unless they turn on “Let Google show this page.” The texted link includes a title, description, and a preview image at `/api/card/<link-name>.png`.

@@ -216,11 +216,11 @@ test("stripe webhook marks the account paid only with a valid signature", async 
     const raw = await readFile(dir + "/accounts/" + names[0], "utf8");
     return JSON.parse(raw).id;
   })());
-  const payload = JSON.stringify({ type: "checkout.session.completed", data: { object: { metadata: { accountId, plan: "season" } } } });
+  const payload = JSON.stringify({ id: "evt_paid_once", type: "checkout.session.completed", data: { object: { metadata: { accountId, plan: "season" } } } });
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
   const bad = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=1,v1=deadbeef" } }));
   assert.equal(bad.status, 400);
-  const t = "1700000000";
+  const t = String(Math.floor(Date.now() / 1000));
   const sig = createHmac("sha256", "whsec_test").update(t + "." + payload).digest("hex");
   assert.equal(stripeSignatureOk(payload, "t=" + t + ",v1=" + sig, "whsec_test"), true);
   const ok = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=" + t + ",v1=" + sig } }));
@@ -978,6 +978,73 @@ test("the home screen app can install and keep the builder offline", async () =>
   assert.equal(icon[0], 137);
   const mask = await readFile(new URL("../icons/maskable-512.png", import.meta.url));
   assert.equal(mask[0], 137);
+});
+
+test("going live and paying each send one email", async () => {
+  const { token, email } = await parent();
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const html = page("Sam");
+  const first = await json(await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html } }));
+  assert.equal(first.body.ok, true);
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html } });
+  const liveBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const live = liveBox.body.messages.filter((m) => m.subject === "Your page is live");
+  assert.equal(live.length, 1);
+  assert.match(live[0].text, /http:\/\/sites\.test\/sam-yard/);
+  assert.match(live[0].text, /Print a flyer/);
+  assert.match(live[0].text, /Share the link/);
+  assert.match(live[0].html, /api\/qr\/sam-yard\.png/);
+  assert.match(live[0].text, /\/\?account=1/);
+  const qr = await call("GET", "/api/qr/sam-yard.png");
+  assert.equal(qr.body[0], 137);
+  const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+  assert.equal(pay.body.ok, true);
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const receipts = box.body.messages.filter((m) => m.subject === "Your Hustle Builder receipt");
+  assert.equal(receipts.length, 1);
+  assert.match(receipts[0].text, /\$19\.99/);
+  assert.match(receipts[0].text, /Through /);
+  assert.match(receipts[0].text, /\/\?account=1/);
+  assert.equal(receipts[0].text.includes("steve@"), false);
+});
+
+test("a repeated year webhook does not extend the plan or send another receipt", async () => {
+  const { token, email } = await parent("year@example.com");
+  const { readFile, readdir, writeFile } = await import("fs/promises");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "year-yard", html: page("Year") } });
+  const names = await readdir(dir + "/accounts");
+  const file = dir + "/accounts/" + names[0];
+  const account = JSON.parse(await readFile(file, "utf8"));
+  account.slug = "year-mow";
+  await writeFile(file, JSON.stringify(account));
+  await writeFile(dir + "/pages/year-mow.html", page("Year"));
+  await writeFile(dir + "/pages/year-mow.json", JSON.stringify({ slug: "year-mow", accountId: account.id, status: "live" }));
+  await call("POST", "/api/publish", { token, body: { slug: "year-mow", html: page("Year") } });
+  const moved = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.equal(moved.body.messages.filter((m) => m.subject === "Your new web address is live").length, 1);
+  assert.equal(moved.body.messages.filter((m) => m.subject === "Your page is live").length, 1);
+  const payload = JSON.stringify({ id: "evt_year_once", type: "checkout.session.completed", data: { object: { metadata: { accountId: account.id, plan: "year" } } } });
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_year";
+  const t = String(Math.floor(Date.now() / 1000));
+  const sig = createHmac("sha256", "whsec_year").update(t + "." + payload).digest("hex");
+  const headers = { "stripe-signature": "t=" + t + ",v1=" + sig };
+  const first = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers }));
+  assert.equal(first.body.ok, true);
+  const paidUntil = (await json(await call("GET", "/api/me", { token }))).body.paidUntil;
+  const old = String(Math.floor(Date.now() / 1000) - 10 * 60);
+  const oldSig = createHmac("sha256", "whsec_year").update(old + "." + payload).digest("hex");
+  const stale = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=" + old + ",v1=" + oldSig } }));
+  assert.equal(stale.status, 400);
+  const again = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers }));
+  assert.equal(again.body.duplicate, true);
+  const after = await json(await call("GET", "/api/me", { token }));
+  assert.equal(after.body.paidUntil, paidUntil);
+  assert.equal(after.body.plan, "year");
+  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.equal(box.body.messages.filter((m) => m.subject === "Your Hustle Builder receipt").length, 1);
+  assert.match(box.body.messages.find((m) => m.subject === "Your Hustle Builder receipt").text, /\$29\.99/);
 });
 
 test("a backup preview names every business type", async () => {

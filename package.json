@@ -10,7 +10,8 @@
     "test": "node --test tests/host.test.mjs"
   },
   "dependencies": {
-    "@vercel/blob": "^2.8.2"
+    "@vercel/blob": "^2.8.2",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "puppeteer-core": "^23.11.1"
