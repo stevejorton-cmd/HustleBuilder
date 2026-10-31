@@ -1,0 +1,5 @@
+node_modules/
+.hb-data/
+.vercel
+.env
+.env.local
