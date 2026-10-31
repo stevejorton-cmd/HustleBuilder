@@ -25,18 +25,18 @@ export function fileStore(root) {
 }
 
 async function blobStore() {
-  const { put, list, del } = await import("@vercel/blob");
+  const { put, list, del, get } = await import("@vercel/blob");
   async function find(key) {
     const { blobs } = await list({ prefix: key, limit: 10 });
     return blobs.find((b) => b.pathname === key) || null;
   }
   return {
     async get(key) {
-      const hit = await find(key);
-      if (!hit) return null;
-      const res = await fetch(hit.url, { headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` } });
-      if (!res.ok) return null;
-      return await res.text();
+      // Accounts and page records are overwritten in place. The CDN copy can be up to
+      // a minute old, so read from origin storage to see the latest write.
+      const hit = await get(key, { access: "private", useCache: false });
+      if (!hit || hit.statusCode !== 200 || !hit.stream) return null;
+      return await new Response(hit.stream).text();
     },
     async put(key, text) {
       await put(key, text, {
