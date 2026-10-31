@@ -191,11 +191,16 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .moretiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .petfront{margin-top:18px;padding:16px 16px 18px;background:var(--raised);border-left:5px solid #0F6E6A}
 .petfront h3{margin:0 0 8px}
-.petart{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
-.petart figure{margin:0;border-radius:12px;overflow:hidden;background:#145E63}
-.petart svg{display:block;width:100%;height:auto}
-.petart figcaption{margin:0;padding:6px 10px 8px;color:#F6E7C8;font-weight:700;font-size:14px}
-@media(min-width:700px){.petart{grid-template-columns:repeat(4,1fr)}}
+.pethero{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center top;border-radius:16px;margin:12px 0 0;background:#e7f6ea}
+.petart{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.petart figure{margin:0;min-width:0}
+.petart img{width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;object-position:center;border-radius:16px;display:block;background:#7ec8c4}
+.petart figcaption{margin:0;padding:6px 2px 0;font-weight:700;font-size:14px}
+.petemoji{display:flex;align-items:center;justify-content:center;background:#7ec8c4;border-radius:16px;font-size:40px;aspect-ratio:1/1;width:100%;height:auto}
+#petArt.chips{display:flex;flex-wrap:wrap;gap:8px}
+#petArt button.petpick{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;width:84px}
+#petArt button.petpick img,#petArt button.petpick .petemoji{width:64px;height:64px;aspect-ratio:1/1;object-fit:cover;object-position:center;border-radius:14px}
+@media(min-width:700px){.petart{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .petcard{background:var(--surface);border:1px solid var(--line);padding:10px 12px}
 .petcard b{display:block;font-size:16px}
 .petcard span{color:var(--muted);font-size:14px}
@@ -648,6 +653,7 @@ details.help li{margin-bottom:10px}
       <section class="petfront" id="petFront">
         <h3 class="h3">Pet care</h3>
         <p class="lead" style="margin-bottom:0">Walk dogs, feed pets, scoop the yard, and check in while a family is away. A parent confirms every job.</p>
+        <img class="pethero" src="assets/pets/pet-hero.webp" alt="A golden retriever, an orange cat, a blue parakeet, and a goldfish in a sunny backyard" width="1280" height="720" loading="lazy" decoding="async">
         <div class="petart" id="petGallery"></div>
         <div class="petgrid">
           <div class="petcard"><b>Dog walk, 15 min</b><span>About $5 to start</span></div>
@@ -1400,44 +1406,38 @@ function typeInfo(type){
   };
   return all[type]||all.other;
 }
-function petAnimal(kind){
-  const g={
-    dog:`<g><ellipse cx="84" cy="112" rx="40" ry="7" fill="#145536" opacity=".28"/><path d="M112 70c22-2 30 18 14 28" fill="none" stroke="#E2B87A" stroke-width="9" stroke-linecap="round"/><ellipse cx="90" cy="78" rx="38" ry="24" fill="#F3D7A6"/><ellipse cx="78" cy="86" rx="18" ry="12" fill="#F8EBD0"/><rect x="66" y="94" width="11" height="22" rx="5" fill="#E7C49A"/><rect x="84" y="96" width="11" height="20" rx="5" fill="#E2B87A"/><rect x="104" y="94" width="11" height="22" rx="5" fill="#E7C49A"/><circle cx="46" cy="64" r="24" fill="#F6E2B8"/><ellipse cx="30" cy="50" rx="10" ry="16" fill="#E2B87A" transform="rotate(-16 30 50)"/><ellipse cx="28" cy="76" rx="14" ry="10" fill="#F8EBD0"/><ellipse cx="20" cy="74" rx="5.5" ry="4" fill="#E07A5F"/><circle cx="44" cy="60" r="4.2" fill="#1C2422"/><circle cx="45.4" cy="58.6" r="1.4" fill="#fff"/><path d="M22 82c6 5 14 5 20 0" fill="none" stroke="#1C2422" stroke-width="1.6" stroke-linecap="round"/></g>`,
-    cat:`<g><ellipse cx="86" cy="114" rx="38" ry="6" fill="#145536" opacity=".28"/><path d="M118 82c18-18 10-34-8-24" fill="none" stroke="#C56E22" stroke-width="8" stroke-linecap="round"/><ellipse cx="88" cy="84" rx="36" ry="24" fill="#E8923A"/><ellipse cx="80" cy="92" rx="16" ry="12" fill="#F6C9B0"/><rect x="68" y="98" width="9" height="18" rx="4" fill="#C56E22"/><rect x="96" y="98" width="9" height="18" rx="4" fill="#C56E22"/><circle cx="50" cy="66" r="22" fill="#F2A24A"/><polygon points="34,54 26,32 46,50" fill="#E8923A"/><polygon points="58,50 72,28 66,54" fill="#E8923A"/><polygon points="36,52 30,38 46,50" fill="#F6C9B0"/><polygon points="58,50 66,36 62,52" fill="#F6C9B0"/><ellipse cx="34" cy="74" rx="11" ry="7" fill="#F6C9B0"/><circle cx="46" cy="62" r="3.6" fill="#1C2422"/><circle cx="47.2" cy="60.8" r="1.2" fill="#fff"/><path d="M28 78h8M40 80h6" stroke="#1C2422" stroke-width="1.2" stroke-linecap="round"/></g>`,
-    fish:`<g><ellipse cx="80" cy="116" rx="36" ry="5" fill="#145536" opacity=".22"/><polygon points="108,64 146,46 146,86" fill="#2E6FA8"/><ellipse cx="74" cy="66" rx="42" ry="24" fill="#3D8FD1"/><ellipse cx="74" cy="74" rx="26" ry="10" fill="#7EB6E6"/><polygon points="64,46 84,30 88,56" fill="#2E6FA8"/><circle cx="46" cy="60" r="6" fill="#fff"/><circle cx="44" cy="60" r="3" fill="#1C2422"/><path d="M58 66h18" stroke="#F6E7C8" stroke-width="2" stroke-linecap="round" opacity=".7"/></g>`,
-    bird:`<g><ellipse cx="78" cy="116" rx="30" ry="5" fill="#145536" opacity=".22"/><path d="M42 78c-18 2-22 16-8 18 6-8 10-12 8-18z" fill="#F6C14B"/><ellipse cx="72" cy="84" rx="30" ry="22" fill="#F6C14B"/><ellipse cx="64" cy="82" rx="14" ry="11" fill="#E8923A"/><circle cx="98" cy="66" r="16" fill="#F8D56A"/><polygon points="110,64 132,70 110,78" fill="#E07A5F"/><circle cx="102" cy="62" r="3.4" fill="#1C2422"/><circle cx="103" cy="61" r="1.1" fill="#fff"/><rect x="78" y="100" width="5" height="14" rx="2" fill="#E07A5F"/><rect x="92" y="100" width="5" height="14" rx="2" fill="#E07A5F"/></g>`,
-    small:`<g><ellipse cx="80" cy="116" rx="34" ry="5" fill="#145536" opacity=".22"/><ellipse cx="80" cy="88" rx="38" ry="26" fill="#E7C49A"/><ellipse cx="74" cy="96" rx="16" ry="12" fill="#F8EBD0"/><circle cx="78" cy="66" r="22" fill="#F3D7A6"/><circle cx="62" cy="52" r="8" fill="#F6E2B8"/><circle cx="94" cy="52" r="8" fill="#F6E2B8"/><circle cx="62" cy="52" r="4" fill="#E7C49A"/><circle cx="94" cy="52" r="4" fill="#E7C49A"/><ellipse cx="58" cy="74" rx="8" ry="6" fill="#F4B6B0"/><ellipse cx="98" cy="74" rx="8" ry="6" fill="#F4B6B0"/><circle cx="70" cy="64" r="3.2" fill="#1C2422"/><circle cx="88" cy="64" r="3.2" fill="#1C2422"/><ellipse cx="79" cy="74" rx="4" ry="3" fill="#E07A5F"/></g>`
-  };
-  return g[kind]||"";
+const PET_ART={
+  dog:{file:"pet-dog.webp",alt:"A beagle puppy"},
+  cat:{file:"pet-cat.webp",alt:"An orange tabby cat"},
+  fish:{file:"pet-fish.webp",alt:"A goldfish"},
+  bird:{file:"pet-bird.webp",alt:"A blue parakeet"}
+};
+function petSrc(file, publicUrl){
+  if(publicUrl){
+    try{
+      const host=new URL(publicUrl).hostname;
+      const origin=/(^|\.)hustlebuilder\.org$/i.test(host)?"https://hustlebuilder.org":new URL(publicUrl).origin;
+      return origin+"/assets/pets/"+file;
+    }catch(e){}
+  }
+  return "assets/pets/"+file;
 }
-function petSky(w,h){
-  const gy=Math.round(h*0.62);
-  return `<rect width="${w}" height="${h}" fill="#145E63"/><circle cx="${Math.round(w*0.84)}" cy="${Math.round(h*0.18)}" r="${Math.round(h*0.09)}" fill="#F6C14B"/><ellipse cx="${Math.round(w*0.18)}" cy="${Math.round(h*0.22)}" rx="${Math.round(w*0.08)}" ry="${Math.round(h*0.035)}" fill="#1C7A78"/><rect y="${gy}" width="${w}" height="${h-gy}" fill="#1E6B45"/><rect y="${gy}" width="${w}" height="${Math.max(6,Math.round(h*0.03))}" fill="#2E8A58"/>`;
+function petFace(kind, label, opt){
+  opt=opt||{};
+  const name=label||(PET_ART[kind]&&PET_ART[kind].alt)||"Small animal";
+  const lazy=opt.lazy?' loading="lazy"':'';
+  if(!PET_ART[kind])return `<span class="petemoji" role="img" aria-label="${esc(name)}">🐹</span>`;
+  return `<img src="${esc(petSrc(PET_ART[kind].file, opt.root))}" alt="${esc(name)}" width="400" height="400"${lazy} decoding="async">`;
 }
-function petAlt(list){
-  const names={dog:"a dog",cat:"a cat",fish:"a fish",bird:"a bird",small:"a small animal"};
-  const bits=(list||[]).map(k=>names[k]).filter(Boolean);
-  if(!bits.length)return "Pet care illustration";
-  if(bits.length===1)return "Illustration of "+bits[0];
-  return "Illustration of "+bits.slice(0,-1).join(", ")+" and "+bits[bits.length-1];
+function petPortrait(kind, label, opt){
+  return `<figure>${petFace(kind, label, opt)}<figcaption>${esc(label)}</figcaption></figure>`;
 }
-function petScene(picks){
-  const list=(Array.isArray(picks)&&picks.length)?picks:["dog","cat","fish","bird"];
-  const n=list.length, scale=n===1?1.55:n===2?1.2:n===3?1:0.86;
-  const span=720, slot=span/n;
-  const body=list.map((k,i)=>{
-    const x=40+slot*i+(slot-160*scale)/2;
-    const y=168+(1.15-scale)*40;
-    return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${scale})">${petAnimal(k)}</g>`;
-  }).join("");
-  const alt=petAlt(list);
-  return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${alt}"><title>${alt}</title>${petSky(800,460)}${body}</svg>`;
+function petHero(publicUrl){
+  const alt="A golden retriever, an orange cat, a blue parakeet, and a goldfish in a sunny backyard";
+  return `<img class="scene" src="${esc(petSrc("pet-hero.webp", publicUrl))}" alt="${alt}" width="1280" height="720" decoding="async">`;
 }
-function petPortrait(kind,label){
-  return `<figure><svg viewBox="0 0 160 130" role="img" aria-label="${label}"><title>${label}</title>${petSky(160,130)}<g transform="translate(0 8)">${petAnimal(kind)}</g></svg><figcaption>${label}</figcaption></figure>`;
-}
-function bannerArt(type, art, pets){
-  if(type==="pet")return petScene(pets);
+function bannerArt(type, art, pets, publicUrl){
+  if(type==="pet")return petHero(publicUrl);
   if(type==="lawn"||type==="snow"||type==="both")return sceneArt(type, art);
   const info=typeInfo(type);
   return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="800" height="460" fill="${info.color}"/><text x="70" y="270" font-size="150">${info.emoji}</text></svg>`;
@@ -1468,7 +1468,9 @@ function genSite(c){
   <p class="promise">${esc(c.promise)}</p>
 </section>`:"";
   const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
-  const petSafe=c.type==="pet"?`<section id="petsafe"><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
+  const petLabels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird",small:"Small animal"};
+  const petRoot=(c.publish&&c.publish.url)||c.publicUrl||"";
+  const petSafe=c.type==="pet"?`<section id="petsafe"><h2>Pets I can help</h2><div class="petrow">${(c.pets&&c.pets.length?c.pets:["dog","cat","fish","bird"]).map(k=>petPortrait(k,petLabels[k]||"Pet",{lazy:true,root:petRoot})).join("")}</div><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
   const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
   const sizeField=c.type==="pet"?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
   const noteField=c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:`<label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>`;
@@ -1625,11 +1627,23 @@ footer p{margin:0 20px}
 .promise{margin:0;border-left:5px solid var(--accent);background:var(--card);padding:18px;font-size:19px;line-height:1.45}
 ${day?dayCss(rig.c):""}
 ${siteFontCss(c.font)}
-${c.type==="pet"?".hero{background:#145E63}":""}
+${c.type==="pet"?`.hero.pethead{display:grid;min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
+.hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
+.hero.pethead .hero-in{grid-area:1/1;align-self:start;position:relative;z-index:2;width:auto;max-width:none;margin:0;padding:12px 16px 0}
+.hero.pethead h1{color:#16352c;text-shadow:0 1px 0 rgba(255,255,255,.85);font-size:clamp(30px,8.4vw,64px);line-height:.95}
+.hero.pethead .tag{color:#1d3b32;text-shadow:0 1px 0 rgba(255,255,255,.8);margin:8px 0 0;font-size:clamp(16px,4vw,22px)}
+.hero.pethead .cta,.hero.pethead .meta{display:none}
+.petbar{background:#e7f6ea;padding:4px 16px 16px}
+.petbar .btn{display:inline-flex}
+.petbar .meta{color:#1d3b32;margin:10px 0 0}
+.petrow{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 8px}
+.petrow figure{margin:0;width:92px}
+.petrow img,.petrow .petemoji{width:92px;height:92px;aspect-ratio:1/1;object-fit:cover;object-position:center;border-radius:16px}
+.petrow figcaption{font-size:13px;font-weight:700;margin-top:4px}`:""}
 </style></head>
 <body>
-<header class="hero">
-  ${bannerArt(c.type,c.art,c.pets)}
+<header class="hero${c.type==="pet"?" pethead":""}">
+  ${bannerArt(c.type,c.art,c.pets,(c.publish&&c.publish.url)||c.publicUrl||"")}
   <div class="hero-in">
     <h1>${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
@@ -1637,6 +1651,7 @@ ${c.type==="pet"?".hero{background:#145E63}":""}
     <p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p>
   </div>
 </header>
+${c.type==="pet"?`<div class="petbar"><a class="btn" href="#book">Book a day</a><p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p></div>`:""}
 <div class="hazard"></div>
 
 <section id="standard">
@@ -1803,7 +1818,7 @@ function pickType(id){
 }
 function tileHtml(t){
   const tick='<span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>';
-  const art=t.id==="pet"?petScene(["dog","cat","fish","bird"]):t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
+  const art=t.id==="pet"?`<img class="scene" src="assets/pets/pet-hero.webp" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
   return art+`<span class="cap"><strong>${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
 function renderTiles(){
@@ -1838,7 +1853,7 @@ function petList(){return Object.keys(petSelection()).filter(k=>petSelection()[k
 function renderPetGallery(){
   const box=$("#petGallery"); if(!box)return;
   const labels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird"};
-  box.innerHTML=["dog","cat","fish","bird"].map(k=>petPortrait(k,labels[k])).join("");
+  box.innerHTML=["dog","cat","fish","bird"].map(k=>petPortrait(k,labels[k],{lazy:true})).join("");
 }
 function renderPetPicks(){
   const box=$("#petArtBox"), w=$("#petArt");
@@ -1850,7 +1865,7 @@ function renderPetPicks(){
   w.innerHTML="";
   Object.keys(labels).forEach(k=>{
     const b=document.createElement("button");
-    b.type="button"; b.textContent=labels[k]; b.setAttribute("aria-pressed",String(!!on[k]));
+    b.type="button"; b.className="petpick"; b.innerHTML=petFace(k,labels[k])+"<span>"+esc(labels[k])+"</span>"; b.setAttribute("aria-pressed",String(!!on[k])); b.setAttribute("aria-label",labels[k]);
     b.onclick=()=>{
       const next=petSelection();
       next[k]=!next[k];
@@ -2774,52 +2789,45 @@ function rateRow(ctx,x,y,w,name,price,ns,ps,col,pcol,mute){
   ctx.save();ctx.strokeStyle=mute;ctx.setLineDash([2,7]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+nw+12,y-ns*.28);ctx.lineTo(x+w-pw-12,y-ns*.28);ctx.stroke();ctx.restore();
   fnt(ctx,900,ps,FFD,true);ctx.textAlign="right";ctx.fillStyle=pcol;ctx.fillText(price,x+w,y+ps*.04);ctx.textAlign="left";
 }
-function paintPet(ctx,kind){
-  const e=(x,y,rx,ry,f)=>{ctx.fillStyle=f;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();};
-  const r=(x,y,w,h,f)=>{ctx.fillStyle=f;ctx.fillRect(x,y,w,h);};
-  if(kind==="dog"){
-    e(84,112,40,7,"rgba(20,85,54,.28)");
-    ctx.strokeStyle="#E2B87A";ctx.lineWidth=9;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(112,70);ctx.quadraticCurveTo(134,68,126,98);ctx.stroke();
-    e(90,78,38,24,"#F3D7A6"); e(78,86,18,12,"#F8EBD0");
-    r(66,94,11,22,"#E7C49A"); r(84,96,11,20,"#E2B87A"); r(104,94,11,22,"#E7C49A");
-    e(46,64,24,24,"#F6E2B8"); e(30,50,10,16,"#E2B87A"); e(28,76,14,10,"#F8EBD0"); e(20,74,5.5,4,"#E07A5F");
-    e(44,60,4.2,4.2,"#1C2422"); e(45.4,58.6,1.4,1.4,"#fff");
-  }else if(kind==="cat"){
-    e(86,114,38,6,"rgba(20,85,54,.28)");
-    ctx.strokeStyle="#C56E22";ctx.lineWidth=8;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(118,82);ctx.quadraticCurveTo(140,64,110,58);ctx.stroke();
-    e(88,84,36,24,"#E8923A"); e(80,92,16,12,"#F6C9B0");
-    r(68,98,9,18,"#C56E22"); r(96,98,9,18,"#C56E22");
-    e(50,66,22,22,"#F2A24A");
-    ctx.fillStyle="#E8923A";ctx.beginPath();ctx.moveTo(34,54);ctx.lineTo(26,32);ctx.lineTo(46,50);ctx.fill();
-    ctx.beginPath();ctx.moveTo(58,50);ctx.lineTo(72,28);ctx.lineTo(66,54);ctx.fill();
-    e(34,74,11,7,"#F6C9B0"); e(46,62,3.6,3.6,"#1C2422");
-  }else if(kind==="fish"){
-    ctx.fillStyle="#2E6FA8";ctx.beginPath();ctx.moveTo(108,64);ctx.lineTo(146,46);ctx.lineTo(146,86);ctx.fill();
-    e(74,66,42,24,"#3D8FD1"); e(74,74,26,10,"#7EB6E6");
-    ctx.fillStyle="#2E6FA8";ctx.beginPath();ctx.moveTo(64,46);ctx.lineTo(84,30);ctx.lineTo(88,56);ctx.fill();
-    e(46,60,6,6,"#fff"); e(44,60,3,3,"#1C2422");
-  }else if(kind==="bird"){
-    e(72,84,30,22,"#F6C14B"); e(64,82,14,11,"#E8923A"); e(98,66,16,16,"#F8D56A");
-    ctx.fillStyle="#E07A5F";ctx.beginPath();ctx.moveTo(110,64);ctx.lineTo(132,70);ctx.lineTo(110,78);ctx.fill();
-    e(102,62,3.4,3.4,"#1C2422");
-    r(78,100,5,14,"#E07A5F"); r(92,100,5,14,"#E07A5F");
-  }else{
-    e(80,88,38,26,"#E7C49A"); e(78,66,22,22,"#F3D7A6");
-    e(62,52,8,8,"#F6E2B8"); e(94,52,8,8,"#F6E2B8");
-    e(58,74,8,6,"#F4B6B0"); e(98,74,8,6,"#F4B6B0");
-    e(70,64,3.2,3.2,"#1C2422"); e(88,64,3.2,3.2,"#1C2422"); e(79,74,4,3,"#E07A5F");
-  }
+const petBitmaps={};
+function ensurePetImages(){
+  if(ensurePetImages.pending)return ensurePetImages.pending;
+  ensurePetImages.pending=Promise.all(Object.keys(PET_ART).map(k=>new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{petBitmaps[k]=img;resolve(img);};
+    img.onerror=()=>resolve(null);
+    img.src="assets/pets/"+PET_ART[k].file;
+  })));
+  return ensurePetImages.pending;
 }
 function paintPetRow(ctx,x,y,w,h,pets){
-  const list=(pets&&pets.length)?pets:["dog"];
+  const raw=(pets&&pets.length)?pets:["dog"];
+  const shown=raw.filter(k=>PET_ART[k]||k==="small");
+  const list=shown.length?shown:["dog"];
   const slot=w/list.length;
   list.forEach((k,i)=>{
+    const size=Math.max(24,Math.min(slot-8,h));
+    const dx=x+slot*i+(slot-size)/2;
+    const dy=y+(h-size)/2;
+    const r=Math.max(8,size*0.14);
     ctx.save();
-    const s=Math.min(slot/170,h/140);
-    ctx.translate(x+slot*i+(slot-160*s)/2,y);
-    ctx.scale(s,s);
-    paintPet(ctx,k);
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(dx,dy,size,size,r);
+    else ctx.rect(dx,dy,size,size);
+    ctx.clip();
+    const img=petBitmaps[k];
+    if(img)ctx.drawImage(img,dx,dy,size,size);
+    else{ctx.fillStyle="#7ec8c4";ctx.fillRect(dx,dy,size,size);}
     ctx.restore();
+    if(!img){
+      ctx.save();
+      ctx.fillStyle="#16352c";
+      ctx.font=Math.round(size*0.46)+"px sans-serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+      ctx.fillText("🐹",dx+size/2,dy+size/2+2);
+      ctx.restore();
+    }
   });
 }
 function flyerTheme(c){const bold=c.style==="bold";const pet=c.type==="pet";return {bold,bg:bold?"#0E1012":"#FFFFFF",ink:bold?"#F1EFEA":"#111111",mute:bold?"#A3AAB1":"#4A4A4A",acc:pet?(bold?"#F6C14B":"#0F6E6A"):(bold?c.accent:"#111111"),pcol:pet?"#0F6E6A":(bold?c.accent:"#111111"),line:bold?"#3A4046":"#9A9A9A",hz2:bold?"#0B0C0D":"#FFFFFF",paw:pet?(bold?"#F6C14B":"#0F6E6A"):""};}
@@ -3048,7 +3056,11 @@ function drawFlyerPreview(){
   ["#fPdf","#fPng","#fPrint"].forEach(id=>{$(id).disabled=!c.ok;});
 }
 let fontsReady=false;
-function refreshFlyers(){ if(fontsReady){drawFlyerPreview();}else{ensureFonts().then(()=>{fontsReady=true;drawFlyerPreview();});drawFlyerPreview();} }
+function refreshFlyers(){
+  const draw=()=>drawFlyerPreview();
+  Promise.all([ensureFonts(),ensurePetImages()]).then(()=>{fontsReady=true;draw();}).catch(draw);
+  draw();
+}
 
 function makePDF(jpeg,w,h){
   const enc=new TextEncoder(),parts=[],offs=[];let len=0;
@@ -3069,6 +3081,7 @@ async function saveFlyer(kind){
   const st=$("#fStatus");st.textContent="";
   const c=flyerCfg();if(!c.ok){st.textContent=c.why;return;}
   await ensureFonts();
+  await ensurePetImages();
   const d=pageDims(c.fmt);
   const names={full:"flyer",hanger:"door-hangers",tabs:"tear-off-flyer",cards:"business-cards",refer:"neighbor-cards",sign:"yard-sign",post:"social-post",story:"social-story"};
   let blob,file,asPdf=false;
@@ -3085,6 +3098,7 @@ async function printFlyer(){
   const st=$("#fStatus");st.textContent="";
   const c=flyerCfg();if(!c.ok){st.textContent=c.why;return;}
   await ensureFonts();
+  await ensurePetImages();
   const url=renderFlyer(2).toDataURL("image/png");
   const pa=$("#printArea");pa.innerHTML='<img alt="Flyer" src="'+url+'">';
   document.body.classList.add("printing");

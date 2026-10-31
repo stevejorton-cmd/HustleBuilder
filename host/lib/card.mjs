@@ -103,109 +103,25 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
-function fillEllipse(buf, w, h, cx, cy, rx, ry, rgb) {
-  if (rx < 1 || ry < 1) return;
-  const x0 = Math.max(0, Math.floor(cx - rx - 1));
-  const x1 = Math.min(w - 1, Math.ceil(cx + rx + 1));
-  const y0 = Math.max(0, Math.floor(cy - ry - 1));
-  const y1 = Math.min(h - 1, Math.ceil(cy + ry + 1));
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const dx = (x + 0.5 - cx) / rx;
-      const dy = (y + 0.5 - cy) / ry;
-      if (dx * dx + dy * dy <= 1) {
-        const i = (y * w + x) * 3;
-        buf[i] = rgb[0]; buf[i + 1] = rgb[1]; buf[i + 2] = rgb[2];
-      }
-    }
-  }
-}
-
-function fillPoly(buf, w, h, pts, rgb) {
-  const y0 = Math.max(0, Math.floor(Math.min(...pts.map((p) => p[1]))));
-  const y1 = Math.min(h - 1, Math.ceil(Math.max(...pts.map((p) => p[1]))));
-  for (let y = y0; y <= y1; y++) {
-    const xs = [];
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i], b = pts[(i + 1) % pts.length];
-      if ((a[1] <= y && b[1] > y) || (b[1] <= y && a[1] > y)) {
-        const t = (y - a[1]) / (b[1] - a[1]);
-        xs.push(a[0] + t * (b[0] - a[0]));
-      }
-    }
-    xs.sort((p, q) => p - q);
-    for (let i = 0; i + 1 < xs.length; i += 2) {
-      const xa = Math.max(0, Math.ceil(xs[i]));
-      const xb = Math.min(w - 1, Math.floor(xs[i + 1]));
-      for (let x = xa; x <= xb; x++) {
-        const j = (y * w + x) * 3;
-        buf[j] = rgb[0]; buf[j + 1] = rgb[1]; buf[j + 2] = rgb[2];
-      }
-    }
-  }
-}
-
-const PET_IDS = ["dog", "cat", "fish", "bird", "small"];
-
-function drawPet(buf, w, h, kind, ox, oy, s) {
-  const E = (x, y, rx, ry, rgb) => fillEllipse(buf, w, h, ox + x * s, oy + y * s, rx * s, ry * s, rgb);
-  const P = (pts, rgb) => fillPoly(buf, w, h, pts.map((p) => [ox + p[0] * s, oy + p[1] * s]), rgb);
-  const cream = [246, 226, 184], tan = [226, 184, 122], nose = [224, 122, 95], ink = [28, 36, 34];
-  const orange = [232, 146, 58], belly = [246, 201, 176], fish = [61, 143, 209], fin = [46, 111, 168];
-  const gold = [246, 193, 75], beak = [224, 122, 95];
-  if (kind === "cat") {
-    E(88, 84, 36, 24, orange); E(80, 92, 16, 12, belly); E(50, 66, 22, 22, [242, 162, 74]);
-    P([[34, 54], [26, 32], [46, 50]], orange); P([[58, 50], [72, 28], [66, 54]], orange);
-    E(34, 74, 11, 7, belly); E(46, 62, 3.6, 3.6, ink);
-  } else if (kind === "fish") {
-    P([[108, 64], [146, 46], [146, 86]], fin);
-    E(74, 66, 42, 24, fish); E(74, 74, 26, 10, [126, 182, 230]);
-    P([[64, 46], [84, 30], [88, 56]], fin);
-    E(46, 60, 6, 6, [255, 255, 255]); E(44, 60, 3, 3, ink);
-  } else if (kind === "bird") {
-    E(72, 84, 30, 22, gold); E(64, 82, 14, 11, orange); E(98, 66, 16, 16, [248, 213, 106]);
-    P([[110, 64], [132, 70], [110, 78]], beak); E(102, 62, 3.4, 3.4, ink);
-  } else if (kind === "small") {
-    E(80, 88, 38, 26, tan); E(78, 66, 22, 22, cream);
-    E(62, 52, 8, 8, [246, 226, 184]); E(94, 52, 8, 8, [246, 226, 184]);
-    E(58, 74, 8, 6, [244, 182, 176]); E(98, 74, 8, 6, [244, 182, 176]);
-    E(70, 64, 3.2, 3.2, ink); E(88, 64, 3.2, 3.2, ink); E(79, 74, 4, 3, nose);
-  } else {
-    E(90, 78, 38, 24, [243, 215, 166]); E(78, 86, 18, 12, [248, 235, 208]);
-    E(46, 64, 24, 24, cream); E(30, 50, 10, 16, tan); E(28, 76, 14, 10, [248, 235, 208]);
-    E(20, 74, 5.5, 4, nose); E(44, 60, 4.2, 4.2, ink); E(45.4, 58.6, 1.4, 1.4, [255, 255, 255]);
-  }
-}
-
-export function cardPng({ title, line, accent, pets } = {}) {
-  const list = Array.isArray(pets) ? pets.filter((p) => PET_IDS.includes(p)).slice(0, 5) : [];
+export function cardPng({ title, line, accent } = {}) {
   const w = 1200, h = 630;
   const buf = Buffer.alloc(w * h * 3, 0);
   const bar = hexColor(accent);
   const ink = [241, 239, 234];
   const mute = [210, 206, 198];
-  if (list.length) {
-    fill(buf, w, 0, 0, w, h, [20, 94, 99], h);
-    fillEllipse(buf, w, h, 180, 90, 70, 28, [28, 122, 120]);
-    fillEllipse(buf, w, h, 1040, 110, 54, 54, [246, 193, 75]);
-    fill(buf, w, 0, 390, w, 240, [30, 107, 69], h);
-    const slot = 400 / list.length;
-    list.forEach((kind, i) => drawPet(buf, w, h, kind, 760 + i * slot, 430, Math.min(0.95, slot / 190)));
-  } else {
-    fill(buf, w, 0, 0, w, h, [27, 30, 33], h);
-    fill(buf, w, 0, 0, w, 28, bar, h);
-  }
-  const titleMax = list.length ? 700 : 1040;
-  const lineMax = list.length ? 700 : 1040;
-  let titleScale = list.length ? 8 : 12;
-  let lineScale = list.length ? 4 : 6;
+  fill(buf, w, 0, 0, w, h, [27, 30, 33], h);
+  fill(buf, w, 0, 0, w, 28, bar, h);
+  const titleMax = 1040;
+  const lineMax = 1040;
+  let titleScale = 12;
+  let lineScale = 6;
   while (titleScale > 5 && textWidth(clean(title || "Hustle Builder"), titleScale) > titleMax) titleScale -= 1;
   while (lineScale > 3 && textWidth(clean(line || "Book a day"), lineScale) > lineMax) lineScale -= 1;
   const name = fit(title || "Hustle Builder", titleMax, titleScale);
   const sub = fit(line || "Book a day", lineMax, lineScale);
-  drawText(buf, w, h, name, 64, list.length ? 150 : 190, titleScale, ink);
-  drawText(buf, w, h, sub, 64, (list.length ? 150 : 190) + titleScale * 8 + 28, lineScale, mute);
-    drawText(buf, w, h, "HUSTLE BUILDER", 64, 560, 4, list.length ? [246, 193, 75] : bar);
+  drawText(buf, w, h, name, 64, 190, titleScale, ink);
+  drawText(buf, w, h, sub, 64, 190 + titleScale * 8 + 28, lineScale, mute);
+  drawText(buf, w, h, "HUSTLE BUILDER", 64, 560, 4, bar);
   const raw = Buffer.alloc((w * 3 + 1) * h);
   for (let y = 0; y < h; y++) {
     raw[y * (w * 3 + 1)] = 0;
