@@ -98,6 +98,13 @@ When you are ready to charge:
 
 The parent is marked paid only after Stripe signs the webhook. A test-mode plan does not do that.
 
+## Ask a parent, drafts, and booking notes
+
+- **Ask my parent.** On Go live, the kid enters the parent’s email and taps Ask my parent. The server emails a link that expires in 7 days. Opening it on the parent’s phone signs that email in, loads the kid’s page, and the parent still checks the consent box and pays. After payment the page publishes itself, the same way a checkout return does. Sends are limited to 5 per email per day and 8 per IP per day.
+- **Drafts.** The page also saves on the server under an 8-character code, so another phone can open `/?draft=CODE`. The phone still keeps a local copy. GitHub Pages with no host skips the server save. A signed-in parent’s account keeps the latest code. Drafts older than 90 days are dropped.
+- **More work.** Besides lawn and snow, a kid can pick pet care, odd jobs, car washing, a parent’s helper, reading buddy, or something else. Helper and reading copy says a parent stays home or nearby.
+- **Neighbor note.** If a booking leaves an email, that person gets “We got your request,” what they asked for, and a cancel link. The cancel page needs a tap so mail scanners do not cancel it by opening the link. Cancelling emails the parent. The neighbor note does not include the parent’s email or phone. Reply-to is `REPLY_TO` when that is set. Otherwise the note says replies are not read.
+
 ## Family calendar
 
 After a parent verifies their email, the publish step shows **Family calendar**. They add it once:

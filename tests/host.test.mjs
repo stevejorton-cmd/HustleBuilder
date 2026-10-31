@@ -7,7 +7,7 @@ import { createHmac } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, stripeSignatureOk } from "../host/lib/router.mjs";
-import { checkSlug } from "../host/lib/moderate.mjs";
+import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 
 let dir;
 test.beforeEach(async () => {
@@ -458,3 +458,97 @@ test("the builder hides the phone unless the parent turns it on", async () => {
   assert.equal(src.includes("app.netlify.com"), false);
   assert.equal(src.includes("Manage deployments"), false);
 });
+
+test("new work types stay allowed by the slug and word checks", () => {
+  for (const slug of ["pet-care", "dog-walk", "car-wash", "reading-buddy", "odd-jobs", "my-helper"]) {
+    assert.equal(checkSlug(slug), "", slug);
+  }
+  const hits = wordHits("dog walking pet sitting car wash reading buddy parent helper odd jobs");
+  assert.equal(hits.block, "");
+});
+
+test("ask my parent emails a link, opens a session, and shows waiting until live", async () => {
+  const draft = { type: "pet", first: "Sam", town: "Elkhorn", bizName: "Sam’s Pet Care", services: [{ n: "Dog walk", p: "8" }] };
+  const sent = await json(await call("POST", "/api/ask", { body: { email: "mom@example.com", draft } }));
+  assert.equal(sent.body.ok, true);
+  assert.match(sent.body.link, /\/\?ask=/);
+  const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("mom@example.com")));
+  assert.match(mail.body.messages[0].text, /Open this link/);
+  assert.match(mail.body.messages[0].text, /ask=/);
+  const waiting = await json(await call("GET", "/api/ask/" + sent.body.token));
+  assert.equal(waiting.body.status, "waiting");
+  assert.equal(waiting.body.draft, undefined);
+  const opened = await json(await call("POST", "/api/ask/" + sent.body.token + "/open", { body: {} }));
+  assert.equal(opened.body.ok, true);
+  assert.equal(opened.body.email, "mom@example.com");
+  assert.equal(opened.body.draft.first, "Sam");
+  const me = await json(await call("GET", "/api/me", { token: opened.body.token }));
+  assert.equal(me.body.email, "mom@example.com");
+  const done = await json(await call("POST", "/api/ask/" + sent.body.token + "/done", { body: { url: "https://sites.test/sam-pets" } }));
+  assert.equal(done.body.status, "live");
+  const live = await json(await call("GET", "/api/ask/" + sent.body.token));
+  assert.equal(live.body.status, "live");
+  assert.equal(live.body.url, "https://sites.test/sam-pets");
+  for (let i = 0; i < 5; i++) await call("POST", "/api/ask", { body: { email: "mom@example.com", draft } });
+  const limited = await json(await call("POST", "/api/ask", { body: { email: "mom@example.com", draft } }));
+  assert.equal(limited.status, 429);
+});
+
+test("a draft saves under a private code and attaches to a parent", async () => {
+  const saved = await json(await call("POST", "/api/draft", { body: { draft: { type: "wash", first: "Riley", services: [{ n: "Wash the outside", p: "10" }] } } }));
+  assert.equal(saved.body.ok, true);
+  assert.match(saved.body.code, /^[a-z0-9]{8}$/);
+  assert.match(saved.body.link, /draft=/);
+  const loaded = await json(await call("GET", "/api/draft/" + saved.body.code));
+  assert.equal(loaded.body.draft.first, "Riley");
+  const again = await json(await call("POST", "/api/draft", { body: { code: saved.body.code, draft: { type: "wash", first: "Riley", town: "Millard" } } }));
+  assert.equal(again.body.code, saved.body.code);
+  const missing = await json(await call("GET", "/api/draft/zzzzzzzz"));
+  assert.equal(missing.status, 404);
+  const { token } = await parent("draft@example.com");
+  const owned = await json(await call("POST", "/api/draft", { token, body: { code: saved.body.code, draft: { type: "tutor", first: "Riley" } } }));
+  assert.equal(owned.body.code, saved.body.code);
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.draftCode, saved.body.code);
+});
+
+test("a neighbor with an email gets a request note and a cancel link that tells the parent", async () => {
+  process.env.REPLY_TO = "support@example.com";
+  const { token, email } = await parent("bookparent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "month" } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "riley-pets", html: page("Riley") } }));
+  assert.equal(pub.body.ok, true);
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "riley-pets", name: "Neighbor", contact: "neighbor@example.com", service: "Dog walk",
+    when: "Saturday at 10:00 AM", address: "4 Pine", start: "2026-11-07T10:00", t: 3000
+  } }));
+  assert.equal(booked.body.ok, true);
+  const note = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
+  const msg = note.body.messages[0];
+  assert.match(msg.text, /We got your request for Dog walk/);
+  assert.match(msg.text, /Nothing is booked yet/);
+  assert.match(msg.text, /\/api\/cancel\//);
+  assert.equal(msg.text.includes(email), false);
+  assert.equal(msg.text.includes("402"), false);
+  assert.equal(msg.replyTo, "support@example.com");
+  const cancelPath = msg.text.match(/\/api\/cancel\/[a-f0-9]+/)[0];
+  const peek = await call("GET", cancelPath);
+  assert.equal(peek.status, 200);
+  assert.match(peek.body, /Cancel this request/);
+  const still = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.equal(still.body.messages.some((m) => /cancelled/i.test(m.subject)), false);
+  const cancelled = await call("POST", cancelPath, { raw: "" });
+  assert.match(cancelled.body, /Cancelled/);
+  const parentMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.match(parentMail.body.messages.map((m) => m.subject).join(" "), /cancelled/i);
+  const phoneOnly = await json(await call("POST", "/api/book", { body: {
+    slug: "riley-pets", name: "Pat", contact: "402-555-0199", service: "Dog walk",
+    when: "Sunday at 9:00 AM", address: "9 Oak", start: "2026-11-08T09:00", t: 3000
+  }, headers: { "x-forwarded-for": "198.51.100.77" } }));
+  assert.equal(phoneOnly.body.ok, true);
+  const notes = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
+  assert.equal(notes.body.messages.length, 1);
+  delete process.env.REPLY_TO;
+});
+

@@ -140,7 +140,9 @@ function privacyPage() {
 <main style="max-width:40rem;margin:2rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem">
 <h1>Privacy</h1>
 <p>Hustle Builder hosting is for a parent and their child. The parent’s email is stored so we can verify it and send booking emails. The public page they approve is stored so neighbors can open the link.</p>
-<p>When a neighbor books, we store that job for the parent’s family calendar: the service, the customer name they typed, the address, the date and time, and a short note. We delete it about 30 days after the job, or sooner if the parent deletes the account. The phone number from a booking stays in the email only.</p>
+<p>When a neighbor books, we store that job for the parent’s family calendar: the service, the customer name they typed, the address, the date and time, and a short note. We delete it about 30 days after the job, or sooner if the parent deletes the account. The phone number from a booking stays in the parent’s email only.</p>
+<p>A kid can save a draft on our server so the same page opens on another device. The draft code is the key. We delete it about 90 days after the last save, or when the parent deletes the account. A parent can also get an email with a link that expires in 7 days, so they can finish publishing on their own phone.</p>
+<p>If a neighbor leaves an email, we send them a note that we got the request and a link to cancel it. That note does not include the parent’s email or phone. The phone number from a booking stays in the parent’s email only.</p>
 <p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
 <p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
@@ -169,7 +171,9 @@ async function serveSlug(slug) {
 
 function parseBody(raw) {
   if (!raw) return {};
-  try { return JSON.parse(raw); }
+  const s = String(raw).trim();
+  if (!s || (s[0] !== "{" && s[0] !== "[")) return {};
+  try { return JSON.parse(s); }
   catch { return null; }
 }
 
@@ -298,6 +302,79 @@ function pngResponse(buf) {
   return { status: 200, headers: { "content-type": "image/png", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body: buf };
 }
 
+const ASK_MS = 7 * 24 * 60 * 60 * 1000;
+const DRAFT_MS = 90 * 24 * 60 * 60 * 1000;
+const DRAFT_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+
+function draftCode() {
+  const bytes = randomBytes(8);
+  return Array.from(bytes, (b) => DRAFT_ALPHABET[b % DRAFT_ALPHABET.length]).join("");
+}
+async function notifyNeighbor({ origin, reply, fields, account }) {
+  const cancel = rand(18);
+  await writeJson("cancels/" + cancel + ".json", {
+    accountId: account.id,
+    parentEmail: account.email,
+    customer: fields.name,
+    service: fields.service,
+    when: fields.when,
+    used: false
+  });
+  const url = (origin || "") + "/api/cancel/" + cancel;
+  const support = supportReply();
+  const unread = support ? "" : "Replies to this email aren't read. The family will confirm with you.";
+  const text = [
+    "Hi " + fields.name + ",",
+    "",
+    "We got your request for " + (fields.service || "a job") + (fields.when ? " on " + fields.when : "") + ".",
+    "Nothing is booked yet. The family will confirm with you.",
+    "",
+    "Changed your mind? Cancel here:",
+    url,
+    "",
+    unread
+  ].filter(Boolean).join("\n");
+  const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\">"
+    + "<p>Hi " + mailEscape(fields.name) + ",</p>"
+    + "<p>We got your request for <b>" + mailEscape(fields.service || "a job") + "</b>"
+    + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p>"
+    + "<p>Nothing is booked yet. The family will confirm with you.</p>"
+    + "<p><a href=\"" + mailEscape(url) + "\">Cancel this request</a></p>"
+    + (unread ? "<p>" + mailEscape(unread) + "</p>" : "")
+    + "</div>";
+  await sendMail({ to: reply, replyTo: support, subject: "We got your request", text, html: htmlMail });
+}
+
+function cancelPage(token, done, missing) {
+  const title = missing ? "This link is finished" : done ? "Request cancelled" : "Cancel this request?";
+  const inner = missing
+    ? "<p>This cancel link is no longer active.</p>"
+    : done
+      ? "<p>Cancelled. The family got a note.</p>"
+      : "<p>Nothing is booked until the family confirms. Tap below if you do not want this request.</p><form method=\"post\" action=\"/api/cancel/" + token + "\"><button type=\"submit\" style=\"font:700 18px system-ui;padding:14px 18px\">Cancel this request</button></form>";
+  return html(missing ? 404 : 200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body><main style="max-width:36rem;margin:2rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem"><h1>${title}</h1>${inner}</main></body></html>`);
+}
+
+async function issueSession(account) {
+  const token = rand(32);
+  if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
+  account.tokenHash = sha(token);
+  account.emailVerifiedAt = account.emailVerifiedAt || new Date().toISOString();
+  await saveAccount(account);
+  return token;
+}
+function clipDraft(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = JSON.stringify(value);
+  if (raw.length > 900000) return { error: "big" };
+  return { draft: value, raw };
+}
+async function countKey(key, limit) {
+  const n = Number((await (await store()).get(key)) || 0) + 1;
+  await (await store()).put(key, String(n));
+  return n > limit;
+}
+
 export async function handleRequest(req) {
   const method = String(req.method || "GET").toUpperCase();
   let path = String(req.path || "/");
@@ -331,6 +408,29 @@ export async function handleRequest(req) {
     const meta = await readJson("pages/" + name + ".json");
     const available = !meta;
     return withCors(json(200, { ok: true, available, message: available ? "That link is free." : "That link is taken. Try another." }), req.headers && req.headers.origin);
+  }
+
+  const askGet = route.match(/^ask\/([a-f0-9]{32,128})$/i);
+  if (method === "GET" && askGet) {
+    const rec = await readJson("asks/" + askGet[1] + ".json");
+    if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, status: rec.status || "waiting", url: rec.url || "", email: rec.email, expires: rec.expires }), req.headers && req.headers.origin);
+  }
+
+  const draftGet = route.match(/^draft\/([a-z0-9]{8})$/);
+  if (method === "GET" && draftGet) {
+    const rec = await readJson("drafts/" + draftGet[1] + ".json");
+    if (!rec || Date.now() - Date.parse(rec.updatedAt || 0) > DRAFT_MS) {
+      if (rec) await (await store()).del("drafts/" + draftGet[1] + ".json");
+      return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    }
+    return withCors(json(200, { ok: true, code: draftGet[1], draft: rec.draft, updatedAt: rec.updatedAt }), req.headers && req.headers.origin);
+  }
+
+  const cancelGet = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
+  if (method === "GET" && cancelGet) {
+    const rec = await readJson("cancels/" + cancelGet[1] + ".json");
+    return cancelPage(cancelGet[1], !!(rec && rec.used), !rec);
   }
 
   const body = method === "GET" ? {} : parseBody(req.body);
@@ -395,7 +495,7 @@ export async function handleRequest(req) {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
       plan: account.plan || "", paidUntil: account.paidUntil || "", paid: paid(account),
       slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
-      payMode: paywallMode(), indexable: !!account.indexable,
+      payMode: paywallMode(), indexable: !!account.indexable, draftCode: account.draftCode || "",
       ...feedLinks(base, account.calToken)
     }), req.headers && req.headers.origin);
   }
@@ -540,10 +640,105 @@ export async function handleRequest(req) {
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
     if (account.calToken) await (await store()).del("caltokens/" + sha(account.calToken));
     await (await store()).del("caljobs/" + account.id + ".json");
+    if (account.draftCode) await (await store()).del("drafts/" + account.draftCode + ".json");
+    await (await store()).del("draftacct/" + account.id);
     await (await store()).del("email/" + sha(account.email));
     await (await store()).del("outbox/" + sha(account.email) + ".json");
     await (await store()).del("accounts/" + account.id + ".json");
     return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "ask") {
+    const email = emailOk(body.email);
+    if (!email) return withCors(json(400, { ok: false, error: "email" }), req.headers && req.headers.origin);
+    const packed = clipDraft(body.draft);
+    if (!packed) return withCors(json(400, { ok: false, error: "draft" }), req.headers && req.headers.origin);
+    if (packed.error) return withCors(json(413, { ok: false, error: "big" }), req.headers && req.headers.origin);
+    const day = new Date().toISOString().slice(0, 10);
+    if (await countKey("askem/" + sha(email + "|" + day), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (await countKey("askip/" + sha(clientIp(req) + "|" + day), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    const token = rand(24);
+    const expires = new Date(Date.now() + ASK_MS).toISOString();
+    await writeJson("asks/" + token + ".json", { email, draft: packed.draft, createdAt: new Date().toISOString(), expires, status: "waiting", url: "" });
+    const link = (origin || "") + "/?ask=" + token;
+    const mailed = await sendMail({
+      to: email,
+      replyTo: supportReply(),
+      subject: "Your kid asked you to publish their page",
+      text: "Your kid is ready to publish a Hustle Builder page.\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n\nYou will confirm you are the parent, then the page can go online.\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
+      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days. You confirm you are the parent, then the page can go online.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
+    });
+    if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, token, link, expires }), req.headers && req.headers.origin);
+  }
+
+  const askOpen = route.match(/^ask\/([a-f0-9]{32,128})\/open$/i);
+  if (method === "POST" && askOpen) {
+    const rec = await readJson("asks/" + askOpen[1] + ".json");
+    if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    let account = await accountByEmail(rec.email);
+    if (!account) account = { id: rand(8), email: rec.email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null };
+    const token = await issueSession(account);
+    return withCors(json(200, { ok: true, token, email: rec.email, draft: rec.draft, consent: !!account.consentAt, paid: paid(account), slug: account.slug || "", status: rec.status || "waiting", url: rec.url || "" }), req.headers && req.headers.origin);
+  }
+
+  const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
+  if (method === "POST" && askDone) {
+    const rec = await readJson("asks/" + askDone[1] + ".json");
+    if (!rec) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    rec.status = "live";
+    rec.url = String(body.url || rec.url || "").slice(0, 200);
+    rec.liveAt = new Date().toISOString();
+    await writeJson("asks/" + askDone[1] + ".json", rec);
+    return withCors(json(200, { ok: true, status: "live", url: rec.url }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "draft") {
+    const packed = clipDraft(body.draft);
+    if (!packed) return withCors(json(400, { ok: false, error: "draft" }), req.headers && req.headers.origin);
+    if (packed.error) return withCors(json(413, { ok: false, error: "big" }), req.headers && req.headers.origin);
+    let code = String(body.code || "").trim().toLowerCase();
+    if (code && !/^[a-z0-9]{8}$/.test(code)) return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin);
+    const day = new Date().toISOString().slice(0, 10);
+    const existing = code ? await readJson("drafts/" + code + ".json") : null;
+    if (!existing && await countKey("draftnew/" + sha(clientIp(req) + "|" + day), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    const account = await me();
+    let rec = existing;
+    if (!code || !rec) {
+      code = draftCode();
+      rec = { createdAt: new Date().toISOString() };
+    }
+    rec.draft = packed.draft;
+    rec.updatedAt = new Date().toISOString();
+    if (account) {
+      rec.accountId = account.id;
+      account.draftCode = code;
+      await saveAccount(account);
+      await (await store()).put("draftacct/" + account.id, code);
+    }
+    await writeJson("drafts/" + code + ".json", rec);
+    const link = (origin || "") + "/?draft=" + code;
+    return withCors(json(200, { ok: true, code, link }), req.headers && req.headers.origin);
+  }
+
+  const cancelPost = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
+  if (method === "POST" && cancelPost) {
+    const rec = await readJson("cancels/" + cancelPost[1] + ".json");
+    if (!rec) return cancelPage(cancelPost[1], false, true);
+    if (!rec.used) {
+      rec.used = true;
+      rec.cancelledAt = new Date().toISOString();
+      await writeJson("cancels/" + cancelPost[1] + ".json", rec);
+      const support = supportReply();
+      await sendMail({
+        to: rec.parentEmail,
+        replyTo: support,
+        subject: "A neighbor cancelled",
+        text: rec.customer + " cancelled the request for " + (rec.service || "a job") + (rec.when ? " on " + rec.when : "") + ".\n\nYou do not need to do anything else.",
+        html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">" + mailEscape(rec.customer) + " cancelled the request for " + mailEscape(rec.service || "a job") + (rec.when ? " on " + mailEscape(rec.when) : "") + ".</p>"
+      });
+    }
+    return cancelPage(cancelPost[1], true, false);
   }
 
   if (method === "POST" && route === "book") {
@@ -641,6 +836,7 @@ export async function handleRequest(req) {
     }
     meta.bookCount = (meta.bookCount || 0) + 1;
     await writeJson("pages/" + slug + ".json", meta);
+    if (reply) await notifyNeighbor({ origin, reply, fields, account });
     return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
   }
 
