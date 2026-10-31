@@ -833,3 +833,119 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(src.includes("function petAnimal"), false);
 });
 
+test("add more jobs lists the selected business type first", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("const JOBS=");
+  const end = src.indexOf("JOBS.forEach(g=>g.items", start);
+  if (start < 0 || end < 0) throw new Error("missing job catalog");
+  const names = (picked) => runInNewContext(src.slice(start, end) + `orderedJobGroups(${JSON.stringify(picked)}).map(g=>g.g).join("|")`);
+  const all = ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"];
+  const expectOrder = (picked, first) => {
+    const got = names(picked).split("|");
+    assert.deepEqual(got.slice(0, first.length), first);
+    assert.deepEqual(got.slice().sort(), all.slice().sort());
+    assert.equal(new Set(got).size, got.length);
+  };
+  expectOrder("lawn", ["Yard jobs"]);
+  expectOrder("snow", ["Snow jobs"]);
+  expectOrder("pet", ["Pet jobs"]);
+  expectOrder("both", ["Yard jobs", "Snow jobs"]);
+  expectOrder("odd", ["Yard jobs"]);
+  expectOrder("wash", ["Helpful extras"]);
+  expectOrder("help", ["Helpful extras"]);
+  expectOrder("tutor", ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"]);
+  expectOrder("other", ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"]);
+  expectOrder(["pet", "snow"], ["Pet jobs", "Snow jobs"]);
+  expectOrder(["snow", "lawn"], ["Snow jobs", "Yard jobs"]);
+  expectOrder(["both", "pet"], ["Yard jobs", "Snow jobs", "Pet jobs"]);
+  assert.match(src, /orderedJobGroups\(picked\)/);
+  assert.equal(src.includes('groups=[JOBS[2],JOBS[1],JOBS[3]]'), false);
+});
+
+test("each business type preloads starter jobs", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("const PRESETS=");
+  const end = src.indexOf("const TAGS=", start);
+  if (start < 0 || end < 0) throw new Error("missing starter jobs");
+  const api = runInNewContext(src.slice(start, end) + "({starterServices, shouldPreload})");
+  const { starterServices, shouldPreload } = api;
+  for (const type of ["lawn", "snow", "pet", "wash", "odd", "help", "tutor", "both"]) {
+    const jobs = starterServices(type, 1);
+    assert.ok(jobs.length >= 4, type + " preloaded " + jobs.length);
+    assert.equal(new Set(jobs.map((job) => job.n.toLowerCase())).size, jobs.length);
+    assert.ok(jobs.every((job) => Number(job.p) > 0));
+  }
+  assert.equal(starterServices("other", 1).length, 1);
+  const lawn = starterServices("lawn", 1).map((job) => job.n);
+  assert.ok(lawn.includes("Mow a small yard"));
+  assert.ok(lawn.includes("Weeding"));
+  assert.equal(starterServices("lawn", 1)[0].p, "10");
+  assert.equal(starterServices("lawn", 5)[0].p, "22");
+  const mixed = starterServices(["pet", "lawn"], 1);
+  assert.equal(mixed[0].n, "Dog walk, 15 minutes");
+  assert.ok(mixed.some((job) => job.n === "Mow a small yard"));
+  assert.equal(new Set(mixed.map((job) => job.n.toLowerCase())).size, mixed.length);
+  const year = starterServices("both", 1).map((job) => job.n);
+  assert.ok(year.includes("Mow a small yard") && year.includes("Shovel the driveway"));
+  assert.equal(shouldPreload(true, [{ n: "Steve's Lawn Co.", p: "10" }], "lawn"), true);
+  assert.equal(shouldPreload(true, [{ n: "My service", p: "10" }], "lawn"), true);
+  assert.equal(shouldPreload(true, [{ n: "My service", p: "10" }], "other"), false);
+  assert.equal(shouldPreload(true, lawn.map((n) => ({ n, p: "10" })), "lawn"), false);
+  const goAt = src.indexOf("function go(");
+  const goSrc = src.slice(goAt, goAt + 500);
+  assert.equal(goSrc.includes("S.services"), false);
+  assert.match(src, /shouldPreload\(S\.svcEdited/);
+});
+
+test("every job type has at least 12 name ideas and funny names", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const cut = (from, to) => {
+    const start = src.indexOf(from);
+    const end = src.indexOf(to, start + from.length);
+    if (start < 0 || end < 0) throw new Error("missing " + from);
+    return src.slice(start, end);
+  };
+  const types = ["lawn", "snow", "both", "pet", "odd", "wash", "help", "tutor", "other"];
+  runInNewContext(cut("const NAME_IDEAS=", "const TAG_IDEAS=") + cut("const FUNNY=", "let funnyPage=") + `
+    for (const type of ${JSON.stringify(types)}) {
+      const ideas = NAME_IDEAS[type] || [];
+      if (ideas.length < 12) throw new Error(type + " has " + ideas.length + " name ideas");
+      const plain = ideas.filter((item) => item.indexOf("{F}") < 0 && item.indexOf("{T}") < 0);
+      if (plain.length < 12) throw new Error(type + " shows " + plain.length + " names before a first name is typed");
+      const page0 = ideas.slice(0, 6);
+      const page1 = ideas.slice(6, 12);
+      if (page1.length < 6 || page0.join("|") === page1.join("|")) throw new Error(type + " shuffle page is short");
+      const funny = FUNNY[type];
+      if (!funny || !funny["Keep it simple"]) throw new Error(type + " is missing Keep it simple");
+      const jokes = Object.values(funny).reduce((all, list) => all.concat(list), []);
+      if (jokes.length < 12) throw new Error(type + " has " + jokes.length + " funny names");
+      const norm = (item) => item.toLowerCase().replace(/[{]F[}]/g, "john").replace(/[{]T[}]/g, "lincoln").replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "");
+      const near = (a, b) => {
+        if (!a || !b || a === b) return a === b && !!a;
+        const short = a.length < b.length ? a : b;
+        const long = a.length < b.length ? b : a;
+        if (short.length >= 8 && long.includes(short)) return true;
+        const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+        for (let j = 0; j <= b.length; j++) rows[0][j] = j;
+        for (let i = 1; i <= a.length; i++) {
+          for (let j = 1; j <= b.length; j++) {
+            rows[i][j] = a[i - 1] === b[j - 1] ? rows[i - 1][j - 1] : 1 + Math.min(rows[i - 1][j], rows[i][j - 1], rows[i - 1][j - 1]);
+          }
+        }
+        return rows[a.length][b.length] / Math.max(a.length, b.length) <= 0.28;
+      };
+      for (const joke of jokes) {
+        for (const idea of ideas) {
+          if (near(norm(joke), norm(idea))) throw new Error(type + " overlaps: " + joke + " / " + idea);
+        }
+      }
+    }
+  `, {}, { timeout: 1000 });
+});
+

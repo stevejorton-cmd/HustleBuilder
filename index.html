@@ -1732,22 +1732,55 @@ ${promiseHTML}
 /* ============ Builder state ============ */
 const LS="hustle-builder-v3";
 const PRESETS={
-  lawn:[["Full mow, front and back","15"],["Front yard mow","10"],["Trim and edge","5"],["Leaf cleanup","20"],["Bag grass clippings","3"]],
-  snow:[["Driveway","10"],["Driveway and walk","12"],["Walk and steps","5"],["Salt","3"]],
-  both:[["Full mow, front and back","15"],["Trim and edge","5"],["Bag grass clippings","3"],["Shovel driveway","10"],["Shovel driveway and walk","12"],["Salt","3"]],
-  pet:[["Dog walk, 15 minutes","5"],["Dog walk, 30 minutes","8"],["Pet feeding drop-in","6"],["Pet sitting visit","8"],["Pet sitting, full day","10"],["Poop scoop, one time","10"],["Poop scoop, weekly","8"],["Fresh water and food bowls","4"],["Litter box cleaning","5"],["Pet playtime","6"],["Mail and pet check","5"],["Small animal care","6"],["Dog brushing","5"],["Water the plants","4"]],
-  odd:[["Yard cleanup","15"],["Rake leaves","12"],["Weed the garden","10"],["Take cans to the curb","4"]],
-  wash:[["Wash the outside","10"],["Wash and vacuum","15"],["Rims and windows","8"]],
-  help:[["Playtime helper, 1 hour","10"],["Tidy toys","6"],["Snack helper","5"],["Reading together","8"]],
-  tutor:[["Reading together, 30 minutes","10"],["Homework helper, 30 minutes","12"],["Practice spelling","8"]],
-  other:[["My service","10"]]
+  lawn:[["Mow a small yard",[10,12,15,18,22]],["Mow a large yard",[15,18,22,26,32]],["Edging and trimming",[5,8,10,12,15]],["Leaf raking",[12,15,18,22,28]],["Weeding",[8,10,12,15,18]],["Bag the clippings",[3,4,5,6,8]]],
+  snow:[["Shovel the driveway",[10,12,15,18,22]],["Shovel driveway and walk",[12,16,20,24,28]],["Clear the walk and steps",[5,6,8,10,12]],["Salt the walk",[3,4,5,6,8]],["Clear the front steps",[4,5,6,8,10]],["Brush snow off the car",[4,5,6,8,10]]],
+  pet:[["Dog walk, 15 minutes",[5,6,8,10,12]],["Dog walk, 30 minutes",[8,10,12,14,16]],["Pet feeding drop-in",[6,8,10,12,14]],["Pet sitting visit",[8,10,12,14,16]],["Poop scoop, one time",[10,12,15,18,20]],["Fresh water and food bowls",[4,5,6,8,10]]],
+  odd:[["Yard cleanup",[15,18,22,26,30]],["Rake leaves",[12,15,18,22,26]],["Weed the garden",[10,12,15,18,22]],["Take cans to the curb",[4,5,6,8,10]],["Sweep the driveway",[5,6,8,10,12]],["Pick up sticks",[8,10,12,15,18]]],
+  wash:[["Wash the outside",[10,12,15,18,22]],["Wash and vacuum",[15,18,22,26,30]],["Rims and windows",[8,10,12,15,18]],["Dry and shine",[6,8,10,12,15]],["Vacuum the inside",[8,10,12,14,16]]],
+  help:[["Playtime helper, 1 hour",[10,12,15,18,22]],["Tidy toys",[6,8,10,12,14]],["Snack helper",[5,6,8,10,12]],["Reading together",[8,10,12,14,16]],["Set the table",[4,5,6,8,10]],["Bring in the mail",[3,4,5,6,8]]],
+  tutor:[["Reading together, 30 minutes",[10,12,15,18,22]],["Homework helper, 30 minutes",[12,14,16,20,24]],["Practice spelling",[8,10,12,14,16]],["Read a chapter",[8,10,12,14,18]],["Flash cards",[6,8,10,12,14]]],
+  other:[["My service",[10,12,15,18,22]]]
 };
+PRESETS.both=PRESETS.lawn.concat(PRESETS.snow).filter((row,i,all)=>all.findIndex(x=>x[0].toLowerCase()===row[0].toLowerCase())===i);
+function chosenTypes(picked){
+  const src=picked===undefined?(Array.isArray(S.types)&&S.types.length?S.types.slice():[S.type||"lawn"]):picked;
+  const list=Array.isArray(src)?src.slice():[src];
+  const out=[];
+  list.forEach(id=>{
+    if(id==="both"){["lawn","snow"].forEach(k=>{if(out.indexOf(k)<0)out.push(k);});}
+    else if(id&&out.indexOf(id)<0)out.push(id);
+  });
+  return out.length?out:["lawn"];
+}
+function starterServices(picked, level){
+  const types=chosenTypes(picked);
+  const onlyOther=types.length===1&&types[0]==="other";
+  const L=Math.max(1,Math.min(5,level|0||1));
+  const seen={}, out=[];
+  types.forEach(id=>{
+    if(id==="other"&&!onlyOther)return;
+    (PRESETS[id]||PRESETS.other).forEach(row=>{
+      const key=String(row[0]).toLowerCase();
+      if(seen[key])return;
+      seen[key]=1;
+      const price=Array.isArray(row[1])?row[1][Math.min(L,row[1].length)-1]:row[1];
+      out.push({n:row[0],p:String(price),on:id==="pet"?true:undefined});
+    });
+  });
+  return out;
+}
+function shouldPreload(edited, services, nextType){
+  if(!edited)return true;
+  if(nextType==="other")return false;
+  const named=Array.isArray(services)?services.filter(s=>String(s.n||"").trim()):[];
+  return named.length<2;
+}
 const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
 function autoBiz(type,first){const f=first||"Alex";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
 const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
-  return {type:"lawn",first:"",town:"",bizName:"",tagline:"",services:PRESETS.lawn.map(s=>({n:s[0],p:s[1]})),svcEdited:false,
+  return {type:"lawn",first:"",town:"",bizName:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,
     palette:"ember",look:"night",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
@@ -1755,7 +1788,7 @@ let savedRaw=null;
 try{const r=localStorage.getItem(LS); if(r){savedRaw=JSON.parse(r);S=Object.assign(defaults(),savedRaw);}}catch(e){}
 if(!RIGS[S.palette])S.palette="ember";
 if(!PRESETS[S.type])S.type="lawn";
-if(!S.svcEdited)S.services=(PRESETS[S.type]||PRESETS.lawn).map(s=>({n:s[0],p:s[1],on:S.type==="pet"?true:undefined}));
+if(!S.svcEdited)S.services=starterServices(undefined, S.lvlApplied||1);
 if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
   const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
   S.sched=[0,1,2,3,4,5,6].map(i=>Object.assign({on:untouched?false:!!(S.days&&S.days[i])},defHours(i)));
@@ -1804,11 +1837,11 @@ const MORE_TYPES=[
 const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
 function presetServices(id){
-  return (PRESETS[id]||PRESETS.other).map(s=>({n:s[0],p:s[1],on:id==="pet"?true:undefined}));
+  return starterServices(id, (S&&S.lvlApplied)||1);
 }
 function pickType(id){
   S.type=id;
-  if(!S.svcEdited){S.services=presetServices(id);renderServices();}
+  if(shouldPreload(S.svcEdited,S.services,id)){S.svcEdited=false;S.services=starterServices(id, S.lvlApplied||1);renderServices();}
   if(TYPE_COLOR[id]&&!S.paletteTouched){S.palette=TYPE_COLOR[id];if(typeof renderRigs==="function")renderRigs();}
   shell.dataset.type=S.type; syncPlaceholders(); renderTiles(); syncOther(); syncTypeCopy(); queue();
 }
@@ -1961,6 +1994,7 @@ const LEVELS=[
   {n:"Legend",say:"People ask for you by name. You can charge top prices.",m:2}];
 /* prices for the starter services at each level (Beginner to Legend) */
 const PRICE_TABLE={"full mow, front and back":[15,18,20,25,30],"front yard mow":[10,12,15,18,22],"trim and edge":[5,8,10,12,15],"leaf cleanup":[20,25,30,35,45],"bag grass clippings":[3,4,5,6,8],"driveway":[10,12,15,18,22],"shovel driveway":[10,12,15,18,22],"driveway and walk":[12,16,20,24,28],"shovel driveway and walk":[12,16,20,24,28],"walk and steps":[5,6,8,10,12],"salt":[3,4,5,6,8]};
+Object.keys(PRESETS).forEach(k=>(PRESETS[k]||[]).forEach(row=>{if(Array.isArray(row[1]))PRICE_TABLE[row[0].toLowerCase()]=row[1];}));
 function priceFactor(name,from,to){const row=PRICE_TABLE[String(name||"").trim().toLowerCase()];return row?row[to-1]/row[from-1]:LEVELS[to-1].m/LEVELS[from-1].m;}
 function niceP(v){return v>=25?Math.round(v/5)*5:Math.max(1,Math.round(v));}
 function renderLevel(){
@@ -1986,10 +2020,25 @@ const JOBS=[
  {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,4,5,6,7]],["Leaf raking, whole yard",[15,20,25,30,40]],["Weeding flower beds",[8,10,12,15,20]],["Spread mulch (by hand)",[15,20,25,30,40]],["Trim small bushes (hand clippers)",[8,10,12,15,20]],["Pick up sticks and yard cleanup",[8,10,12,15,18]],["Sweep driveway and patio",[5,6,8,10,12]],["Plant flowers",[10,12,15,20,25]],["Water plants (per visit)",[4,5,6,8,10]],["Pick up dog mess in the yard",[4,5,6,8,10]],["Move patio furniture and hoses",[5,6,8,10,12]]]},
  {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,5,6,8,10]],["Clear the end of the driveway (plow pile)",[5,6,8,10,12]],["Clear around the mailbox",[3,4,5,6,8]],["Clear the back door and patio",[5,6,8,10,12]],["Clear a path to the trash cans",[3,4,5,6,8]],["Brush off and clear the car",[4,5,6,8,10]]]},
  {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,3,4,5,6]],["Wash the car",[6,8,10,14,18]],["Bring in mail and packages (per day)",[2,3,4,5,6]]]}];
+/* leftover sections stay in this order after the ones the kid picked */
+const JOB_SECTION_ORDER=["lawn","snow","pet","any"];
+const TYPE_JOB_SECTIONS={lawn:["lawn"],snow:["snow"],both:["lawn","snow"],pet:["pet"],odd:["lawn"],wash:["any"],help:["any"],tutor:[],other:[]};
+function orderedJobGroups(picked){
+  const list=Array.isArray(picked)?picked:(picked?[picked]:["lawn"]);
+  const first=[];
+  list.forEach(id=>{
+    (TYPE_JOB_SECTIONS[id]||[]).forEach(key=>{if(first.indexOf(key)<0)first.push(key);});
+  });
+  const order=first.concat(JOB_SECTION_ORDER.filter(key=>first.indexOf(key)<0));
+  const by={};
+  JOBS.forEach(g=>{by[g.t]=g;});
+  return order.map(key=>by[key]).filter(Boolean);
+}
 JOBS.forEach(g=>g.items.forEach(it=>{PRICE_TABLE[it[0].toLowerCase()]=it[1];}));
 function openJobs(){
   const L=Math.max(1,Math.min(5,S.lvlApplied|0||1));
-  let groups=JOBS.slice();if(S.type==="snow")groups=[JOBS[2],JOBS[1],JOBS[3]];else if(S.type==="pet")groups=[JOBS[0],JOBS[3]];
+  const picked=Array.isArray(S.types)&&S.types.length?S.types:[S.type||"lawn"];
+  const groups=orderedJobGroups(picked);
   openModal('<h3>Add more jobs</h3><p class="small2" style="margin:0 0 6px">Tap Add to put a job on your list. You can change the name and the price after. Prices are set for your level: '+LEVELS[L-1].n+'.</p><div id="jobsList"></div><div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="jobsDone">Done</button></div></div>');
   const draw=()=>{
     const box=mbody.querySelector("#jobsList");box.innerHTML="";
@@ -3188,36 +3237,60 @@ $("#addRev").onclick=()=>{if(S.reviews.length<5){S.reviews.push({n:"",q:"",r:5})
 const NAME_IDEAS={
   lawn:["{F} Lawn Co.","{F}’s Lawn Care","{F} Yard Services","{F} Outdoor Services","{F}’s Mowing and Edging","{F} Turf Care","{T} Lawn Co.","{T} Lawn Care","{T} Yard Services","{T} Mowing Co.","{T} Lawn and Edge","Ironline Lawn Co.","Ridgeline Lawn Care","Northgate Lawn Care","Prairie Edge Lawn Co.","Bluestem Lawn Co.","Blueline Lawn Care","Trueline Lawn Care","True North Lawn Co.","Heartland Lawn Care","Meridian Lawn Care","Vanguard Lawn Care","Anchor Lawn Co.","Foundation Lawn Care","Fieldstone Lawn Co.","Timberline Lawn Care","Redline Lawn Co.","Crosscut Lawn Co.","The Standard Lawn Co.","Steady Hand Lawn Care","Level Ground Lawn Care","Even Cut Lawn Co.","Fine Line Lawn Care","Hard Edge Lawn Co.","Precision Cut Lawn Care","Firstline Lawn Care","Straight Line Lawn Co.","Prime Cut Lawn Co.","Edge and Stripe Lawn Co."],
   snow:["{F} Snow Removal","{F}’s Snow Service","{F} Snow Co.","{F} Driveway Service","{T} Snow Removal","{T} Snow Co.","{T} Snow and Ice","{T} Winter Services","Clearway Snow Co.","First Pass Snow Removal","Northbound Snow Co.","Coldline Snow Removal","Hardpack Snow Co.","Blacktop Snow Removal","Clear Lane Snow Co.","Early Shift Snow Removal","Dawn Shift Snow Co.","Winter Standard Snow Co.","Iron Winter Snow Removal","Snowline Services","Whiteline Snow Co.","Steady Shovel Snow Removal","Highline Snow Removal","Polar Edge Snow Co.","Northwind Snow Removal","First Light Snow Co.","Deep Freeze Snow Co.","Heartland Snow Removal","Prairie Winter Snow Co.","True North Snow Co.","Salt Line Snow Removal","Whiteout Snow Removal","Sub-Zero Snow Crew","Clean Slate Snow Co.","Bare Pavement Snow Co.","Down to Pavement Snow Co.","Driveway Standard Snow Co."],
-  both:["{F}’s Yard and Snow Co.","{F} Year-Round Yard Care","{F} Property Care","{F} Outdoor Services","{T} Yard and Snow","{T} Property Services","{T} Year-Round Yard Co.","Heartland Yard Co.","Prairie Yard and Snow","Bluestem Lawn and Snow","Four Season Yard Co.","Full Season Yard Care","All Season Property Care","True North Property Care","Ironline Property Services","Steady Hand Yard Care","Open Season Yard Co.","The Standard Yard Co.","Level Ground Yard Care","Highline Yard Services","Crosscut Yard and Snow","Blade and Shovel Co.","Ground Crew Yard Care","Season Line Yard Co.","North Edge Yard Care","Meridian Yard and Snow","Anchor Yard Services","Year Round Yard Crew","Seasons Edge Yard Care","No Off-Season Yard Co.","Every Season Yard Co.","Sun to Snow Yard Co."]
+  both:["{F}’s Yard and Snow Co.","{F} Year-Round Yard Care","{F} Property Care","{F} Outdoor Services","{T} Yard and Snow","{T} Property Services","{T} Year-Round Yard Co.","Heartland Yard Co.","Prairie Yard and Snow","Bluestem Lawn and Snow","Four Season Yard Co.","Full Season Yard Care","All Season Property Care","True North Property Care","Ironline Property Services","Steady Hand Yard Care","Open Season Yard Co.","The Standard Yard Co.","Level Ground Yard Care","Highline Yard Services","Crosscut Yard and Snow","Blade and Shovel Co.","Ground Crew Yard Care","Season Line Yard Co.","North Edge Yard Care","Meridian Yard and Snow","Anchor Yard Services","Year Round Yard Crew","Seasons Edge Yard Care","No Off-Season Yard Co.","Every Season Yard Co.","Sun to Snow Yard Co."],
+  pet:["{F} Pet Care","{F}’s Pet Sitting","{F} Dog Walks","{T} Pet Care","{T} Pet Sitting","Paw Print Pet Care","Gentle Paws Pet Care","Neighborhood Paws","Leash and Treat Pet Care","Home Again Pet Care","Happy Bowl Pet Care","Walk and Water Pet Care","Kind Paws Pet Care","Doorstep Pet Care","Soft Step Pet Care","Fetch and Feed Pet Care","Tail Wag Pet Care","Good Neighbor Pet Care","Little Visit Pet Care","Fresh Water Pet Care"],
+  odd:["{F} Yard Help","{F}’s Odd Jobs","{F} Chore Crew","{T} Yard Help","{T} Odd Jobs","Handy Neighbor","Chore Crew","Saturday Jobs Co.","Little Jobs Yard Help","Neighborly Yard Help","After School Yard Help","The Extra Hands","Tidy Up Yard Help","Back Fence Yard Help","One More Chore Co.","Porch Light Yard Help","Weekend Yard Help","Small Job Crew","Helpful Hands Yard Co.","Right Away Yard Help"],
+  wash:["{F} Car Wash","{F}’s Car Care","{F} Mobile Wash","{T} Car Wash","{T} Shine Co.","Suds and Shine Car Wash","Driveway Shine Car Wash","Curb Appeal Car Wash","Soft Towel Car Wash","Clean Windows Car Wash","Saturday Shine Car Wash","Neighborhood Car Wash","Bucket and Towel Co.","Spotless Saturday Car Wash","Rinse and Dry Car Wash","Careful Hands Car Wash","Shiny Side Car Wash","Parked and Polished","Quiet Shine Car Wash","Fresh Finish Car Wash"],
+  help:["{F} Helps Out","{F}’s Helper Crew","{F} Family Helper","{T} Helper","{T} Family Help","Home Helper Co.","Little Jobs Helper","Parent’s Helper","Around the House Helper","After School Helper","Kind Hands Helper","Nearby Helper","The Extra Pair","House Help Co.","Saturday Helper","Neighbor Helper Co.","Ready Hands Helper","Home Base Helper","Small Tasks Helper","Here to Help Co."],
+  tutor:["{F} Reading Buddy","{F} Reads With You","{F}’s Reading Time","{T} Reading Buddy","{T} Readers","Page Turn Reading Buddy","Story Time Reading Co.","Read Together Co.","Chapter One Reading Buddy","Neighborhood Readers","Quiet Time Reading","Book Nook Reading Buddy","After School Readers","Let’s Read Co.","Story Window Reading","Little Library Buddy","Read Aloud Co.","Next Page Reading Buddy","Kind Words Reading","Open Book Reading Co."],
+  other:["{F} Neighborhood Help","{F}’s Help Crew","{F} Shows Up","{T} Help","{T} Neighborhood Help","Show Up Help Co.","Good Neighbor Help","On the Way Help","Little Favor Co.","Nearby Help Crew","The Helpful Neighbor","Ready When You Are","Block Help Co.","After School Help","Porch Step Help","Here If You Need Me","Small Favor Crew","Neighbor on Call","Kind Neighbor Help","Right Next Door Help"]
 };
 const TAG_IDEAS={
   lawn:["Straight lines. Clean edges. Done right.","Your lawn, dialed in.","Every stripe on purpose.","Cut clean. Leave clean.","The sharpest lawn on the block.","Stripes you can see from the street.","Mowed like we mean it.","Fresh cut. Zero excuses.","Edges you could set a ruler to.","Built on straight lines.","Green, clean, done.","The neighborhood standard.","Work hard. Mow harder.","Precision in every pass.","Respect the edge.","Lawns done like it matters.","Quality cut. Fair price.","Starts at the curb. Ends at the fence.","We show up. The grass stays down.","Your neighbors will ask who does your lawn.","Done before the grill is hot.","Small crew. Big standards."],
   snow:["Up before the sun. Your driveway’s clear before you are.","Clear by sunrise.","Snow doesn’t stop us.","Down to the pavement.","First one out. Last one done.","Cold work. Clean results.","Edge to edge. Curb to garage.","Shoveled like we mean it.","We beat the plow truck.","Dawn patrol. Driveways cleared.","Cleared. Salted. Done.","Wake up to a clear driveway.","Bring on the blizzard.","Zero snow. Zero stress.","Safe steps. Clean drive.","Weather happens. We handle it.","Cold hands. Warm customers.","Snow day for you. Work day for us.","We don’t wait for the thaw.","Be home. We’ve got the snow.","Nothing but pavement."],
-  both:["Every season. Handled.","Mowing in the summer. Shoveling in the winter.","Sun or snow, we show.","Four seasons. One crew.","Rain, shine, or blizzard.","Year-round hustle.","Grass to glacier.","Your yard, all year.","Spring to snowfall.","No off-season.","Seasons change. Standards don’t.","Hot or cold, we’re on it.","All year. All in.","Cut it in June. Clear it in January.","Your yard never takes a day off. Neither do we.","Handled from thaw to freeze.","Boots on the ground, all year.","Work ethic that runs all year."]
+  both:["Every season. Handled.","Mowing in the summer. Shoveling in the winter.","Sun or snow, we show.","Four seasons. One crew.","Rain, shine, or blizzard.","Year-round hustle.","Grass to glacier.","Your yard, all year.","Spring to snowfall.","No off-season.","Seasons change. Standards don’t.","Hot or cold, we’re on it.","All year. All in.","Cut it in June. Clear it in January.","Your yard never takes a day off. Neither do we.","Handled from thaw to freeze.","Boots on the ground, all year.","Work ethic that runs all year."],
+  pet:["Walks, water, and a note when I’m done.","Gentle hands. On time.","A parent knows about every visit.","Pets I know. Care I mean.","Fed, walked, and checked on.","Home safe. Note sent.","Kind to the pet. Clear with the parent.","Every visit, a parent is in the loop."],
+  odd:["Odd jobs. Done right.","You name the chore. I show up.","Small jobs. Serious effort.","Tidy when I leave.","The chore you asked for, finished.","Helpful hands. Clean finish."],
+  wash:["Clean cars. Careful hands.","Soap, rinse, dry towel.","Shiny, not sloppy.","Your driveway. My bucket.","Clean glass. Soft towels.","A careful wash, every time."],
+  help:["I help while a parent is home.","A parent is in charge. I help.","Little jobs, done carefully.","Extra hands when you need them.","Help at home. A parent nearby.","I show up. A parent stays in charge."],
+  tutor:["Let’s read. A parent is nearby.","Pages turned. A parent close by.","We read together.","Stories, out loud.","One chapter at a time.","Reading buddy. Parent nearby."],
+  other:["Tell me the job. I’ll show up.","You name it. I’ll do it carefully.","A parent confirms every job.","Small help. On time.","Ask. I’ll show up.","Neighborhood help, parent-backed."]
 };
 const TAG_ANY=["Show up. Do it right. Leave it better.","Student-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a student. Backed by a parent.","Work first. Brag later."];
 
 const FUNNY={
- lawn:{"Animal crew":["Monkey Blades","The Grass Menagerie","Dandy Lion Lawn Care","Hare Today Lawn Care","Gopher Green Lawn Co.","Grasshopper Mowing Co.","Bee-Line Lawn Care","The Bare Necessities Lawn Care"],
-  "Sayings with a twist":["Every Now and Mow","Mow Time Like the Present","Mow Place Like Home","Leaf It to Us Lawn Care","A Grass Act Lawn Care","Mow or Never Lawn Care","A Cut Above the Rest","Where There’s a Mow, There’s a Way"],
-  "Movie and pop twists":["The Lawn Ranger","Lord of the Lawns","Edge of Tomorrow Lawn Care","Seize the Lawn","Blades of Glory Lawn Care","Ground Control Lawn Care","Mow and Furious Lawn Care","Rake and Roll Lawn Care"],
-  "Haircut humor":["The Lawn Barbers","Mow-hawk Lawn Care","Buzz Cut Lawn Care","Fresh Fade Lawn Co.","The Grass Salon","Trim and Proper Lawn Care"],
-  "Name twists":["{F} Mows Best","{F}’s Grassroots Lawn Care","{F}’s Greener Pastures","Cool Hand {F} Lawn Care","{F} Seizes the Lawn","The {F} Edge Lawn Care"]},
- snow:{"Animal crew":["Yeti or Not Snow Removal","Husky Business Snow Co.","The Salty Dogs Snow Crew","Gone Tomorrow Snow Removal","Polar Plow Bears","Penguin Patrol Snow Removal","Moose on the Loose Snow Removal","Reindeer Games Snow Removal"],
-  "Sayings with a twist":["Worth Your Salt Snow Removal","Salt of the Earth Snow Co.","Plowed and Confused","Let It Plow","Shovel Ready Snow Crew","Dig It Snow Removal","Sleigh All Day Snow Removal","Snow Daze Snow Removal"],
-  "Movie and pop twists":["The Snow Ranger","The Great Shovelsby","Snow-pocalypse Now","Cool Hand Plow","Plow Hard Snow Removal","Return of the Plow","Blizzard of Oz Snow Removal","Ice Ice Maybe Snow Removal"],
-  "Cold puns":["Ice to Meet You Snow Co.","Snow Joke Snow Removal","Flake Your Day Snow Removal","Pile It On Snow Removal","Frozen Assets Snow Removal","Brrr-illiant Snow Removal"],
-  "Name twists":["{F} Knows Snow","Cool Hand {F} Snow Removal","{F} Seizes the Shovel","{F} Plows Best","{F}’s Snow Biz"]},
- both:{"Animal crew":["Monkey Blades and Snow Crew","Hare Today, Snow Tomorrow","Polar Opposites Yard Care","Husky Business Yard Care","The Salty Dogs Yard Crew","Dandy Lion Yard and Snow","The Grass and Snow Menagerie","Yeti or Not Yard Care"],
-  "Sayings with a twist":["Weather or Not Yard Care","A Yard for All Seasons","Jack of All Seasons Yard Co.","Seasoned Pros Yard Care","Every Now and Mow Yard Care","Mow Good to Be True","Mow, Snow, Repeat Yard Care","Leaf It to Us Yard Care"],
-  "Movie and pop twists":["The Lawn and Snow Ranger","Lawn & Order: Snow Division","Thaw and Order Yard Care","Lord of the Yards","Seize the Yard","Mow and Furious Yard Care","Rake and Roll Yard Care","Plow Hard, Mow Harder"],
-  "Hot and cold puns":["Mow Way Snow Way","From Mow to Snow","Snow Joke, We Mow","Fresh Cuts and Fresh Powder","Sun to Snow Crew","Cut and Chill Yard Care"],
-  "Name twists":["{F} for All Seasons","Cool Hand {F} Yard Care","{F} Mows and Plows","{F} Mows Best, Shovels Better","{F} Knows Yards","The {F} Edge Yard Care"]}
+ lawn:{"Keep it simple":["Mow Problemo","Lawn Ranger","Mow Money","Turf Luck"],
+  "Puns":["Lord of the Lawns","The Lawn Order","Sir Mows-a-Lot","Edgy","Grass Hopper","Cut It Out","Mowzilla","The Grass Is Always Greener"],
+  "Silly crew":["Dandy Lion","Hare Today","Bee-Line","Gopher It","Leaf It to Us"]},
+ snow:{"Keep it simple":["Flake It Easy","Snow Way Jose","Let It Plow","Snow Joke"],
+  "Puns":["Plow and Behold","Shovel Ready or Not","Snow Place Like Home","Ice to Meet You","Flurry Up","Mr. Plow","The Flake News","Snow Big Deal"],
+  "Silly crew":["Yeti or Not","Polar Plow Bears","Sleigh All Day","Brrr-illiant","Gone With the Snow"]},
+ both:{"Keep it simple":["Weather or Not","Mow, Snow, Repeat","From Mow to Snow","No Season, No Problem"],
+  "Puns":["Sun Today, Flake Tomorrow","Mow Problemo, Snow Way","Hot Grass, Cold Shovel","Four Seasons, One Kid","Blade and Flake","Lawn in June, Flake in January","The All-Weather Rangers","Season Finale"],
+  "Silly crew":["Hare Today, Snow Tomorrow","Mow Money, Snow Money","Grass and Flurries","The Year-Round Goofs"]},
+ pet:{"Keep it simple":["Poop There It Is","Furry Godparent","Fur Real","Paws and Effect"],
+  "Puns":["The Poop Troop","Sit, Stay, Play","Leash of My Worries","Who’s a Good Business","Bark Rangers","Purrfect Timing","Dog Gone It","Tail Waggin’"],
+  "Silly crew":["The Treat Committee","Goldfish Goals","Bird Is the Word","Walk This Way","Fetch Happens"]},
+ odd:{"Keep it simple":["Chore and Order","Odd One Out","The Yes I Can","Chore Score"],
+  "Puns":["Done and Dusted","Many Chores, Light Work","The Little Job That Could","Helping Handful","Saturday Sidekick","One More Thing","Sweep Dreams","Task Force Fun"],
+  "Silly crew":["The Odd Squad","Errand League","The Choreographers","Job Well Fun","Extra Extra"]},
+ wash:{"Keep it simple":["Suds Buds","Wash and Learn","The Soap Stars","Shine On"],
+  "Puns":["Bubble Trouble","Squeaky Clean Machine","Wax On, Wax Off","So Fresh, So Clean","Spot On","Foam Sweet Foam","The Car Diem","Lather Rinse Repeat"],
+  "Silly crew":["Bucket List","Towel Story","Rinse and Repeat","Suds and the City","Bubble Buddies"]},
+  help:{"Keep it simple":["Helping Handful","Double Hands","Right-Hand Kid","The Can-Do Kid"],
+  "Puns":["Parent’s Sidekick","I’ve Got Two Hands","Little But Mighty","Ask and I’ll Assist","The Second Set","House Squad","Help Is Here","Chore Companion"],
+  "Silly crew":["The Helper Hero","Busy Bees","Home Team Jr.","Lend a Hand Gang","The Yes Kids"]},
+ tutor:{"Keep it simple":["Page Turner","The Read Deal","Bookworm Buddy","Once Upon a Reader"],
+  "Puns":["Chapter Cheer","Turn the Page","Cover Story","Bookmark Buddies","The Next Page","Tale of Two Readers","Read It Loud","Story Sprouts"],
+  "Silly crew":["The Loud Library","Spine Squad","Word Worms","Chapter Champs","Out Loud Club"]},
+ other:{"Keep it simple":["The Favor Factory","You Name It","Consider It Fun","The Yes Crew"],
+  "Puns":["Ask Me, I’ll Do It","Small Favor, Big Smile","On My Way","The Can-Do Crew","Errand and Error","One Favor at a Time","Happy to Help… Really","I’ve Got This"],
+  "Silly crew":["Show Up Squad","The Big Yes","Just Down the Block","Favor Finders","The Extra Neighbors"]}
 };
 let funnyPage=0;
 function funnyFor(type){
   const F=S.first.trim(),T=S.town.trim(),out=[];
-  const cats=FUNNY[type]||{"Keep it simple":["{F} Helps Out","{F}'s Crew","{T} Helpers"]};
+  const cats=FUNNY[type]||{"Keep it simple":["You Name It","Consider It Fun","The Yes Crew"]};
   Object.keys(cats).forEach(c=>{
     const names=[];
     cats[c].forEach(t=>{if(t.indexOf("{F}")>=0&&!F)return;if(t.indexOf("{T}")>=0&&!T)return;names.push(t.replace(/\{F\}/g,F).replace(/\{T\}/g,T));});
@@ -3319,7 +3392,7 @@ let stHist=[],stTab=0,stOpen=false,thumbTimer=0,stNamePg=0,stTagPg=0;
 const foldOpen={};
 function foldify(node,key){const lab=node.querySelector("label");const d=document.createElement("details");d.className="fold";if(foldOpen[key])d.open=true;d.addEventListener("toggle",()=>{foldOpen[key]=d.open;});const sm=document.createElement("summary");sm.textContent=lab?lab.textContent:key;d.appendChild(sm);const body=document.createElement("div");body.className="fold-body";[...node.childNodes].forEach(c=>{if(c!==lab)body.appendChild(c);});d.appendChild(body);node.replaceWith(d);return d;}
 function pKind(){const k=S.studio.kind;return (k==='lawn'||k==='snow'||k==='both')?k:S.type;}
-function svcFor(type){if(type===S.type)return resolve(true).services;return PRESETS[type].map(a=>{const m=S.services.find(x=>x.n===a[0]);return {n:a[0],p:m?m.p:a[1]};});}
+function svcFor(type){if(type===S.type)return resolve(true).services;return starterServices(type,S.lvlApplied||1).map(s=>{const m=S.services.find(x=>x.n===s.n);return {n:s.n,p:m?m.p:s.p};});}
 const pImgs={};
 function pPhoto(){const pr=S.proof.find(x=>x.a)||S.proof.find(x=>x.b);if(!pr)return null;const src=pr.a||pr.b,key=src.length+":"+src.slice(-24);let im=pImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen)drawStudio();};im.src=src;pImgs[key]=im;}return im._ok?im:null;}
 const pSceneImgs={};
