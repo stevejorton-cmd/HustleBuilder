@@ -650,10 +650,7 @@ details.help li{margin-bottom:10px}
       <h2>Pick your work.</h2>
       <p class="lead">Pick what you do. You can change it any time.</p>
       <div class="tiles" id="tiles"></div>
-      <section class="petfront" id="petFront">
-        <h3 class="h3">Pet care</h3>
-        <p class="lead" style="margin-bottom:0">Walk dogs, feed pets, scoop the yard, and check in while a family is away. A parent confirms every job.</p>
-        <img class="pethero" src="assets/pets/pet-hero.webp" alt="A golden retriever, an orange cat, a blue parakeet, and a goldfish in a sunny backyard" width="1280" height="720" loading="lazy" decoding="async">
+      <section class="petfront" id="petFront" hidden>
         <div class="petart" id="petGallery"></div>
         <div class="petgrid">
           <div class="petcard"><b>Dog walk, 15 min</b><span>About $5 to start</span></div>
@@ -667,7 +664,6 @@ details.help li{margin-bottom:10px}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
           <div><b>Safety for kids.</b><br>A parent knows about every job. Meet the pet first, with the owner there. Start with pets you already know. No aggressive dogs. Wash your hands. A parent handles any medicine.</div>
         </div>
-        <button type="button" class="btn block" id="startPet">Start a pet care page</button>
       </section>
       <h3 class="h3">More ways to earn</h3>
       <div class="moretiles" id="moreTiles"></div>
@@ -1834,6 +1830,8 @@ function renderTiles(){
   fill("#tiles",TYPES);
   fill("#moreTiles",MORE_TYPES);
   syncOther();
+  const petFront=$("#petFront");
+  if(petFront)petFront.hidden=S.type!=="pet";
 }
 function suggestPets(){
   const names=S.services.filter(s=>s.on!==false).map(s=>String(s.n||"").toLowerCase()).join(" ");
@@ -4210,8 +4208,6 @@ else if(!askQ)go(0);
 syncLiveUrlFields();
 shell.dataset.type=S.type;
 syncTypeCopy();
-const startPet=$("#startPet");
-if(startPet)startPet.onclick=()=>pickType("pet");
 renderPetGallery();
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();refresh();
 })();
