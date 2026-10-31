@@ -833,6 +833,37 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(src.includes("function petAnimal"), false);
 });
 
+test("add more jobs lists the selected business type first", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("const JOBS=");
+  const end = src.indexOf("JOBS.forEach(g=>g.items", start);
+  if (start < 0 || end < 0) throw new Error("missing job catalog");
+  const names = (picked) => runInNewContext(src.slice(start, end) + `orderedJobGroups(${JSON.stringify(picked)}).map(g=>g.g).join("|")`);
+  const all = ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"];
+  const expectOrder = (picked, first) => {
+    const got = names(picked).split("|");
+    assert.deepEqual(got.slice(0, first.length), first);
+    assert.deepEqual(got.slice().sort(), all.slice().sort());
+    assert.equal(new Set(got).size, got.length);
+  };
+  expectOrder("lawn", ["Yard jobs"]);
+  expectOrder("snow", ["Snow jobs"]);
+  expectOrder("pet", ["Pet jobs"]);
+  expectOrder("both", ["Yard jobs", "Snow jobs"]);
+  expectOrder("odd", ["Yard jobs"]);
+  expectOrder("wash", ["Helpful extras"]);
+  expectOrder("help", ["Helpful extras"]);
+  expectOrder("tutor", ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"]);
+  expectOrder("other", ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"]);
+  expectOrder(["pet", "snow"], ["Pet jobs", "Snow jobs"]);
+  expectOrder(["snow", "lawn"], ["Snow jobs", "Yard jobs"]);
+  expectOrder(["both", "pet"], ["Yard jobs", "Snow jobs", "Pet jobs"]);
+  assert.match(src, /orderedJobGroups\(picked\)/);
+  assert.equal(src.includes('groups=[JOBS[2],JOBS[1],JOBS[3]]'), false);
+});
+
 test("every job type has at least 12 name ideas and funny names", async () => {
   const { readFile } = await import("fs/promises");
   const { runInNewContext } = await import("vm");

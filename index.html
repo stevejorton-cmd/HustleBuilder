@@ -1988,10 +1988,25 @@ const JOBS=[
  {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,4,5,6,7]],["Leaf raking, whole yard",[15,20,25,30,40]],["Weeding flower beds",[8,10,12,15,20]],["Spread mulch (by hand)",[15,20,25,30,40]],["Trim small bushes (hand clippers)",[8,10,12,15,20]],["Pick up sticks and yard cleanup",[8,10,12,15,18]],["Sweep driveway and patio",[5,6,8,10,12]],["Plant flowers",[10,12,15,20,25]],["Water plants (per visit)",[4,5,6,8,10]],["Pick up dog mess in the yard",[4,5,6,8,10]],["Move patio furniture and hoses",[5,6,8,10,12]]]},
  {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,5,6,8,10]],["Clear the end of the driveway (plow pile)",[5,6,8,10,12]],["Clear around the mailbox",[3,4,5,6,8]],["Clear the back door and patio",[5,6,8,10,12]],["Clear a path to the trash cans",[3,4,5,6,8]],["Brush off and clear the car",[4,5,6,8,10]]]},
  {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,3,4,5,6]],["Wash the car",[6,8,10,14,18]],["Bring in mail and packages (per day)",[2,3,4,5,6]]]}];
+/* leftover sections stay in this order after the ones the kid picked */
+const JOB_SECTION_ORDER=["lawn","snow","pet","any"];
+const TYPE_JOB_SECTIONS={lawn:["lawn"],snow:["snow"],both:["lawn","snow"],pet:["pet"],odd:["lawn"],wash:["any"],help:["any"],tutor:[],other:[]};
+function orderedJobGroups(picked){
+  const list=Array.isArray(picked)?picked:(picked?[picked]:["lawn"]);
+  const first=[];
+  list.forEach(id=>{
+    (TYPE_JOB_SECTIONS[id]||[]).forEach(key=>{if(first.indexOf(key)<0)first.push(key);});
+  });
+  const order=first.concat(JOB_SECTION_ORDER.filter(key=>first.indexOf(key)<0));
+  const by={};
+  JOBS.forEach(g=>{by[g.t]=g;});
+  return order.map(key=>by[key]).filter(Boolean);
+}
 JOBS.forEach(g=>g.items.forEach(it=>{PRICE_TABLE[it[0].toLowerCase()]=it[1];}));
 function openJobs(){
   const L=Math.max(1,Math.min(5,S.lvlApplied|0||1));
-  let groups=JOBS.slice();if(S.type==="snow")groups=[JOBS[2],JOBS[1],JOBS[3]];else if(S.type==="pet")groups=[JOBS[0],JOBS[3]];
+  const picked=Array.isArray(S.types)&&S.types.length?S.types:[S.type||"lawn"];
+  const groups=orderedJobGroups(picked);
   openModal('<h3>Add more jobs</h3><p class="small2" style="margin:0 0 6px">Tap Add to put a job on your list. You can change the name and the price after. Prices are set for your level: '+LEVELS[L-1].n+'.</p><div id="jobsList"></div><div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="jobsDone">Done</button></div></div>');
   const draw=()=>{
     const box=mbody.querySelector("#jobsList");box.innerHTML="";
