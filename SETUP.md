@@ -36,6 +36,7 @@ Set these on the Vercel project for Production (and Preview if you want to try a
 | `PAYWALL_MODE` | `test` until Stripe is ready. `stripe` when you want a real card charge. `off` marks every plan paid and does not charge. |
 | `RESEND_API_KEY` | From Resend. Required when `PUBLISH_TEST_MODE` is `0`. |
 | `BOOKING_FROM` | A sender on a domain you verified in Resend, such as `Hustle Builder <bookings@your-domain>`. |
+| `REPLY_TO` | A mailbox a person reads, such as `steve@your-domain`. Code emails reply here. Booking emails reply to the customer when they leave an email. If this is empty, those code emails say replies are not read. Do not point it at `bookings@`, which has no mailbox. |
 | `ALLOWED_ORIGINS` | Optional. Comma-separated origins that may call the API, such as `https://stevejorton-cmd.github.io`. Localhost and `*.github.io` are already allowed. |
 | `STRIPE_SECRET_KEY` | Only when `PAYWALL_MODE=stripe`. Use the test key `sk_test_...` first. |
 | `STRIPE_WEBHOOK_SECRET` | Only when `PAYWALL_MODE=stripe`. From the webhook endpoint below. |
@@ -68,7 +69,13 @@ A kid’s page is `https://your-domain/sam-yard`. The builder is `https://your-d
    - Pro: **$20 a month** for 50,000 emails, then **$0.90 per extra 1,000**. No daily cap.
 5. Verification emails and booking emails both count. A handful of families stay on the free plan. If you pass 100 emails in a day, move to Pro.
 
-With `PUBLISH_TEST_MODE=0`, a booking is emailed to the parent from `BOOKING_FROM`. The email has the job attached as an `.ics` file and an Add to Google Calendar link. The same job is stored for the family calendar (service, customer name, address, date and time, note) and deleted about 30 days after the job. With test mode on, the last emails, including that `.ics` text, are kept only so you can check them at `/api/test/outbox?email=parent@example.com`. Set `PUBLISH_TEST_MODE=0` before a real family uses it.
+With `PUBLISH_TEST_MODE=0`, a booking is emailed to the parent from `BOOKING_FROM`. The email has the job attached as an `.ics` file, an Add to Google Calendar link, and Call / Text links for the customer at the top. If the customer left an email, Resend `reply_to` is that address. If they left only a phone number, the email says replies are not read. The same job is stored for the family calendar (service, customer name, address, date and time, note) and deleted about 30 days after the job. With test mode on, the last emails, including that HTML and `.ics` text, are kept only so you can check them at `/api/test/outbox?email=parent@example.com`. Set `PUBLISH_TEST_MODE=0` before a real family uses it.
+
+Empty and bot bookings do not count toward the 30-a-day page cap. The form has a hidden field and a short wait, and one internet address can send only a limited number per day.
+
+After Stripe Checkout, the parent returns to Go live. The app waits until the payment is recorded, then publishes. A second tap does not open another checkout while that payment is still processing, or after the account is paid. Card statements use the suffix `HUSTLE BLDR`.
+
+A parent’s phone is not on the kid page unless they turn on “Show my parent’s phone.” Search engines are asked not to list the page unless they turn on “Let Google show this page.” The texted link includes a title, description, and a preview image at `/api/card/<link-name>.png`.
 
 ## 6. Payment
 
@@ -142,7 +149,7 @@ About **$20 a month** until booking email outgrows the Resend free plan. Then ab
 
 This is not legal advice. Have a lawyer read it before a real 11- or 12-year-old uses hosting.
 
-The host stores a parent’s email, the time they verified it, the time they agreed, the plan, the link name, and the public page they approved. It also stores booked jobs for the family calendar: the service, the customer name as typed, the address, the date and time, and a short note. Those jobs are deleted about 30 days after the job, and immediately if the parent deletes the account. It does not store a child’s account or a last name. The phone number on a booking is only in the email. The rest of the Boss mode money log stays on the device unless the parent is signed in and calendar sync is on.
+The host stores a parent’s email, the time they verified it, the time they agreed, the plan, the link name, and the public page they approved. It also stores booked jobs for the family calendar: the service, the customer name as typed, the address, the date and time, and a short note. Those jobs are deleted about 30 days after the job, and immediately if the parent deletes the account. It does not store a child’s account or a last name. The phone number on a booking is in the email to the parent, with a call or text link. It is not on the public page unless the parent turns that on. The page asks search engines not to list it unless the parent turns that on. The rest of the Boss mode money log stays on the device unless the parent is signed in and calendar sync is on.
 
 The in-app step is: the parent proves they can read that email, then checks a box that they agree to publish. That is not the full “verifiable parental consent” the FTC describes for a site that makes a child’s information public. Email-only consent is limited, and a public page with a child’s first name is a disclosure. A charge to the parent’s card, with clear notice, is one method the FTC lists. Test mode does not do that. Turning on Stripe does not, by itself, make this compliant.
 

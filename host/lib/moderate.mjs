@@ -1,9 +1,23 @@
 const BLOCKED = new Set(`
-fuck shit bitch asshole bastard dick cunt piss slut whore porn nude sex sexy
-cocaine heroin meth weed
-kill suicide
+fuck shit bitch asshole bastard cunt piss slut whore porn nude sex sexy
+cocaine heroin meth
+suicide
 nigger nigga faggot fag retard spic kike chink
 `.trim().split(/\s+/));
+
+// Borderline words. Allowed inside a yard, pet, or household phrase.
+// "dick" is a common first name and is not blocked.
+// "weed" is ordinary yard work and is not blocked.
+const CONTEXT = new Set(`
+kill
+`.trim().split(/\s+/));
+
+const PHRASES = [
+  "weed eating", "weed eater", "weed eaters", "weed whacking", "weed whacker", "weed wacker",
+  "weed whack", "weeding", "pulling weeds", "pull weeds", "kill weeds", "kill the weeds",
+  "killing weeds", "kill dandelions", "kill the dandelions", "killing dandelions",
+  "dandelion", "dandelions", "pet care", "dog walking", "dog walker", "pooper scooper"
+];
 
 const SURNAMES = new Set(`
 smith johnson williams brown jones garcia miller davis rodriguez martinez
@@ -11,13 +25,6 @@ hernandez lopez gonzalez wilson anderson thomas taylor moore jackson martin
 lee perez thompson white harris sanchez clark ramirez lewis robinson walker
 young allen king wright scott torres nguyen hill flores green adams nelson
 baker hall rivera campbell mitchell carter roberts
-`.trim().split(/\s+/));
-
-const BUSINESS = new Set(`
-yard yards lawn lawns snow mow mows mowing crew co service services hustle
-edge cuts cut clear clears works work pros pro local north south east west
-city care outdoor outdoors property season seasons ice salt walk walks drive
-driveway crew
 `.trim().split(/\s+/));
 
 const RESERVED = new Set(`
@@ -31,8 +38,33 @@ export function tokens(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter(Boolean);
 }
 
-export function hasBlocked(value) {
-  return tokens(value).some((t) => BLOCKED.has(t));
+function stripped(value) {
+  let text = " " + String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ") + " ";
+  const phrases = PHRASES.slice().sort((a, b) => b.length - a.length);
+  for (const phrase of phrases) text = text.split(" " + phrase + " ").join(" ");
+  return text;
+}
+
+export function wordHits(value) {
+  const words = stripped(value).split(/\s+/).filter(Boolean);
+  let block = "";
+  let flag = "";
+  for (const word of words) {
+    if (!block && BLOCKED.has(word)) block = word;
+    else if (!flag && CONTEXT.has(word)) flag = word;
+  }
+  return { block, flag };
+}
+
+export function pageIssue(html) {
+  const hit = wordHits(visibleText(html));
+  const word = hit.block || hit.flag;
+  if (!word) return "";
+  return "The page has a word that is not allowed: \"" + word + "\". Change that word and try again.";
+}
+
+export function checkPage(html) {
+  return pageIssue(html);
 }
 
 export function checkSlug(slug) {
@@ -42,9 +74,8 @@ export function checkSlug(slug) {
   const parts = s.split("-");
   if (RESERVED.has(s) || parts.some((p) => RESERVED.has(p))) return "That link name is reserved. Pick another.";
   if (parts.some((p) => BLOCKED.has(p))) return "That link name is not allowed.";
-  if (parts.some((p) => SURNAMES.has(p))) return "That looks like a last name. Use a first name or a business nickname, like sam or sam-yard.";
-  if (parts.length >= 2 && parts.slice(1).some((p) => !BUSINESS.has(p))) {
-    return "Use a first name or a business nickname, not a first and last name. Try sam or sam-yard.";
+  if (parts.length >= 2 && SURNAMES.has(parts[parts.length - 1])) {
+    return "That looks like a first and last name. Use a first name or a nickname, like sam or sam-yard.";
   }
   return "";
 }
@@ -54,12 +85,6 @@ export function visibleText(html) {
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ");
-}
-
-export function checkPage(html) {
-  const text = visibleText(html);
-  if (hasBlocked(text)) return "The page has a word that is not allowed. Change the business name or the tagline.";
-  return "";
 }
 
 export function pageOk(html) {
