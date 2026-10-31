@@ -103,6 +103,10 @@ function html(status, markup) {
   return { status, headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff", "cache-control": "no-store" }, body: markup };
 }
 
+function redirect(location) {
+  return { status: 302, headers: { location, "cache-control": "no-store" }, body: "" };
+}
+
 async function readJson(key) {
   const raw = await (await store()).get(key);
   if (!raw) return null;
@@ -391,6 +395,10 @@ async function serveSlug(slug) {
   const meta = await readJson("pages/" + slug + ".json");
   if (!meta) return missingPage(slug, false);
   if (meta.status === "down") return missingPage(slug, true);
+  if (meta.status === "redirect" && meta.to) {
+    if (Date.parse(meta.until || "") > Date.now()) return redirect("/" + meta.to);
+    return missingPage(slug, false);
+  }
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
@@ -681,6 +689,43 @@ export async function handleRequest(req) {
     const account = await accountByToken(auth);
     if (!account) return null;
     return account;
+  }
+
+  if (method === "POST" && route === "slug") {
+    const account = await me();
+    if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    const from = String(account.slug || "").trim().toLowerCase();
+    const next = String(body.slug || "").trim().toLowerCase();
+    if (!from) return withCors(json(400, { ok: false, error: "slug", message: "Publish the page first." }), req.headers && req.headers.origin);
+    if (next === from) return withCors(json(200, { ok: true, slug: from, url: (origin || "") + "/" + from, same: true }), req.headers && req.headers.origin);
+    const slugErr = checkSlug(next);
+    if (slugErr) return withCors(json(400, { ok: false, error: "slug", message: slugErr }), req.headers && req.headers.origin);
+    const taken = await readJson("pages/" + next + ".json");
+    if (taken && taken.accountId !== account.id) return withCors(json(409, { ok: false, error: "taken", message: "That link is taken. Try another." }), req.headers && req.headers.origin);
+    const now = Date.now();
+    account.slugChanges = (Array.isArray(account.slugChanges) ? account.slugChanges : []).filter((at) => now - Date.parse(at) < 90 * 864e5);
+    if (account.slugChanges.length >= 3) return withCors(json(429, { ok: false, error: "limit", message: "You can change the web address 3 times in 90 days. Try again later." }), req.headers && req.headers.origin);
+    const htmlPage = await (await store()).get("pages/" + from + ".html");
+    const prev = await readJson("pages/" + from + ".json");
+    if (!htmlPage || !prev || prev.accountId !== account.id) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const until = new Date(now + 90 * 864e5).toISOString();
+    await (await store()).put("pages/" + next + ".html", htmlPage);
+    await writeJson("pages/" + next + ".json", { ...prev, slug: next, status: prev.status === "down" ? "down" : "live", updatedAt: new Date(now).toISOString() });
+    account.formerSlugs = Array.isArray(account.formerSlugs) ? account.formerSlugs : [];
+    for (const old of account.formerSlugs) {
+      const rec = await readJson("pages/" + old + ".json");
+      if (rec && rec.accountId === account.id && rec.status === "redirect") {
+        rec.to = next;
+        rec.until = until;
+        await writeJson("pages/" + old + ".json", rec);
+      }
+    }
+    await writeJson("pages/" + from + ".json", { slug: from, accountId: account.id, status: "redirect", to: next, until, updatedAt: new Date(now).toISOString() });
+    account.formerSlugs.push(from);
+    account.slug = next;
+    account.slugChanges.push(new Date(now).toISOString());
+    await saveAccount(account);
+    return withCors(json(200, { ok: true, slug: next, from, url: (origin || "") + "/" + next, until }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "auth/start") {

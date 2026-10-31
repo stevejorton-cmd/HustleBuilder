@@ -958,6 +958,41 @@ test("every job type has at least 12 name ideas and funny names", async () => {
   `, {}, { timeout: 1000 });
 });
 
+test("a parent can rename the web address and the old link redirects", async () => {
+  const { token } = await parent();
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam Yard") } });
+  const bad = await json(await call("POST", "/api/slug", { token, body: { slug: "sam-smith" } }));
+  assert.equal(bad.body.error, "slug");
+  const renamed = await json(await call("POST", "/api/slug", { token, body: { slug: "sam-mow" } }));
+  assert.equal(renamed.body.ok, true);
+  assert.equal(renamed.body.slug, "sam-mow");
+  const days = (Date.parse(renamed.body.until) - Date.now()) / 864e5;
+  assert.ok(days > 89 && days < 91);
+  const old = await call("GET", "/api/site/sam-yard");
+  assert.equal(old.status, 302);
+  assert.equal(old.headers.location, "/sam-mow");
+  const live = await call("GET", "/api/site/sam-mow");
+  assert.equal(live.status, 200);
+  assert.match(live.body, /Sam Yard/);
+  const free = await json(await call("GET", "/api/slug?name=sam-yard"));
+  assert.equal(free.body.available, false);
+  const second = await json(await call("POST", "/api/slug", { token, body: { slug: "sam-work" } }));
+  assert.equal(second.body.ok, true);
+  const third = await json(await call("POST", "/api/slug", { token, body: { slug: "sam-jobs" } }));
+  assert.equal(third.body.ok, true);
+  const limited = await json(await call("POST", "/api/slug", { token, body: { slug: "sam-crew" } }));
+  assert.equal(limited.status, 429);
+  const still = await call("GET", "/api/site/sam-yard");
+  assert.equal(still.status, 302);
+  assert.equal(still.headers.location, "/sam-jobs");
+  const other = await parent("other@example.com");
+  await call("POST", "/api/consent", { token: other.token, body: { consent: true } });
+  await call("POST", "/api/publish", { token: other.token, body: { slug: "ada-yard", html: page("Ada") } });
+  const taken = await json(await call("POST", "/api/slug", { token, body: { slug: "ada-yard" } }));
+  assert.equal(taken.status, 409);
+});
+
 test("a backup preview names every business type", async () => {
   const { readFile } = await import("fs/promises");
   const { runInNewContext } = await import("vm");

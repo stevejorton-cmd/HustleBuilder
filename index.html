@@ -820,6 +820,16 @@ details.help li{margin-bottom:10px}
           <div id="jobList"></div>
         </div>
         <p class="small2" id="pubUrlWrap" hidden><a class="link" id="pubUrl" target="_blank" rel="noopener"></a></p>
+        <div id="webAddress" hidden>
+          <h3 class="h3">Change the web address</h3>
+          <p class="small2">The old link keeps working for 90 days and sends people to the new one. You can change it 3 times in 90 days.</p>
+          <label class="field" for="newSlug"><span>New link name</span><input type="text" id="newSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-mow"></label>
+          <p class="small2" id="newSlugStatus" role="status"></p>
+          <div class="mbtns">
+            <button type="button" class="btn ghost" id="checkNewSlug">Check this address</button>
+            <button type="button" class="btn" id="saveNewSlug">Save the new address</button>
+          </div>
+        </div>
         <div class="mbtns" id="pubManage" hidden>
           <button type="button" class="btn" id="pubUpdate">Update my website</button>
           <button type="button" class="btn outline" id="pubDown">Take the page offline</button>
@@ -3920,6 +3930,7 @@ function showPublished(url){
   else if(wrap)wrap.hidden=true;
   if(url)setSiteUrl(url);
   const manage=$("#pubManage"); if(manage)manage.hidden=!url;
+  const addr=$("#webAddress"); if(addr)addr.hidden=!url;
   const ready=$("#pubReady"); if(ready&&url)ready.hidden=false;
   const go=$("#pubGo"); if(go&&url)go.hidden=true;
 }
@@ -4090,6 +4101,30 @@ if(jobsBtn)jobsBtn.onclick=()=>{go(7); const box=$("#myJobs"); if(box)setTimeout
 loadMyJobs();
 setInterval(loadMyJobs, 8000);
 $("#pubUpdate").onclick=pubPush;
+async function checkNewAddress(){
+  const name=($("#newSlug").value||"").trim().toLowerCase();
+  const status=$("#newSlugStatus");
+  if(!name){if(status)status.textContent="Type a link name first."; return;}
+  try{
+    const data=await pubApi("/api/slug?name="+encodeURIComponent(name),{method:"GET"});
+    if(status)status.textContent=data.message|| (data.available?"That link is free.":"That link is taken. Try another.");
+  }catch(e){if(status)status.textContent="Could not check that address.";}
+}
+async function saveNewAddress(){
+  const name=($("#newSlug").value||"").trim().toLowerCase();
+  const status=$("#newSlugStatus");
+  try{
+    const data=await pubApi("/api/slug",{body:{slug:name}});
+    if(!data.ok){if(status)status.textContent=data.message||"Could not change the address."; return;}
+    if($("#pubSlug")){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true;}
+    const session=pubSession(); if(session){session.slug=data.slug; pubSaveSession(session);}
+    if(data.url)showPublished(data.url);
+    if(status)status.textContent=data.same?"That is already the address.":"Saved. The old link sends people to the new one for 90 days.";
+    if($("#newSlug"))$("#newSlug").value="";
+  }catch(e){if(status)status.textContent="Could not change the address.";}
+}
+const checkNewBtn=$("#checkNewSlug"); if(checkNewBtn)checkNewBtn.onclick=checkNewAddress;
+const saveNewBtn=$("#saveNewSlug"); if(saveNewBtn)saveNewBtn.onclick=saveNewAddress;
 let pubDownArmed=false, pubDelArmed=false;
 $("#pubDown").onclick=async()=>{
   const b=$("#pubDown");
@@ -4281,6 +4316,7 @@ else if(draftQ&&publishOrigin())loadDraft(draftQ);
 else if(localStorage.getItem("hb-ask"))startAskPoll();
 if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
 else if(!askQ)go(0);
+if(startQ.get("account")){go(7); const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}
 syncLiveUrlFields();
 shell.dataset.type=S.type;
 syncTypeCopy();
