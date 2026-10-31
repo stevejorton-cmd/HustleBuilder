@@ -4,6 +4,7 @@ import { cardPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone } from "./preview.mjs";
 import { store } from "./store.mjs";
+import QRCode from "qrcode";
 
 export const PLANS = {
   season: { id: "season", amount: 1999, label: "$19.99" },
@@ -348,6 +349,45 @@ function accountUrl(origin) {
   return (origin || "") + "/?account=1";
 }
 
+async function sendOnce(flag, message) {
+  if (await (await store()).get(flag)) return { ok: true, skipped: true };
+  const mailed = await sendMail(message);
+  if (mailed.ok) await (await store()).put(flag, "1");
+  return mailed;
+}
+
+async function sendLiveNote(account, origin, slug) {
+  if (account.liveMailed === slug) return;
+  const url = (origin || "") + "/" + slug;
+  const qr = (origin || "") + "/api/qr/" + slug + ".png";
+  const accountLink = accountUrl(origin);
+  const renamed = !!(account.liveMailed && account.liveMailed !== slug);
+  const subject = renamed ? "Your new web address is live" : "Your page is live";
+  const lead = renamed ? "Your new web address is live." : "Your page is live.";
+  const mailed = await sendOnce("sentmail/live-" + account.id + "-" + slug, {
+    to: account.email,
+    replyTo: supportReply(),
+    subject,
+    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
+  });
+  if (mailed.ok) account.liveMailed = slug;
+}
+
+async function sendReceiptNote(account, origin, eventId) {
+  const plan = PLANS[account.plan] || PLANS.season;
+  const end = niceDate(account.paidUntil);
+  const flag = "sentmail/receipt-" + String(eventId || ("local-" + account.id + "-" + (account.plan || "plan")));
+  const link = accountUrl(origin);
+  await sendOnce(flag, {
+    to: account.email,
+    replyTo: supportReply(),
+    subject: "Your Hustle Builder receipt",
+    text: "Thanks. We got your payment.\n\n" + (account.planName || "Plan") + "\n" + plan.label + "\nThrough " + end + ".\n\nYour account:\n" + link + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p>Thanks. We got your payment.</p><p><b>" + mailEscape(account.planName || "Plan") + "</b><br>" + mailEscape(plan.label) + "<br>Through " + mailEscape(end) + ".</p><p><a href=\"" + mailEscape(link) + "\">Your account</a></p></div>"
+  });
+}
+
 async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forParent, origin }) {
   let bodyText = String(text || "");
   let markup = htmlBody ? String(htmlBody) : "";
@@ -450,11 +490,13 @@ function parseBody(raw) {
   catch { return null; }
 }
 
-export function stripeSignatureOk(payload, header, secret) {
+export function stripeSignatureOk(payload, header, secret, now = Date.now()) {
   const h = String(header || "");
   const t = (h.match(/(?:^|,)t=(\d+)/) || [])[1];
   const v1 = (h.match(/(?:^|,)v1=([a-f0-9]+)/) || [])[1];
   if (!t || !v1 || !secret) return false;
+  const ts = Number(t);
+  if (!Number.isFinite(ts) || Math.abs(now - ts * 1000) > 5 * 60 * 1000) return false;
   const expect = createHmac("sha256", secret).update(t + "." + payload).digest("hex");
   return safeEqual(expect, v1);
 }
@@ -684,6 +726,12 @@ export async function handleRequest(req) {
     return pngResponse(cardPng(card));
   }
 
+  const qrHit = route.match(/^qr\/([a-z0-9][a-z0-9-]{1,40})\.png$/);
+  if (method === "GET" && qrHit) {
+    const buf = await QRCode.toBuffer((origin || "") + "/" + qrHit[1], { type: "png", width: 320, margin: 1, errorCorrectionLevel: "M" });
+    return pngResponse(buf);
+  }
+
   if (method === "GET" && route === "slug") {
     const name = String((req.query && req.query.get && req.query.get("name")) || "").trim().toLowerCase();
     const why = checkSlug(name);
@@ -820,13 +868,15 @@ export async function handleRequest(req) {
     if (mode === "test" || mode === "off") {
       applyPlan(account, plan.id);
       if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
+      const receiptId = "pay-" + account.id + "-" + rand(4);
       await addReceipt(account, origin, {
-        id: "pay-" + account.id + "-" + rand(4),
+        id: receiptId,
         plan: plan.id,
         planName: account.planName,
         amountLabel: plan.label,
         end: account.paidUntil
       });
+      await sendReceiptNote(account, origin, receiptId);
       await saveAccount(account);
       await trackPlan(account);
       await releaseHeld(account, origin);
@@ -866,7 +916,12 @@ export async function handleRequest(req) {
     if (!stripeSignatureOk(req.body || "", header, secret)) return withCors(json(400, { ok: false, error: "signature" }), req.headers && req.headers.origin);
     let event;
     try { event = JSON.parse(req.body || "{}"); } catch { return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin); }
+    const eventId = String(event.id || "").trim();
     if (event.type === "checkout.session.completed") {
+      if (!eventId) return withCors(json(400, { ok: false, error: "event" }), req.headers && req.headers.origin);
+      const seenKey = "stripe-events/" + eventId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+      if (await (await store()).get(seenKey)) return withCors(json(200, { ok: true, duplicate: true }), req.headers && req.headers.origin);
+      await (await store()).put(seenKey, "1");
       const session = (event.data && event.data.object) || {};
       const meta = session.metadata || {};
       const plan = PLANS[meta.plan];
@@ -877,13 +932,14 @@ export async function handleRequest(req) {
         account.checkoutPendingAt = "";
         const stripeUrl = session.receipt_url || (session.payment_intent && session.payment_intent.receipt_url) || "";
         await addReceipt(account, origin, {
-          id: String(event.id || ("stripe-" + account.id + "-" + plan.id + "-" + String(account.paidUntil).slice(0, 10))),
+          id: "stripe-" + eventId.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 60),
           plan: plan.id,
           planName: account.planName,
           amountLabel: plan.label,
           end: account.paidUntil,
           stripeUrl
         });
+        await sendReceiptNote(account, origin, eventId);
         await saveAccount(account);
         await trackPlan(account);
         await releaseHeld(account, origin);
@@ -937,6 +993,7 @@ export async function handleRequest(req) {
     const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
     account.jobCode = /^[a-z0-9]{8}$/.test(jobCode) ? jobCode : account.jobCode || rand(4).slice(0, 8);
     await (await store()).put("jobcode/" + account.jobCode, account.id);
+    if (account.liveMailed !== slug) await sendLiveNote(account, origin, slug);
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
     const used = await trialCount(account.email);
@@ -1162,13 +1219,15 @@ document.getElementById("done").onclick=()=>mark("done");
     }
     applyPlan(account, planId);
     const offer = PLANS[planId];
+    const receiptId = "pay-" + account.id + "-" + rand(4);
     await addReceipt(account, origin, {
-      id: "pay-" + account.id + "-" + rand(4),
+      id: receiptId,
       plan: planId,
       planName: account.planName,
       amountLabel: offer.label,
       end: account.paidUntil
     });
+    await sendReceiptNote(account, origin, receiptId);
     await saveAccount(account);
     await trackPlan(account);
     await releaseHeld(account, origin);
