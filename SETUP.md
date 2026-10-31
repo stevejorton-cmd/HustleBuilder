@@ -59,6 +59,8 @@ Leave it as an empty string on the copy Vercel serves.
 
 A kid’s page is `https://your-domain/sam-yard`. The builder is `https://your-domain/`.
 
+A parent can change that web address from the publish screen, or from `/?account=1`. The old address redirects to the new one for 90 days. Each page can change 3 times in those 90 days. The new name uses the same checks as a new link name.
+
 ## 5. Resend
 
 1. Create an account at [resend.com](https://resend.com).
