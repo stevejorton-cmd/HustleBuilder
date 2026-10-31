@@ -1006,3 +1006,49 @@ test("a backup preview names every business type", async () => {
   assert.match(src, /workLabel\(b\.type\)/);
 });
 
+test("a parent account lists the site, trial, receipts, and requests", async () => {
+  const { token, email } = await parent();
+  const codeMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.match(codeMail.body.messages[0].text, /\/\?account=1/);
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+  assert.equal(pay.body.ok, true);
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam") } });
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "sam-yard", name: "Riley", contact: "402-555-0199", service: "Mow the yard", when: "Saturday morning",
+    address: "12 Oak", start: "2026-11-07T10:00", t: 4000
+  } }));
+  assert.equal(book.body.ok, true);
+  const account = await json(await call("GET", "/api/account", { token }));
+  assert.equal(account.body.ok, true);
+  assert.equal(account.body.sites.length, 1);
+  const site = account.body.sites[0];
+  assert.equal(site.slug, "sam-yard");
+  assert.equal(site.plan, "season");
+  assert.match(site.planName, /Summer|Winter|season/i);
+  assert.ok(site.paidUntil);
+  assert.ok(site.receipts.length >= 1);
+  assert.match(site.receipts[0].url, /\/api\/receipt\//);
+  assert.equal(site.receipts[0].amount, "$19.99");
+  assert.equal(site.requests[0].service, "Mow the yard");
+  assert.equal(site.requests[0].firstName, "Riley");
+  assert.equal(site.requests[0].address, undefined);
+  const receipt = await call("GET", site.receipts[0].url.replace("http://sites.test", ""));
+  assert.match(receipt.body, /\$19\.99/);
+  assert.equal(receipt.body.includes(email), false);
+  const paused = await json(await call("POST", "/api/account/pause", { token, body: { slug: "sam-yard" } }));
+  assert.equal(paused.body.status, "paused");
+  const hidden = await call("GET", "/api/site/sam-yard");
+  assert.equal(hidden.status, 200);
+  assert.match(hidden.body, /Paused for now/);
+  assert.equal(hidden.body.includes(email), false);
+  const back = await json(await call("POST", "/api/account/resume", { token, body: { slug: "sam-yard" } }));
+  assert.equal(back.body.status, "live");
+  const again = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+  assert.equal(again.body.alreadyPaid, true);
+  const still = await json(await call("GET", "/api/account", { token }));
+  assert.equal(still.body.sites[0].receipts.length, 1);
+  const stranger = await json(await call("GET", "/api/account"));
+  assert.equal(stranger.status, 401);
+});
+

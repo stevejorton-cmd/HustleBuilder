@@ -632,6 +632,11 @@ details.help li{margin-bottom:10px}
 .kidjob .jobst{font-weight:700;margin-top:4px}
 #jobBadge{display:inline-block;background:#FF5B14;color:#fff;border-radius:99px;min-width:1.4em;text-align:center;font-size:13px;margin-left:6px}
 #offlineNote{margin:0;padding:12px 16px;background:#FF5B14;color:#1a120c;font-weight:700;text-align:center}
+.acct{border:2px solid var(--line);border-radius:16px;padding:14px;margin:12px 0;background:var(--surface)}
+.acct h3{margin:0 0 8px}
+.acct p{margin:6px 0}
+.acct .mbtns{margin-top:10px}
+.acct a.btn{text-decoration:none}
 </style>
 </head>
 <body>
@@ -781,6 +786,13 @@ details.help li{margin-bottom:10px}
     <section class="step" data-step="7">
       <h2>Go live.</h2>
       <p class="lead">Try free: your first 3 jobs are on us, for 14 days. You get one link, and it stays the same when you update the page.</p>
+      <button type="button" class="btn ghost" id="openAccount">Your account</button>
+      <section id="accountScreen" hidden>
+        <h3 class="h3">Your account</h3>
+        <p class="lead" id="accountLead">Sign in with the email code below. Then each kid page shows here.</p>
+        <div id="accountSites"></div>
+        <p class="status" id="accountMsg" role="status"></p>
+      </section>
       <div class="missing" id="missing" hidden></div>
       <h3 class="h3">Publish to hustlebuilder.org</h3>
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
@@ -4007,6 +4019,7 @@ $("#pubVerify").onclick=async()=>{
     if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
     $("#pubOk").textContent="Email verified. A parent checks the box. The first 3 jobs are free, or they can pick a plan.";
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
+    if(new URLSearchParams(location.search).get("account"))showAccount();
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
   }catch(e){pubErr("Could not verify. Try again.");}
 };
@@ -4067,6 +4080,71 @@ async function pubPush(){
   }catch(e){pubErr("Could not publish. Try again.");}
 }
 $("#pubGo").onclick=pubPush;
+function accountWords(site){
+  if(site.paid)return (site.planName||"Paid plan")+(site.paidUntilLabel?" through "+site.paidUntilLabel:"")+(site.grace?" · "+site.graceDays+" grace days left":"");
+  if(site.trialOver)return "Free trial is over. Renew to bring the page back.";
+  const days=site.trialEndsLabel?site.trialDaysLeft+" days left":"trial not started";
+  return "Free trial · "+days+" · "+site.trialLeft+" free jobs left";
+}
+function statusWord(status){return {live:"Live",paused:"Paused",offline:"Offline",down:"Taken down"}[status]||"Not up";}
+async function showAccount(){
+  const screen=$("#accountScreen"); if(!screen)return;
+  screen.hidden=false;
+  const lead=$("#accountLead"), box=$("#accountSites"), msg=$("#accountMsg");
+  if(msg)msg.textContent="";
+  const session=pubSession();
+  if(!session||!session.token){if(lead)lead.textContent="Sign in with the email code below. Then each kid page shows here."; if(box)box.innerHTML=""; return;}
+  if(lead)lead.textContent="Each kid page is listed here.";
+  let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(msg)msg.textContent="Could not open the account. Try again."; return;}
+  if(!data.ok){if(msg)msg.textContent="Sign in again with a new code."; return;}
+  if(box)box.innerHTML="";
+  if(!data.sites||!data.sites.length){if(box){const p=document.createElement("p"); p.textContent="No page yet. Publish one below, and it will show up here."; box.appendChild(p);} return;}
+  data.sites.forEach(site=>{
+    const card=document.createElement("div"); card.className="acct";
+    const h=document.createElement("h3"); h.textContent=site.slug; card.appendChild(h);
+    const st=document.createElement("p"); st.textContent=statusWord(site.status)+" · "+accountWords(site); card.appendChild(st);
+    if(site.url){const a=document.createElement("a"); a.className="link"; a.href=site.url; a.target="_blank"; a.rel="noopener"; a.textContent=site.url; card.appendChild(a);}
+    if(site.receipts&&site.receipts.length){
+      const r=document.createElement("p"); r.textContent="Receipts"; card.appendChild(r);
+      site.receipts.forEach(item=>{
+        const line=document.createElement("p");
+        const link=document.createElement("a"); link.className="link"; link.href=item.url; link.target="_blank"; link.rel="noopener";
+        link.textContent=(item.amount||"Receipt")+(item.plan?" · "+item.plan:"")+(item.end?" · through "+item.end:"");
+        line.appendChild(link); card.appendChild(line);
+      });
+    }
+    const reqs=document.createElement("div");
+    if(!site.requests||!site.requests.length){const p=document.createElement("p"); p.textContent="No booking requests yet."; reqs.appendChild(p);}
+    else site.requests.forEach(job=>{
+      const row=document.createElement("p");
+      row.textContent=(job.service||"A job")+" · "+(job.when||"")+" · "+(job.firstName||"Neighbor")+" · "+jobLabel(job.status);
+      reqs.appendChild(row);
+    });
+    card.appendChild(reqs);
+    const actions=document.createElement("div"); actions.className="mbtns";
+    const season=document.createElement("a"); season.className="btn"; season.href=site.renew.season; season.textContent="Renew, $19.99 season";
+    const year=document.createElement("a"); year.className="btn"; year.href=site.renew.year; year.textContent="Renew, $29.99 year";
+    const pause=document.createElement("button"); pause.type="button"; pause.className="btn outline"; pause.textContent=site.status==="paused"?"Turn the page back on":"Pause the page";
+    pause.onclick=async()=>{
+      const path=site.status==="paused"?"/api/account/resume":"/api/account/pause";
+      const res=await pubApi(path,{body:{slug:site.slug}});
+      if(msg)msg.textContent=res.ok?(site.status==="paused"?"The page is back on.":"The page is paused. Neighbors see a short note."):"Could not change the page.";
+      showAccount();
+    };
+    const down=document.createElement("button"); down.type="button"; down.className="btn outline"; down.textContent="Take the page offline";
+    down.onclick=async()=>{
+      if(down.dataset.arm!=="1"){down.dataset.arm="1"; down.textContent="Tap again to take it offline"; return;}
+      const res=await pubApi("/api/unpublish",{body:{}});
+      if(msg)msg.textContent=res.ok?"The page is offline. Update puts it back on the same link.":"Could not take it offline.";
+      showAccount();
+    };
+    actions.appendChild(season); actions.appendChild(year); actions.appendChild(pause); actions.appendChild(down);
+    card.appendChild(actions);
+    box.appendChild(card);
+  });
+}
+const openAccountBtn=$("#openAccount");
+if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);};
 const shareBox=$("#shareStreet");
 if(shareBox)shareBox.onchange=async()=>{
   const data=await pubApi("/api/share",{body:{on:!!shareBox.checked}});
@@ -4286,10 +4364,12 @@ const startQ=new URLSearchParams(location.search);
 const hostQ=startQ.get("hosting");
 const askQ=startQ.get("ask");
 const draftQ=startQ.get("draft");
+const accountQ=startQ.get("account");
 if(askQ&&publishOrigin()&&hostQ!=="paid")openAsk(askQ);
 else if(draftQ&&publishOrigin())loadDraft(draftQ);
 else if(localStorage.getItem("hb-ask"))startAskPoll();
 if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
+else if(accountQ){go(7); showAccount();}
 else if(!askQ)go(0);
 syncLiveUrlFields();
 shell.dataset.type=S.type;
