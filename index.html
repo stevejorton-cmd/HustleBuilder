@@ -188,6 +188,11 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .tile .tick svg{position:absolute;right:7px;top:7px}
 .tile[aria-pressed="true"]{filter:none;box-shadow:0 0 0 3px var(--accent)}
 .tile[aria-pressed="true"] .tick{display:flex}
+.moretiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile.emoji{height:108px;background:#1b1e21;filter:none}
+.tile.emoji .emo{position:absolute;left:12px;top:18px;z-index:2;width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:30px}
+.tile.emoji .cap{left:74px;right:8px}
+.tile.emoji .cap strong{font-size:22px}
 
 .svcrow{display:grid;grid-template-columns:104px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:14px}
 .svcrow>input{grid-column:1/-1}
@@ -349,6 +354,8 @@ a.link{display:inline;padding:0;font:inherit;font-weight:700}
 .chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .merr{color:var(--danger);font-weight:700;min-height:24px;margin:0 0 8px}
 .mbtns{display:flex;gap:10px;flex-wrap:wrap}
+#askWait .mbtns{flex-direction:column}
+#askWait .mbtns .btn{width:100%}
 .mbtns .btn{flex:1;min-width:130px}
 #calBox{margin-top:18px}
 #calBox .mbtns{margin-top:12px}
@@ -614,8 +621,12 @@ details.help li{margin-bottom:10px}
 
     <section class="step on" data-step="0">
       <h2>Pick your work.</h2>
-      <p class="lead">Lawns, snow, or both. You can change it any time.</p>
+      <p class="lead">Pick what you do. You can change it any time.</p>
       <div class="tiles" id="tiles"></div>
+      <h3 class="h3">More ways to earn</h3>
+      <div class="moretiles" id="moreTiles"></div>
+      <button type="button" class="btn ghost block" id="otherDevice" style="margin-top:16px">Open on another device</button>
+      <p class="status" id="draftStatus" role="status"></p>
       <p class="small2 looklink"><button type="button" class="link" data-look>Change how the app looks</button></p>
       <p class="small2" style="margin-top:6px"><button type="button" class="link" data-art>Change the pictures</button></p>
       <p class="small2" style="margin-top:6px"><button type="button" class="link" data-backup>Back up or load my business</button></p>
@@ -651,6 +662,7 @@ details.help li{margin-bottom:10px}
       <div id="svcList"></div>
       <p class="small2" style="margin:0 0 16px">Use the arrows to change the order. Your website and flyers list them top to bottom, and posters show the first four.</p>
       <div class="mbtns"><button type="button" class="btn" id="moreJobs">Add more jobs</button><button type="button" class="btn ghost" id="addSvc">Add your own</button></div>
+      <div id="otherBox" hidden style="margin-top:16px"><label class="field"><span>What do you do?</span><input type="text" id="customJob" autocomplete="off" placeholder="Like: water plants or bring in the mail"></label></div>
       <div class="mf seasonbox" id="seasonBox" hidden style="margin-top:24px"><label>Season plan (optional)</label><div class="chips" id="seasonChips"></div><div id="seasonField" hidden><label class="field"><span>Price for the whole winter ($)</span><input type="text" inputmode="decimal" id="seasonPrice" autocomplete="off"><small id="seasonHint"></small></label></div><small class="help2">Customers like one flat price, so they do not have to ask every time it snows.</small></div>
     </section>
 
@@ -720,6 +732,17 @@ details.help li{margin-bottom:10px}
       <h3 class="h3">Publish to hustlebuilder.org</h3>
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
       <div id="pubBox">
+        <button type="button" class="btn block" id="askParent">Ask my parent</button>
+        <p class="small2">They get a link on their phone. They say yes, and the page goes up.</p>
+        <p class="status" id="askStatus" role="status"></p>
+        <div id="askWait" hidden>
+          <p class="lead" style="margin:8px 0">Waiting for your parent.</p>
+          <p class="small2" id="askWaitText">We emailed them a link. This updates when the page is live.</p>
+          <div class="mbtns">
+            <button type="button" class="btn ghost" id="askText">Text the link</button>
+            <button type="button" class="btn ghost" id="askShare">Share the link</button>
+          </div>
+        </div>
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
         <button type="button" class="btn ghost" id="pubSend">Email me a code</button>
         <p class="status" id="pubCodeMsg" role="status"></p>
@@ -1297,6 +1320,25 @@ input,select,textarea{border-radius:12px;background:#fff}
 .season{border-radius:14px;box-shadow:0 10px 30px rgba(60,50,30,.08)}
 .season .p{font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:34px;color:var(--ink)}
 `;}
+function typeInfo(type){
+  const all={
+    lawn:{label:"Lawn care",target:"yard",right:"Straight lines. Clean edges. No shortcuts.",emoji:"🌿",color:"#1F6B3A",biz:"Lawn Co.",tag:"Straight lines. Clean edges. Done right."},
+    snow:{label:"Snow removal",target:"driveway",right:"Cleared edge to edge. No shortcuts.",emoji:"❄️",color:"#1C3D5A",biz:"Snow Removal",tag:"Up before the sun. Your driveway’s clear before you are."},
+    both:{label:"Lawn care and snow removal",target:"property",right:"Straight lines and clean edges, any season.",emoji:"🌦️",color:"#243044",biz:"Yard and Snow Co.",tag:"Every season. Handled."},
+    pet:{label:"Pet care",target:"pet",right:"Gentle, on time, and I tell a parent how it went.",emoji:"🐶",color:"#0F6E6A",biz:"Pet Care",tag:"Walks, water, and a note when I’m done."},
+    odd:{label:"Yard help",target:"yard",right:"I do the chore you asked for, and I leave it tidy.",emoji:"🧰",color:"#8A5A12",biz:"Yard Help",tag:"Odd jobs. Done right."},
+    wash:{label:"Car washing",target:"car",right:"Soap, rinse, and a dry towel.",emoji:"🚗",color:"#1D4E89",biz:"Car Wash",tag:"Clean cars. Careful hands."},
+    help:{label:"Parent’s helper",target:"family",right:"A parent is home and in charge. I help with the little jobs.",emoji:"🤝",color:"#8E3A56",biz:"Helper",tag:"I help while a parent is home."},
+    tutor:{label:"Reading buddy",target:"reader",right:"We read together. A parent stays nearby.",emoji:"📚",color:"#4C3A8A",biz:"Reading Buddy",tag:"Let’s read. A parent is nearby."},
+    other:{label:"Neighborhood help",target:"job",right:"I show up, do the job, and a parent confirms it.",emoji:"✨",color:"#3D6B16",biz:"Help",tag:"Tell me the job. I’ll show up."}
+  };
+  return all[type]||all.other;
+}
+function bannerArt(type, art){
+  if(type==="lawn"||type==="snow"||type==="both")return sceneArt(type, art);
+  const info=typeInfo(type);
+  return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="800" height="460" fill="${info.color}"/><text x="70" y="270" font-size="150">${info.emoji}</text></svg>`;
+}
 function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
@@ -1309,7 +1351,7 @@ function genSite(c){
   const workDays=dayNames.filter((d,i)=>c.days[i]).join(", ");
   const schedText=schedSummary(sched);
   const nTrig=c.snowTrigger==="any"?0:parseInt(c.snowTrigger,10)||2;
-  const snowPlan=c.type==="lawn"?"":`<p class="small"><b>Snow plan:</b> ${nTrig?"I shovel when there is "+nTrig+" inch"+(nTrig>1?"es":"")+" or more of snow.":"I shovel after any snow."} I clear the driveway and a path to your door. Please move cars first, and tell me about anything that could get buried, like lights or edging.</p>`;
+  const snowPlan=(c.type==="snow"||c.type==="both")?`<p class="small"><b>Snow plan:</b> ${nTrig?"I shovel when there is "+nTrig+" inch"+(nTrig>1?"es":"")+" or more of snow.":"I shovel after any snow."} I clear the driveway and a path to your door. Please move cars first, and tell me about anything that could get buried, like lights or edging.</p>`:"";
   const howHTML=`<section id="how">
   <h2>How it works</h2>
   <ol class="how">
@@ -1322,7 +1364,7 @@ function genSite(c){
   <h2>My promise</h2>
   <p class="promise">${esc(c.promise)}</p>
 </section>`:"";
-  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"?["Just this time","Every week","Every other week","Every snowfall this winter"]:["Just this time","Every week","Every other week"];
+  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","A few days a week"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
@@ -1335,9 +1377,10 @@ function genSite(c){
   const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Season plan</strong><p>I clear your driveway every time it snows this winter. Pick “Every snowfall this winter” below.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
   const pay=c.venmo?`<a class="venmo" href="https://venmo.com/u/${encodeURIComponent(c.venmo)}" target="_blank" rel="noopener">Pay ${esc(c.first)} on Venmo</a><p class="small">Venmo username: @${esc(c.venmo)}</p>`:`<p>Ask ${esc(c.first)} how to pay.</p>`;
   const buttons=(publicPhone?`<button type="button" class="btn" id="sendText">Text my request</button>`:"")+(c.email?`<button type="button" class="btn ${publicPhone?"alt":""}" id="sendMail">Email my request</button>`:"");
-  const type=c.type==="snow"?"Snow removal":c.type==="both"?"Lawn care and snow removal":"Lawn care";
-  const target=c.type==="snow"?"driveway":c.type==="both"?"property":"yard";
-  const rightLine=c.type==="snow"?"Cleared edge to edge. No shortcuts.":c.type==="both"?"Straight lines and clean edges, any season.":"Straight lines. Clean edges. No shortcuts.";
+  const info=typeInfo(c.type);
+  const type=info.label;
+  const target=info.target;
+  const rightLine=info.right;
   const initial=esc((c.first||"A").charAt(0).toUpperCase());
   const pin=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
   const shield=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>`;
@@ -1479,7 +1522,7 @@ ${day&&String(c.art||"").indexOf("cine-")===0?".hero{background:#14212C}":""}
 </style></head>
 <body>
 <header class="hero">
-  ${sceneArt(c.type,c.art)}
+  ${bannerArt(c.type,c.art)}
   <div class="hero-in">
     <h1>${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
@@ -1571,10 +1614,16 @@ const LS="hustle-builder-v3";
 const PRESETS={
   lawn:[["Full mow, front and back","15"],["Front yard mow","10"],["Trim and edge","5"],["Leaf cleanup","20"],["Bag grass clippings","3"]],
   snow:[["Driveway","10"],["Driveway and walk","12"],["Walk and steps","5"],["Salt","3"]],
-  both:[["Full mow, front and back","15"],["Trim and edge","5"],["Bag grass clippings","3"],["Shovel driveway","10"],["Shovel driveway and walk","12"],["Salt","3"]]
+  both:[["Full mow, front and back","15"],["Trim and edge","5"],["Bag grass clippings","3"],["Shovel driveway","10"],["Shovel driveway and walk","12"],["Salt","3"]],
+  pet:[["Dog walk, 20 minutes","8"],["Dog walk, 40 minutes","12"],["Pet sitting check-in","10"],["Feed and water","6"]],
+  odd:[["Yard cleanup","15"],["Rake leaves","12"],["Weed the garden","10"],["Take cans to the curb","4"]],
+  wash:[["Wash the outside","10"],["Wash and vacuum","15"],["Rims and windows","8"]],
+  help:[["Playtime helper, 1 hour","10"],["Tidy toys","6"],["Snack helper","5"],["Reading together","8"]],
+  tutor:[["Reading together, 30 minutes","10"],["Homework helper, 30 minutes","12"],["Practice spelling","8"]],
+  other:[["My service","10"]]
 };
-const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled."};
-function autoBiz(type,first){const f=first||"Alex";return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s Lawn Co.";}
+const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
+function autoBiz(type,first){const f=first||"Alex";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
 const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
@@ -1585,6 +1634,7 @@ let S=defaults();
 let savedRaw=null;
 try{const r=localStorage.getItem(LS); if(r){savedRaw=JSON.parse(r);S=Object.assign(defaults(),savedRaw);}}catch(e){}
 if(!RIGS[S.palette])S.palette="ember";
+if(!PRESETS[S.type])S.type="lawn";
 if(!S.svcEdited)S.services=PRESETS[S.type].map(s=>({n:s[0],p:s[1]}));
 if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
   const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
@@ -1604,7 +1654,7 @@ function resolve(preview, opt){
   const tagline=S.tagline.trim()||TAGS[S.type];
   const parentName=S.parentName.trim(), phone=S.phone.trim(), phoneDigits=phone.replace(/[^\d+]/g,""), email=S.email.trim();
   const venmo=S.venmo.trim().replace(/^@/,"");
-  const target=S.type==="snow"?"driveway":S.type==="both"?"property":"yard";
+  const target=typeInfo(S.type).target;
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
   return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
@@ -1618,20 +1668,49 @@ const STEPS=8; let step=0;
 
 const seg=$("#seg"); for(let i=0;i<STEPS;i++){seg.appendChild(document.createElement("span"));}
 
-const TYPES=[["lawn","Lawn","Mow. Trim. Edge."],["snow","Snow","Shovel. Salt. Clear."],["both","Both","Work all year."]];
+const TYPES=[
+  {id:"lawn",name:"Lawn",blurb:"Mow. Trim. Edge."},
+  {id:"snow",name:"Snow",blurb:"Shovel. Salt. Clear."},
+  {id:"both",name:"Both",blurb:"Work all year."}
+];
+const MORE_TYPES=[
+  {id:"pet",name:"Pets",blurb:"Walks and sitting",emoji:"🐶",color:"#0F6E6A"},
+  {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",color:"#8A5A12"},
+  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",color:"#1D4E89"},
+  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",color:"#8E3A56"},
+  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",color:"#4C3A8A"},
+  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",color:"#3D6B16"}
+];
+const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
+function pickType(id){
+  S.type=id;
+  if(!S.svcEdited){S.services=(PRESETS[id]||PRESETS.other).map(s=>({n:s[0],p:s[1]}));renderServices();}
+  if(TYPE_COLOR[id]&&!S.paletteTouched){S.palette=TYPE_COLOR[id];if(typeof renderRigs==="function")renderRigs();}
+  shell.dataset.type=S.type; syncPlaceholders(); renderTiles(); syncOther(); queue();
+}
+function tileHtml(t){
+  const tick='<span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>';
+  const art=t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
+  return art+`<span class="cap"><strong>${t.name}</strong><span>${t.blurb}</span></span>`+tick;
+}
 function renderTiles(){
-  const w=$("#tiles"); w.innerHTML="";
-  TYPES.forEach(t=>{
-    const b=document.createElement("button"); b.type="button"; b.className="tile"; b.setAttribute("aria-pressed",String(S.type===t[0]));
-    b.innerHTML=sceneArt(t[0],artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid")+`<span class="cap"><strong>${t[1]}</strong><span>${t[2]}</span></span><span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>`;
-    b.onclick=()=>{
-      S.type=t[0];
-      if(!S.svcEdited){S.services=PRESETS[S.type].map(s=>({n:s[0],p:s[1]}));renderServices();}
-      shell.dataset.type=S.type; syncPlaceholders(); renderTiles(); queue();
-    };
-    w.appendChild(b);
-  });
+  const fill=(box,list)=>{
+    const w=$(box); if(!w)return; w.innerHTML="";
+    list.forEach(t=>{
+      const b=document.createElement("button"); b.type="button"; b.className="tile"+(t.emoji?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
+      b.innerHTML=tileHtml(t);
+      b.onclick=()=>pickType(t.id);
+      w.appendChild(b);
+    });
+  };
+  fill("#tiles",TYPES);
+  fill("#moreTiles",MORE_TYPES);
+  syncOther();
+}
+function syncOther(){
+  const box=$("#otherBox"); if(!box)return;
+  box.hidden=S.type!=="other";
 }
 
 function go(n){
@@ -1651,7 +1730,7 @@ $("#peek").onclick=()=>{refresh();shell.classList.add("sheet");};
 $("#closeSheet").onclick=()=>shell.classList.remove("sheet");
 
 let timer;
-function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{refresh();updateLaunch();},250);}
+function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{refresh();updateLaunch();scheduleDraft();},250);}
 function refresh(){frame.srcdoc=genSite(resolve(true));}
 
 document.querySelectorAll("[data-k]").forEach(el=>{
@@ -1775,7 +1854,7 @@ function renderDays(){
   renderHours();
 }
 function renderSeason(){
-  const box=$("#seasonBox");if(!box)return;box.hidden=S.type==="lawn";if(box.hidden)return;
+  const box=$("#seasonBox");if(!box)return;box.hidden=!(S.type==="snow"||S.type==="both");if(box.hidden)return;
   const w=$("#seasonChips");w.innerHTML="";
   [[false,"No season plan"],[true,"Offer a season plan"]].forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String(!!S.seasonOn===it[0]));b.onclick=()=>{S.seasonOn=it[0];renderSeason();queue();};w.appendChild(b);});
   $("#seasonField").hidden=!S.seasonOn;
@@ -1786,7 +1865,7 @@ function renderSeason(){
 $("#seasonPrice").addEventListener("input",()=>{S.seasonPrice=$("#seasonPrice").value;queue();});
 function renderSnowPlan(){
   const box=$("#snowPlanBox"),w=$("#snowPlan");if(!box||!w)return;
-  box.hidden=S.type==="lawn";w.innerHTML="";
+  box.hidden=!(S.type==="snow"||S.type==="both");w.innerHTML="";
   [["1","After 1 inch"],["2","After 2 inches"],["3","After 3 inches"],["any","Any snow"]].forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String((S.snowTrigger||"2")===it[0]));b.onclick=()=>{S.snowTrigger=it[0];renderSnowPlan();queue();};w.appendChild(b);});
 }
 function renderHours(){
@@ -1816,7 +1895,7 @@ function renderRigs(){
     const g=RIGS[k];
     const b=document.createElement("button"); b.type="button"; b.className="rig"; b.setAttribute("aria-pressed",String(S.palette===k));
     b.innerHTML=`<span class="slab" style="background:${g.c}"></span><span class="nm">${g.name}</span>`;
-    b.onclick=()=>{S.palette=k;renderRigs();queue();};
+    b.onclick=()=>{S.palette=k;S.paletteTouched=true;renderRigs();queue();};
     w.appendChild(b);
   });
   const lw=$("#looks");lw.innerHTML="";
@@ -1837,7 +1916,7 @@ function missing(){
 }
 function shareText(){
   const c=resolve(true);
-  const job=S.type==="snow"?"snow removal":S.type==="both"?"lawn care and snow removal":"lawn care";
+  const job=typeInfo(S.type).label.toLowerCase();
   return `Hi neighbors! I’m ${c.first}, and I run a ${job} business${S.town.trim()?" in "+S.town.trim():""}. See my rates and book a day here: ${linkOrPlaceholder()}. You pay after the job is done${c.venmo?" (Venmo works)":""}. I’ll show up on time and do it right. - ${c.first}`;
 }
 let shareEdited=false;
@@ -2910,7 +2989,7 @@ const FUNNY={
 let funnyPage=0;
 function funnyFor(type){
   const F=S.first.trim(),T=S.town.trim(),out=[];
-  const cats=FUNNY[type]||FUNNY.lawn;
+  const cats=FUNNY[type]||{"Keep it simple":["{F} Helps Out","{F}'s Crew","{T} Helpers"]};
   Object.keys(cats).forEach(c=>{
     const names=[];
     cats[c].forEach(t=>{if(t.indexOf("{F}")>=0&&!F)return;if(t.indexOf("{T}")>=0&&!T)return;names.push(t.replace(/\{F\}/g,F).replace(/\{T\}/g,T));});
@@ -2926,14 +3005,15 @@ function nameList(type){
   const F=S.first.trim(),T=S.town.trim();
   const poss=n=>/s$/i.test(n)?n+"’":n+"’s";
   const out=[];
-  NAME_IDEAS[type||S.type].forEach(t=>{
+  const ideas=NAME_IDEAS[type||S.type]||["{F}'s "+typeInfo(type||S.type).biz,"{T} "+typeInfo(type||S.type).biz];
+  ideas.forEach(t=>{
     if(t.indexOf("{F}")>=0&&!F)return;
     if(t.indexOf("{T}")>=0&&!T)return;
     out.push(t.replace("{F}’s",poss(F)).replace(/\{F\}/g,F).replace(/\{T\}/g,T));
   });
   return out;
 }
-function tagList(type){return TAG_IDEAS[type||S.type].concat(TAG_ANY);}
+function tagList(type){return (TAG_IDEAS[type||S.type]||[typeInfo(type||S.type).tag]).concat(TAG_ANY);}
 function applyName(v){S.bizName=v;const el=$("#bizName");if(el)el.value=v;queue();renderIdeas();}
 function applyTag(v){S.tagline=v;const el=$("#tagline");if(el)el.value=v;queue();renderIdeas();}
 function renderIdeas(){
@@ -3021,7 +3101,7 @@ function pkgInfo(svcs,names){const seen={};const picked=[];(names||[]).forEach(f
 function rateRowsFor(p){if(!p.rates)return [];const rows=p.services.slice(0,4).map(function(s){return {n:s.n,p:fmtPrice(s.p)};});if(p.pkg)rows.push({n:p.pkg.label,p:money(p.pkg.total)});return rows;}
 function pcfg(over){
   const c=flyerCfg(),st=Object.assign({},S.studio,over||{}),r=RIGS[st.rig]||RIGS.ember;
-  const type=(st.kind==="lawn"||st.kind==="snow"||st.kind==="both")?st.kind:S.type,same=type===S.type,hs=HEADS[type]||HEADS.lawn;
+  const type=(st.kind==="lawn"||st.kind==="snow"||st.kind==="both")?st.kind:(PRESETS[S.type]?S.type:"lawn"),same=type===S.type,hs=HEADS[type]||HEADS.lawn;
   const biz=(st.name||"").trim()||(same?c.biz:autoBiz(type,c.first));
   const tagline=(st.tagText||"").trim()||(same?c.tagline:TAGS[type]);
   return {type,layout:st.layout,biz,tagline,town:c.town,first:c.first,services:same?c.services:svcFor(type),qrText:c.qrText,urlText:c.urlText,ok:c.ok,why:c.why,qrMode:c.qrMode,phone:c.phone,parentName:c.parentName,showPhone:!!(st.phone&&c.phone),accent:r.c,trim:st.trim||"stripes",font:(st.font||(typeof LOOK!=="undefined"&&LOOK.font)||"workwear"),art:(ART.some(a=>a[0]===st.art)?st.art:artStyle()),nameStyle:st.nameStyle,bg:st.bg,sky:st.sky,flip:!!st.flip,rates:!!st.rates,pkg:pkgInfo(c.services,st.pkg||[]),tag:!!st.tag,badge:BADGES[st.badge]?BADGES[st.badge][0]:"none",headText:(st.custom||"").trim()||hs[st.head%hs.length],photo:st.photo?pPhoto():null};
@@ -3543,7 +3623,7 @@ function publishExtras(slug){
     showPhone:!!S.showPhone,
     phone:S.phone||"",
     cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Alex"),
-    cardLine:(S.type==="snow"?"Snow removal":S.type==="both"?"Lawn care and snow removal":"Lawn care")+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
+    cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c
   };
 }
@@ -3635,6 +3715,8 @@ async function pubPush(){
     const data=await pubApi("/api/publish", {body:publishExtras(slug)});
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
     session.slug=data.slug; pubSaveSession(session); clearPending();
+    const askTok=localStorage.getItem("hb-ask");
+    if(askTok)pubApi("/api/ask/"+askTok+"/done",{body:{url:data.url}}).catch(function(){});
     $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
     showPublished(data.url);
     $("#pubOk").textContent=data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
@@ -3674,6 +3756,131 @@ if(calNewBtn)calNewBtn.onclick=async()=>{
 };
 const calSyncEl=$("#calSync");
 if(calSyncEl)calSyncEl.onchange=()=>{localStorage.setItem("hb-cal-sync",calSyncEl.checked?"1":"0");if(calSyncEl.checked)syncCalUpcoming();};
+function draftPayload(){
+  const d=JSON.parse(JSON.stringify(S));
+  if(JSON.stringify(d).length>700000)d.proof=[];
+  return d;
+}
+let draftTimer=0;
+function scheduleDraft(){if(!publishOrigin())return;clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,1200);}
+async function saveDraft(){
+  if(!publishOrigin())return;
+  try{
+    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    if(data.ok&&data.code)localStorage.setItem("hb-draft",data.code);
+  }catch(e){}
+}
+function applyDraft(d){
+  if(!d||typeof d!=="object")return;
+  S=Object.assign(defaults(),d);
+  if(!PRESETS[S.type])S.type="lawn";
+  document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
+  const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
+  const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";
+  save();
+  renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();syncOther();refresh();
+}
+async function loadDraft(code){
+  try{
+    const data=await pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"});
+    if(data.ok&&data.draft){localStorage.setItem("hb-draft",code);applyDraft(data.draft);toast("Opened your saved page.");}
+  }catch(e){}
+}
+function drawQr(canvas,text){
+  const mods=qrMods(text); if(!mods||!canvas)return;
+  const n=mods.length,scale=4; canvas.width=n*scale; canvas.height=n*scale;
+  const ctx=canvas.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle="#111";
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(mods[r][c])ctx.fillRect(c*scale,r*scale,scale,scale);
+}
+const otherBtn=$("#otherDevice");
+if(otherBtn)otherBtn.onclick=async()=>{
+  const st=$("#draftStatus");
+  if(!publishOrigin()){if(st)st.textContent="Opening on another device works on the family website. This phone still keeps your page.";return;}
+  if(st)st.textContent="Saving…";
+  try{
+    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    if(!data.ok){if(st)st.textContent="Could not save. Try again.";return;}
+    localStorage.setItem("hb-draft",data.code);
+    if(st)st.textContent="Saved. Use this code on the other device.";
+    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, open the link. Or type the code here later.</p><p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
+    const codeEl=mbody.querySelector("#draftCode"); if(codeEl)codeEl.textContent=data.code;
+    const linkEl=mbody.querySelector("#draftLink"); if(linkEl)linkEl.textContent=data.link;
+    drawQr(mbody.querySelector("#draftQr"), data.link);
+    mbody.querySelector("#draftCopy").onclick=()=>copyText(data.link,"Link copied.");
+    mbody.querySelector("#draftText").onclick=()=>{location.href="sms:?&body="+encodeURIComponent("Open my Hustle Builder page: "+data.link);};
+    mbody.querySelector("#draftClose").onclick=closeModal;
+  }catch(e){if(st)st.textContent="Could not save. Try again.";}
+};
+let askPoll=0;
+function showAskWait(link){
+  const box=$("#askWait"); if(box)box.hidden=false;
+  const st=$("#askStatus"); if(st)st.textContent="";
+  const textBtn=$("#askText"); if(textBtn)textBtn.onclick=()=>{location.href="sms:?&body="+encodeURIComponent("Can you publish my page? "+link);};
+  const shareBtn=$("#askShare"); if(shareBtn)shareBtn.onclick=()=>{
+    const text="Can you publish my Hustle Builder page? "+link;
+    if(navigator.share)navigator.share({title:"Publish my page",text}).catch(function(){});
+    else copyText(link,"Link copied.");
+  };
+}
+function startAskPoll(){
+  clearInterval(askPoll);
+  const token=localStorage.getItem("hb-ask");
+  if(!token||!publishOrigin())return;
+  askPoll=setInterval(async()=>{
+    try{
+      const data=await pubApi("/api/ask/"+token,{method:"GET"});
+      if(data.status==="live"&&data.url){
+        clearInterval(askPoll);
+        const st=$("#askStatus"); if(st)st.textContent="Your page is up!";
+        const tx=$("#askWaitText"); if(tx)tx.textContent=data.url;
+        showPublished(data.url);
+      }
+    }catch(e){}
+  },4000);
+}
+const askBtn=$("#askParent");
+if(askBtn)askBtn.onclick=async()=>{
+  const st=$("#askStatus");
+  if(!publishOrigin()){if(st)st.textContent="Ask my parent works on the family website.";return;}
+  const email=($("#pubEmail")&&$("#pubEmail").value||"").trim();
+  if(!email){if(st)st.textContent="Add your parent’s email first.";$("#pubEmail")&&$("#pubEmail").focus();return;}
+  if(st)st.textContent="Sending…";
+  try{
+    const data=await pubApi("/api/ask",{body:{email,draft:draftPayload()}});
+    if(!data.ok){if(st)st.textContent=data.error==="limit"?"That’s enough emails for today. Try again tomorrow.":"Could not send. Check the email and try again.";return;}
+    localStorage.setItem("hb-ask",data.token);
+    localStorage.setItem("hb-ask-link",data.link);
+    showAskWait(data.link);
+    startAskPoll();
+  }catch(e){if(st)st.textContent="Could not send. Try again.";}
+};
+async function openAsk(token){
+  localStorage.setItem("hb-ask",token);
+  try{
+    const data=await pubApi("/api/ask/"+token+"/open",{body:{}});
+    if(!data.ok){go(7);pubErr("That parent link expired. Ask for a new one.");return;}
+    pubSaveSession({token:data.token,email:data.email,slug:data.slug||""});
+    if(data.draft)applyDraft(data.draft);
+    if($("#pubEmail"))$("#pubEmail").value=data.email||"";
+    go(7);
+    if($("#pubReady"))$("#pubReady").hidden=false;
+    const st=$("#askStatus"); if(st)st.textContent="Your kid asked you to publish this page. Check the box, pick a plan, and it goes up.";
+    initPublish();
+  }catch(e){go(7);pubErr("Could not open that link.");}
+}
+const customEl=$("#customJob");
+if(customEl){
+  customEl.value=S.customJob||"";
+  customEl.addEventListener("input",()=>{
+    S.customJob=customEl.value;
+    if(S.type==="other"&&!S.svcEdited){
+      const name=S.customJob.trim()||"My service";
+      S.services=[{n:name,p:(S.services[0]&&S.services[0].p)||"10"}];
+      renderServices();
+    }
+    queue();
+  });
+}
 const slugInput=$("#pubSlug");
 if(slugInput)slugInput.addEventListener("input",()=>{clearTimeout(slugTimer);const v=slugInput.value;slugTimer=setTimeout(()=>slugStatus(v),300);});
 async function resumeHosting(kind){
@@ -3699,9 +3906,15 @@ async function resumeHosting(kind){
   await pubPush();
 }
 initPublish();
-const hostQ=new URLSearchParams(location.search).get("hosting");
+const startQ=new URLSearchParams(location.search);
+const hostQ=startQ.get("hosting");
+const askQ=startQ.get("ask");
+const draftQ=startQ.get("draft");
+if(askQ&&publishOrigin()&&hostQ!=="paid")openAsk(askQ);
+else if(draftQ&&publishOrigin())loadDraft(draftQ);
+else if(localStorage.getItem("hb-ask"))startAskPoll();
 if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
-else go(0);
+else if(!askQ)go(0);
 syncLiveUrlFields();
 shell.dataset.type=S.type;
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();refresh();
