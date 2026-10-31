@@ -81,11 +81,14 @@ A parent’s phone is not on the kid page unless they turn on “Show my parent�
 
 Plans shown in the app:
 
-- $6 a month
-- $39 for the season (about six months)
-- $59 for the year
+- $19.99 for the current season. Summer is May–August. Winter is November–March. The app names the season and the end date.
+- $29.99 for 365 days from the day a parent pays.
 
-`PAYWALL_MODE=test` marks the plan paid and does not call Stripe. Use that to click through the app.
+There is no monthly plan.
+
+A family can also go live with no payment. The parent still verifies their email and checks the consent box. The page stays up for **14 days** from the first publish, or until **3** real booking requests are delivered, whichever comes first. `TRIAL_DAYS` changes the 14. It defaults to 14 and can be set in the environment. The parent sees “14 days / 3 free jobs left,” and that count goes down. The third free request emails that the jobs are used up. The daily cron also emails 3 days before the trial time ends and on the day it ends, each with a pay link, and it does not send the same note twice. When the trial ends, the public link, including a flyer QR code, shows a taking-a-break page. The saved page and the kid’s draft stay put. New booking requests are saved and held. Paying brings the page back right away and sends the held requests. One trial belongs to the parent’s email. A new link under the same email does not start it over, and deleting the account does not reset it. Flyers are still free to make.
+
+`PAYWALL_MODE=test` marks the plan paid and does not call Stripe. Use that to click through the app. Renewal emails, the trial-used email, and the held-request email stay in the test outbox. They are not sent.
 
 When you are ready to charge:
 
@@ -93,14 +96,18 @@ When you are ready to charge:
 2. Put the secret key in `STRIPE_SECRET_KEY`. Start with the test key.
 3. Add a webhook endpoint `https://your-domain/api/stripe/webhook` for `checkout.session.completed`. Put the signing secret in `STRIPE_WEBHOOK_SECRET`.
 4. Set `PAYWALL_MODE=stripe` and redeploy.
-5. Stripe’s listed US price for a successful domestic card charge is **2.9% + 30¢**, with no monthly fee. Source: [Stripe pricing](https://stripe.com/pricing). A $39 season charge is about **$1.43** in fees. International cards and currency conversion cost more. See that page.
-6. Checkout sets `payment_intent_data[statement_descriptor_suffix]` to `HUSTLE BLDR`. With the account’s statement prefix `KEYSTONE`, the card line reads `KEYSTONE* HUSTLE BLDR` (21 characters, under Stripe’s 22-character limit).
+5. Checkout does not use a Stripe Price ID. Each session sends `line_items[0][price_data]` with `currency` `usd` and `unit_amount` **1999** for a season or **2999** for a year. You do not create a price in the Stripe dashboard.
+6. A parent who already paid keeps the end date stored on their account. These amounts apply the next time they check out.
+7. Stripe’s listed US price for a successful domestic card charge is **2.9% + 30¢**, with no monthly fee. Source: [Stripe pricing](https://stripe.com/pricing). A $19.99 season charge is about **$0.88** in fees. International cards and currency conversion cost more. See that page.
+8. Checkout sets `payment_intent_data[statement_descriptor_suffix]` to `HUSTLE BLDR`. With the account’s statement prefix `KEYSTONE`, the card line reads `KEYSTONE* HUSTLE BLDR` (21 characters, under Stripe’s 22-character limit).
 
 The parent is marked paid only after Stripe signs the webhook. A test-mode plan does not do that.
 
 ## Ask a parent, drafts, and booking notes
 
-- **Ask my parent.** On Go live, the kid enters the parent’s email and taps Ask my parent. The server emails a link that expires in 7 days. Opening it on the parent’s phone signs that email in, loads the kid’s page, and the parent still checks the consent box and pays. After payment the page publishes itself, the same way a checkout return does. Sends are limited to 5 per email per day and 8 per IP per day.
+- **Ask my parent.** On Go live, the kid enters the parent’s email and taps Ask my parent. The server emails a link that expires in 7 days and says the first 3 jobs are free. It also says a season is $19.99 and a year is $29.99 after that. Opening it on the parent’s phone signs that email in, loads the kid’s page, and the parent still checks the consent box. They can publish with the free trial or pay. Sends are limited to 5 per email per day and 8 per IP per day.
+- **My jobs.** The kid’s builder lists incoming requests: service, day and time, neighbor first name, and status (new, confirmed, done, cancelled, or waiting). The list is loaded with the kid’s draft code or the parent’s sign-in. It never includes the neighbor’s email, phone, or house number. A parent can turn on the street name. The parent marks confirmed or done from the link in the booking email. A badge counts new requests.
+- **Renewals.** A daily cron calls `GET /api/cron/renewals` with `Authorization: Bearer` set to `CRON_SECRET` or `ADMIN_SECRET`. It emails the parent 14 days before a paid plan ends, 3 days before, and on the end day, each with a one-tap renew link. The same job also emails 3 days before a free trial’s time ends and on the day it ends. The same reminder is not sent twice. `?dry=1` lists what would send and does not email. For 7 days after a paid plan’s end date the page stays up. The builder shows the parent a banner. Neighbors do not see it. After those 7 days the link shows a taking-a-break page and new bookings are paused. A free trial does not get that extra week: the taking-a-break page starts as soon as the 14 days or the 3 jobs are used.
 - **Drafts.** The page also saves on the server under an 8-character code, so another phone can open `/?draft=CODE`. The phone still keeps a local copy. GitHub Pages with no host skips the server save. A signed-in parent’s account keeps the latest code. Drafts older than 90 days are dropped.
 - **More work.** Besides lawn and snow, a kid can pick pet care, odd jobs, car washing, a parent’s helper, reading buddy, or something else. Pet care has its own prices, booking questions, and flyers. The dog, cat, fish, bird, and small-animal pictures are original drawings in this app, not stock art. The kid chooses which of those pets appear on the page, the flyer, and the link preview. Helper and reading copy says a parent stays home or nearby. A gate or key note from a pet booking goes only to the parent’s email and the private family calendar.
 - **Neighbor note.** If a booking leaves an email, that person gets “We got your request,” what they asked for, and a cancel link. The cancel page needs a tap so mail scanners do not cancel it by opening the link. Cancelling emails the parent. The neighbor note does not include the parent’s email or phone. Reply-to is `REPLY_TO` when that is set. Otherwise the note says replies are not read.

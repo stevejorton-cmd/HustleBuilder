@@ -617,6 +617,17 @@ details.help li{margin-bottom:10px}
   @page{size:letter;margin:0}
 }
 @media (max-width:460px){.top .brand .slash{display:block}.top .brand .word{display:none}}
+#pubPlans{display:flex;flex-direction:column;gap:8px}
+#pubPlans button{display:block;width:100%;text-align:left;white-space:normal;line-height:1.35;padding:12px 14px}
+#pubPlans button b{display:block}
+#pubPlans button span{display:block;font-weight:500;font-size:14px;margin-top:4px}
+#trialBox{padding:8px 12px 8px 16px}
+#myJobs{padding:8px 4px 12px 10px}
+#myJobs h3{margin:0 0 8px}
+.kidjob{display:block;border:2px solid var(--line,#e6e1d8);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
+.kidjob b,.kidjob span{display:block}
+.kidjob .jobst{font-weight:700;margin-top:4px}
+#jobBadge{display:inline-block;background:#FF5B14;color:#fff;border-radius:99px;min-width:1.4em;text-align:center;font-size:13px;margin-left:6px}
 </style>
 </head>
 <body>
@@ -660,6 +671,7 @@ details.help li{margin-bottom:10px}
       </section>
       <h3 class="h3">More ways to earn</h3>
       <div class="moretiles" id="moreTiles"></div>
+      <button type="button" class="btn ghost block" id="myJobsBtn" hidden style="margin-top:16px">My jobs</button>
       <button type="button" class="btn ghost block" id="otherDevice" style="margin-top:16px">Open on another device</button>
       <p class="status" id="draftStatus" role="status"></p>
       <p class="small2 looklink"><button type="button" class="link" data-look>Change how the app looks</button></p>
@@ -767,12 +779,13 @@ details.help li{margin-bottom:10px}
 
     <section class="step" data-step="7">
       <h2>Go live.</h2>
-      <p class="lead">Publish to hustlebuilder.org. You get one link, and it stays the same when you update the page.</p>
+      <p class="lead">Try free: your first 3 jobs are on us, for 14 days. You get one link, and it stays the same when you update the page.</p>
       <div class="missing" id="missing" hidden></div>
       <h3 class="h3">Publish to hustlebuilder.org</h3>
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
       <div id="pubBox">
         <button type="button" class="btn block" id="askParent">Ask my parent</button>
+        <p class="small2">The email says the first 3 jobs are free for 14 days. After that, a season is $19.99 and a year is $29.99. A parent still verifies their email and agrees before the page goes live.</p>
         <p class="small2">They get a link on their phone. They say yes, and the page goes up.</p>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
@@ -791,7 +804,13 @@ details.help li{margin-bottom:10px}
         <div id="pubReady" hidden>
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
           <p class="small2"><a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
-          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">A parent pays on the next screen.</small></div>
+          <div id="trialBox">
+            <p class="lead" id="trialPitch">Try free: your first 3 jobs are on us.</p>
+            <p class="status" id="trialCount" hidden></p>
+          </div>
+          <p class="status" id="graceBanner" hidden></p>
+          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Or pick a plan. No card is charged in test mode.</small></div>
+          <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-yard"><small>Use a first name or a business nickname, like sam or sam-yard.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
@@ -799,6 +818,11 @@ details.help li{margin-bottom:10px}
         </div>
         <p class="merr" id="pubErr" role="alert"></p>
         <p class="status" id="pubOk" role="status"></p>
+        <div id="myJobs">
+          <h3 class="h3">My jobs <span id="jobBadge" hidden></span></h3>
+          <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent marks them confirmed or done.</p>
+          <div id="jobList"></div>
+        </div>
         <p class="small2" id="pubUrlWrap" hidden><a class="link" id="pubUrl" target="_blank" rel="noopener"></a></p>
         <div class="mbtns" id="pubManage" hidden>
           <button type="button" class="btn" id="pubUpdate">Update my website</button>
@@ -3762,12 +3786,32 @@ function niceDate(iso){
   if(!t)return "";
   return new Date(t).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
 }
+function trialLine(me){
+  const days=me&&typeof me.trialDaysLeft==="number"?me.trialDaysLeft:14;
+  const jobs=me&&typeof me.trialLeft==="number"?me.trialLeft:3;
+  return days+" days / "+jobs+" free jobs left.";
+}
 function planHelp(me){
-  if(!me)return "A parent pays on the next screen.";
-  const mode=me.payMode||(me.testMode?"test":"stripe");
-  if(me.paid)return "Paid through "+(niceDate(me.paidUntil)||"this plan")+".";
-  if(mode==="test"||mode==="off")return "Test mode. No card is charged.";
-  return "A parent pays on the next screen.";
+  if(!me)return "Try free: your first 3 jobs are on us, for 14 days.";
+  if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
+  if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
+  if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
+  if(typeof me.trialLeft==="number")return trialLine(me);
+  return "Try free: your first 3 jobs are on us, for 14 days.";
+}
+function showHosting(me){
+  const help=$("#pubPlanHelp"); if(help&&me&&me.ok)help.textContent=planHelp(me);
+  const count=$("#trialCount");
+  if(count){
+    if(me&&me.ok&&!me.paid&&!me.grace){count.hidden=false; count.textContent=trialLine(me);}
+    else count.hidden=true;
+  }
+  const grace=$("#graceBanner");
+  if(grace){
+    if(me&&me.grace){grace.hidden=false; grace.textContent=planHelp(me);}
+    else grace.hidden=true;
+  }
+  const share=$("#shareStreet"); if(share&&me&&me.ok)share.checked=!!me.shareStreet;
 }
 function pendingPublish(){try{return JSON.parse(localStorage.getItem("hb-publish-pending")||"null");}catch(e){return null;}}
 function savePending(slug){localStorage.setItem("hb-publish-pending",JSON.stringify({slug,at:Date.now()}));}
@@ -3805,11 +3849,21 @@ function showPublished(url){
   const ready=$("#pubReady"); if(ready&&url)ready.hidden=false;
   const go=$("#pubGo"); if(go&&url)go.hidden=true;
 }
-function pubPlans(){
+async function pubPlans(){
   const box=$("#pubPlans"); if(!box||box.childElementCount)return;
-  [["month","$6 a month"],["season","$39 a season"],["year","$59 a year"]].forEach((it,i)=>{
-    const b=document.createElement("button"); b.type="button"; b.textContent=it[1]; b.dataset.plan=it[0];
-    b.setAttribute("aria-pressed", String(i===1));
+  let plans=[
+    {id:"season",price:"$19.99",name:"Season",includes:"The page stays online through the end of the season. Booking emails are included."},
+    {id:"year",price:"$29.99",name:"Full year",includes:"The page stays online for 365 days. Booking emails are included."}
+  ];
+  try{
+    const data=await pubApi("/api/plans",{method:"GET"});
+    if(data.ok&&Array.isArray(data.plans))plans=data.plans;
+    const pitch=$("#trialPitch"); if(pitch&&data.free)pitch.textContent=data.free;
+  }catch(e){}
+  plans.forEach((it,i)=>{
+    const b=document.createElement("button"); b.type="button"; b.dataset.plan=it.id;
+    b.innerHTML="<b>"+esc(it.name)+" · "+esc(it.price)+"</b><span>"+esc(it.includes)+(it.endsLabel?" Ends "+esc(it.endsLabel)+".":"")+"</span>";
+    b.setAttribute("aria-pressed", String(i===0));
     b.onclick=()=>{box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));};
     box.appendChild(b);
   });
@@ -3828,6 +3882,7 @@ function publishExtras(slug){
     indexable:!!($("#pubIndex")&&$("#pubIndex").checked),
     showPhone:!!S.showPhone,
     phone:S.phone||"",
+    draftCode:localStorage.getItem("hb-draft-code")||localStorage.getItem("hb-job-code")||"",
     cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Alex"),
     cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c,
@@ -3836,6 +3891,7 @@ function publishExtras(slug){
 }
 async function initPublish(){
   pubPlans();
+  try{if(pubSession()){const me=await pubApi("/api/me",{method:"GET"}); if(me.ok)showHosting(me);}}catch(e){}
   const origin=publishOrigin();
   const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
   if(!origin){pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
@@ -3870,9 +3926,8 @@ $("#pubVerify").onclick=async()=>{
     $("#pubReady").hidden=false;
     suggestSlug();
     if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
-    $("#pubOk").textContent="Email verified. A parent checks the box, picks a plan, and publishes.";
-    const help=$("#pubPlanHelp");
-    try{const me=await pubApi("/api/me",{method:"GET"}); if(help&&me.ok)help.textContent=planHelp(me); if(me.ok&&$("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}catch(e){}
+    $("#pubOk").textContent="Email verified. A parent checks the box. The first 3 jobs are free, or they can pick a plan.";
+    try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
   }catch(e){pubErr("Could not verify. Try again.");}
 };
@@ -3918,10 +3973,13 @@ async function pubPush(){
       if(!agreed.ok){pubErr("A parent has to agree before the page can go online."); return;}
     }
     const me=await pubApi("/api/me", {method:"GET"});
-    if(!me.paid){const paid=await pubCheckout(); if(!paid)return;}
+    showHosting(me);
+    const needsPay=!me.paid && !me.grace && !(me.trialLeft>0) && !me.slug;
+    if(needsPay){const paid=await pubCheckout(); if(!paid)return;}
     const data=await pubApi("/api/publish", {body:publishExtras(slug)});
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
     session.slug=data.slug; pubSaveSession(session); clearPending();
+    if(data.jobCode)localStorage.setItem("hb-job-code", data.jobCode);
     const askTok=localStorage.getItem("hb-ask");
     if(askTok)pubApi("/api/ask/"+askTok+"/done",{body:{url:data.url}}).catch(function(){});
     $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
@@ -3930,6 +3988,33 @@ async function pubPush(){
   }catch(e){pubErr("Could not publish. Try again.");}
 }
 $("#pubGo").onclick=pubPush;
+const shareBox=$("#shareStreet");
+if(shareBox)shareBox.onchange=async()=>{
+  const data=await pubApi("/api/share",{body:{on:!!shareBox.checked}});
+  if(!data.ok)pubErr("Could not save that setting.");
+};
+function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting"}[status]||"New";}
+async function loadMyJobs(){
+  const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
+  const session=pubSession();
+  if(!code&&!(session&&session.token))return;
+  try{
+    const data=await pubApi("/api/my-jobs"+(code?"?code="+encodeURIComponent(code):""),{method:"GET"});
+    if(!data.ok)return;
+    const list=$("#jobList"); if(!list)return;
+    const jobs=data.jobs||[];
+    list.innerHTML=jobs.map(j=>'<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span></div>').join("");
+    const empty=$("#jobEmpty"); if(empty)empty.hidden=jobs.length>0;
+    const badge=$("#jobBadge");
+    if(badge){badge.hidden=!data.fresh; if(data.fresh)badge.textContent=String(data.fresh);}
+    const btn=$("#myJobsBtn");
+    if(btn){btn.hidden=false; btn.textContent=data.fresh?("My jobs ("+data.fresh+" new)"):"My jobs";}
+  }catch(e){}
+}
+const jobsBtn=$("#myJobsBtn");
+if(jobsBtn)jobsBtn.onclick=()=>{go(7); const box=$("#myJobs"); if(box)setTimeout(()=>box.scrollIntoView({block:"start"}), 50);};
+loadMyJobs();
+setInterval(loadMyJobs, 8000);
 $("#pubUpdate").onclick=pubPush;
 let pubDownArmed=false, pubDelArmed=false;
 $("#pubDown").onclick=async()=>{
