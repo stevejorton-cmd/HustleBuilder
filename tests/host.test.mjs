@@ -864,6 +864,43 @@ test("add more jobs lists the selected business type first", async () => {
   assert.equal(src.includes('groups=[JOBS[2],JOBS[1],JOBS[3]]'), false);
 });
 
+test("each business type preloads starter jobs", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("const PRESETS=");
+  const end = src.indexOf("const TAGS=", start);
+  if (start < 0 || end < 0) throw new Error("missing starter jobs");
+  const api = runInNewContext(src.slice(start, end) + "({starterServices, shouldPreload})");
+  const { starterServices, shouldPreload } = api;
+  for (const type of ["lawn", "snow", "pet", "wash", "odd", "help", "tutor", "both"]) {
+    const jobs = starterServices(type, 1);
+    assert.ok(jobs.length >= 4, type + " preloaded " + jobs.length);
+    assert.equal(new Set(jobs.map((job) => job.n.toLowerCase())).size, jobs.length);
+    assert.ok(jobs.every((job) => Number(job.p) > 0));
+  }
+  assert.equal(starterServices("other", 1).length, 1);
+  const lawn = starterServices("lawn", 1).map((job) => job.n);
+  assert.ok(lawn.includes("Mow a small yard"));
+  assert.ok(lawn.includes("Weeding"));
+  assert.equal(starterServices("lawn", 1)[0].p, "10");
+  assert.equal(starterServices("lawn", 5)[0].p, "22");
+  const mixed = starterServices(["pet", "lawn"], 1);
+  assert.equal(mixed[0].n, "Dog walk, 15 minutes");
+  assert.ok(mixed.some((job) => job.n === "Mow a small yard"));
+  assert.equal(new Set(mixed.map((job) => job.n.toLowerCase())).size, mixed.length);
+  const year = starterServices("both", 1).map((job) => job.n);
+  assert.ok(year.includes("Mow a small yard") && year.includes("Shovel the driveway"));
+  assert.equal(shouldPreload(true, [{ n: "Steve's Lawn Co.", p: "10" }], "lawn"), true);
+  assert.equal(shouldPreload(true, [{ n: "My service", p: "10" }], "lawn"), true);
+  assert.equal(shouldPreload(true, [{ n: "My service", p: "10" }], "other"), false);
+  assert.equal(shouldPreload(true, lawn.map((n) => ({ n, p: "10" })), "lawn"), false);
+  const goAt = src.indexOf("function go(");
+  const goSrc = src.slice(goAt, goAt + 500);
+  assert.equal(goSrc.includes("S.services"), false);
+  assert.match(src, /shouldPreload\(S\.svcEdited/);
+});
+
 test("every job type has at least 12 name ideas and funny names", async () => {
   const { readFile } = await import("fs/promises");
   const { runInNewContext } = await import("vm");
