@@ -833,3 +833,30 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(src.includes("function petAnimal"), false);
 });
 
+test("every job type has at least 12 name ideas and funny names", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const cut = (from, to) => {
+    const start = src.indexOf(from);
+    const end = src.indexOf(to, start + from.length);
+    if (start < 0 || end < 0) throw new Error("missing " + from);
+    return src.slice(start, end);
+  };
+  const types = ["lawn", "snow", "both", "pet", "odd", "wash", "help", "tutor", "other"];
+  runInNewContext(cut("const NAME_IDEAS=", "const TAG_IDEAS=") + cut("const FUNNY=", "let funnyPage=") + `
+    for (const type of ${JSON.stringify(types)}) {
+      const ideas = NAME_IDEAS[type] || [];
+      if (ideas.length < 12) throw new Error(type + " has " + ideas.length + " name ideas");
+      const plain = ideas.filter((item) => item.indexOf("{F}") < 0 && item.indexOf("{T}") < 0);
+      if (plain.length < 12) throw new Error(type + " shows " + plain.length + " names before a first name is typed");
+      const page0 = ideas.slice(0, 6);
+      const page1 = ideas.slice(6, 12);
+      if (page1.length < 6 || page0.join("|") === page1.join("|")) throw new Error(type + " shuffle page is short");
+      const funny = FUNNY[type];
+      const count = funny ? Object.values(funny).reduce((n, list) => n + list.length, 0) : 0;
+      if (count < 12) throw new Error(type + " has " + count + " funny names");
+    }
+  `, {}, { timeout: 1000 });
+});
+
