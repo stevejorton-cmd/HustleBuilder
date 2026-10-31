@@ -142,7 +142,7 @@ function privacyPage() {
 <p>Hustle Builder hosting is for a parent and their child. The parent’s email is stored so we can verify it and send booking emails. The public page they approve is stored so neighbors can open the link.</p>
 <p>When a neighbor books, we store that job for the parent’s family calendar: the service, the customer name they typed, the address, the date and time, and a short note. We delete it about 30 days after the job, or sooner if the parent deletes the account. The phone number from a booking stays in the parent’s email only.</p>
 <p>A kid can save a draft on our server so the same page opens on another device. The draft code is the key. We delete it about 90 days after the last save, or when the parent deletes the account. A parent can also get an email with a link that expires in 7 days, so they can finish publishing on their own phone.</p>
-<p>If a neighbor leaves an email, we send them a note that we got the request and a link to cancel it. That note does not include the parent’s email or phone. The phone number from a booking stays in the parent’s email only.</p>
+<p>If a neighbor leaves an email, we send them a note that we got the request and a link to cancel it. That note does not include the parent’s email or phone, and it does not include a gate code or key note. Those stay in the parent’s email and the private family calendar. The phone number from a booking stays in the parent’s email only.</p>
 <p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
 <p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
@@ -382,6 +382,7 @@ export async function handleRequest(req) {
   if (qMark >= 0) path = path.slice(0, qMark);
   const origin = await publicOrigin(req.origin);
   if (method === "OPTIONS") return withCors({ status: 204, headers: {}, body: "" }, req.headers && req.headers.origin);
+  if (method === "GET" && path === "/favicon.ico") return { status: 204, headers: { "cache-control": "public, max-age=86400" }, body: "" };
   const route = path.startsWith("/api/") ? path.slice(5) : "";
 
   if (method === "GET" && (route.startsWith("site/") || path.startsWith("/api/site/"))) {
@@ -600,6 +601,8 @@ export async function handleRequest(req) {
     const cardTitle = clipField(body.cardTitle || (titleMatch && titleMatch[1]) || slug, 60);
     const cardLine = clipField(body.cardLine || "Book a day", 80);
     const accent = /^#[0-9a-fA-F]{6}$/.test(String(body.accent || "")) ? String(body.accent) : "#FF5B14";
+    const petIds = new Set(["dog", "cat", "fish", "bird", "small"]);
+    const pets = Array.isArray(body.pets) ? [...new Set(body.pets.map((v) => String(v)))].filter((v) => petIds.has(v)).slice(0, 5) : [];
     const indexable = body.indexable === true;
     const pageUrl = (origin || "") + "/" + slug;
     const image = (origin || "") + "/api/card/" + slug + ".png";
@@ -608,7 +611,7 @@ export async function handleRequest(req) {
     await (await store()).put("pages/" + slug + ".html", stored);
     await writeJson("pages/" + slug + ".json", {
       slug, accountId: account.id, status: "live", updatedAt: new Date().toISOString(), bytes: stored.length,
-      indexable, card: { title: cardTitle, line: cardLine, accent }
+      indexable, card: { title: cardTitle, line: cardLine, accent, pets }
     });
     account.slug = slug;
     account.indexable = indexable;
@@ -765,7 +768,15 @@ export async function handleRequest(req) {
       address: clip(body.address, 120),
       note: clip(body.note, 300),
       size: clip(body.size, 20),
-      freq: clip(body.freq, 40)
+      freq: clip(body.freq, 40),
+      petKind: clip(body.petKind, 20),
+      petCount: clip(body.petCount, 8),
+      petNames: clip(body.petNames, 80),
+      petSize: clip(body.petSize, 20),
+      dayPart: clip(body.dayPart, 20),
+      awayFrom: clip(body.awayFrom, 20),
+      awayTo: clip(body.awayTo, 20),
+      access: clip(body.access, 200)
     };
     const start = String(body.start || "").trim();
     if (!fields.name || !fields.address || !fields.contact || !fields.service || !(fields.when || start)) return withCors(json(400, { ok: false, error: "fields" }), req.headers && req.headers.origin);
@@ -773,6 +784,15 @@ export async function handleRequest(req) {
     const blob = Object.values(fields).join(" ") + " " + start;
     const hitsWords = wordHits(blob);
     if (hitsWords.block) return withCors(json(400, { ok: false, error: "moderation", message: "That request has a word that is not allowed: \"" + hitsWords.block + "\"." }), req.headers && req.headers.origin);
+    const petBits = [
+      fields.petKind ? "Pet: " + fields.petKind + (fields.petCount ? " x" + fields.petCount : "") : "",
+      fields.petNames ? "Pet names: " + fields.petNames : "",
+      fields.petSize ? "Dog size: " + fields.petSize : "",
+      fields.dayPart ? "Time of day: " + fields.dayPart : "",
+      (fields.awayFrom || fields.awayTo) ? "Away: " + (fields.awayFrom || "?") + " to " + (fields.awayTo || "?") : "",
+      fields.access ? "Access, parent only: " + fields.access : ""
+    ].filter(Boolean);
+    const jobNote = [fields.note, petBits.join(". ")].filter(Boolean).join(" | ").slice(0, 500);
     const job = startOk ? {
       id: "b" + rand(8),
       source: "book",
@@ -780,7 +800,7 @@ export async function handleRequest(req) {
       customer: fields.name,
       address: fields.address,
       start,
-      note: fields.note,
+      note: jobNote,
       createdAt: new Date().toISOString()
     } : null;
     const gcal = job ? gcalTemplate(job) : "";
@@ -804,6 +824,7 @@ export async function handleRequest(req) {
       "When: " + fields.when,
       "Size: " + (fields.size || "not sure"),
       "How often: " + fields.freq,
+      petBits.join("\n"),
       "Address: " + fields.address,
       "Note: " + (fields.note || "none"),
       "",
@@ -817,7 +838,8 @@ export async function handleRequest(req) {
       + "<p>" + [link(tel, "Call " + fields.name), link(sms, "Text " + fields.name), link(reply ? "mailto:" + reply : "", reply ? "Email " + fields.name : "")].filter(Boolean).join(" &nbsp; ") + "</p>"
       + (flagLine ? "<p>" + mailEscape(flagLine) + "</p>" : "")
       + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
-      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(fields.service) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none") + "</p>"
+      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(fields.service) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
+      + (petBits.length ? "<br>" + petBits.map(mailEscape).join("<br>") : "") + "</p>"
       + (gcal ? "<p><a href=\"" + mailEscape(gcal) + "\">Add this job to Google Calendar</a></p>" : "")
       + "<p>This job is also on your family calendar link, if you already added it. We keep the name, address, and time for about 30 days.</p>"
       + "</div>";
