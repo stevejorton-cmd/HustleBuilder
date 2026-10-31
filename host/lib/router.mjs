@@ -601,6 +601,8 @@ export async function handleRequest(req) {
     const cardTitle = clipField(body.cardTitle || (titleMatch && titleMatch[1]) || slug, 60);
     const cardLine = clipField(body.cardLine || "Book a day", 80);
     const accent = /^#[0-9a-fA-F]{6}$/.test(String(body.accent || "")) ? String(body.accent) : "#FF5B14";
+    const petIds = new Set(["dog", "cat", "fish", "bird", "small"]);
+    const pets = Array.isArray(body.pets) ? [...new Set(body.pets.map((v) => String(v)))].filter((v) => petIds.has(v)).slice(0, 5) : [];
     const indexable = body.indexable === true;
     const pageUrl = (origin || "") + "/" + slug;
     const image = (origin || "") + "/api/card/" + slug + ".png";
@@ -609,7 +611,7 @@ export async function handleRequest(req) {
     await (await store()).put("pages/" + slug + ".html", stored);
     await writeJson("pages/" + slug + ".json", {
       slug, accountId: account.id, status: "live", updatedAt: new Date().toISOString(), bytes: stored.length,
-      indexable, card: { title: cardTitle, line: cardLine, accent }
+      indexable, card: { title: cardTitle, line: cardLine, accent, pets }
     });
     account.slug = slug;
     account.indexable = indexable;
