@@ -787,7 +787,7 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(checkSlug("pet-sitting"), "");
   const { readFile } = await import("fs/promises");
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  assert.match(src, /Start a pet care page/);
+  assert.match(src, /id="petFront" hidden/);
   assert.match(src, /No aggressive dogs/);
   assert.match(src, /Poop scoop, one time/);
   assert.match(src, /Dog walk, 15 minutes/);
