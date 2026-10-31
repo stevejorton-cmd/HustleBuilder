@@ -391,6 +391,7 @@ async function serveSlug(slug) {
   const meta = await readJson("pages/" + slug + ".json");
   if (!meta) return missingPage(slug, false);
   if (meta.status === "down") return missingPage(slug, true);
+  if (meta.status === "review") return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hidden for review</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem"><h1>Hidden for now</h1><p>This page is hidden while it is being checked. Nothing new is being scheduled.</p></body></html>`);
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
@@ -402,7 +403,11 @@ async function serveSlug(slug) {
 function parseBody(raw) {
   if (!raw) return {};
   const s = String(raw).trim();
-  if (!s || (s[0] !== "{" && s[0] !== "[")) return {};
+  if (!s) return {};
+  if (s[0] !== "{" && s[0] !== "[") {
+    if (!s.includes("=")) return {};
+    return Object.fromEntries(new URLSearchParams(s));
+  }
   try { return JSON.parse(s); }
   catch { return null; }
 }
@@ -1382,6 +1387,84 @@ document.getElementById("done").onclick=()=>mark("done");
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     await resetCalToken(account);
     return withCors(json(200, { ok: true, ...feedLinks(origin || "", account.calToken) }), req.headers && req.headers.origin);
+  }
+
+  const reportReasons = {
+    fake: "It is not a real kid business",
+    personal: "It has personal information",
+    unsafe: "It has a rude or unsafe word",
+    other: "Something else"
+  };
+  function reportForm(slug, note) {
+    const choices = Object.entries(reportReasons).map(([id, label]) => `<label style="display:block;margin:10px 0"><input type="radio" name="reason" value="${id}" required> ${label}</label>`).join("");
+    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report this page</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Report this page</h1><p>Tell us what is wrong. You do not need an account.</p>${note ? `<p><b>${mailEscape(note)}</b></p>` : ""}<form method="post" action="/api/report"><input type="hidden" name="slug" value="${mailEscape(slug)}">${choices}<label style="display:block;margin:14px 0">Anything else? (optional)<textarea name="details" maxlength="500" rows="4" style="display:block;width:100%;margin-top:6px;font:18px system-ui"></textarea></label><button type="submit" style="font:18px system-ui;padding:12px 16px">Send</button></form></body></html>`);
+  }
+  const reportGet = route.match(/^report\/([a-z0-9][a-z0-9-]{1,40})$/);
+  if (method === "GET" && reportGet) {
+    const meta = await readJson("pages/" + reportGet[1] + ".json");
+    if (!meta) return html(404, "<!DOCTYPE html><html><body><p>That page is not here.</p></body></html>");
+    return reportForm(reportGet[1], "");
+  }
+  if (method === "POST" && route === "report") {
+    const slug = String(body.slug || "").trim().toLowerCase();
+    const reason = reportReasons[body.reason] ? body.reason : "";
+    const details = String(body.details || "").replace(/[\r\n]+/g, " ").trim().slice(0, 500);
+    const asJson = String(req.body || "").trim().startsWith("{");
+    const reply = (status, payload, note) => asJson ? withCors(json(status, payload), req.headers && req.headers.origin) : reportForm(slug, note || payload.message || "");
+    if (!reason) return reply(400, { ok: false, error: "reason" }, "Pick a reason, then send it.");
+    const meta = await readJson("pages/" + slug + ".json");
+    if (!meta) return reply(404, { ok: false, error: "missing" }, "That page is not here.");
+    const day = new Date().toISOString().slice(0, 10);
+    const ip = clientIp(req) || "unknown";
+    if (await countKey("reportip/" + sha(ip + "|" + day), 8)) return reply(429, { ok: false, error: "limit" }, "That's enough reports for today.");
+    meta.reports = Array.isArray(meta.reports) ? meta.reports : [];
+    const mark = sha(ip).slice(0, 16);
+    const freshReport = !meta.reports.some((item) => item.ip === mark);
+    if (freshReport) {
+      meta.reports.push({ ip: mark, reason, at: new Date().toISOString() });
+      await sendMail({
+        to: "support@hustlebuilder.org",
+        replyTo: supportReply() || "support@hustlebuilder.org",
+        subject: "Page report: " + slug,
+        text: "Page: " + slug + "\nReason: " + reportReasons[reason] + "\nDetails: " + (details || "none") + "\n",
+        html: "<p style=\"font:18px/1.5 system-ui,sans-serif\">Page: " + mailEscape(slug) + "<br>Reason: " + mailEscape(reportReasons[reason]) + "<br>Details: " + mailEscape(details || "none") + "</p>"
+      });
+      if (meta.reports.length >= 3 && meta.status === "live") {
+        meta.status = "review";
+        if (!meta.reviewMailed) {
+          const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
+          if (account && account.email) {
+            await sendMail({
+              to: account.email,
+              replyTo: supportReply() || "support@hustlebuilder.org",
+              subject: "We hid the page while we check a report",
+              text: "A few people asked us to look at the page.\n\nWe hid it for now. The page and the draft are still saved. Nothing new will be booked while it is hidden.\n\nIf this was a mistake, reply to this email.\n",
+              html: "<div style=\"font:18px/1.5 system-ui,sans-serif\"><p>A few people asked us to look at the page.</p><p>We hid it for now. The page and the draft are still saved. Nothing new will be booked while it is hidden.</p><p>If this was a mistake, reply to this email.</p></div>"
+            });
+          }
+          meta.reviewMailed = true;
+        }
+      }
+      await writeJson("pages/" + slug + ".json", meta);
+    }
+    if (asJson) return withCors(json(200, { ok: true, status: meta.status, reports: meta.reports.length }), req.headers && req.headers.origin);
+    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report sent</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Thanks</h1><p>We got your note. You can close this page.</p></body></html>`);
+  }
+
+  if (method === "POST" && route === "admin/restore") {
+    const secret = process.env.ADMIN_SECRET || "";
+    const given = (req.headers && (req.headers["x-admin-secret"] || req.headers["X-Admin-Secret"])) || "";
+    if (!secret) return withCors(json(503, { ok: false, error: "admin" }), req.headers && req.headers.origin);
+    if (!safeEqual(given, secret)) return withCors(json(401, { ok: false, error: "admin" }), req.headers && req.headers.origin);
+    const slug = String(body.slug || "").trim().toLowerCase();
+    const meta = await readJson("pages/" + slug + ".json");
+    if (!meta) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    if (meta.status === "review") meta.status = "live";
+    meta.reports = [];
+    meta.reviewMailed = false;
+    meta.restoredAt = new Date().toISOString();
+    await writeJson("pages/" + slug + ".json", meta);
+    return withCors(json(200, { ok: true, slug, status: meta.status }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "admin/takedown") {

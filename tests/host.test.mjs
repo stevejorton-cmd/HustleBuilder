@@ -958,6 +958,45 @@ test("every job type has at least 12 name ideas and funny names", async () => {
   `, {}, { timeout: 1000 });
 });
 
+test("three reports hide a page until an admin restores it", async () => {
+  const { token, email } = await parent();
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam Yard") } });
+  const live = await call("GET", "/api/site/sam-yard");
+  assert.match(live.body, /Report this page/);
+  assert.equal(live.body.includes(email), false);
+  const form = await call("GET", "/api/report/sam-yard");
+  assert.match(form.body, /It is not a real kid business/);
+  assert.match(form.body, /You do not need an account/);
+  const send = async (ip, reason) => json(await call("POST", "/api/report", {
+    headers: { "x-forwarded-for": ip },
+    body: { slug: "sam-yard", reason, details: "please look" }
+  }));
+  const first = await send("1.1.1.1", "fake");
+  assert.equal(first.body.reports, 1);
+  assert.equal(first.body.status, "live");
+  const again = await send("1.1.1.1", "fake");
+  assert.equal(again.body.reports, 1);
+  await send("2.2.2.2", "personal");
+  const third = await send("3.3.3.3", "unsafe");
+  assert.equal(third.body.status, "review");
+  const hidden = await call("GET", "/api/site/sam-yard");
+  assert.match(hidden.body, /Hidden for now/);
+  assert.equal(hidden.body.includes(email), false);
+  await send("4.4.4.4", "other");
+  const parentMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.equal(parentMail.body.messages.filter((m) => /hid the page/.test(m.subject)).length, 1);
+  const support = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("support@hustlebuilder.org")));
+  assert.ok(support.body.messages.length >= 3);
+  assert.match(support.body.messages[0].text, /please look/);
+  const denied = await json(await call("POST", "/api/admin/restore", { headers: { "x-admin-secret": "nope" }, body: { slug: "sam-yard" } }));
+  assert.equal(denied.status, 401);
+  const restored = await json(await call("POST", "/api/admin/restore", { headers: { "x-admin-secret": "test-admin-secret" }, body: { slug: "sam-yard" } }));
+  assert.equal(restored.body.status, "live");
+  const back = await call("GET", "/api/site/sam-yard");
+  assert.match(back.body, /Sam Yard/);
+});
+
 test("a backup preview names every business type", async () => {
   const { readFile } = await import("fs/promises");
   const { runInNewContext } = await import("vm");

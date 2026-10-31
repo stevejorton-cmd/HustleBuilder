@@ -1721,7 +1721,7 @@ ${promiseHTML}
   ${contactHTML}
 </div>
 
-<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Student-owned. Parent-backed.</p></footer>
+<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Student-owned. Parent-backed.</p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
 
 <div class="dock" id="dock"><a class="btn" href="#book">Book a day</a></div>
 <script>window.__C=${cfgJson};<\/script>

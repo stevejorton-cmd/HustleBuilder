@@ -137,6 +137,17 @@ curl -X POST https://your-domain/api/admin/takedown \
 
 The link then says the page was taken down. The parent cannot publish it back. They can still delete the account from the app. There is no teacher or class screen.
 
+Every kid page has a Report this page link. The form does not need an account. Reports go to support@hustlebuilder.org. After 3 different people report a page, it hides until you restore it:
+
+```bash
+curl -X POST https://your-domain/api/admin/restore \
+  -H "content-type: application/json" \
+  -H "x-admin-secret: YOUR_ADMIN_SECRET" \
+  -d '{"slug":"sam-yard"}'
+```
+
+The parent gets one gentle email when the page is hidden. The same person reporting twice does not count twice.
+
 ## 8. Try it locally
 
 ```bash
