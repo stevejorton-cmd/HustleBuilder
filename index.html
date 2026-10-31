@@ -524,6 +524,24 @@ textarea.code{min-height:110px;font-family:monospace;font-size:14px}
 .tj .amt{font-family:var(--display);font-style:italic;font-weight:900;font-size:30px;line-height:1}
 .tj .sub2{color:var(--muted);font-size:15px;margin:2px 0 0}
 .tj .addr{margin:8px 0 0;font-weight:600;font-size:15.5px}
+a.addr.map{display:flex;align-items:flex-start;gap:6px;max-width:100%;margin:6px 0 0;padding:8px 2px;min-height:44px;color:var(--ink);font-weight:700;font-size:15.5px;line-height:1.35;text-decoration:underline;text-underline-offset:3px;border-radius:8px}
+a.addr.map svg{flex:none;width:20px;height:20px;margin-top:1px;color:var(--accent)}
+a.addr.map span{overflow-wrap:anywhere}
+.job.sched{flex-wrap:wrap;align-items:stretch;cursor:default}
+.job .jobhit{display:flex;align-items:center;gap:12px;flex:1 1 100%;min-width:0;cursor:pointer;border-radius:8px}
+.job .maprow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;flex:1 1 100%}
+.job .maprow a.addr.map{flex:1 1 auto;margin:0;min-width:min(100%,12em)}
+.job .maprow p.addr{flex:1 1 100%;margin:2px 0 4px;font-weight:600;font-size:15px;color:var(--muted)}
+.job .maprow a.dir{color:var(--ink);font-weight:700;text-decoration:underline;font-size:15px;padding:8px 0;min-height:44px;display:inline-flex;align-items:center;white-space:nowrap}
+.jobmap{margin-top:8px}
+.jobmap .links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 0 8px}
+.jobmap .links a.addr.map{flex:1 1 auto;margin:0;min-width:min(100%,12em)}
+.jobmap .links a.dir,.finishmap .links a.dir{color:var(--ink);font-weight:700;text-decoration:underline;font-size:15px;padding:8px 0;min-height:44px;display:inline-flex;align-items:center;white-space:nowrap}
+.jobmap iframe{display:block;width:100%;height:180px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.jobmap iframe:not([src]){display:none}
+.finishmap{margin:0 0 12px}
+.finishmap a.addr.map{margin-top:0}
+.finishmap .links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px}
 .tj .tjtime{margin:8px 0 0;font-weight:700}
 .tj .tjb{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px}
 .tj .tjb.one{grid-template-columns:minmax(0,1fr)}
@@ -1966,8 +1984,58 @@ function missionsHTML(){
 
 /* ---- Today's jobs ---- */
 const MONTHS_L=["january","february","march","april","may","june","july","august","september","october","november","december"];
-const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-function mapsUrl(a){return isIOS?"https://maps.apple.com/?q="+encodeURIComponent(a):"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(a);}
+/* Maps links use Google's free URL scheme. No API key. A short or empty address is not linked. */
+const MAP_PIN='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+function mapQuery(a){
+  const q=String(a==null?"":a).replace(/\s+/g," ").trim();
+  if(q.length<3||!/[0-9A-Za-z]/.test(q))return "";
+  return q;
+}
+function mapsSearchUrl(q){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q);}
+function mapsDirUrl(q){return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(q);}
+function mapsEmbedUrl(q){return "https://maps.google.com/maps?q="+encodeURIComponent(q)+"&z=16&output=embed";}
+function addrLink(a){
+  const raw=String(a==null?"":a).replace(/\s+/g," ").trim();
+  if(!raw)return "";
+  const q=mapQuery(raw);
+  if(!q)return '<p class="addr">'+esc(raw)+'</p>';
+  return '<a class="addr map" href="'+esc(mapsSearchUrl(q))+'" target="_blank" rel="noopener" title="Open in Google Maps" aria-label="Show '+esc(q)+' on Google Maps. Opens in a new tab.">'+MAP_PIN+'<span>'+esc(q)+'</span></a>';
+}
+function dirAnchor(a){
+  const q=mapQuery(a);
+  if(!q)return "";
+  return '<a class="dir" href="'+esc(mapsDirUrl(q))+'" target="_blank" rel="noopener" title="Directions in Google Maps">Directions</a>';
+}
+function bindJobMap(input, box){
+  let shown="", timer;
+  function paint(now){
+    const q=mapQuery(input.value);
+    if(!q){shown="";clearTimeout(timer);box.hidden=true;box.innerHTML="";return;}
+    box.hidden=false;
+    let link=box.querySelector("a.addr"), dir=box.querySelector("a.dir"), frame=box.querySelector("iframe");
+    if(!link||!dir||!frame){
+      box.innerHTML='<div class="links">'+addrLink(q)+dirAnchor(q)+'</div><iframe title="Map preview" loading="lazy" referrerpolicy="no-referrer"></iframe>';
+      link=box.querySelector("a.addr");dir=box.querySelector("a.dir");frame=box.querySelector("iframe");
+    }else{
+      link.href=mapsSearchUrl(q);
+      link.setAttribute("aria-label","Show "+q+" on Google Maps. Opens in a new tab.");
+      const span=link.querySelector("span");if(span)span.textContent=q;
+      dir.href=mapsDirUrl(q);
+    }
+    const apply=()=>{
+      if(mapQuery(input.value)!==q)return;
+      const src=mapsEmbedUrl(q);
+      if(frame.getAttribute("src")!==src){frame.title="Map of "+q;frame.src=src;}
+      shown=q;
+    };
+    if(now){clearTimeout(timer);apply();return;}
+    if(shown===q&&frame.getAttribute("src"))return;
+    clearTimeout(timer);
+    timer=setTimeout(apply,400);
+  }
+  input.addEventListener("input",()=>paint(false));
+  paint(true);
+}
 function digitsOf(p){return String(p||"").replace(/[^\d+]/g,"");}
 function elapsed(ms){const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+":"+pad(m%60);}
 function fmtTime(t){if(!t)return"";const p=t.split(":").map(Number);return ((p[0]+11)%12+1)+":"+pad(p[1])+" "+(p[0]>=12?"pm":"am");}
@@ -2009,14 +2077,19 @@ function todayHTML(){
     const one=working||j.omw;
     return '<div class="tj"><div class="top2"><b>'+esc(j.customer)+'</b><span class="amt">'+(j.amount?money(j.amount):"Quote")+'</span></div>'
       +'<p class="sub2">'+esc(j.service||"Job")+(j.time?" at "+fmtTime(j.time):"")+(j.note?" / "+esc(j.note):"")+'</p>'
-      +(j.address?'<p class="addr">'+esc(j.address)+'</p>':"")
+      +addrLink(j.address)
       +(working?'<p class="tjtime">Working: <b data-start="'+j.startedAt+'">'+elapsed(Date.now()-j.startedAt)+'</b></p>':"")
       +'<div class="tjb'+(one?" one":"")+'">'+prim+'</div>'
-      +'<div class="links">'+(j.address?'<a href="'+mapsUrl(j.address)+'" target="_blank" rel="noopener">Directions</a>':"")
+      +'<div class="links">'+dirAnchor(j.address)
       +(j.phone?'<a href="tel:'+digitsOf(j.phone)+'">Call</a>':"")
       +'<button type="button" data-act="cal" data-id="'+j.id+'">Add to calendar</button>'+(j.confirmed?'<span class="okc">Confirmed</span>':'<button type="button" data-act="confirm" data-id="'+j.id+'">Confirm by text</button>')+'<button type="button" data-act="editSched" data-id="'+j.id+'">Edit</button></div></div>';
   };
-  const row=(j,miss)=>'<div class="job" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'"><div class="who"><b>'+esc(j.customer)+'</b><span>'+dayLabel(j.date)+(j.time?" at "+fmtTime(j.time):"")+" / "+esc(j.service||"Job")+'</span></div><div class="amt">'+(j.amount?money(j.amount):"Quote")+'</div>'+(miss?'<span class="chip owed" aria-hidden="true">Missed</span>':(j.confirmed?'<span class="chip ok" aria-hidden="true">Confirmed</span>':""))+'</div>';
+  const row=(j,miss)=>{
+    const hit='<div class="who"><b>'+esc(j.customer)+'</b><span>'+dayLabel(j.date)+(j.time?" at "+fmtTime(j.time):"")+" / "+esc(j.service||"Job")+'</span></div><div class="amt">'+(j.amount?money(j.amount):"Quote")+'</div>'+(miss?'<span class="chip owed" aria-hidden="true">Missed</span>':(j.confirmed?'<span class="chip ok" aria-hidden="true">Confirmed</span>':""));
+    const link=addrLink(j.address);
+    if(!link)return '<div class="job" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div>';
+    return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+link+dirAnchor(j.address)+'</div></div>';
+  };
   return '<div class="bcard"><div class="thead"><h3>Today</h3><span class="tdate">'+parseISO(t).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})+'</span></div>'
     +(today.length?today.map(card).join(""):'<p class="empty">Nothing on the schedule today. Line up your next job and get after it.</p>')
     +'<button type="button" class="btn ghost" data-act="schedule" style="width:100%;margin-top:6px">Schedule a job</button>'
@@ -2040,7 +2113,7 @@ function openSched(id){
    +(svcs.length?'<div class="chips" id="sf-sc">'+svcs.map(s=>'<button type="button" data-v="'+esc(s.n)+'" data-p="'+esc(s.p)+'">'+esc(s.n)+'</button>').join("")+'</div>':"")+'</div>'
    +'<div class="mf"><div class="row2"><label>Price ($)<input type="text" inputmode="decimal" id="sf-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Time (optional)<input type="time" id="sf-t" value="'+esc(j.time)+'"></label></div></div>'
    +'<div class="mf"><label for="sf-d">Date</label><input type="date" id="sf-d" value="'+esc(j.date)+'"></div>'
-   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Stays on this device. Used for directions.</small></div>'
+   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Stays on this device. Add a street and you can tap it to open the map.</small><div id="sf-map" class="jobmap" hidden></div></div>'
    +'<div class="mf"><label for="sf-p">Customer phone (optional)</label><input type="tel" inputmode="tel" id="sf-p" value="'+esc(j.phone)+'" autocomplete="off"><small class="help2">Only used to text “on my way” and “done.” Ask a parent before you text a customer.</small></div>'
    +'<div class="mf"><label for="sf-n">Notes</label><input type="text" id="sf-n" value="'+esc(j.note)+'" autocomplete="off" placeholder="Gate code, pets, where to put the snow"></div>'
    +(ex?'<div class="mbtns" style="margin:0 0 6px"><button type="button" class="btn ghost" id="sf-confirm">Text to confirm</button><button type="button" class="btn ghost" id="sf-ics">Add to calendar</button><button type="button" class="btn ghost" id="sf-gcal">Google Calendar</button><button type="button" class="btn outline" id="sf-del">Remove from schedule</button></div>':"")
@@ -2049,13 +2122,14 @@ function openSched(id){
   mbody.querySelectorAll("#sf-rc button").forEach(b=>b.onclick=()=>{$m("#sf-c").value=b.dataset.v;});
   mbody.querySelectorAll("#sf-sc button").forEach(b=>b.onclick=()=>{$m("#sf-s").value=b.dataset.v;const pr=num(b.dataset.p);if(autoAmt&&pr>0)$m("#sf-a").value=pr;});
   $m("#sf-a").addEventListener("input",()=>{autoAmt=false;});
+  bindJobMap($m("#sf-ad"),$m("#sf-map"));
   if($m("#sf-ics"))$m("#sf-ics").onclick=()=>{const jj=B.upcoming.find(x=>x.id===id);if(jj)saveFile("job-"+jj.date+".ics",icsCalendar([jj]),"text/calendar");};
   if($m("#sf-gcal"))$m("#sf-gcal").onclick=()=>{const jj=B.upcoming.find(x=>x.id===id);if(jj)window.open(jobGcal(jj),"_blank","noopener");};
   if($m("#sf-confirm"))$m("#sf-confirm").onclick=()=>{const jj=B.upcoming.find(x=>x.id===id);if(jj){jj.confirmed=true;saveB();closeModal();renderBoss();sendSMS(jj.phone,confirmMsg(jj));}};
   if($m("#sf-fill"))$m("#sf-fill").onclick=()=>{
     const r=parseBooking($m("#sf-paste").value),pe=$m("#sf-pe");
     if(!r){pe.textContent="Couldn’t read that. Check you pasted the whole message, or fill it in by hand.";return;}
-    pe.textContent="";$m("#sf-c").value=r.customer;$m("#sf-s").value=r.service;$m("#sf-d").value=r.date;$m("#sf-ad").value=r.address;$m("#sf-n").value=r.note;
+    pe.textContent="";$m("#sf-c").value=r.customer;$m("#sf-s").value=r.service;$m("#sf-d").value=r.date;$m("#sf-ad").value=r.address;$m("#sf-ad").dispatchEvent(new Event("input"));$m("#sf-n").value=r.note;
     const sv=svcs.find(s=>s.n.trim().toLowerCase()===r.service.toLowerCase());if(sv&&num(sv.p)>0){$m("#sf-a").value=num(sv.p);autoAmt=true;}
     $m("details.paste").open=false;toast("Filled in. Check it, then save.");
   };
@@ -2075,7 +2149,9 @@ function openFinish(id){
   const j=B.upcoming.find(x=>x.id===id);if(!j)return;
   const hrs=j.startedAt?Math.max(.25,Math.round((Date.now()-j.startedAt)/3600000*4)/4):"";
   let paid=true;
+  const where=addrLink(j.address), dirs=dirAnchor(j.address);
   openModal('<h3>Finish job</h3><p class="sub">'+esc(j.customer)+' / '+esc(j.service||"Job")+'</p>'
+   +(where?'<div class="finishmap">'+where+(dirs?'<div class="links">'+dirs+'</div>':"")+'</div>':"")
    +'<div class="mf"><div class="row3"><label>Amount ($)<input type="text" inputmode="decimal" id="ff-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Tip ($)<input type="text" inputmode="decimal" id="ff-t" autocomplete="off"></label><label>Hours<input type="text" inputmode="decimal" id="ff-h" value="'+hrs+'" autocomplete="off"></label></div></div>'
    +'<div class="mf"><label>Payment</label><div class="chips" id="ff-p"><button type="button" data-p="1" aria-pressed="true">Paid</button><button type="button" data-p="0" aria-pressed="false">Not paid yet</button></div></div>'
    +'<label class="check"><input type="checkbox" id="ff-sms" checked><span>'+(j.phone?"Text them a done message":"Copy a done message")+'</span></label>'
@@ -2208,6 +2284,7 @@ async function exportCSV(){
 
 let resetArmed=false;
 $("#boss").addEventListener("click",e=>{
+  if(e.target.closest("a"))return;
   const el=e.target.closest("[data-act]"); if(!el)return;
   const act=el.dataset.act, id=el.dataset.id;
   if(act==="togglePaid"){e.stopPropagation();const j=B.jobs.find(x=>x.id===id);if(j){j.paid=!j.paid;saveB();renderBoss();toast(j.paid?"Marked paid.":"Marked not paid.");}return;}
@@ -2233,7 +2310,7 @@ $("#boss").addEventListener("click",e=>{
     resetArmed=false;B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};saveB();lastProfit=0;renderBoss();toast("Everything erased.");
   }
 });
-$("#boss").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".job")){e.preventDefault();e.target.click();}});
+$("#boss").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".job, .jobhit")){e.preventDefault();e.target.click();}});
 
 function setMode(m){
   const boss=m==="boss",fl=m==="flyers";
