@@ -12,6 +12,15 @@ export const PLANS = {
 export const CONSENT_VERSION = "2026-10-31";
 export const FREE_JOBS = 3;
 export const GRACE_DAYS = 7;
+export const TRIAL_DAYS = 14;
+
+export function trialLengthDays() {
+  const raw = process.env.TRIAL_DAYS;
+  if (raw == null || String(raw).trim() === "") return TRIAL_DAYS;
+  const days = Number(raw);
+  if (!Number.isFinite(days) || days < 1 || days > 366) return TRIAL_DAYS;
+  return Math.floor(days);
+}
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -146,6 +155,26 @@ function onBreak(account, now = Date.now()) {
   return now > end + GRACE_DAYS * 864e5;
 }
 
+function trialClockOpen(account, now = Date.now()) {
+  const end = Date.parse(account && account.trialEndsAt || "");
+  if (!Number.isFinite(end)) return true;
+  return end > now;
+}
+
+function trialDaysLeft(account, now = Date.now()) {
+  if (!account || !account.trialEndsAt) return trialLengthDays();
+  const days = daysUntil(account.trialEndsAt, now);
+  if (days == null) return 0;
+  return Math.max(0, days);
+}
+
+function trialOver(account, used, now = Date.now()) {
+  if (!account || paid(account, now) || inGrace(account, now)) return false;
+  if (!account.trialEndsAt && !account.slug) return false;
+  if (used >= FREE_JOBS) return true;
+  return !trialClockOpen(account, now);
+}
+
 function firstName(name) {
   const part = String(name || "").trim().split(/\s+/)[0] || "Neighbor";
   return part.slice(0, 40);
@@ -174,13 +203,18 @@ async function setTrialCount(email, used) {
   await writeJson("trials/" + sha(email) + ".json", { used, at: new Date().toISOString() });
 }
 
-async function trackPlan(account) {
-  if (!account || !account.paidUntil) return;
+async function rememberAccount(account) {
+  if (!account || !account.id) return;
   const ids = (await readJson("plan-ids.json")) || [];
   if (!ids.includes(account.id)) {
     ids.push(account.id);
     await writeJson("plan-ids.json", ids.slice(-5000));
   }
+}
+
+async function trackPlan(account) {
+  if (!account || !account.paidUntil) return;
+  await rememberAccount(account);
 }
 
 async function loadRequests(accountId) {
@@ -330,7 +364,7 @@ function privacyPage() {
 <p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
 <p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
-<p>A family can publish with no payment and receive the first 3 real booking requests free. One trial belongs to the parent’s email and does not start over with a new link. After that, new requests are saved and held until a parent pays. A paid plan is $39 for the current season (summer, May–August, or winter, November–March) or $59 for 365 days. We email the parent 14 days before, 3 days before, and on the day the plan ends. The page stays up for 7 more days, then it shows a taking-a-break page and bookings pause.</p>
+<p>A family can publish with no payment. The page stays up for 14 days from the first publish, or until 3 real booking requests are delivered, whichever comes first. The length is the TRIAL_DAYS setting. One trial belongs to the parent’s email and does not start over with a new link. We email the parent 3 days before that time ends and on the day it ends. When the trial ends, the public link shows a taking-a-break page. The page and the kid’s draft stay saved. New booking requests are saved and held until a parent pays, and paying brings the page back and sends those requests. A paid plan is $39 for the current season (summer, May–August, or winter, November–March) or $59 for 365 days. We email the parent 14 days before, 3 days before, and on the day a paid plan ends. The page stays up for 7 more days, then it shows a taking-a-break page and bookings pause.</p>
 <p>The kid’s My jobs list shows the service, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on. Even then it shows the street name, not the house number.</p>
 <p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link. The free-trial count for that email stays, so a new account cannot start the 3 free jobs again.</p>
 <p>This notice is a plain summary. Have a lawyer read it before real families use hosting.</p>
@@ -359,7 +393,7 @@ async function serveSlug(slug) {
   if (meta.status === "down") return missingPage(slug, true);
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
-  if (account && onBreak(account)) return breakPage();
+  if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
   const page = await (await store()).get("pages/" + slug + ".html");
   if (!page) return missingPage(slug, false);
   return html(200, page);
@@ -697,6 +731,8 @@ export async function handleRequest(req) {
       plan: account.plan || "", planName: account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account),
       grace: inGrace(account), graceDays: graceLeftDays(account),
       trialUsed: used, trialLeft: Math.max(0, FREE_JOBS - used),
+      trialDays: trialLengthDays(), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "",
+      trialOver: trialOver(account, used),
       seasonName: season.name, seasonEnd: season.end, yearEnd: year.end,
       shareStreet: !!account.shareStreet, jobCode: account.jobCode || account.draftCode || "",
       slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
@@ -819,13 +855,19 @@ export async function handleRequest(req) {
     });
     account.slug = slug;
     account.indexable = indexable;
+    if (!paid(account) && !account.trialStartedAt) {
+      const now = Date.now();
+      account.trialStartedAt = new Date(now).toISOString();
+      account.trialEndsAt = new Date(now + trialLengthDays() * 864e5).toISOString();
+    }
+    await rememberAccount(account);
     const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
     account.jobCode = /^[a-z0-9]{8}$/.test(jobCode) ? jobCode : account.jobCode || rand(4).slice(0, 8);
     await (await store()).put("jobcode/" + account.jobCode, account.id);
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
     const used = await trialCount(account.email);
-    return withCors(json(200, { ok: true, slug, url, updated: !!existing, jobCode: account.jobCode, trialLeft: Math.max(0, FREE_JOBS - used) }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, slug, url, updated: !!existing, jobCode: account.jobCode, trialLeft: Math.max(0, FREE_JOBS - used), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "" }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "unpublish") {
@@ -876,8 +918,8 @@ export async function handleRequest(req) {
       to: email,
       replyTo: supportReply(),
       subject: "Your kid asked you to publish their page",
-      text: "Your kid is ready to publish a Hustle Builder page.\n\nTry free: your first 3 jobs are on us. You still confirm you are the parent. No payment is needed to go live.\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
-      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><b>Try free: your first 3 jobs are on us.</b> You still confirm you are the parent. No payment is needed to go live.</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
+      text: "Your kid is ready to publish a Hustle Builder page.\n\nTry free: your first 3 jobs are on us. The page stays up for " + trialLengthDays() + " days, or until those 3 jobs are used, whichever comes first. You still confirm you are the parent. No payment is needed to go live.\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
+      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><b>Try free: your first 3 jobs are on us.</b> The page stays up for " + trialLengthDays() + " days, or until those 3 jobs are used, whichever comes first. You still confirm you are the parent. No payment is needed to go live.</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     return withCors(json(200, { ok: true, token, link, expires }), req.headers && req.headers.origin);
@@ -965,7 +1007,7 @@ export async function handleRequest(req) {
     const year = yearOffer();
     return withCors(json(200, {
       ok: true,
-      free: "Try free: your first 3 jobs are on us.",
+      free: "Try free: your first 3 jobs are on us, for " + trialLengthDays() + " days.",
       plans: [
         { id: "season", price: "$39", name: season.name, ends: season.end, endsLabel: niceDate(season.end), includes: season.includes },
         { id: "year", price: "$59", name: year.name, ends: year.end, endsLabel: niceDate(year.end), includes: year.includes }
@@ -1083,6 +1125,35 @@ document.getElementById("done").onclick=()=>mark("done");
         await saveAccount(account);
       }
     }
+    for (const id of ids) {
+      const account = await readJson("accounts/" + id + ".json");
+      if (!account || !account.trialEndsAt || paid(account) || inGrace(account)) continue;
+      const used = await trialCount(account.email);
+      if (used >= FREE_JOBS) continue;
+      const days = daysUntil(account.trialEndsAt);
+      if (days !== 3 && days !== 0) continue;
+      const key = "trial-" + days + ":" + String(account.trialEndsAt).slice(0, 10);
+      account.sentReminders = account.sentReminders || {};
+      if (account.sentReminders[key]) continue;
+      if (!account.renewToken) account.renewToken = rand(16);
+      await (await store()).put("renew/" + account.renewToken, account.id);
+      const links = payLinks(origin, account);
+      const when = days === 0 ? "today" : "in 3 days";
+      const subject = days === 0 ? "Your free trial ends today" : "Your free trial ends in 3 days";
+      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe page then shows a taking-a-break page. Your draft and the site stay saved. Pay to bring it back.\n\n$39 for the season:\n" + links.season + "\n\n$59 for the year:\n" + links.year + "\n";
+      due.push({ email: account.email, kind: "trial-" + days, days });
+      if (!dry) {
+        await sendMail({
+          to: account.email,
+          replyTo: supportReply(),
+          subject,
+          text,
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pay in one tap to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $39 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $59 for the year</a></p></div>"
+        });
+        account.sentReminders[key] = new Date().toISOString();
+        await saveAccount(account);
+      }
+    }
     return withCors(json(200, { ok: true, dry, due }), req.headers && req.headers.origin);
   }
 
@@ -1171,7 +1242,7 @@ document.getElementById("done").onclick=()=>mark("done");
     await (await store()).put("renew/" + account.renewToken, account.id);
     const links = payLinks(origin, account);
     const used = await trialCount(account.email);
-    const mode = (paid(account) || inGrace(account)) ? "paid" : (used < FREE_JOBS ? "trial" : "hold");
+    const mode = (paid(account) || inGrace(account)) ? "paid" : (used < FREE_JOBS && trialClockOpen(account) ? "trial" : "hold");
     const requestId = "r" + rand(8);
     const actionToken = rand(12);
     const row = {

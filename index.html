@@ -605,6 +605,7 @@ details.help li{margin-bottom:10px}
 #pubPlans button{display:block;width:100%;text-align:left;white-space:normal;line-height:1.35;padding:12px 14px}
 #pubPlans button b{display:block}
 #pubPlans button span{display:block;font-weight:500;font-size:14px;margin-top:4px}
+#trialBox{padding:8px 12px 8px 16px}
 #myJobs{padding:8px 4px 12px 10px}
 #myJobs h3{margin:0 0 8px}
 .kidjob{display:block;border:2px solid var(--line,#e6e1d8);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
@@ -738,13 +739,13 @@ details.help li{margin-bottom:10px}
 
     <section class="step" data-step="7">
       <h2>Go live.</h2>
-      <p class="lead">Try free: your first 3 jobs are on us. You get one link, and it stays the same when you update the page.</p>
+      <p class="lead">Try free: your first 3 jobs are on us, for 14 days. You get one link, and it stays the same when you update the page.</p>
       <div class="missing" id="missing" hidden></div>
       <h3 class="h3">Publish to hustlebuilder.org</h3>
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
       <div id="pubBox">
         <button type="button" class="btn block" id="askParent">Ask my parent</button>
-        <p class="small2">The email says the first 3 jobs are free. A parent still verifies their email and agrees before the page goes live.</p>
+        <p class="small2">The email says the first 3 jobs are free for 14 days. A parent still verifies their email and agrees before the page goes live.</p>
         <p class="small2">They get a link on their phone. They say yes, and the page goes up.</p>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
@@ -3579,18 +3580,24 @@ function niceDate(iso){
   if(!t)return "";
   return new Date(t).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
 }
+function trialLine(me){
+  const days=me&&typeof me.trialDaysLeft==="number"?me.trialDaysLeft:14;
+  const jobs=me&&typeof me.trialLeft==="number"?me.trialLeft:3;
+  return days+" days / "+jobs+" free jobs left.";
+}
 function planHelp(me){
-  if(!me)return "Try free: your first 3 jobs are on us.";
+  if(!me)return "Try free: your first 3 jobs are on us, for 14 days.";
   if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
   if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
-  if(typeof me.trialLeft==="number")return me.trialLeft+" of 3 free jobs left.";
-  return "Try free: your first 3 jobs are on us.";
+  if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
+  if(typeof me.trialLeft==="number")return trialLine(me);
+  return "Try free: your first 3 jobs are on us, for 14 days.";
 }
 function showHosting(me){
   const help=$("#pubPlanHelp"); if(help&&me&&me.ok)help.textContent=planHelp(me);
   const count=$("#trialCount");
   if(count){
-    if(me&&me.ok&&!me.paid&&!me.grace){count.hidden=false; count.textContent=me.trialLeft+" of 3 free jobs left.";}
+    if(me&&me.ok&&!me.paid&&!me.grace){count.hidden=false; count.textContent=trialLine(me);}
     else count.hidden=true;
   }
   const grace=$("#graceBanner");

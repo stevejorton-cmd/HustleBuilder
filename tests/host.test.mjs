@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
-import { handleRequest, seasonOffer, stripeSignatureOk } from "../host/lib/router.mjs";
+import { handleRequest, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 
 let dir;
@@ -640,8 +640,13 @@ test("three free jobs are delivered, then requests are held until the parent pay
   const seen = await json(await call("GET", "/api/my-jobs?code=samdraft"));
   assert.equal(seen.body.jobs.some((job) => job.status === "confirmed"), true);
   assert.equal(seen.body.fresh, 2);
+  const resting = await call("GET", "/api/site/sam");
+  assert.equal(resting.status, 200);
+  assert.match(resting.body, /Taking a break/);
   const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "year" } }));
   assert.equal(pay.body.plan, "year");
+  const restored = await call("GET", "/api/site/sam");
+  assert.match(restored.body, /<h1>Sam<\/h1>/);
   const unlocked = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.match(unlocked.body.messages.map((m) => m.text).join("\n"), /4 Oak Street/);
   const open = await json(await call("GET", "/api/my-jobs?code=samdraft"));
@@ -695,4 +700,68 @@ test("renewal reminders send once, then the page takes a break after grace", asy
   assert.equal(paused.status, 403);
   assert.match(paused.body.message, /paused/);
 });
+
+test("a free trial lasts TRIAL_DAYS or 3 jobs, then the page takes a break and bookings are held", async () => {
+  assert.equal(TRIAL_DAYS, 14);
+  assert.equal(trialLengthDays(), 14);
+  process.env.TRIAL_DAYS = "10";
+  try {
+    assert.equal(trialLengthDays(), 10);
+    const { token, email } = await parent("clock@example.com");
+    await call("POST", "/api/consent", { token, body: { consent: true } });
+    const published = await json(await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } }));
+    const span = Date.parse(published.body.trialEndsAt) - Date.now();
+    assert.ok(span > 9 * 864e5 && span < 11 * 864e5);
+    const me = await json(await call("GET", "/api/me", { token }));
+    assert.equal(me.body.trialLeft, 3);
+    assert.ok(me.body.trialDaysLeft >= 9 && me.body.trialDaysLeft <= 10);
+    assert.match(trialLineStandin(me.body), /days \/ 3 free jobs left/);
+    const saved = await json(await call("POST", "/api/draft", { token, body: { draft: { first: "Sam", type: "lawn" } } }));
+    assert.equal(saved.body.ok, true);
+    const secret = { authorization: "Bearer test-admin-secret" };
+    const soon = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 3, 15)).toISOString();
+    await patchAccount((account) => { account.trialEndsAt = soon; });
+    const dry = await json(await call("GET", "/api/cron/renewals?dry=1", { headers: secret }));
+    assert.equal(dry.body.due.some((row) => row.kind === "trial-3"), true);
+    const quiet = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+    assert.equal(quiet.body.messages.some((m) => /trial ends in 3 days/.test(m.subject)), false);
+    await call("GET", "/api/cron/renewals", { headers: secret });
+    const again = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
+    assert.equal(again.body.due.filter((row) => row.kind === "trial-3").length, 0);
+    const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+    const note = mail.body.messages.find((m) => /trial ends in 3 days/.test(m.subject));
+    assert.match(note.text, /\$39 for the season/);
+    assert.match(note.html, /Pay \$39 for the season/);
+    const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), 23, 59, 0)).toISOString();
+    await patchAccount((account) => { account.trialEndsAt = today; });
+    const endRun = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
+    assert.equal(endRun.body.due.some((row) => row.kind === "trial-0"), true);
+    const endAgain = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
+    assert.equal(endAgain.body.due.some((row) => row.kind === "trial-0"), false);
+    const still = await call("GET", "/api/site/sam");
+    assert.match(still.body, /<h1>Sam<\/h1>/);
+    await patchAccount((account) => { account.trialEndsAt = new Date(Date.now() - 3600e3).toISOString(); });
+    const qr = await call("GET", "/api/site/sam");
+    assert.equal(qr.status, 200);
+    assert.match(qr.body, /Taking a break/);
+    assert.equal(qr.body.includes("<h1>Sam</h1>"), false);
+    const held = await json(await call("POST", "/api/book", { body: bookAt(1), headers: { "x-forwarded-for": "203.0.113.61" } }));
+    assert.equal(held.status, 200);
+    assert.equal(held.body.held, true);
+    const draft = await json(await call("GET", "/api/draft/" + saved.body.code));
+    assert.equal(draft.body.draft.first, "Sam");
+    const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+    assert.equal(pay.body.ok, true);
+    const back = await call("GET", "/api/site/sam");
+    assert.match(back.body, /<h1>Sam<\/h1>/);
+    const unlocked = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+    assert.match(unlocked.body.messages.map((m) => m.text).join("\n"), /1 Oak Street/);
+  } finally {
+    delete process.env.TRIAL_DAYS;
+  }
+});
+
+function trialLineStandin(me) {
+  return me.trialDaysLeft + " days / " + me.trialLeft + " free jobs left.";
+}
 
