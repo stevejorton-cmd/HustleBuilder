@@ -23,6 +23,22 @@ const server = createServer(async (req, res) => {
     res.end(file);
     return;
   }
+  if (req.method === "GET" && (url.pathname === "/manifest.webmanifest" || url.pathname === "/sw.js" || url.pathname.startsWith("/icons/"))) {
+    const rel = url.pathname.replace(/^\/+/, "");
+    const fileUrl = new URL(rel, rootDir);
+    if (!fileUrl.pathname.startsWith(rootDir.pathname)) {
+      res.writeHead(404); res.end(); return;
+    }
+    try {
+      const file = await readFile(fileUrl);
+      const type = url.pathname.endsWith(".webmanifest") ? "application/manifest+json" : url.pathname.endsWith(".js") ? "text/javascript; charset=utf-8" : "image/png";
+      res.writeHead(200, { "content-type": type, "cache-control": "no-cache" });
+      res.end(file);
+      return;
+    } catch {
+      res.writeHead(404); res.end(); return;
+    }
+  }
   if (req.method === "GET" && url.pathname.startsWith("/assets/pets/")) {
     const name = path.basename(url.pathname);
     const type = assetTypes[path.extname(name).toLowerCase()];

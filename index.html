@@ -4,6 +4,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FF5B14">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
 <title>Hustle Builder</title>
 <script>window.HB_PUBLISH_ORIGIN="";</script>
 <meta name="theme-color" content="#0D0F11">
@@ -628,6 +632,7 @@ details.help li{margin-bottom:10px}
 .kidjob b,.kidjob span{display:block}
 .kidjob .jobst{font-weight:700;margin-top:4px}
 #jobBadge{display:inline-block;background:#FF5B14;color:#fff;border-radius:99px;min-width:1.4em;text-align:center;font-size:13px;margin-left:6px}
+#offlineNote{margin:0;padding:12px 16px;background:#FF5B14;color:#1a120c;font-weight:700;text-align:center}
 </style>
 </head>
 <body>
@@ -639,6 +644,7 @@ details.help li{margin-bottom:10px}
     <button type="button" id="mBoss" aria-pressed="false" aria-label="Boss mode">Boss</button>
   </div>
 </header>
+<p id="offlineNote" hidden role="status">You're offline. Your work is saved on this phone.</p>
 
 <div class="shell" id="shell" data-type="lawn">
   <main class="edit">
@@ -4129,6 +4135,11 @@ function draftPayload(){
 }
 let draftTimer=0;
 function scheduleDraft(){if(!publishOrigin())return;clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,1200);}
+function showOffline(on){const note=$("#offlineNote"); if(note)note.hidden=!on;}
+window.addEventListener("offline", ()=>showOffline(true));
+window.addEventListener("online", ()=>{showOffline(false); scheduleDraft();});
+if(typeof navigator!=="undefined"&&navigator.onLine===false)showOffline(true);
+if(typeof navigator!=="undefined"&&navigator.serviceWorker)window.addEventListener("load", ()=>{navigator.serviceWorker.register("/sw.js").catch(function(){});});
 async function saveDraft(){
   if(!publishOrigin())return;
   try{
