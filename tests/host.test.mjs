@@ -552,3 +552,40 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   delete process.env.REPLY_TO;
 });
 
+test("pet words and a pet booking stay allowed, and the key note stays with the parent", async () => {
+  const phrase = "poop scoop dog poo pooper scooper litter kitty pet sitting";
+  assert.equal(wordHits(phrase).block, "");
+  assert.equal(checkSlug("poop-scoop"), "");
+  assert.equal(checkSlug("pet-sitting"), "");
+  const { readFile } = await import("fs/promises");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /Start a pet care page/);
+  assert.match(src, /No aggressive dogs/);
+  assert.match(src, /Poop scoop, one time/);
+  assert.match(src, /Dog walk, 15 minutes/);
+  assert.equal((src.match(/id:"pet"/g) || []).length, 1);
+  const { token, email } = await parent("petparent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "month" } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "sam-pets", html: page("Sam Pets") } }));
+  assert.equal(pub.body.ok, true);
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "sam-pets", name: "Neighbor", contact: "neighbor-pet@example.com", service: "Poop scoop, one time",
+    when: "Saturday morning", address: "4 Pine", start: "2026-11-07T10:00", t: 3000,
+    freq: "Weekly poop scoop", petKind: "Dog", petCount: "2", petNames: "Milo", petSize: "Medium",
+    dayPart: "Morning", access: "lockbox 4481"
+  } }));
+  assert.equal(booked.body.ok, true);
+  const parentMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const msg = parentMail.body.messages.at(-1);
+  assert.match(msg.text, /Milo/);
+  assert.match(msg.text, /lockbox 4481/);
+  assert.match(msg.text, /Poop scoop/);
+  assert.match(msg.ics || "", /Milo/);
+  const note = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor-pet@example.com")));
+  assert.match(note.body.messages[0].text, /Poop scoop/);
+  assert.equal(note.body.messages[0].text.includes("lockbox"), false);
+  assert.equal(note.body.messages[0].text.includes(email), false);
+});
+
+

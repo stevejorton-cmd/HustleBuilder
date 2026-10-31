@@ -189,6 +189,13 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .tile[aria-pressed="true"]{filter:none;box-shadow:0 0 0 3px var(--accent)}
 .tile[aria-pressed="true"] .tick{display:flex}
 .moretiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.petfront{margin-top:18px;padding:16px 16px 18px;background:var(--raised);border-left:5px solid #0F6E6A}
+.petfront h3{margin:0 0 8px}
+.petgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.petcard{background:var(--surface);border:1px solid var(--line);padding:10px 12px}
+.petcard b{display:block;font-size:16px}
+.petcard span{color:var(--muted);font-size:14px}
+.svcrow .offer{font-size:15px;font-weight:800}
 .tile.emoji{height:108px;background:#1b1e21;filter:none}
 .tile.emoji .emo{position:absolute;left:12px;top:18px;z-index:2;width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:30px}
 .tile.emoji .cap{left:74px;right:8px}
@@ -623,6 +630,23 @@ details.help li{margin-bottom:10px}
       <h2>Pick your work.</h2>
       <p class="lead">Pick what you do. You can change it any time.</p>
       <div class="tiles" id="tiles"></div>
+      <section class="petfront" id="petFront">
+        <h3 class="h3">Pet care</h3>
+        <p class="lead" style="margin-bottom:0">Walk dogs, feed pets, scoop the yard, and check in while a family is away. A parent confirms every job.</p>
+        <div class="petgrid">
+          <div class="petcard"><b>Dog walk, 15 min</b><span>About $5 to start</span></div>
+          <div class="petcard"><b>Dog walk, 30 min</b><span>About $8 to start</span></div>
+          <div class="petcard"><b>Feeding drop-in</b><span>About $6</span></div>
+          <div class="petcard"><b>Pet sitting visit</b><span>About $8 to $10</span></div>
+          <div class="petcard"><b>Poop scoop</b><span>$10 once, or $8 each week</span></div>
+          <div class="petcard"><b>Litter or small pets</b><span>About $5 to $6</span></div>
+        </div>
+        <div class="callout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+          <div><b>Safety for kids.</b><br>A parent knows about every job. Meet the pet first, with the owner there. Start with pets you already know. No aggressive dogs. Wash your hands. A parent handles any medicine.</div>
+        </div>
+        <button type="button" class="btn block" id="startPet">Start a pet care page</button>
+      </section>
       <h3 class="h3">More ways to earn</h3>
       <div class="moretiles" id="moreTiles"></div>
       <button type="button" class="btn ghost block" id="otherDevice" style="margin-top:16px">Open on another device</button>
@@ -649,7 +673,7 @@ details.help li{margin-bottom:10px}
 
     <section class="step" data-step="2">
       <h2>Set your rates.</h2>
-      <p class="lead">Starter prices to work from. Set them for the yards near you.</p>
+      <p class="lead" id="rateLead">Starter prices to work from. Set them for the yards near you.</p>
       <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Start cheap, then go up.</b><br>When you are new, use cheaper prices so lots of people want to try you. As time goes by and you get better, raise your prices little by little.<br><b>Remember:</b> when a kid charges a lower price, customers will sometimes give a good tip.</div></div>
       <div class="lvl" id="lvlBox">
         <label class="lvl-q" for="lvl">How good are you at this job?</label>
@@ -1185,6 +1209,13 @@ function siteMain(){
   var copyBook=$("copyBook");
   if(copyBook){copyBook.setAttribute("data-label","Copy job");copyBook.onclick=function(){copyPlain(bookPlain(),copyBook);};}
   function showCopy(on){if(copyBook)copyBook.hidden=!on;}
+  function val(id){var el=$(id);return el?String(el.value||"").trim():"";}
+  function petLine(){
+    if(!C.pet)return "";
+    var away=($("freq")&&$("freq").value==="While I'm away")?(" Away "+val("awayFrom")+" to "+val("awayTo")+"."):"";
+    var access=val("access");
+    return " Pet: "+val("petKind")+(val("petCount")?" x"+val("petCount"):"")+(val("petNames")?". Names: "+val("petNames"):"")+(val("petSize")?". Dog size: "+val("petSize"):"")+(val("dayPart")?". Time of day: "+val("dayPart"):"")+"."+away+(access?" Access for the parent only: "+access+".":"");
+  }
   function build(needContact){
     var err=$("err"); err.textContent="";
     var nm=$("nm").value.trim(), addr=$("addr").value.trim(), note=$("note").value.trim(), ct=$("ct")?$("ct").value.trim():"";
@@ -1192,7 +1223,7 @@ function siteMain(){
     if(!nm){err.textContent="Add your first name so I know who’s asking.";return null;}
     if(!addr){err.textContent="Add the address for the job.";return null;}
     if(needContact&&!ct){err.textContent="Add a phone number or email so my parent can reach you.";return null;}
-    var m="Hi "+C.first+"! This is "+nm+". I’d like to book: "+sel.value+" on "+longDate(picked)+(($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value))+". "+($("sz").value?"Size: "+$("sz").value+". ":"")+"How often: "+$("freq").value+". Address: "+addr+"."+(note?" Note: "+note:"")+(ct?" Reply to: "+ct+".":"")+" (Sent from the "+C.biz+" website)"+calLine(nm,addr,sel.value);
+    var m="Hi "+C.first+"! This is "+nm+". I’d like to book: "+sel.value+" on "+longDate(picked)+(($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value))+"."+petLine()+" "+($("sz")&&$("sz").value?"Size: "+$("sz").value+". ":"")+"How often: "+$("freq").value+". Address: "+addr+"."+(note?" Note: "+note:"")+(ct?" Reply to: "+ct+".":"")+" (Sent from the "+C.biz+" website)"+calLine(nm,addr,sel.value);
     $("out").value=m; $("outWrap").hidden=false;
     return m;
   }
@@ -1213,7 +1244,7 @@ function siteMain(){
       return;
     }
     var st=pickedStart(),iso=ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
-    var d={key:C.inbox.key,name:$("nm").value.trim().slice(0,60),contact:$("ct").value.trim().slice(0,80),service:sel.value.slice(0,80),size:$("sz").value,freq:$("freq").value,photo:!!photoData,address:$("addr").value.trim().slice(0,120),note:$("note").value.trim().slice(0,300),start:iso,when:longDate(picked)+timeTxt,biz:C.biz,student:C.first};
+    var d={key:C.inbox.key,name:$("nm").value.trim().slice(0,60),contact:$("ct").value.trim().slice(0,80),service:sel.value.slice(0,80),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,photo:!!photoData,address:$("addr").value.trim().slice(0,120),note:$("note").value.trim().slice(0,300),start:iso,when:longDate(picked)+timeTxt,biz:C.biz,student:C.first};
     si.disabled=true;si.textContent="Sending...";showCopy(false);
     jsonp({action:"book",d:JSON.stringify(d)},function(r){
       si.disabled=false;si.textContent="Send my request";var box=$("sentBox");box.hidden=false;
@@ -1227,7 +1258,7 @@ function siteMain(){
     var m=build(true); if(!m)return;
     var ct=$("ct")?$("ct").value.trim():"";
     var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
-    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:$("sz").value,freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt};
+    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:val("awayFrom"),awayTo:val("awayTo"),access:val("access")};
     shost.disabled=true; shost.textContent="Sending..."; showCopy(false);
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
@@ -1238,6 +1269,7 @@ function siteMain(){
       else{box.textContent="I couldn’t send that. Please try again in a minute.";}
     }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Please use Text it instead or Email it instead."; $("outWrap").hidden=false;});
   };}
+  if($("freq")&&$("awayWrap")){$("freq").onchange=function(){$("awayWrap").hidden=$("freq").value!=="While I'm away";};}
   render(); showPicked();
   if(C.inbox){jsonp({action:"busy"},function(r){if(r&&r.busy){busy=[];for(var i=0;i<r.busy.length;i++){var a=parseLocal(r.busy[i][0]),b=parseLocal(r.busy[i][1]);if(a&&b)busy.push([a,b]);}render();showPicked();}},8000);}
   var sh=$("shareSite");
@@ -1334,7 +1366,11 @@ function typeInfo(type){
   };
   return all[type]||all.other;
 }
+function petScene(){
+  return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="800" height="460" fill="#123F44"/><rect y="290" width="800" height="170" fill="#1E6B45"/><circle cx="150" cy="250" r="46" fill="#F4E2C4"/><ellipse cx="118" cy="214" rx="16" ry="22" fill="#E7C89A"/><ellipse cx="182" cy="214" rx="16" ry="22" fill="#E7C89A"/><circle cx="134" cy="246" r="5" fill="#1B1B1B"/><circle cx="166" cy="246" r="5" fill="#1B1B1B"/><ellipse cx="150" cy="268" rx="10" ry="7" fill="#C47A4A"/><path d="M620 300c40-70 90-70 120 0" fill="none" stroke="#F6C14B" stroke-width="10"/><circle cx="560" cy="120" r="18" fill="#F4E2C4"/><circle cx="548" cy="100" r="7" fill="#F4E2C4"/><circle cx="572" cy="98" r="7" fill="#F4E2C4"/><circle cx="586" cy="112" r="7" fill="#F4E2C4"/><circle cx="534" cy="114" r="7" fill="#F4E2C4"/><text x="36" y="150" fill="#F4EFEA" font-size="54" font-family="system-ui,sans-serif" font-weight="800">PET CARE</text></svg>`;
+}
 function bannerArt(type, art){
+  if(type==="pet")return petScene();
   if(type==="lawn"||type==="snow"||type==="both")return sceneArt(type, art);
   const info=typeInfo(type);
   return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="800" height="460" fill="${info.color}"/><text x="70" y="270" font-size="150">${info.emoji}</text></svg>`;
@@ -1343,7 +1379,7 @@ function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
   const sched=(Array.isArray(c.sched)&&c.sched.length===7)?c.sched:c.days.map((on,i)=>Object.assign({on:!!on},defHours(i)));
-  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
+  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
   const hasContact=!!(c.phoneDigits||c.email);
   const rows=c.services.map(s=>`<li><span class="n">${esc(s.n)}</span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
@@ -1364,7 +1400,11 @@ function genSite(c){
   <h2>My promise</h2>
   <p class="promise">${esc(c.promise)}</p>
 </section>`:"";
-  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","A few days a week"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
+  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
+  const petSafe=c.type==="pet"?`<section id="petsafe"><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
+  const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
+  const sizeField=c.type==="pet"?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
+  const noteField=c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:`<label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>`;
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
@@ -1549,6 +1589,7 @@ ${day&&String(c.art||"").indexOf("cine-")===0?".hero{background:#14212C}":""}
   ${seasonHTML}
 </section>
 
+${petSafe}
 ${howHTML}
 
 ${proofHTML}
@@ -1569,12 +1610,13 @@ ${promiseHTML}
     <form onsubmit="return false">
       <div class="q"><b>2</b><span>Tell me the job</span></div>
       <label>What do you need?<select id="svc"></select></label>
-      <label>How big is the ${target}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>
+      ${petFields}
+      ${sizeField}
       <label>How often?<select id="freq">${freqOpts}</select></label>
       <label>Your first name<input id="nm" autocomplete="given-name"></label>
       ${(inboxOn||hostOn)?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="tel"></label>`:""}
       <label>Address for the job<input id="addr" autocomplete="street-address"></label>
-      <label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>
+      ${noteField}
       <div class="hp" aria-hidden="true"><label>Company<input id="hp" name="company" tabindex="-1" autocomplete="off"></label></div>
       ${inboxOn?`<label>A photo of the ${target}, if you want (optional)<input type="file" id="ph" accept="image/*"></label><p class="small" id="phNote" style="margin:-6px 0 12px">Photos of your yard or driveway only, please. No people. It goes to my parent only.</p><img id="phPrev" alt="Your photo" hidden style="max-width:100%;max-height:180px;border-radius:8px;margin:0 0 12px">`:""}
       <div class="q"><b>3</b><span>Send it</span></div>
@@ -1615,7 +1657,7 @@ const PRESETS={
   lawn:[["Full mow, front and back","15"],["Front yard mow","10"],["Trim and edge","5"],["Leaf cleanup","20"],["Bag grass clippings","3"]],
   snow:[["Driveway","10"],["Driveway and walk","12"],["Walk and steps","5"],["Salt","3"]],
   both:[["Full mow, front and back","15"],["Trim and edge","5"],["Bag grass clippings","3"],["Shovel driveway","10"],["Shovel driveway and walk","12"],["Salt","3"]],
-  pet:[["Dog walk, 20 minutes","8"],["Dog walk, 40 minutes","12"],["Pet sitting check-in","10"],["Feed and water","6"]],
+  pet:[["Dog walk, 15 minutes","5"],["Dog walk, 30 minutes","8"],["Pet feeding drop-in","6"],["Pet sitting visit","8"],["Pet sitting, full day","10"],["Poop scoop, one time","10"],["Poop scoop, weekly","8"],["Fresh water and food bowls","4"],["Litter box cleaning","5"],["Pet playtime","6"],["Mail and pet check","5"],["Small animal care","6"],["Dog brushing","5"],["Water the plants","4"]],
   odd:[["Yard cleanup","15"],["Rake leaves","12"],["Weed the garden","10"],["Take cans to the curb","4"]],
   wash:[["Wash the outside","10"],["Wash and vacuum","15"],["Rims and windows","8"]],
   help:[["Playtime helper, 1 hour","10"],["Tidy toys","6"],["Snack helper","5"],["Reading together","8"]],
@@ -1635,7 +1677,7 @@ let savedRaw=null;
 try{const r=localStorage.getItem(LS); if(r){savedRaw=JSON.parse(r);S=Object.assign(defaults(),savedRaw);}}catch(e){}
 if(!RIGS[S.palette])S.palette="ember";
 if(!PRESETS[S.type])S.type="lawn";
-if(!S.svcEdited)S.services=PRESETS[S.type].map(s=>({n:s[0],p:s[1]}));
+if(!S.svcEdited)S.services=(PRESETS[S.type]||PRESETS.lawn).map(s=>({n:s[0],p:s[1],on:S.type==="pet"?true:undefined}));
 if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
   const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
   S.sched=[0,1,2,3,4,5,6].map(i=>Object.assign({on:untouched?false:!!(S.days&&S.days[i])},defHours(i)));
@@ -1657,7 +1699,7 @@ function resolve(preview, opt){
   const target=typeInfo(S.type).target;
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
   return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
-    services:S.services.filter(s=>s.n.trim()),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
+    services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:s.p})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()),publish:opt.publish||null};
 }
 
@@ -1671,10 +1713,10 @@ const seg=$("#seg"); for(let i=0;i<STEPS;i++){seg.appendChild(document.createEle
 const TYPES=[
   {id:"lawn",name:"Lawn",blurb:"Mow. Trim. Edge."},
   {id:"snow",name:"Snow",blurb:"Shovel. Salt. Clear."},
-  {id:"both",name:"Both",blurb:"Work all year."}
+  {id:"both",name:"Both",blurb:"Work all year."},
+  {id:"pet",name:"Pet care",blurb:"Walks, food, and cleanup"}
 ];
 const MORE_TYPES=[
-  {id:"pet",name:"Pets",blurb:"Walks and sitting",emoji:"🐶",color:"#0F6E6A"},
   {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",color:"#8A5A12"},
   {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",color:"#1D4E89"},
   {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",color:"#8E3A56"},
@@ -1683,15 +1725,18 @@ const MORE_TYPES=[
 ];
 const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
+function presetServices(id){
+  return (PRESETS[id]||PRESETS.other).map(s=>({n:s[0],p:s[1],on:id==="pet"?true:undefined}));
+}
 function pickType(id){
   S.type=id;
-  if(!S.svcEdited){S.services=(PRESETS[id]||PRESETS.other).map(s=>({n:s[0],p:s[1]}));renderServices();}
+  if(!S.svcEdited){S.services=presetServices(id);renderServices();}
   if(TYPE_COLOR[id]&&!S.paletteTouched){S.palette=TYPE_COLOR[id];if(typeof renderRigs==="function")renderRigs();}
-  shell.dataset.type=S.type; syncPlaceholders(); renderTiles(); syncOther(); queue();
+  shell.dataset.type=S.type; syncPlaceholders(); renderTiles(); syncOther(); syncTypeCopy(); queue();
 }
 function tileHtml(t){
   const tick='<span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>';
-  const art=t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
+  const art=t.id==="pet"?petScene().replace("xMidYMid","xMidYMid"):t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
   return art+`<span class="cap"><strong>${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
 function renderTiles(){
@@ -1707,6 +1752,10 @@ function renderTiles(){
   fill("#tiles",TYPES);
   fill("#moreTiles",MORE_TYPES);
   syncOther();
+}
+function syncTypeCopy(){
+  const lead=$("#rateLead");
+  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":"Starter prices to work from. Set them for the yards near you.";
 }
 function syncOther(){
   const box=$("#otherBox"); if(!box)return;
@@ -1767,6 +1816,11 @@ function renderServices(f){
     p.oninput=()=>{s.p=p.value;S.svcEdited=true;queue();};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
+    const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";
+    const offered=s.on!==false;
+    offer.textContent=offered?"On":"Off"; offer.setAttribute("aria-pressed",String(offered)); offer.setAttribute("aria-label",(offered?"Offered: ":"Hidden: ")+nm);
+    offer.onclick=()=>{s.on=s.on===false;S.svcEdited=true;renderServices();queue();};
+    if(S.type==="pet")row.appendChild(offer);
     row.appendChild(n);row.appendChild(pw);row.appendChild(up);row.appendChild(dn);row.appendChild(x);list.appendChild(row);
   });
   if(f){const row=list.children[f.i];if(row){let b=row.querySelector(f.d<0?".mv-up":".mv-down");if(!b||b.disabled)b=row.querySelector(f.d<0?".mv-down":".mv-up");if(b&&!b.disabled)b.focus();}}
@@ -1807,13 +1861,14 @@ renderLevel();
 
 /* ---- add more jobs ---- */
 const JOBS=[
+ {g:"Pet jobs",t:"pet",items:[["Dog walk, 15 minutes",[5,6,8,10,12]],["Dog walk, 30 minutes",[8,10,12,14,16]],["Pet feeding drop-in",[6,8,10,12,14]],["Pet sitting visit",[8,10,12,14,16]],["Pet sitting, full day",[10,12,15,18,22]],["Poop scoop, one time",[10,12,15,18,20]],["Poop scoop, weekly",[8,10,12,14,16]],["Fresh water and food bowls",[4,5,6,8,10]],["Litter box cleaning",[5,6,8,10,12]],["Pet playtime",[6,8,10,12,14]],["Mail and pet check",[5,6,8,10,12]],["Small animal care",[6,8,10,12,14]],["Dog brushing",[5,6,8,10,12]],["Water the plants",[4,5,6,8,10]]]},
  {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,4,5,6,7]],["Leaf raking, whole yard",[15,20,25,30,40]],["Weeding flower beds",[8,10,12,15,20]],["Spread mulch (by hand)",[15,20,25,30,40]],["Trim small bushes (hand clippers)",[8,10,12,15,20]],["Pick up sticks and yard cleanup",[8,10,12,15,18]],["Sweep driveway and patio",[5,6,8,10,12]],["Plant flowers",[10,12,15,20,25]],["Water plants (per visit)",[4,5,6,8,10]],["Pick up dog mess in the yard",[4,5,6,8,10]],["Move patio furniture and hoses",[5,6,8,10,12]]]},
  {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,5,6,8,10]],["Clear the end of the driveway (plow pile)",[5,6,8,10,12]],["Clear around the mailbox",[3,4,5,6,8]],["Clear the back door and patio",[5,6,8,10,12]],["Clear a path to the trash cans",[3,4,5,6,8]],["Brush off and clear the car",[4,5,6,8,10]]]},
  {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,3,4,5,6]],["Wash the car",[6,8,10,14,18]],["Bring in mail and packages (per day)",[2,3,4,5,6]]]}];
 JOBS.forEach(g=>g.items.forEach(it=>{PRICE_TABLE[it[0].toLowerCase()]=it[1];}));
 function openJobs(){
   const L=Math.max(1,Math.min(5,S.lvlApplied|0||1));
-  let groups=JOBS.slice();if(S.type==="snow")groups=[JOBS[1],JOBS[0],JOBS[2]];
+  let groups=JOBS.slice();if(S.type==="snow")groups=[JOBS[2],JOBS[1],JOBS[3]];else if(S.type==="pet")groups=[JOBS[0],JOBS[3]];
   openModal('<h3>Add more jobs</h3><p class="small2" style="margin:0 0 6px">Tap Add to put a job on your list. You can change the name and the price after. Prices are set for your level: '+LEVELS[L-1].n+'.</p><div id="jobsList"></div><div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="jobsDone">Done</button></div></div>');
   const draw=()=>{
     const box=mbody.querySelector("#jobsList");box.innerHTML="";
@@ -2611,7 +2666,16 @@ function rateRow(ctx,x,y,w,name,price,ns,ps,col,pcol,mute){
   ctx.save();ctx.strokeStyle=mute;ctx.setLineDash([2,7]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+nw+12,y-ns*.28);ctx.lineTo(x+w-pw-12,y-ns*.28);ctx.stroke();ctx.restore();
   fnt(ctx,900,ps,FFD,true);ctx.textAlign="right";ctx.fillStyle=pcol;ctx.fillText(price,x+w,y+ps*.04);ctx.textAlign="left";
 }
-function flyerTheme(c){const bold=c.style==="bold";return {bold,bg:bold?"#0E1012":"#FFFFFF",ink:bold?"#F1EFEA":"#111111",mute:bold?"#A3AAB1":"#4A4A4A",acc:bold?c.accent:"#111111",pcol:bold?c.accent:"#111111",line:bold?"#3A4046":"#9A9A9A",hz2:bold?"#0B0C0D":"#FFFFFF"};}
+function drawPaw(ctx,x,y,s,color){
+  ctx.save();ctx.fillStyle=color;ctx.translate(x,y);ctx.scale(s,s);
+  ctx.beginPath();ctx.ellipse(0,10,11,8,0,0,Math.PI*2);ctx.fill();
+  [[-14,-8],[-5,-16],[6,-16],[14,-7]].forEach(function(p){ctx.beginPath();ctx.arc(p[0],p[1],4.4,0,Math.PI*2);ctx.fill();});
+  ctx.restore();
+}
+function stampPaws(ctx,w,h,color){
+  [[78,78],[w-78,86],[72,h-86],[w-84,h-96]].forEach(function(p,i){drawPaw(ctx,p[0],p[1],i%2?1.15:.85,color);});
+}
+function flyerTheme(c){const bold=c.style==="bold";const pet=c.type==="pet";return {bold,bg:bold?"#0E1012":"#FFFFFF",ink:bold?"#F1EFEA":"#111111",mute:bold?"#A3AAB1":"#4A4A4A",acc:pet?(bold?"#F6C14B":"#0F6E6A"):(bold?c.accent:"#111111"),pcol:pet?"#0F6E6A":(bold?c.accent:"#111111"),line:bold?"#3A4046":"#9A9A9A",hz2:bold?"#0B0C0D":"#FFFFFF",paw:pet?(bold?"#F6C14B":"#0F6E6A"):""};}
 function drawHeadline(ctx,hl,x,y,col){ctx.fillStyle=col;fnt(ctx,900,hl.size,FFD,true);ctx.textAlign="left";let yy=y+hl.size*.82;hl.lines.forEach(l=>{ctx.fillText(l,x,yy);yy+=hl.size*.9;});return yy-hl.size*.9+hl.size*.12;}
 
 function flyerFull(ctx,c,t){
@@ -2803,6 +2867,10 @@ function drawFlyer(ctx,c){
     else if(c.fmt==="story")flyerSocial(ctx,c,t,1080,1920,true);
     else flyerFull(ctx,c,t);
   }
+  if(c.type==="pet"){
+    const d=pageDims(c.fmt);
+    stampPaws(ctx,d.w,d.h,t.paw||"#0F6E6A");
+  }
 }
 
 function flyerCfg(){
@@ -2815,7 +2883,7 @@ function flyerCfg(){
     if(url){qrText=url;urlText=url.replace(/^https?:\/\//i,"").replace(/\/$/,"");ok=true;}
     else why=S.siteUrl.trim()?"That link doesn’t look right. It should look like hustlebuilder.org/sam.":"Paste your website link to make the QR code.";
   }
-  return {fmt:S.flyerFmt,style:S.flyerStyle,qrMode:S.flyerQr,biz:c.biz,tagline:c.tagline,town:S.town.trim(),first:c.first,services:c.services.slice(),accent:(RIGS[S.palette]||RIGS.ember).c,qrText,urlText,ok,why,showPhone:!!(S.flyerPhone&&S.phone.trim()),phone:S.phone.trim(),parentName:c.parentName};
+  return {fmt:S.flyerFmt,style:S.flyerStyle,qrMode:S.flyerQr,type:c.type,biz:c.biz,tagline:c.tagline,town:S.town.trim(),first:c.first,services:c.services.slice(),accent:(RIGS[S.palette]||RIGS.ember).c,qrText,urlText,ok,why,showPhone:!!(S.flyerPhone&&S.phone.trim()),phone:S.phone.trim(),parentName:c.parentName};
 }
 function renderFlyer(scale){const d=pageDims(S.flyerFmt),cv=document.createElement("canvas");cv.width=Math.round(d.w*scale);cv.height=Math.round(d.h*scale);const ctx=cv.getContext("2d");ctx.scale(scale,scale);drawFlyer(ctx,flyerCfg());return cv;}
 function ensureFonts(){try{return Promise.all(['italic 900 40px "Barlow Condensed"','italic 800 40px "Barlow Condensed"','400 24px Barlow','600 24px Barlow','700 24px Barlow'].map(f=>document.fonts.load(f))).catch(()=>{});}catch(e){return Promise.resolve();}}
@@ -3917,6 +3985,9 @@ if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
 else if(!askQ)go(0);
 syncLiveUrlFields();
 shell.dataset.type=S.type;
+syncTypeCopy();
+const startPet=$("#startPet");
+if(startPet)startPet.onclick=()=>pickType("pet");
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();refresh();
 })();
 </script>
