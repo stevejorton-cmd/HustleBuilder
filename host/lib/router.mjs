@@ -242,6 +242,27 @@ function payLinks(origin, account) {
   return { season: base + "?plan=season", year: base + "?plan=year" };
 }
 
+async function addReceipt(account, origin, { id, plan, planName, amountLabel, end, stripeUrl }) {
+  id = String(id || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
+  if (!id) return;
+  account.receipts = Array.isArray(account.receipts) ? account.receipts : [];
+  if (account.receipts.some((item) => item.id === id)) return;
+  const url = stripeUrl || ((origin || "") + "/api/receipt/" + id);
+  const rec = {
+    id, plan, planName: planName || plan, amountLabel,
+    at: new Date().toISOString(),
+    endLabel: end ? niceDate(end) : "",
+    url
+  };
+  account.receipts.push(rec);
+  await writeJson("receipts/" + id + ".json", { ...rec, accountId: account.id });
+}
+
+async function ensureRenew(account) {
+  if (!account.renewToken) account.renewToken = rand(16);
+  await (await store()).put("renew/" + account.renewToken, account.id);
+}
+
 async function releaseHeld(account, origin) {
   const rows = await loadRequests(account.id);
   let changed = false;
@@ -287,7 +308,9 @@ function parentBookingMail(row, origin) {
     subject: "Booking request: " + (fields.service || "a job"),
     text,
     html: htmlMail,
-    ics: row.ics || ""
+    ics: row.ics || "",
+    forParent: true,
+    origin
   };
 }
 
@@ -321,11 +344,22 @@ function supportReply() {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : "";
 }
 
-async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo }) {
-  const clean = String(text || "").slice(0, 8000);
+function accountUrl(origin) {
+  return (origin || "") + "/?account=1";
+}
+
+async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forParent, origin }) {
+  let bodyText = String(text || "");
+  let markup = htmlBody ? String(htmlBody) : "";
+  if (forParent) {
+    const link = accountUrl(origin);
+    bodyText += "\n\nYour account:\n" + link;
+    if (markup) markup += "<p style=\"font:18px/1.45 system-ui,sans-serif\"><a href=\"" + mailEscape(link) + "\">Your account</a></p>";
+  }
+  const clean = bodyText.slice(0, 8000);
   const sub = String(subject || "").replace(/[\r\n]+/g, " ").slice(0, 140);
   const icsText = ics ? String(ics).slice(0, 20000) : "";
-  const markup = htmlBody ? String(htmlBody).slice(0, 20000) : "";
+  markup = markup.slice(0, 20000);
   const reply = String(replyTo || "").trim();
   if (testMode()) {
     const key = "outbox/" + sha(to) + ".json";
@@ -376,6 +410,14 @@ function missingPage(slug, down) {
   return html(404, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem"><h1>${title}</h1><p>${down ? "The host removed this page." : "Check the link, or ask them to publish again."}</p></body></html>`);
 }
 
+function pausePage() {
+  return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Paused</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">
+<h1>Paused for now</h1>
+<p>This page is paused. Nothing new is being scheduled.</p>
+<p>If you know the family, ask them when they are working again.</p>
+</body></html>`);
+}
+
 function breakPage() {
   return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Taking a break</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">
 <h1>Taking a break</h1>
@@ -391,6 +433,7 @@ async function serveSlug(slug) {
   const meta = await readJson("pages/" + slug + ".json");
   if (!meta) return missingPage(slug, false);
   if (meta.status === "down") return missingPage(slug, true);
+  if (meta.status === "paused") return pausePage();
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
@@ -698,6 +741,8 @@ export async function handleRequest(req) {
     const mailed = await sendMail({
       to: email,
       replyTo: reply,
+      forParent: true,
+      origin,
       subject: "Your Hustle Builder code",
       text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name and a town. A booked job’s name, address, and time are saved for the family calendar for about 30 days." + unread,
       html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">Your code is <b>" + code + "</b>. It expires in 20 minutes.</p>" + (reply ? "" : "<p style=\"font:18px/1.45 system-ui,sans-serif\">Replies to this email aren't read.</p>")
@@ -775,6 +820,13 @@ export async function handleRequest(req) {
     if (mode === "test" || mode === "off") {
       applyPlan(account, plan.id);
       if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
+      await addReceipt(account, origin, {
+        id: "pay-" + account.id + "-" + rand(4),
+        plan: plan.id,
+        planName: account.planName,
+        amountLabel: plan.label,
+        end: account.paidUntil
+      });
       await saveAccount(account);
       await trackPlan(account);
       await releaseHeld(account, origin);
@@ -815,13 +867,23 @@ export async function handleRequest(req) {
     let event;
     try { event = JSON.parse(req.body || "{}"); } catch { return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin); }
     if (event.type === "checkout.session.completed") {
-      const meta = (event.data && event.data.object && event.data.object.metadata) || {};
+      const session = (event.data && event.data.object) || {};
+      const meta = session.metadata || {};
       const plan = PLANS[meta.plan];
       const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
       if (account && plan) {
         applyPlan(account, plan.id);
         account.payMode = "stripe";
         account.checkoutPendingAt = "";
+        const stripeUrl = session.receipt_url || (session.payment_intent && session.payment_intent.receipt_url) || "";
+        await addReceipt(account, origin, {
+          id: String(event.id || ("stripe-" + account.id + "-" + plan.id + "-" + String(account.paidUntil).slice(0, 10))),
+          plan: plan.id,
+          planName: account.planName,
+          amountLabel: plan.label,
+          end: account.paidUntil,
+          stripeUrl
+        });
         await saveAccount(account);
         await trackPlan(account);
         await releaseHeld(account, origin);
@@ -859,8 +921,9 @@ export async function handleRequest(req) {
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
     await (await store()).put("pages/" + slug + ".html", stored);
+    const keptStatus = existing && existing.status === "paused" ? "paused" : "live";
     await writeJson("pages/" + slug + ".json", {
-      slug, accountId: account.id, status: "live", updatedAt: new Date().toISOString(), bytes: stored.length,
+      slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
       indexable, card: { title: cardTitle, line: cardLine, accent, pets }
     });
     account.slug = slug;
@@ -927,6 +990,8 @@ export async function handleRequest(req) {
     const mailed = await sendMail({
       to: email,
       replyTo: supportReply(),
+      forParent: true,
+      origin,
       subject: "Your kid asked you to publish their page",
       text: "Your kid is ready to publish a Hustle Builder page.\n\nTry free: your first 3 jobs are on us. The page stays up for " + trialLengthDays() + " days, or until those 3 jobs are used, whichever comes first. You still confirm you are the parent. No payment is needed to go live.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
       html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><b>Try free: your first 3 jobs are on us.</b> The page stays up for " + trialLengthDays() + " days, or until those 3 jobs are used, whichever comes first. You still confirm you are the parent. No payment is needed to go live.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
@@ -1004,6 +1069,8 @@ export async function handleRequest(req) {
       await sendMail({
         to: rec.parentEmail,
         replyTo: support,
+        forParent: true,
+        origin,
         subject: "A neighbor cancelled",
         text: rec.customer + " cancelled the request for " + (rec.service || "a job") + (rec.when ? " on " + rec.when : "") + ".\n\nYou do not need to do anything else.",
         html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">" + mailEscape(rec.customer) + " cancelled the request for " + mailEscape(rec.service || "a job") + (rec.when ? " on " + mailEscape(rec.when) : "") + ".</p>"
@@ -1094,10 +1161,18 @@ document.getElementById("done").onclick=()=>mark("done");
       return html(200, "<!DOCTYPE html><html><body><p>Open the builder to pay with a card. Test mode is off.</p></body></html>");
     }
     applyPlan(account, planId);
+    const offer = PLANS[planId];
+    await addReceipt(account, origin, {
+      id: "pay-" + account.id + "-" + rand(4),
+      plan: planId,
+      planName: account.planName,
+      amountLabel: offer.label,
+      end: account.paidUntil
+    });
     await saveAccount(account);
     await trackPlan(account);
     await releaseHeld(account, origin);
-    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Renewed</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're renewed</h1><p>${mailEscape(account.planName)} is on through ${mailEscape(niceDate(account.paidUntil))}.</p><p>Any requests that were waiting have been emailed to you.</p></body></html>`);
+    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Renewed</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're renewed</h1><p>${mailEscape(account.planName)} is on through ${mailEscape(niceDate(account.paidUntil))}.</p><p>Any requests that were waiting have been emailed to you.</p><p><a href="${mailEscape(accountUrl(origin))}">Your account</a></p></body></html>`);
   }
 
   if (method === "GET" && route === "cron/renewals") {
@@ -1127,6 +1202,8 @@ document.getElementById("done").onclick=()=>mark("done");
         await sendMail({
           to: account.email,
           replyTo: supportReply(),
+          forParent: true,
+          origin,
           subject,
           text,
           html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your <b>" + mailEscape(account.planName || "plan") + "</b> ends " + when + ", on " + mailEscape(niceDate(account.paidUntil)) + ".</p><p>Renew in one tap.</p><p><a href=\"" + mailEscape(links.season) + "\">Renew, $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Renew, $29.99 for the year</a></p><p>After the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.</p></div>"
@@ -1156,6 +1233,8 @@ document.getElementById("done").onclick=()=>mark("done");
         await sendMail({
           to: account.email,
           replyTo: supportReply(),
+          forParent: true,
+          origin,
           subject,
           text,
           html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pay in one tap to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
@@ -1298,6 +1377,8 @@ document.getElementById("done").onclick=()=>mark("done");
       const held = await sendMail({
         to: account.email,
         replyTo: supportReply(),
+        forParent: true,
+        origin,
         subject: "You have a new request waiting",
         text: heldText,
         html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(fields.service) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
@@ -1311,6 +1392,8 @@ document.getElementById("done").onclick=()=>mark("done");
     const mailed = await sendMail({
       to: account.email,
       replyTo: reply || supportReply(),
+      forParent: true,
+      origin,
       subject: (hitsWords.flag ? "Check this booking: " : "Booking request: ") + (fields.service || "a job"),
       text: fullText, html: fullHtml, ics
     });
@@ -1331,6 +1414,8 @@ document.getElementById("done").onclick=()=>mark("done");
         await sendMail({
           to: account.email,
           replyTo: supportReply(),
+          forParent: true,
+          origin,
           subject: "Your 3 free jobs are used up",
           text: trialText,
           html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>Your 3 free jobs are used up.</b></p><p>New requests will wait until you pick a plan.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
@@ -1396,6 +1481,72 @@ document.getElementById("done").onclick=()=>mark("done");
     meta.downAt = new Date().toISOString();
     await writeJson("pages/" + slug + ".json", meta);
     return withCors(json(200, { ok: true, slug }), req.headers && req.headers.origin);
+  }
+
+  if (method === "GET" && route === "account") {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    await ensureRenew(account);
+    await saveAccount(account);
+    const used = await trialCount(account.email);
+    const sites = [];
+    if (account.slug) {
+      const meta = await readJson("pages/" + account.slug + ".json") || {};
+      const rows = await loadRequests(account.id);
+      sites.push({
+        slug: account.slug,
+        url: (origin || "") + "/" + account.slug,
+        status: meta.status || "offline",
+        plan: account.plan || "",
+        planName: account.planName || (paid(account) ? "Paid plan" : "Free trial"),
+        paid: paid(account),
+        paidUntil: account.paidUntil || "",
+        paidUntilLabel: account.paidUntil ? niceDate(account.paidUntil) : "",
+        grace: inGrace(account),
+        graceDays: graceLeftDays(account),
+        trialDaysLeft: trialDaysLeft(account),
+        trialLeft: Math.max(0, FREE_JOBS - used),
+        trialDays: trialLengthDays(),
+        trialEndsLabel: account.trialEndsAt ? niceDate(account.trialEndsAt) : "",
+        trialOver: trialOver(account, used),
+        renew: payLinks(origin, account),
+        receipts: (account.receipts || []).slice(-12).map((item) => ({
+          id: item.id, plan: item.planName || item.plan || "", amount: item.amountLabel || "", at: item.at || "", end: item.endLabel || "", url: item.url || ""
+        })),
+        requests: rows.slice(-20).reverse().map((row) => ({
+          service: row.service || "A job",
+          when: row.when || "",
+          firstName: row.firstName || "Neighbor",
+          status: row.status || "new"
+        }))
+      });
+    }
+    return withCors(json(200, { ok: true, email: account.email, accountUrl: accountUrl(origin), sites }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && (route === "account/pause" || route === "account/resume")) {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    const slug = String(body.slug || account.slug || "").trim().toLowerCase();
+    if (!account.slug || slug !== account.slug) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const meta = await readJson("pages/" + slug + ".json");
+    if (!meta || meta.accountId !== account.id) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    if (meta.status === "down") return withCors(json(403, { ok: false, error: "down" }), req.headers && req.headers.origin);
+    if (route === "account/pause") {
+      if (meta.status === "live") meta.status = "paused";
+    } else if (meta.status === "paused") {
+      const page = await (await store()).get("pages/" + slug + ".html");
+      meta.status = page ? "live" : "offline";
+    }
+    await writeJson("pages/" + slug + ".json", meta);
+    return withCors(json(200, { ok: true, slug, status: meta.status }), req.headers && req.headers.origin);
+  }
+
+  const receiptGet = route.match(/^receipt\/([a-z0-9-]{6,80})$/i);
+  if (method === "GET" && receiptGet) {
+    const rec = await readJson("receipts/" + receiptGet[1].toLowerCase() + ".json");
+    if (!rec) return html(404, "<!DOCTYPE html><html><body><p>That receipt is not here.</p></body></html>");
+    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Receipt</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Receipt</h1><p>${mailEscape(rec.planName || "Hustle Builder")}</p><p><b>${mailEscape(rec.amountLabel || "")}</b></p><p>Through ${mailEscape(rec.endLabel || "")}.</p><p>Hustle Builder. This is not a card statement.</p></body></html>`);
   }
 
   if (method === "GET" && route === "test/outbox") {

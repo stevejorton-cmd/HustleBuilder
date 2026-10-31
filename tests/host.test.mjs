@@ -958,6 +958,28 @@ test("every job type has at least 12 name ideas and funny names", async () => {
   `, {}, { timeout: 1000 });
 });
 
+test("the home screen app can install and keep the builder offline", async () => {
+  const { readFile } = await import("fs/promises");
+  const manifest = JSON.parse(await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"));
+  assert.equal(manifest.display, "standalone");
+  assert.equal(manifest.start_url, "/");
+  assert.equal(manifest.theme_color, "#FF5B14");
+  assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.sizes === "192x192"));
+  assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.sizes === "512x512"));
+  assert.ok(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512"));
+  const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
+  assert.match(sw, /hustle-shell-1/);
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /rel="manifest"/);
+  assert.match(html, /You're offline\. Your work is saved on this phone\./);
+  assert.match(html, /serviceWorker\.register\("\/sw\.js"\)/);
+  const icon = await readFile(new URL("../icons/icon-192.png", import.meta.url));
+  assert.equal(icon[0], 137);
+  const mask = await readFile(new URL("../icons/maskable-512.png", import.meta.url));
+  assert.equal(mask[0], 137);
+});
+
 test("a backup preview names every business type", async () => {
   const { readFile } = await import("fs/promises");
   const { runInNewContext } = await import("vm");
@@ -982,5 +1004,54 @@ test("a backup preview names every business type", async () => {
   }
   assert.equal(src.includes('b.type==="snow"?"Snow":b.type==="both"?"Lawn and snow":"Lawn"'), false);
   assert.match(src, /workLabel\(b\.type\)/);
+});
+
+test("a parent account lists the site, trial, receipts, and requests", async () => {
+  const { token, email } = await parent();
+  const codeMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.match(codeMail.body.messages[0].text, /\/\?account=1/);
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+  assert.equal(pay.body.ok, true);
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam") } });
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "sam-yard", name: "Riley", contact: "402-555-0199", service: "Mow the yard", when: "Saturday morning",
+    address: "12 Oak", start: "2026-11-07T10:00", t: 4000
+  } }));
+  assert.equal(book.body.ok, true);
+  const account = await json(await call("GET", "/api/account", { token }));
+  assert.equal(account.body.ok, true);
+  assert.equal(account.body.sites.length, 1);
+  const site = account.body.sites[0];
+  assert.equal(site.slug, "sam-yard");
+  assert.equal(site.plan, "season");
+  assert.match(site.planName, /Summer|Winter|season/i);
+  assert.ok(site.paidUntil);
+  assert.ok(site.receipts.length >= 1);
+  assert.match(site.receipts[0].url, /\/api\/receipt\//);
+  assert.equal(site.receipts[0].amount, "$19.99");
+  assert.equal(site.requests[0].service, "Mow the yard");
+  assert.equal(site.requests[0].firstName, "Riley");
+  assert.equal(site.requests[0].address, undefined);
+  const receipt = await call("GET", site.receipts[0].url.replace("http://sites.test", ""));
+  assert.match(receipt.body, /\$19\.99/);
+  assert.equal(receipt.body.includes(email), false);
+  const paused = await json(await call("POST", "/api/account/pause", { token, body: { slug: "sam-yard" } }));
+  assert.equal(paused.body.status, "paused");
+  const hidden = await call("GET", "/api/site/sam-yard");
+  assert.equal(hidden.status, 200);
+  assert.match(hidden.body, /Paused for now/);
+  assert.equal(hidden.body.includes(email), false);
+  await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam again") } });
+  const stillPaused = await call("GET", "/api/site/sam-yard");
+  assert.match(stillPaused.body, /Paused for now/);
+  const back = await json(await call("POST", "/api/account/resume", { token, body: { slug: "sam-yard" } }));
+  assert.equal(back.body.status, "live");
+  const again = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+  assert.equal(again.body.alreadyPaid, true);
+  const still = await json(await call("GET", "/api/account", { token }));
+  assert.equal(still.body.sites[0].receipts.length, 1);
+  const stranger = await json(await call("GET", "/api/account"));
+  assert.equal(stranger.status, 401);
 });
 

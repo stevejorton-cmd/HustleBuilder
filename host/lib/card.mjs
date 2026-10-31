@@ -103,6 +103,37 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
+export function iconPng(size, maskable) {
+  const buf = Buffer.alloc(size * size * 3);
+  const orange = [255, 91, 20];
+  const ink = [14, 16, 18];
+  fill(buf, size, 0, 0, size, size, maskable ? orange : ink, size);
+  if (!maskable) fill(buf, size, 0, 0, size, Math.max(8, Math.round(size * 0.08)), orange, size);
+  const scale = Math.max(4, Math.floor(size / (maskable ? 16 : 10)));
+  const label = "H";
+  const w = textWidth(label, scale);
+  drawText(buf, size, size, label, Math.round((size - w) / 2), Math.round((size - scale * 7) / 2), scale, maskable ? ink : orange);
+  return pngFromRgb(buf, size, size);
+}
+
+function pngFromRgb(buf, w, h) {
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    raw[y * (w * 3 + 1)] = 0;
+    buf.copy(raw, y * (w * 3 + 1) + 1, y * w * 3, (y + 1) * w * 3);
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0))
+  ]);
+}
+
 export function cardPng({ title, line, accent } = {}) {
   const w = 1200, h = 630;
   const buf = Buffer.alloc(w * h * 3, 0);
@@ -122,19 +153,5 @@ export function cardPng({ title, line, accent } = {}) {
   drawText(buf, w, h, name, 64, 190, titleScale, ink);
   drawText(buf, w, h, sub, 64, 190 + titleScale * 8 + 28, lineScale, mute);
   drawText(buf, w, h, "HUSTLE BUILDER", 64, 560, 4, bar);
-  const raw = Buffer.alloc((w * 3 + 1) * h);
-  for (let y = 0; y < h; y++) {
-    raw[y * (w * 3 + 1)] = 0;
-    buf.copy(raw, y * (w * 3 + 1) + 1, y * w * 3, (y + 1) * w * 3);
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0);
-  ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; ihdr[9] = 2;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw)),
-    chunk("IEND", Buffer.alloc(0))
-  ]);
+  return pngFromRgb(buf, w, h);
 }
