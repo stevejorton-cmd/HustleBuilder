@@ -68,7 +68,7 @@ A kid’s page is `https://your-domain/sam-yard`. The builder is `https://your-d
    - Pro: **$20 a month** for 50,000 emails, then **$0.90 per extra 1,000**. No daily cap.
 5. Verification emails and booking emails both count. A handful of families stay on the free plan. If you pass 100 emails in a day, move to Pro.
 
-With `PUBLISH_TEST_MODE=0`, a booking is emailed to the parent and is not stored. With test mode on, the last emails are kept only so you can check them at `/api/test/outbox?email=parent@example.com`.
+With `PUBLISH_TEST_MODE=0`, a booking is emailed to the parent from `BOOKING_FROM`. The email has the job attached as an `.ics` file and an Add to Google Calendar link. The same job is stored for the family calendar (service, customer name, address, date and time, note) and deleted about 30 days after the job. With test mode on, the last emails, including that `.ics` text, are kept only so you can check them at `/api/test/outbox?email=parent@example.com`. Set `PUBLISH_TEST_MODE=0` before a real family uses it.
 
 ## 6. Payment
 
@@ -87,8 +87,23 @@ When you are ready to charge:
 3. Add a webhook endpoint `https://your-domain/api/stripe/webhook` for `checkout.session.completed`. Put the signing secret in `STRIPE_WEBHOOK_SECRET`.
 4. Set `PAYWALL_MODE=stripe` and redeploy.
 5. Stripe’s listed US price for a successful domestic card charge is **2.9% + 30¢**, with no monthly fee. Source: [Stripe pricing](https://stripe.com/pricing). A $39 season charge is about **$1.43** in fees. International cards and currency conversion cost more. See that page.
+6. Checkout sets `payment_intent_data[statement_descriptor_suffix]` to `HUSTLE BLDR`. With the account’s statement prefix `KEYSTONE`, the card line reads `KEYSTONE* HUSTLE BLDR` (21 characters, under Stripe’s 22-character limit).
 
 The parent is marked paid only after Stripe signs the webhook. A test-mode plan does not do that.
+
+## Family calendar
+
+After a parent verifies their email, the publish step shows **Family calendar**. They add it once:
+
+- **Add to Google Calendar** opens Google’s subscribe page for a private `webcal://` link.
+- **Add to iPhone / Mac** uses that same `webcal://` link.
+- **Copy link** is the `https://` `.ics` address for Outlook or Skylight.
+
+Skylight does not get its own link. Add the feed to the Google or Apple calendar that Skylight already shows. Google can take a few hours to show a new job. iPhone refreshes faster.
+
+The link looks like `https://your-domain/api/cal/<token>.ics`. The token is at least 32 characters, is not the parent’s login token, and lives only on the private account record. **Make a new link** stops the old one. Times are America/Chicago, one hour long, with a stable id so updates replace the same event.
+
+Neighbor bookings are added when the email goes out. Jobs the kid schedules in Boss mode are added too, when a parent is signed in on that device and **Sync jobs I schedule here to the family calendar** is on (that is the default). Removing or finishing a job removes it from the feed. Jobs older than about 30 days are dropped. Deleting the account deletes the jobs and the link. Taking a page down does not.
 
 ## 7. Take a page down
 
@@ -127,7 +142,7 @@ About **$20 a month** until booking email outgrows the Resend free plan. Then ab
 
 This is not legal advice. Have a lawyer read it before a real 11- or 12-year-old uses hosting.
 
-The host stores a parent’s email, the time they verified it, the time they agreed, the plan, the link name, and the public page they approved. It does not store a child’s account, a last name, or the Boss mode job log. A booking is emailed to the parent and, with test mode off, is not kept.
+The host stores a parent’s email, the time they verified it, the time they agreed, the plan, the link name, and the public page they approved. It also stores booked jobs for the family calendar: the service, the customer name as typed, the address, the date and time, and a short note. Those jobs are deleted about 30 days after the job, and immediately if the parent deletes the account. It does not store a child’s account or a last name. The phone number on a booking is only in the email. The rest of the Boss mode money log stays on the device unless the parent is signed in and calendar sync is on.
 
 The in-app step is: the parent proves they can read that email, then checks a box that they agree to publish. That is not the full “verifiable parental consent” the FTC describes for a site that makes a child’s information public. Email-only consent is limited, and a public page with a child’s first name is a disclosure. A charge to the parent’s card, with clear notice, is one method the FTC lists. Test mode does not do that. Turning on Stripe does not, by itself, make this compliant.
 
@@ -136,4 +151,4 @@ Before real families:
 - Set `PUBLISH_TEST_MODE=0`.
 - Decide with a lawyer whether the parent card charge plus the consent text is enough, or whether you need a signed form or a phone call as well.
 - Read the privacy page at `/privacy` and replace it if the lawyer wants different words.
-- Do not collect more than the parent email and the public page.
+- Do not collect more than the parent email, the public page, and the calendar jobs described above.

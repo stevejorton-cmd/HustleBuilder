@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
+import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, stripeSignatureOk } from "../host/lib/router.mjs";
 import { checkSlug } from "../host/lib/moderate.mjs";
 
@@ -113,20 +114,39 @@ test("moderation rejects a blocked word and a boss-mode dump", async () => {
   assert.equal(last.body.error, "slug");
 });
 
-test("booking emails the parent and is not stored on the page", async () => {
+test("booking emails the parent, stores a calendar job, and is not on the public page", async () => {
   const { token, email } = await parent();
   await call("POST", "/api/consent", { token, body: { consent: true } });
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
   await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } });
   const book = await json(await call("POST", "/api/book", { body: {
-    slug: "sam", name: "Riley", contact: "402-555-0199", service: "Mow", when: "Monday at 4:00 PM", address: "999 Secret Lane", note: "Gate"
+    slug: "sam", name: "Riley", contact: "402-555-0199", service: "Mow", when: "Monday at 4:00 PM",
+    address: "999 Secret Lane", note: "Gate, side; door", start: "2026-11-16T16:00"
   } }));
   assert.equal(book.body.ok, true);
   const live = await call("GET", "/api/site/sam");
   assert.equal(live.body.includes("999 Secret Lane"), false);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
-  assert.match(box.body.messages.at(-1).text, /999 Secret Lane/);
-  assert.match(box.body.messages.at(-1).text, /not saved as a customer list/);
+  const msg = box.body.messages.at(-1);
+  assert.match(msg.text, /999 Secret Lane/);
+  assert.match(msg.text, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
+  assert.match(msg.text, /about 30 days/);
+  assert.match(msg.ics, /BEGIN:VCALENDAR\r\n/);
+  assert.match(msg.ics, /DTSTART;TZID=America\/Chicago:20261116T160000/);
+  assert.match(msg.ics, /Gate\\, side\\; door/);
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.match(me.body.calUrl, /^http:\/\/sites\.test\/api\/cal\/[a-f0-9]{32,}\.ics$/);
+  assert.equal(me.body.calGoogle, "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent(me.body.calWebcal));
+  const feed = await call("GET", new URL(me.body.calUrl).pathname);
+  assert.equal(feed.status, 200);
+  assert.match(feed.headers["content-type"], /text\/calendar/);
+  assert.equal(feed.body.replace(/\r\n/g, "").includes("\n"), false);
+  assert.match(feed.body, /SUMMARY:Mow - Riley/);
+  assert.match(feed.body, /999 Secret Lane/);
+  assert.match(feed.body, /UID:b[a-f0-9]+@hustlebuilder\.org/);
+  const privacy = await call("GET", "/api/site/privacy");
+  assert.match(privacy.body, /family calendar/);
+  assert.match(privacy.body, /30 days/);
 });
 
 test("admin takedown hides the page and the parent cannot put it back", async () => {
@@ -187,4 +207,101 @@ test("stripe webhook marks the account paid only with a valid signature", async 
   const after = await json(await call("GET", "/api/me", { token }));
   assert.equal(after.body.paid, true);
   assert.equal(after.body.plan, "season");
+});
+
+test("calendar feed escapes text, keeps a stable uid, and drops a reset token", async () => {
+  const ics = jobsToIcs([{
+    id: "jobabc1",
+    service: "Mow",
+    customer: "Sam, Jr",
+    address: "12\\ Main",
+    start: "2026-11-02T16:00",
+    note: "line1\nline2; ok"
+  }], Date.parse("2026-10-31T12:00:00Z"));
+  assert.match(ics, /BEGIN:VCALENDAR/);
+  assert.match(ics, /END:VCALENDAR\r\n$/);
+  assert.match(ics, /UID:jobabc1@hustlebuilder\.org/);
+  assert.match(ics, /DTSTAMP:\d{8}T\d{6}Z/);
+  assert.match(ics, /DTSTART;TZID=America\/Chicago:20261102T160000/);
+  assert.match(ics, /DTEND;TZID=America\/Chicago:20261102T170000/);
+  assert.match(ics, /SUMMARY:Mow - Sam\\, Jr/);
+  assert.match(ics, /LOCATION:12\\\\ Main/);
+  assert.match(ics, /DESCRIPTION:line1\\nline2\\; ok/);
+  assert.equal(ics.replace(/\r\n/g, "").includes("\n"), false);
+
+  const { token } = await parent("cal@example.com");
+  const soon = chicagoWall(Date.now() + 5 * 864e5);
+  const recent = chicagoWall(Date.now() - 10 * 864e5);
+  const old = chicagoWall(Date.now() - 40 * 864e5);
+  const denied = await json(await call("POST", "/api/jobs", { body: { id: "device1", service: "Rake", customer: "Pat", address: "1 Oak St", start: soon, note: "dog" } }));
+  assert.equal(denied.status, 401);
+  const added = await json(await call("POST", "/api/jobs", { token, body: { id: "device1", service: "Rake", customer: "Pat", address: "1 Oak St", start: soon, note: "dog", amount: "25" } }));
+  assert.equal(added.body.ok, true);
+  await call("POST", "/api/jobs", { token, body: { id: "device2", service: "Old", customer: "Old", address: "9 Old", start: old, note: "" } });
+  await call("POST", "/api/jobs", { token, body: { id: "device3", service: "Recent", customer: "Recent", address: "3 Recent", start: recent, note: "" } });
+  const me = await json(await call("GET", "/api/me", { token }));
+  const first = await call("GET", new URL(me.body.calUrl).pathname);
+  assert.match(first.body, /UID:device1@hustlebuilder\.org/);
+  assert.match(first.body, /UID:device3@hustlebuilder\.org/);
+  assert.equal(first.body.includes("UID:device2@"), false);
+  assert.match(first.body, /Price: 25/);
+  const resetDenied = await json(await call("POST", "/api/cal/reset", { body: {} }));
+  assert.equal(resetDenied.status, 401);
+  const reset = await json(await call("POST", "/api/cal/reset", { token, body: {} }));
+  assert.equal(reset.body.ok, true);
+  assert.notEqual(reset.body.calUrl, me.body.calUrl);
+  assert.equal((await call("GET", new URL(me.body.calUrl).pathname)).status, 404);
+  const again = await call("GET", new URL(reset.body.calUrl).pathname);
+  assert.equal(again.status, 200);
+  assert.match(again.body, /UID:device1@hustlebuilder\.org/);
+  const delDenied = await json(await call("DELETE", "/api/jobs", { body: { id: "device1" } }));
+  assert.equal(delDenied.status, 401);
+  const del = await json(await call("DELETE", "/api/jobs", { token, body: { id: "device1" } }));
+  assert.equal(del.body.ok, true);
+  const after = await call("GET", new URL(reset.body.calUrl).pathname);
+  assert.equal(after.body.includes("UID:device1@"), false);
+  assert.match(after.body, /UID:device3@hustlebuilder\.org/);
+});
+
+test("deleting the account removes calendar jobs and takedown does not", async () => {
+  const { token } = await parent("gone@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "month" } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } });
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "sam", name: "Quinn", contact: "402-555-0101", service: "Shovel", when: "Tuesday at 8:00 AM",
+    address: "50 Feed St", note: "porch", start: "2026-12-01T08:00"
+  } }));
+  assert.equal(book.body.ok, true);
+  const me = await json(await call("GET", "/api/me", { token }));
+  const down = await json(await call("POST", "/api/admin/takedown", { body: { slug: "sam" }, headers: { "x-admin-secret": "test-admin-secret" } }));
+  assert.equal(down.body.ok, true);
+  const still = await call("GET", new URL(me.body.calUrl).pathname);
+  assert.equal(still.status, 200);
+  assert.match(still.body, /50 Feed St/);
+  const gone = await json(await call("DELETE", "/api/account", { token }));
+  assert.equal(gone.body.ok, true);
+  assert.equal((await call("GET", new URL(me.body.calUrl).pathname)).status, 404);
+});
+
+test("stripe checkout sets the statement descriptor suffix", async () => {
+  const { token } = await parent("card@example.com");
+  process.env.PAYWALL_MODE = "stripe";
+  process.env.STRIPE_SECRET_KEY = "sk_test_x";
+  const prev = global.fetch;
+  let seen = "";
+  global.fetch = async (_url, opt) => {
+    seen = String(opt && opt.body);
+    return { ok: true, json: async () => ({ url: "https://checkout.stripe.test/c" }) };
+  };
+  try {
+    const res = await json(await call("POST", "/api/checkout", { token, body: { plan: "month" } }));
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.url, "https://checkout.stripe.test/c");
+    assert.equal(new URLSearchParams(seen).get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+  } finally {
+    global.fetch = prev;
+    process.env.PAYWALL_MODE = "test";
+    delete process.env.STRIPE_SECRET_KEY;
+  }
 });
