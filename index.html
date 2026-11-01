@@ -290,7 +290,7 @@ body.soft .hours-quick button{border-radius:999px}
   .edit{padding:30px 44px 140px;margin:0 0 0 auto;width:100%}
   .nav{right:auto;width:calc(100% - max(46%,480px));justify-content:flex-end;padding-right:44px}
   .nav .btn.peek{display:none}
-  .stage,.shell.sheet .stage{display:flex;position:sticky;top:62px;height:calc(100vh - 62px);inset:auto;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:1;
+  .stage,.shell.sheet .stage{display:flex;position:sticky;inset:auto;top:62px;height:calc(100vh - 62px);flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:1;
     background:radial-gradient(ellipse at 50% 28%,color-mix(in srgb,var(--accent) 28%,transparent),transparent 62%),repeating-linear-gradient(-45deg,#0B0C0D 0 22px,#0E1012 22px 44px)}
   .stage .bar{display:none}
   .phone{flex:none;width:372px;height:min(760px,calc(100vh - 170px));border:11px solid #1B1E21;border-radius:46px;overflow:hidden;box-shadow:0 0 0 2px #2D3238,0 40px 80px rgba(0,0,0,.6)}
@@ -1389,8 +1389,8 @@ function siteMain(){
 /* ============ Helpers + palettes ============ */
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 function priceNum(p){const t=String(p==null?"":p).trim(); return /^-?\d+(\.\d+)?$/.test(t)?parseFloat(t):null;}
-function fmtPrice(p){p=String(p||"").trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(10000,Math.round(n*100)/100); return v>0?"$"+v:"";}
-function cleanPrice(p){p=String(p==null?"":p).trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(10000,Math.round(n*100)/100); return v>0?String(v):"";}
+function fmtPrice(p){p=String(p||"").trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(500,Math.round(n*100)/100); return v>0?"$"+v:"";}
+function cleanPrice(p){p=String(p==null?"":p).trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(500,Math.round(n*100)/100); return v>0?String(v):"";}
 const RIGS={
   ember:{name:"Ember",c:"#FF5B14"},
   gold:{name:"Gold",c:"#F5B800"},
@@ -1588,7 +1588,7 @@ h1,h2,h3{font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transf
 .hero{min-height:560px}
 .hero::after{background:linear-gradient(180deg,rgba(60,32,4,0) 0%,rgba(60,32,4,0) 34%,rgba(60,32,4,.36) 66%,rgba(60,32,4,.6) 100%)}
 .hero h1{color:#fff;font-size:clamp(42px,12vw,76px);text-shadow:0 3px 18px rgba(80,40,0,.45)}
-.hero .tag{color:#fff;border-left:0;padding-left:12px;padding-right:12px;background:rgba(51,38,26,.42);border-radius:999px;display:inline-block;text-shadow:none}
+.hero .tag{color:var(--bone);border-left:0;padding:8px 16px;background:var(--card);border-radius:999px;display:inline-block;text-shadow:none;box-shadow:0 4px 14px rgba(60,32,4,.18)}
 .hazard{height:0;background:none;border-top:4px dashed var(--accent)}
 section{padding:54px 22px 8px}
 section h2{font-size:clamp(30px,8vw,42px);margin-bottom:20px}
@@ -1713,7 +1713,8 @@ const PET_ART={
   dog:{file:"pet-dog.webp",alt:"A beagle puppy"},
   cat:{file:"pet-cat.webp",alt:"An orange tabby cat"},
   fish:{file:"pet-fish.webp",alt:"A goldfish"},
-  bird:{file:"pet-bird.webp",alt:"A blue parakeet"}
+  bird:{file:"pet-bird.webp",alt:"A blue parakeet"},
+  small:{file:"pet-small.webp",alt:"A hamster"}
 };
 function petSrc(file, publicUrl){
   if(publicUrl){
@@ -1932,7 +1933,7 @@ footer p{margin:0 20px}
 .promise{margin:0;border-left:5px solid var(--accent);background:var(--card);padding:18px;font-size:19px;line-height:1.45}
 ${th?themeCss(th,rig.c):(day?dayCss(rig.c):"")}
 ${siteFontCss(c.font)}
-${c.type==="pet"?`.hero.pethead{display:grid;min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
+${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
 .hero.pethead .hero-in{grid-area:1/1;align-self:start;position:relative;z-index:2;width:auto;max-width:none;margin:0;padding:12px 16px 0}
 .hero.pethead h1{color:#16352c;text-shadow:0 1px 0 rgba(255,255,255,.85);font-size:clamp(30px,8.4vw,64px);line-height:.95}
@@ -2192,8 +2193,8 @@ function petSelection(){
 function petList(){return Object.keys(petSelection()).filter(k=>petSelection()[k]);}
 function renderPetGallery(){
   const box=$("#petGallery"); if(!box)return;
-  const labels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird"};
-  box.innerHTML=["dog","cat","fish","bird"].map(k=>petPortrait(k,labels[k],{lazy:true})).join("");
+  const labels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird",small:"Small animal"};
+  box.innerHTML=["dog","cat","fish","bird","small"].map(k=>petPortrait(k,labels[k],{lazy:true})).join("");
 }
 function renderPetPicks(){
   const box=$("#petArtBox"), w=$("#petArt");
@@ -2277,6 +2278,7 @@ function renderServices(f){
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
     n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
     p.oninput=()=>{s.p=p.value;S.svcEdited=true;queue();};
+    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;queue();}};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
     const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";
@@ -2397,6 +2399,7 @@ function renderSeason(){
   const inp=$("#seasonPrice");if(document.activeElement!==inp)inp.value=S.seasonPrice||"";
 }
 $("#seasonPrice").addEventListener("input",()=>{S.seasonPrice=$("#seasonPrice").value;queue();});
+$("#seasonPrice").addEventListener("blur",()=>{const inp=$("#seasonPrice"),v=priceNum(inp.value);if(v!==null&&(v>500||v<0)){S.seasonPrice=cleanPrice(inp.value);inp.value=S.seasonPrice;queue();}});
 function renderSnowPlan(){
   const box=$("#snowPlanBox"),w=$("#snowPlan");if(!box||!w)return;
   box.hidden=!(S.type==="snow"||S.type==="both");w.innerHTML="";
@@ -2423,19 +2426,21 @@ function renderHours(){
   box.appendChild(q);
 }
 
-function renderThemes(){
-  const w=$("#themes"); if(!w)return; w.innerHTML="";
+function paintThemeCards(w,help){
+  if(!w)return; w.innerHTML="";
   const acc=(RIGS[S.palette]||RIGS.ember).c;
   Object.keys(SITE_THEMES).forEach(k=>{
     const t=SITE_THEMES[k], p=THEME_PREVIEWS[k];
     const b=document.createElement("button"); b.type="button"; b.className="themecard";
     b.setAttribute("aria-pressed",String(!!S.theme&&siteTheme(S.theme)===k));
     b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${acc};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}${k==="bold"?" · current":""}</span><span class="tb">${t.blurb}</span>`;
-    b.onclick=()=>{S.theme=k;S.look=t.dark?"night":"day";renderRigs();queue();};
+    b.onclick=()=>{S.theme=k;S.look=t.dark?"night":"day";renderRigs();paintThemeCards(w,help);queue();};
     w.appendChild(b);
   });
-  const help=$("#themeHelp");
   if(help)help.textContent=S.theme?("Your page will use the "+SITE_THEMES[siteTheme(S.theme)].name+" design when you publish."):"The layout of your page, not just colors. Right now your page uses the original look — tap a design to switch.";
+}
+function renderThemes(){
+  paintThemeCards($("#themes"),$("#themeHelp"));
 }
 
 function renderRigs(){
@@ -4039,8 +4044,9 @@ function applyLook(){const root=document.documentElement;if(LOOK.mode==="light"|
   if(f){bd.style.setProperty("--display",FONT_META[f].fb);loadFont(f);}else bd.style.removeProperty("--display");}
 function saveLook(){try{localStorage.setItem(LK,JSON.stringify(LOOK));}catch(e){}}
 function openLook(){
-  openModal('<h3>Make it yours</h3><div class="mf"><label>Pictures</label><div class="chips" id="lkSky"></div><small class="help2">Ten picture styles for the front page, your website, and your posters.</small></div><div class="mf"><label>Mode</label><div class="chips" id="lkMode"></div></div><div class="mf"><label>Shapes</label><div class="chips" id="lkShape"></div></div><div class="mf"><label>Font</label><div class="chips" id="lkFont"></div><small class="help2">The big headings in the app and, by default, on your posters.</small></div><div class="mf"><label>App color</label><div class="swatches" id="lkAcc"></div><small class="help2">This changes how the app looks on this device. Your website color is set in Build.</small></div><div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="lk-done">Done</button></div></div>');
+  openModal('<h3>Make it yours</h3><div class="mf"><label>Pictures</label><div class="chips" id="lkSky"></div><small class="help2">Ten picture styles for the front page, your website, and your posters.</small></div><div class="mf"><label>Page design</label><div class="themes" id="lkThemes"></div><small class="help2" id="lkThemeHelp"></small></div><div class="mf"><label>Mode</label><div class="chips" id="lkMode"></div></div><div class="mf"><label>Shapes</label><div class="chips" id="lkShape"></div></div><div class="mf"><label>Font</label><div class="chips" id="lkFont"></div><small class="help2">The big headings in the app and, by default, on your posters.</small></div><div class="mf"><label>App color</label><div class="swatches" id="lkAcc"></div><small class="help2">This changes how the app looks on this device. Your website color is set in Build.</small></div><div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="lk-done">Done</button></div></div>');
   const draw=()=>{
+    paintThemeCards(mbody.querySelector("#lkThemes"),mbody.querySelector("#lkThemeHelp"));
     const chips=(id,items,cur,fn)=>{const w=mbody.querySelector(id);w.innerHTML="";items.forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String(cur===it[0]));b.onclick=()=>{fn(it[0]);saveLook();applyLook();draw();};w.appendChild(b);});};
     {const w=mbody.querySelector("#lkSky");w.innerHTML="";const ab=document.createElement("button");ab.type="button";ab.className="btn ghost";ab.textContent="Change the pictures ("+artName()+")";ab.onclick=()=>openArt();w.appendChild(ab);}
     fontChips(mbody.querySelector("#lkFont"),LOOK.font||"workwear",v=>{LOOK.font=v;saveLook();applyLook();draw();});
