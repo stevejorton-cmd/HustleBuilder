@@ -792,6 +792,7 @@ details.help li{margin-bottom:10px}
         <p class="lead" id="accountLead">Sign in with the email code below. Then each kid page shows here.</p>
         <div id="accountSites"></div>
         <p class="status" id="accountMsg" role="status"></p>
+        <p><button type="button" class="btn ghost" id="acctSignOut" hidden>Sign out on this device</button></p>
       </section>
       <div class="missing" id="missing" hidden></div>
       <h3 class="h3">Publish to hustlebuilder.org</h3>
@@ -3884,6 +3885,13 @@ document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[da
 function inboxValid(u){return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+\/|macros\/)s\/[A-Za-z0-9_-]+\/exec$/.test(String(u||"").trim());}
 /* ============ One-tap publish ============ */
 const PUB_KEY="hb-parent-session";
+/* The parent session token now lives in an HttpOnly cookie the server sets at
+   sign-in, so page scripts (including scripts on published kid pages, same
+   origin) cannot read it. localStorage keeps only display data (email, slug).
+   A fresh token is held in memory for this page view only; a token saved by
+   an older version may still sit in localStorage and is sent as a fallback so
+   nobody gets signed out by the switch, but new sign-ins never save it. */
+let pubMemToken="";
 function publishOrigin(){
   const custom=String(window.HB_PUBLISH_ORIGIN||"").trim().replace(/\/$/,"");
   if(custom)return custom;
@@ -3891,7 +3899,24 @@ function publishOrigin(){
   return location.origin;
 }
 function pubSession(){try{return JSON.parse(localStorage.getItem(PUB_KEY)||"null");}catch(e){return null;}}
-function pubSaveSession(s){if(s)localStorage.setItem(PUB_KEY,JSON.stringify(s));else localStorage.removeItem(PUB_KEY);}
+function pubSaveSession(s){
+  if(!s){localStorage.removeItem(PUB_KEY); return;}
+  const keep={...s}; delete keep.token;
+  /* Transition guard: a parent whose only credential is a token saved by an
+     older version keeps it across re-saves until they next sign in (which
+     sets pubMemToken and the cookie); from that sign-in on, saves drop it. */
+  if(!pubMemToken){
+    const prev=pubSession();
+    if(prev&&prev.token)keep.token=prev.token;
+  }
+  localStorage.setItem(PUB_KEY,JSON.stringify(keep));
+}
+function pubToken(){const s=pubSession(); return pubMemToken||(s&&s.token)||"";}
+async function pubSignOut(){
+  try{await pubApi("/api/auth/logout",{body:{}});}catch(e){}
+  pubMemToken="";
+  pubSaveSession(null);
+}
 function calSyncOn(){return !!(publishOrigin()&&pubSession()&&localStorage.getItem("hb-cal-sync")!=="0");}
 function calJobBody(j){return {id:j.id,service:j.service||"",customer:j.customer||"",address:j.address||"",start:(j.date||"")+"T"+(j.time||"09:00"),note:j.note||"",amount:j.amount?String(j.amount):""};}
 function syncCalJob(j){if(!calSyncOn()||!j)return;pubApi("/api/jobs",{body:calJobBody(j)}).catch(function(){});}
@@ -3911,9 +3936,9 @@ async function pubApi(path, opt){
   if(!origin)throw new Error("no-host");
   opt=opt||{};
   const headers=Object.assign({"Content-Type":"application/json"}, opt.headers||{});
-  const session=pubSession();
-  if(session&&session.token)headers.Authorization="Bearer "+session.token;
-  const res=await fetch(origin+path, {method:opt.method||"POST", headers, body:opt.body?JSON.stringify(opt.body):undefined});
+  const tok=pubToken();
+  if(tok)headers.Authorization="Bearer "+tok;
+  const res=await fetch(origin+path, {method:opt.method||"POST", headers, credentials:"same-origin", body:opt.body?JSON.stringify(opt.body):undefined});
   const data=await res.json().catch(()=>({ok:false,error:"json"}));
   data.status=res.status;
   return data;
@@ -4030,23 +4055,24 @@ function publishExtras(slug){
 }
 async function initPublish(){
   pubPlans();
-  try{if(pubSession()){const me=await pubApi("/api/me",{method:"GET"}); if(me.ok)showHosting(me);}}catch(e){}
   const origin=publishOrigin();
   const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
   if(!origin){pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
-  const session=pubSession();
-  if(!session||!session.token)return;
-  try{
-    const me=await pubApi("/api/me", {method:"GET"});
-    if(!me.ok){pubSaveSession(null); return;}
-    if($("#pubEmail"))$("#pubEmail").value=me.email||session.email||"";
-    if(me.consent)$("#pubReady").hidden=false;
-    if(me.slug){if($("#pubSlug")){$("#pubSlug").value=me.slug; $("#pubSlug").readOnly=true;} showPublished(me.url|| (origin+"/"+me.slug));}
-    const help=$("#pubPlanHelp");
-    if(help)help.textContent=planHelp(me);
-    if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;
-    showCalendar(me); syncCalUpcoming();
-  }catch(e){}
+  /* Signed-in state comes from the server now: the HttpOnly cookie (or a
+     remembered token) answers /api/me, so a parent with no local cache is
+     still recognised, and a stale cache alone is not enough. */
+  let me=null;
+  try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){ return; }
+  if(!me.ok){pubSaveSession(null); return;}
+  showHosting(me);
+  pubSaveSession({email:me.email||"", slug:me.slug||""});
+  if($("#pubEmail"))$("#pubEmail").value=me.email||"";
+  if(me.consent)$("#pubReady").hidden=false;
+  if(me.slug){if($("#pubSlug")){$("#pubSlug").value=me.slug; $("#pubSlug").readOnly=true;} showPublished(me.url|| (origin+"/"+me.slug));}
+  const help=$("#pubPlanHelp");
+  if(help)help.textContent=planHelp(me);
+  if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;
+  showCalendar(me); syncCalUpcoming();
 }
 $("#pubSend").onclick=async()=>{
   pubErr(""); $("#pubCodeMsg").textContent="Sending...";
@@ -4061,7 +4087,8 @@ $("#pubVerify").onclick=async()=>{
   try{
     const data=await pubApi("/api/auth/verify", {body:{email:$("#pubEmail").value.trim(), code:$("#pubCode").value.trim()}});
     if(!data.ok){pubErr("That code did not work. Send a new one."); return;}
-    pubSaveSession({token:data.token, email:data.email, slug:data.slug||""});
+    pubMemToken=data.token||"";
+    pubSaveSession({email:data.email, slug:data.slug||""});
     $("#pubReady").hidden=false;
     suggestSlug();
     if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
@@ -4100,8 +4127,12 @@ async function pubCheckout(){
 async function pubPush(){
   pubErr("");
   if(missing().length){updateLaunch(); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
-  const session=pubSession();
-  if(!session||!session.token){pubErr("Verify the parent’s email first."); return;}
+  const session=pubSession()||{};
+  if(!pubToken()&&!session.email){
+    const probe=await pubApi("/api/me", {method:"GET"}).catch(()=>null);
+    if(!probe||!probe.ok){pubErr("Verify the parent’s email first."); return;}
+    session.email=probe.email||""; session.slug=probe.slug||session.slug||"";
+  }
   if(!session.slug && !$("#pubConsent").checked){
     const prior=await pubApi("/api/me", {method:"GET"});
     if(!prior.consent){pubErr("A parent has to check the box before the first publish."); return;}
@@ -4141,10 +4172,17 @@ async function showAccount(){
   const lead=$("#accountLead"), box=$("#accountSites"), msg=$("#accountMsg");
   if(msg)msg.textContent="";
   const session=pubSession();
-  if(!session||!session.token){if(lead)lead.textContent="Sign in with the email code below. Then each kid page shows here."; if(box)box.innerHTML=""; return;}
-  if(lead)lead.textContent="Each kid page is listed here.";
+  const hadHint=!!(session||pubMemToken);
+  const outBtn=$("#acctSignOut"); if(outBtn)outBtn.hidden=true;
   let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(msg)msg.textContent="Could not open the account. Try again."; return;}
-  if(!data.ok){if(msg)msg.textContent="Sign in again with a new code."; return;}
+  if(!data.ok){
+    if(lead)lead.textContent=hadHint?"Each kid page is listed here.":"Sign in with the email code below. Then each kid page shows here.";
+    if(box)box.innerHTML="";
+    if(msg)msg.textContent=hadHint?"Sign in again with a new code.":"";
+    return;
+  }
+  if(lead)lead.textContent="Each kid page is listed here.";
+  if(outBtn)outBtn.hidden=false;
   if(box)box.innerHTML="";
   if(!data.sites||!data.sites.length){if(box){const p=document.createElement("p"); p.textContent="No page yet. Publish one below, and it will show up here."; box.appendChild(p);} return;}
   data.sites.forEach(site=>{
@@ -4193,6 +4231,16 @@ async function showAccount(){
 }
 const openAccountBtn=$("#openAccount");
 if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);};
+const acctOutBtn=$("#acctSignOut");
+if(acctOutBtn)acctOutBtn.onclick=async()=>{
+  await pubSignOut();
+  const ready=$("#pubReady"); if(ready)ready.hidden=true;
+  const manage=$("#pubManage"); if(manage)manage.hidden=true;
+  const wrap=$("#pubUrlWrap"); if(wrap)wrap.hidden=true;
+  const goBtn=$("#pubGo"); if(goBtn)goBtn.hidden=false;
+  const ok=$("#pubOk"); if(ok)ok.textContent="Signed out on this device.";
+  showAccount();
+};
 const shareBox=$("#shareStreet");
 if(shareBox)shareBox.onchange=async()=>{
   const data=await pubApi("/api/share",{body:{on:!!shareBox.checked}});
@@ -4202,7 +4250,7 @@ function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",ca
 async function loadMyJobs(){
   const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
   const session=pubSession();
-  if(!code&&!(session&&session.token))return;
+  if(!code&&!pubToken()&&!session)return;
   try{
     const data=await pubApi("/api/my-jobs"+(code?"?code="+encodeURIComponent(code):""),{method:"GET"});
     if(!data.ok)return;
@@ -4259,6 +4307,7 @@ $("#pubDelete").onclick=async()=>{
   if(!pubDelArmed){pubDelArmed=true; b.textContent="Tap again to delete the account"; return;}
   const data=await pubApi("/api/account", {method:"DELETE"});
   if(!data.ok){pubErr("Could not delete the account."); return;}
+  pubMemToken="";
   pubSaveSession(null);
   $("#pubReady").hidden=true; $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
   const calBox=$("#calBox"); if(calBox)calBox.hidden=true;
@@ -4385,7 +4434,8 @@ async function openAsk(token){
   try{
     const data=await pubApi("/api/ask/"+token+"/open",{body:{}});
     if(!data.ok){go(7);pubErr("That parent link expired. Ask for a new one.");return;}
-    pubSaveSession({token:data.token,email:data.email,slug:data.slug||""});
+    pubMemToken=data.token||"";
+    pubSaveSession({email:data.email,slug:data.slug||""});
     if(data.draft)applyDraft(data.draft);
     if($("#pubEmail"))$("#pubEmail").value=data.email||"";
     go(7);
