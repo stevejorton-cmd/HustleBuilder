@@ -1860,6 +1860,56 @@ test("website font: the Make it yours panel drives the website pick", async () =
   assert.equal(src.includes("by default, on your posters"), false);
 });
 
+/* ---- service switching: an app-supplied business name follows the new job ---- */
+function extractNameParts(src) {
+  const cut = (from, to) => {
+    const start = src.indexOf(from);
+    const end = src.indexOf(to, start + from.length);
+    if (start < 0 || end < 0) throw new Error("missing " + from);
+    return src.slice(start, end);
+  };
+  return cut("function typeInfo(", "const PET_ART=") + cut("function autoBiz(", "const DEF_HOURS=");
+}
+
+test("service name: an app-supplied name clears when the job switches, a typed name stays", async () => {
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const api = runInNewContext(extractNameParts(src) + "({autoBiz, nameIsPlaceholder, switchedBizName})");
+  // The reported flow at the state level: a name-idea pick made under Cars,
+  // then the kid goes back and picks Snow. The pick was the app's, so it
+  // clears and the new job's built-in default takes over in resolve().
+  assert.equal(api.switchedBizName("Suds Buds", "Suds Buds", "wash", "Alex"), "");
+  assert.equal(api.autoBiz("snow", "Alex"), "Alex’s Snow Removal");
+  assert.equal(api.autoBiz("lawn", "Alex"), "Alex’s Lawn Co.");
+  assert.equal(api.autoBiz("pet", "Alex"), "Alex’s Pet Care");
+  // A stored name that is exactly the old job's built-in default is a
+  // placeholder too (covers names stored before provenance existed).
+  assert.equal(api.switchedBizName("Alex’s Car Wash", "", "wash", "Alex"), "");
+  assert.equal(api.switchedBizName("Alex’s Lawn Co.", "", "lawn", "Alex"), "");
+  // Preset -> preset -> preset: each default reads as a placeholder for the
+  // next switch, so the name keeps following the tiles.
+  assert.equal(api.nameIsPlaceholder("Alex’s Snow Removal", "", "snow", "Alex"), true);
+  assert.equal(api.nameIsPlaceholder("Alex’s Pet Care", "", "pet", "Alex"), true);
+  // A name the kid typed is never overwritten by switching.
+  assert.equal(api.switchedBizName("Car Detail", "", "wash", "Alex"), "Car Detail");
+  assert.equal(api.switchedBizName("Sam’s Snow Crew", "", "lawn", "Sam"), "Sam’s Snow Crew");
+  // Editing an app-supplied pick makes it the kid's own: the recorded pick no
+  // longer matches, so the edited name stays.
+  assert.equal(api.switchedBizName("Suds Buds Co.", "Suds Buds", "wash", "Alex"), "Suds Buds Co.");
+  // Blank stays blank; it already derives from the current job.
+  assert.equal(api.switchedBizName("", "", "wash", "Alex"), "");
+  assert.equal(api.nameIsPlaceholder("", "", "wash", "Alex"), false);
+});
+
+test("service name: the builder wires provenance through picks, typing, and switching", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /bizNameAuto:""/); // state default: no app-supplied name recorded
+  assert.match(src, /function applyName\(v\)\{S\.bizName=v;S\.bizNameAuto=v;/); // idea chips supply the name
+  assert.match(src, /S\.bizName=n;S\.bizNameAuto=n;/); // the surprise pick supplies it too
+  assert.match(src, /switchedBizName\(S\.bizName,S\.bizNameAuto,S\.type,/); // switching consults provenance first
+  assert.match(src, /dataset\.k==="bizName"&&S\.bizNameAuto/); // typing in the field takes ownership
+});
+
 /* ---- pilot fixes (Nov 1): prices, pet art, sticky preview, pet hero, tagline, Make It Yours ---- */
 test("pilot fixes: prices cap at $500 wherever they render, free text untouched", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");

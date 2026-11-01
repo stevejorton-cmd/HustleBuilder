@@ -2088,10 +2088,25 @@ function shouldPreload(edited, services, nextType){
 }
 const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
 function autoBiz(type,first){const f=first||"Alex";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
+/* Where did the business name come from? A name the app supplied (a name-idea
+   pick, or exactly the built-in default for the job picked) is only a
+   placeholder: when the kid switches what they do, it clears so the new job's
+   default takes over. A name the kid typed is theirs and never changes.
+   bizNameAuto records the last app-supplied pick; drafts saved before that
+   field existed carry no record, so a stored name in one counts as typed. */
+function nameIsPlaceholder(name,auto,type,first){
+  const n=String(name||"").trim();
+  if(!n)return false;
+  if(auto&&n===String(auto).trim())return true;
+  return n===autoBiz(type,first||"Alex");
+}
+function switchedBizName(name,auto,oldType,first){
+  return nameIsPlaceholder(name,auto,oldType,first)?"":String(name||"");
+}
 const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
-  return {type:"lawn",first:"",town:"",bizName:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,
+  return {type:"lawn",first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,
     palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
@@ -2151,6 +2166,8 @@ function presetServices(id){
   return starterServices(id, (S&&S.lvlApplied)||1);
 }
 function pickType(id){
+  const keptName=switchedBizName(S.bizName,S.bizNameAuto,S.type,S.first.trim()||"Alex");
+  if(keptName!==S.bizName){S.bizName=keptName;S.bizNameAuto="";const nameEl=$("#bizName");if(nameEl)nameEl.value=keptName;}
   S.type=id;
   if(shouldPreload(S.svcEdited,S.services,id)){S.svcEdited=false;S.services=starterServices(id, S.lvlApplied||1);renderServices();}
   if(TYPE_COLOR[id]&&!S.paletteTouched){S.palette=TYPE_COLOR[id];if(typeof renderRigs==="function")renderRigs();}
@@ -2249,7 +2266,7 @@ function refresh(){frame.srcdoc=genSite(resolve(true));}
 
 document.querySelectorAll("[data-k]").forEach(el=>{
   el.value=S[el.dataset.k]||"";
-  el.addEventListener("input",()=>{S[el.dataset.k]=el.value;syncPlaceholders();queue();});
+  el.addEventListener("input",()=>{S[el.dataset.k]=el.value;if(el.dataset.k==="bizName"&&S.bizNameAuto&&el.value.trim()!==S.bizNameAuto.trim())S.bizNameAuto="";syncPlaceholders();queue();});
 });
 const showPhoneEl=$("#showPhone");
 if(showPhoneEl){showPhoneEl.checked=!!S.showPhone;showPhoneEl.addEventListener("change",()=>{S.showPhone=showPhoneEl.checked;queue();});}
@@ -3669,7 +3686,7 @@ function nameList(type){
   return out;
 }
 function tagList(type){return (TAG_IDEAS[type||S.type]||[typeInfo(type||S.type).tag]).concat(TAG_ANY);}
-function applyName(v){S.bizName=v;const el=$("#bizName");if(el)el.value=v;queue();renderIdeas();}
+function applyName(v){S.bizName=v;S.bizNameAuto=v;const el=$("#bizName");if(el)el.value=v;queue();renderIdeas();}
 function applyTag(v){S.tagline=v;const el=$("#tagline");if(el)el.value=v;queue();renderIdeas();}
 function renderIdeas(){
   const nc=$("#nameChips"),tl=$("#tagList");if(!nc||!tl)return;
@@ -3697,7 +3714,7 @@ $("#shuffleTags").onclick=()=>{tagPage++;renderIdeas();};
 $("#surprise").onclick=()=>{
   ideaSeed=Math.floor(Math.random()*1e9);namePage=0;tagPage=0;
   const n=shuffled(nameList(),ideaSeed)[0],t=shuffled(tagList(),ideaSeed+7)[0];
-  S.bizName=n;S.tagline=t;$("#bizName").value=n;$("#tagline").value=t;queue();renderIdeas();
+  S.bizName=n;S.bizNameAuto=n;S.tagline=t;$("#bizName").value=n;$("#tagline").value=t;queue();renderIdeas();
 };
 
 /* ============ About and legal ============ */
