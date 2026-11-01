@@ -199,7 +199,18 @@ async function saveAccount(account) {
   if (account.tokenHash) await (await store()).put("tokens/" + account.tokenHash, account.id);
 }
 
+// Friends & family comp: the operator can mark an account free with no
+// payment and no end date (account.comp, set only from the admin view —
+// there is no self-serve path). The flag is honored inside these paywall
+// helpers, so a comped account counts as paid everywhere the state is
+// decided: its page never pauses for payment reasons, no trial clock
+// applies, and the renewal cron skips it entirely.
+function comped(account) {
+  return !!(account && account.comp === true);
+}
+
 function paid(account, now = Date.now()) {
+  if (comped(account)) return true;
   return !!(account && account.paidUntil && Date.parse(account.paidUntil) > now);
 }
 
@@ -212,10 +223,12 @@ function graceLeftDays(account, now = Date.now()) {
 }
 
 function inGrace(account, now = Date.now()) {
+  if (comped(account)) return false;
   return graceLeftDays(account, now) > 0;
 }
 
 function onBreak(account, now = Date.now()) {
+  if (comped(account)) return false;
   const end = Date.parse(account && account.paidUntil || "");
   if (!Number.isFinite(end)) return false;
   return now > end + GRACE_DAYS * 864e5;
@@ -593,6 +606,9 @@ function adminStatus(account, meta, used) {
   if (meta.status === "down") {
     return { key: "down", label: "Taken down", date: meta.downAt ? "Since " + niceDate(meta.downAt) : "" };
   }
+  if (comped(account)) {
+    return { key: "free", label: "Free (friends & family)", date: account.compAt ? "Since " + niceDate(account.compAt) : "" };
+  }
   if (paid(account)) {
     return { key: "paid", label: "Paid" + (account.planName ? " · " + account.planName : ""), date: "Through " + niceDate(account.paidUntil) };
   }
@@ -627,7 +643,7 @@ async function adminDashboardPage(origin) {
     const meta = await readJson(key);
     if (meta && meta.slug && meta.status !== "redirect") metas.set(meta.slug, meta);
   }
-  const counts = { accounts: 0, live: 0, trial: 0, paid: 0, grace: 0, break: 0, hidden: 0, bookings: 0 };
+  const counts = { accounts: 0, live: 0, trial: 0, paid: 0, free: 0, grace: 0, break: 0, hidden: 0, bookings: 0 };
   for (const meta of metas.values()) {
     if (meta.status === "live") counts.live += 1;
     if (meta.status === "review") counts.hidden += 1;
@@ -639,6 +655,7 @@ async function adminDashboardPage(origin) {
     const account = await readJson(key);
     if (!account || !account.id) continue;
     counts.accounts += 1;
+    if (comped(account)) counts.free += 1;
     const meta = account.slug ? metas.get(account.slug) || null : null;
     if (meta) seen.add(meta.slug);
     const used = await trialCount(account.email);
@@ -651,6 +668,8 @@ async function adminDashboardPage(origin) {
     counts.bookings += requests.length;
     const names = meta ? await siteNames(meta.slug, meta) : { first: "", biz: "" };
     rows.push({
+      id: account.id,
+      comp: comped(account),
       biz: names.biz,
       first: names.first,
       slug: meta ? meta.slug : account.slug || "",
@@ -666,6 +685,8 @@ async function adminDashboardPage(origin) {
     const status = adminStatus(null, meta, 0);
     const names = await siteNames(meta.slug, meta);
     rows.push({
+      id: "",
+      comp: false,
       biz: names.biz,
       first: names.first,
       slug: meta.slug,
@@ -683,6 +704,7 @@ async function adminDashboardPage(origin) {
     tile(counts.live, "Sites live"),
     tile(counts.trial, "In trial"),
     tile(counts.paid, "Paid"),
+    tile(counts.free, "Free"),
     tile(counts.grace, "In grace"),
     tile(counts.break, "Taking a break"),
     tile(counts.hidden, "Hidden by reports"),
@@ -695,6 +717,7 @@ async function adminDashboardPage(origin) {
 <td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.bookings}</td>
 <td style="padding:8px;vertical-align:top">${row.reports}</td>
+<td style="padding:8px;vertical-align:top">${row.id ? `<form method="post" action="/admin/comp"><input type="hidden" name="id" value="${mailEscape(row.id)}"><input type="hidden" name="on" value="${row.comp ? "0" : "1"}"><button type="submit" style="font:14px system-ui;padding:6px 10px">${row.comp ? "Remove free" : "Make free"}</button></form>` : "—"}</td>
 </tr>`).join("");
   return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Hustle Builder admin</title></head><body>
 <main style="max-width:64rem;margin:2rem auto;font:16px/1.5 system-ui,sans-serif;padding:0 1rem">
@@ -705,11 +728,11 @@ async function adminDashboardPage(origin) {
 <div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0">${tiles}</div>
 <table style="border-collapse:collapse;width:100%">
 <thead><tr style="text-align:left;border-bottom:2px solid #1d2226">
-<th style="padding:8px">Business · kid</th><th style="padding:8px">Page</th><th style="padding:8px">Parent email</th><th style="padding:8px">Status</th><th style="padding:8px">Bookings</th><th style="padding:8px">Reports</th>
+<th style="padding:8px">Business · kid</th><th style="padding:8px">Page</th><th style="padding:8px">Parent email</th><th style="padding:8px">Status</th><th style="padding:8px">Bookings</th><th style="padding:8px">Reports</th><th style="padding:8px">Free</th>
 </tr></thead>
-<tbody>${body || `<tr><td colspan="6" style="padding:8px">No accounts yet.</td></tr>`}</tbody>
+<tbody>${body || `<tr><td colspan="7" style="padding:8px">No accounts yet.</td></tr>`}</tbody>
 </table>
-<p style="color:#5a6672">Bookings are the requests still stored per family (newest 80 kept). Reports are the reports on a page right now; restoring a page clears them.</p>
+<p style="color:#5a6672">Bookings are the requests still stored per family (newest 80 kept). Reports are the reports on a page right now; restoring a page clears them. “Make free” puts a family on the friends &amp; family plan: no payment, no trial clock, no renewal emails. “Remove free” hands the account back to whatever its trial or paid dates say.</p>
 </main></body></html>`);
 }
 
@@ -1211,7 +1234,7 @@ export async function handleRequest(req) {
     const year = yearOffer();
     return withCors(json(200, {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
-      plan: account.plan || "", planName: account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account),
+      plan: account.plan || "", planName: comped(account) ? "Friends & family" : account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account), comp: comped(account),
       grace: inGrace(account), graceDays: graceLeftDays(account),
       trialUsed: used, trialLeft: Math.max(0, FREE_JOBS - used),
       trialDays: trialLengthDays(), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "",
@@ -1595,6 +1618,9 @@ document.getElementById("done").onclick=()=>mark("done");
     const id = await (await store()).get("renew/" + renewGet[1]);
     const account = id ? await readJson("accounts/" + id.trim() + ".json") : null;
     if (!account) return html(404, "<!DOCTYPE html><html><body><p>This renew link is finished.</p></body></html>");
+    if (comped(account)) {
+      return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>You're covered</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're covered</h1><p>This page is on the friends &amp; family plan — free, with no payment due. There is nothing to renew.</p><p><a href="${mailEscape(accountUrl(origin))}">Your account</a></p></body></html>`);
+    }
     const planId = (req.query && req.query.get && req.query.get("plan")) === "year" ? "year" : "season";
     if (paywallMode() === "stripe" && process.env.STRIPE_SECRET_KEY) {
       return html(200, "<!DOCTYPE html><html><body><p>Open the builder to pay with a card. Test mode is off.</p></body></html>");
@@ -1626,7 +1652,7 @@ document.getElementById("done").onclick=()=>mark("done");
     const due = [];
     for (const id of ids) {
       const account = await readJson("accounts/" + id + ".json");
-      if (!account || !account.paidUntil) continue;
+      if (!account || comped(account) || !account.paidUntil) continue;
       const days = daysUntil(account.paidUntil);
       if (days !== 14 && days !== 3 && days !== 0) continue;
       const key = days + ":" + String(account.paidUntil).slice(0, 10);
@@ -1655,7 +1681,7 @@ document.getElementById("done").onclick=()=>mark("done");
     }
     for (const id of ids) {
       const account = await readJson("accounts/" + id + ".json");
-      if (!account || !account.trialEndsAt || paid(account) || inGrace(account)) continue;
+      if (!account || comped(account) || !account.trialEndsAt || paid(account) || inGrace(account)) continue;
       const used = await trialCount(account.email);
       if (used >= FREE_JOBS) continue;
       const days = daysUntil(account.trialEndsAt);
@@ -1997,6 +2023,33 @@ document.getElementById("done").onclick=()=>mark("done");
     return { status: 302, headers: { location: "/admin", "cache-control": "no-store", "set-cookie": clearAdminCookieHeader() }, body: "" };
   }
 
+  // The one place a friends & family comp is granted or taken back. It
+  // rides the dashboard's own admin session (never the bare secret, never
+  // a public path): no session, no change, and no account data back.
+  if (method === "POST" && adminRoute === "admin/comp") {
+    const secret = process.env.ADMIN_SECRET || "";
+    if (!secret) return adminSetupPage();
+    const back = { status: 302, headers: { location: "/admin", "cache-control": "no-store" }, body: "" };
+    if (!(await adminAuthed(req.headers))) return back;
+    const id = String(body.id || "");
+    if (!/^[a-f0-9]{8,32}$/.test(id)) return back;
+    const account = await readJson("accounts/" + id + ".json");
+    if (!account) return back;
+    if (String(body.on || "") === "1") {
+      account.comp = true;
+      account.compAt = new Date().toISOString();
+      await saveAccount(account);
+      // Like a payment landing: requests held while the family was paused
+      // for payment are released to the parent right away.
+      await releaseHeld(account, origin);
+    } else {
+      delete account.comp;
+      delete account.compAt;
+      await saveAccount(account);
+    }
+    return back;
+  }
+
   if (method === "POST" && route === "admin/restore") {
     const secret = process.env.ADMIN_SECRET || "";
     const given = (req.headers && (req.headers["x-admin-secret"] || req.headers["X-Admin-Secret"])) || "";
@@ -2042,8 +2095,9 @@ document.getElementById("done").onclick=()=>mark("done");
         url: (origin || "") + "/" + account.slug,
         status: meta.status || "offline",
         plan: account.plan || "",
-        planName: account.planName || (paid(account) ? "Paid plan" : "Free trial"),
+        planName: comped(account) ? "Friends & family" : account.planName || (paid(account) ? "Paid plan" : "Free trial"),
         paid: paid(account),
+        comp: comped(account),
         paidUntil: account.paidUntil || "",
         paidUntilLabel: account.paidUntil ? niceDate(account.paidUntil) : "",
         grace: inGrace(account),
