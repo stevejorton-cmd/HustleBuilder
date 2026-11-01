@@ -2081,11 +2081,84 @@ function starterServices(picked, level){
   });
   return out;
 }
-function shouldPreload(edited, services, nextType){
-  if(!edited)return true;
-  if(nextType==="other")return false;
-  const named=Array.isArray(services)?services.filter(s=>String(s.n||"").trim()):[];
-  return named.length<2;
+/* Price rows belong to the job they were made under. S.services is always
+   the ACTIVE job's rows; every other job's rows wait in S.svcSets
+   ({type:{services,edited}}) so switching what you do can never show one
+   job's prices on another job's build, and switching back restores the rows
+   exactly as they were left — edits, custom rows, and all. svcEdited travels
+   with its set: it stays the active job's "the kid took these rows over"
+   flag, the same one the Something else name box and the load-time reseed
+   read. A set the kid never edited is only starter rows, so it is not
+   restored as-is — it is seeded fresh at the level that applies now, the
+   way an untouched list always followed the level. */
+function svcRowClone(rows){
+  return (Array.isArray(rows)?rows:[]).filter(s=>s&&typeof s==="object").map(s=>{
+    const r={n:String(s.n==null?"":s.n),p:String(s.p==null?"":s.p)};
+    if(s.on===false)r.on=false; else if(s.on===true)r.on=true;
+    return r;
+  });
+}
+function svcSetsClean(sets){
+  const out={};
+  if(!sets||typeof sets!=="object")return out;
+  Object.keys(sets).forEach(k=>{
+    const v=sets[k];
+    if(!PRESETS[k]||!v||typeof v!=="object"||!Array.isArray(v.services))return;
+    out[k]={services:svcRowClone(v.services),edited:!!v.edited};
+  });
+  return out;
+}
+function svcSwitch(sets,fromType,cur,toType,level){
+  const next=svcSetsClean(sets);
+  if(fromType&&cur&&fromType===toType){delete next[toType];return {sets:next,services:svcRowClone(cur.services),edited:!!cur.edited};}
+  if(fromType&&cur)next[fromType]={services:svcRowClone(cur.services),edited:!!cur.edited};
+  let active=null;
+  if(toType&&next[toType]){active=next[toType];delete next[toType];}
+  if(!active||!active.edited)active={services:starterServices(toType,level),edited:false};
+  return {sets:next,services:active.services,edited:active.edited};
+}
+function svcKnownNames(id){
+  const out={};
+  chosenTypes(id).forEach(k=>{(PRESETS[k]||[]).forEach(row=>{out[String(row[0]).toLowerCase()]=1;});});
+  return out;
+}
+/* Whose rows are these, really? A draft saved before rows were kept per job
+   can hold one job's rows under another job's name (pet rows on a lawn
+   build). Detection scores the row names against each job's starter list:
+   another job must claim at least two rows and strictly more than the
+   selected job claims, with no tie. Anything less sure — custom names, a
+   single row, a tie — proves nothing, and the rows stay where they are:
+   they are the kid's own words, never deleted on a guess. ("Both" is never
+   a detected owner: its rows are the lawn and snow lists together, so it
+   would tie with whichever half is present.) */
+function svcRowsOwner(services,type){
+  const names=(Array.isArray(services)?services:[]).map(s=>String((s&&s.n)||"").trim().toLowerCase()).filter(Boolean);
+  if(names.length<2)return "";
+  const mine=svcKnownNames(type);
+  let curScore=0; names.forEach(n=>{if(mine[n])curScore++;});
+  let best="",bestScore=0,tied=false;
+  Object.keys(PRESETS).forEach(id=>{
+    if(id==="both")return;
+    const known=svcKnownNames(id); let score=0;
+    names.forEach(n=>{if(known[n])score++;});
+    if(score>bestScore){bestScore=score;best=id;tied=false;}
+    else if(score===bestScore&&score>0)tied=true;
+  });
+  if(!best||tied||bestScore<2||bestScore<=curScore)return "";
+  return best;
+}
+/* Load-time repair for drafts saved before per-job rows: if the stored rows
+   provably belong to another job, park them under that job (they come back
+   when the kid switches to it) and seed the selected job's own rows. */
+function fixSvcRows(){
+  S.svcSets=svcSetsClean(S.svcSets);
+  if(!Array.isArray(S.services))S.services=[];
+  const owner=svcRowsOwner(S.services,S.type);
+  if(owner){
+    S.svcSets[owner]={services:svcRowClone(S.services),edited:!!S.svcEdited};
+    S.services=starterServices(S.type,S.lvlApplied||1);
+    S.svcEdited=false;
+  }
 }
 const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
 function autoBiz(type,first){const f=first||"Alex";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
@@ -2107,7 +2180,7 @@ function switchedBizName(name,auto,oldType,first){
 const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
-  return {type:"lawn",first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,
+  return {type:"lawn",first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,svcSets:{},
     palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
@@ -2115,6 +2188,7 @@ let savedRaw=null;
 try{const r=localStorage.getItem(LS); if(r){savedRaw=JSON.parse(r);S=Object.assign(defaults(),savedRaw);}}catch(e){}
 if(!RIGS[S.palette])S.palette="ember";
 if(!PRESETS[S.type])S.type="lawn";
+fixSvcRows();
 if(!S.svcEdited)S.services=starterServices(undefined, S.lvlApplied||1);
 if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
   const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
@@ -2169,8 +2243,13 @@ function presetServices(id){
 function pickType(id){
   const keptName=switchedBizName(S.bizName,S.bizNameAuto,S.type,S.first.trim()||"Alex");
   if(keptName!==S.bizName){S.bizName=keptName;S.bizNameAuto="";const nameEl=$("#bizName");if(nameEl)nameEl.value=keptName;}
+  const oldType=S.type;
   S.type=id;
-  if(shouldPreload(S.svcEdited,S.services,id)){S.svcEdited=false;S.services=starterServices(id, S.lvlApplied||1);renderServices();}
+  if(oldType!==id){
+    const sw=svcSwitch(S.svcSets,oldType,{services:S.services,edited:S.svcEdited},id,S.lvlApplied||1);
+    S.svcSets=sw.sets;S.services=sw.services;S.svcEdited=sw.edited;
+    renderServices();
+  }
   if(TYPE_COLOR[id]&&!S.paletteTouched){S.palette=TYPE_COLOR[id];if(typeof renderRigs==="function")renderRigs();}
   shell.dataset.type=S.type; syncPlaceholders(); renderTiles(); syncOther(); syncTypeCopy(); queue();
 }
@@ -3765,7 +3844,7 @@ let stHist=[],stTab=0,stOpen=false,thumbTimer=0,stNamePg=0,stTagPg=0;
 const foldOpen={};
 function foldify(node,key){const lab=node.querySelector("label");const d=document.createElement("details");d.className="fold";if(foldOpen[key])d.open=true;d.addEventListener("toggle",()=>{foldOpen[key]=d.open;});const sm=document.createElement("summary");sm.textContent=lab?lab.textContent:key;d.appendChild(sm);const body=document.createElement("div");body.className="fold-body";[...node.childNodes].forEach(c=>{if(c!==lab)body.appendChild(c);});d.appendChild(body);node.replaceWith(d);return d;}
 function pKind(){const k=S.studio.kind;return (k==='lawn'||k==='snow'||k==='both')?k:S.type;}
-function svcFor(type){if(type===S.type)return resolve(true).services;return starterServices(type,S.lvlApplied||1).map(s=>{const m=S.services.find(x=>x.n===s.n);return {n:s.n,p:m?m.p:s.p};});}
+function svcFor(type){if(type===S.type)return resolve(true).services;const parked=S.svcSets&&S.svcSets[type];if(parked&&Array.isArray(parked.services)&&parked.services.length)return parked.services.filter(s=>s.n&&String(s.n).trim()&&s.on!==false).map(s=>({n:s.n,p:cleanPrice(s.p)}));return starterServices(type,S.lvlApplied||1).map(s=>{const m=S.services.find(x=>x.n===s.n);return {n:s.n,p:m?m.p:s.p};});}
 const pImgs={};
 function pPhoto(){const pr=S.proof.find(x=>x.a)||S.proof.find(x=>x.b);if(!pr)return null;const src=pr.a||pr.b,key=src.length+":"+src.slice(-24);let im=pImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen)drawStudio();};im.src=src;pImgs[key]=im;}return im._ok?im:null;}
 const pSceneImgs={};
@@ -4783,6 +4862,7 @@ function applyDraft(d){
   if(!d||typeof d!=="object")return;
   S=Object.assign(defaults(),d);
   if(!PRESETS[S.type])S.type="lawn";
+  fixSvcRows();
   document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
   const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
   const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";
