@@ -1910,6 +1910,29 @@ test("service name: the builder wires provenance through picks, typing, and swit
   assert.match(src, /dataset\.k==="bizName"&&S\.bizNameAuto/); // typing in the field takes ownership
 });
 
+/* ---- serving line lift (Nov 1): extra room under the hero's Serving row ---- */
+test("serving line: the hero keeps extra room under the Serving row in every look", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite, SITE_THEMES } = extractBuilderParts(src);
+  // The .meta "Serving <town>" row is the last thing in .hero-in, so its
+  // clearance above the hero's bottom edge is the hero-in bottom padding.
+  // In the builder's phone frame that edge sits at the frame's curved
+  // bottom corner, so the row needs more than the old 52px.
+  const bold = genSite(demoCfg({ theme: "" }));
+  assert.ok(bold.includes("padding:0 22px 66px"), "base hero-in bottom padding is lifted to 66px");
+  const day = genSite(demoCfg({ theme: "", look: "day" }));
+  assert.ok(day.includes("padding:0 22px 66px"), "the day look shares the lifted base padding");
+  // Themes ride the base padding unless they override the hero-in bottom
+  // spacing themselves; only Clean and Retro do, and both carry the lift.
+  for (const id of Object.keys(SITE_THEMES)) {
+    const html = genSite(demoCfg({ theme: id }));
+    assert.ok(html.includes("Serving Lincoln"), id + " still renders the Serving row");
+    if (id === "clean") assert.ok(html.includes(".hero-in{text-align:center;padding-bottom:58px}"), "clean lifts its override to 58px");
+    else if (id === "retro") assert.ok(html.includes("margin:0 auto 54px"), "retro lifts its hero card to a 54px bottom margin");
+    else assert.ok(html.includes("padding:0 22px 66px"), id + " inherits the lifted base padding");
+  }
+});
+
 /* ---- pilot fixes (Nov 1): prices, pet art, sticky preview, pet hero, tagline, Make It Yours ---- */
 test("pilot fixes: prices cap at $500 wherever they render, free text untouched", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
