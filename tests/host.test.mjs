@@ -913,8 +913,8 @@ test("each business type preloads starter jobs", async () => {
   const start = src.indexOf("const PRESETS=");
   const end = src.indexOf("const TAGS=", start);
   if (start < 0 || end < 0) throw new Error("missing starter jobs");
-  const api = runInNewContext(src.slice(start, end) + "({starterServices, shouldPreload})");
-  const { starterServices, shouldPreload } = api;
+  const api = runInNewContext(src.slice(start, end) + "({starterServices, svcSwitch})");
+  const { starterServices, svcSwitch } = api;
   for (const type of ["lawn", "snow", "pet", "wash", "odd", "help", "tutor", "both"]) {
     const jobs = starterServices(type, 1);
     assert.ok(jobs.length >= 4, type + " preloaded " + jobs.length);
@@ -933,14 +933,71 @@ test("each business type preloads starter jobs", async () => {
   assert.equal(new Set(mixed.map((job) => job.n.toLowerCase())).size, mixed.length);
   const year = starterServices("both", 1).map((job) => job.n);
   assert.ok(year.includes("Mow a small yard") && year.includes("Shovel the driveway"));
-  assert.equal(shouldPreload(true, [{ n: "Steve's Lawn Co.", p: "10" }], "lawn"), true);
-  assert.equal(shouldPreload(true, [{ n: "My service", p: "10" }], "lawn"), true);
-  assert.equal(shouldPreload(true, [{ n: "My service", p: "10" }], "other"), false);
-  assert.equal(shouldPreload(true, lawn.map((n) => ({ n, p: "10" })), "lawn"), false);
+  // switching to a job with no saved rows seeds that job's starters
+  const seeded = svcSwitch({}, "pet", { services: starterServices("pet", 1), edited: true }, "lawn", 1);
+  assert.deepEqual(seeded.services.map((job) => job.n), lawn);
+  assert.equal(seeded.edited, false);
   const goAt = src.indexOf("function go(");
   const goSrc = src.slice(goAt, goAt + 500);
   assert.equal(goSrc.includes("S.services"), false);
-  assert.match(src, /shouldPreload\(S\.svcEdited/);
+  assert.match(src, /svcSwitch\(S\.svcSets/);
+});
+
+test("price rows stay with the job they were made under", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("const PRESETS=");
+  const end = src.indexOf("const TAGS=", start);
+  if (start < 0 || end < 0) throw new Error("missing starter jobs");
+  const api = runInNewContext(src.slice(start, end) + "({starterServices, svcSwitch, svcRowsOwner, svcSetsClean})");
+  const { starterServices, svcSwitch, svcRowsOwner, svcSetsClean } = api;
+  const plain = (v) => JSON.parse(JSON.stringify(v)); // cross-realm compare
+
+  // the pilot case: pet rows were edited, then the kid switches to lawn
+  const petRows = starterServices("pet", 1);
+  petRows[0].p = "9"; // an edited price
+  petRows.push({ n: "Walkies deluxe", p: "20" }); // a custom row
+  const toLawn = svcSwitch({}, "pet", { services: petRows, edited: true }, "lawn", 1);
+  assert.ok(toLawn.services.every((s) => !/dog|pet|poop/i.test(s.n)), "no pet rows on the lawn build");
+  assert.equal(toLawn.services[0].n, "Mow a small yard");
+  assert.equal(toLawn.edited, false);
+  assert.deepEqual(plain(toLawn.sets.pet.services), plain(petRows), "pet rows parked untouched");
+  assert.equal(toLawn.sets.pet.edited, true);
+
+  // switching back restores the pet rows exactly, custom row and edit included
+  const back = svcSwitch(toLawn.sets, "lawn", { services: toLawn.services, edited: toLawn.edited }, "pet", 1);
+  assert.deepEqual(plain(back.services), plain(petRows));
+  assert.equal(back.edited, true);
+  assert.equal(back.sets.pet, undefined, "the active set is not also parked");
+
+  // a set the kid never edited is seeded fresh at the level that applies now
+  const fresh = svcSwitch({ lawn: { services: starterServices("lawn", 1), edited: false } }, "pet", { services: starterServices("pet", 1), edited: false }, "lawn", 5);
+  assert.deepEqual(fresh.services, starterServices("lawn", 5));
+  assert.equal(fresh.edited, false);
+
+  // a first visit to a job seeds at the applied level
+  const firstSnow = svcSwitch({}, "lawn", { services: starterServices("lawn", 1), edited: false }, "snow", 5);
+  assert.equal(firstSnow.services[0].p, "22");
+
+  // parked sets are validated: junk in a saved draft cannot ride along
+  assert.deepEqual(plain(svcSetsClean({ nope: { services: [{ n: "X", p: "1" }], edited: true }, pet: { services: "no" }, lawn: { services: [{ n: "Mow", p: 5 }], edited: 1 } })),
+    { lawn: { services: [{ n: "Mow", p: "5" }], edited: true } });
+
+  // contaminated-draft detection: whose rows are these, really?
+  assert.equal(svcRowsOwner(starterServices("pet", 1), "lawn"), "pet", "pet rows on a lawn build are detected");
+  assert.equal(svcRowsOwner(starterServices("pet", 1), "pet"), "", "pet rows on a pet build are home");
+  assert.equal(svcRowsOwner(starterServices("lawn", 1), "lawn"), "", "lawn rows on a lawn build are home");
+  assert.equal(svcRowsOwner(starterServices("snow", 1), "lawn"), "snow", "snow rows on a lawn build are detected");
+  assert.equal(svcRowsOwner([{ n: "Walkies deluxe", p: "20" }, { n: "Thing", p: "5" }], "lawn"), "", "custom names prove nothing");
+  assert.equal(svcRowsOwner([{ n: "Dog walk, 15 minutes", p: "5" }], "lawn"), "", "a single row proves nothing");
+  const lawnPlusDog = starterServices("lawn", 1).concat([{ n: "Dog walk, 15 minutes", p: "5" }]);
+  assert.equal(svcRowsOwner(lawnPlusDog, "lawn"), "", "one menu-added pet row does not move a lawn list");
+  assert.equal(svcRowsOwner(starterServices("both", 1), "pet"), "", "a lawn+snow tie proves nothing");
+
+  // the load paths run the repair
+  assert.match(src, /fixSvcRows\(\);\nif\(!S\.svcEdited\)/);
+  assert.match(src, /if\(!PRESETS\[S\.type\]\)S\.type="lawn";\n  fixSvcRows\(\);/);
 });
 
 test("every job type has at least 12 name ideas and funny names", async () => {
