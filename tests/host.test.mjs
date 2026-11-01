@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 import test from "node:test";
@@ -1400,4 +1400,90 @@ test("admin login is limited to ten tries an hour per address", async () => {
   const over = await call("POST", "/admin/login", { raw: "secret=test-admin-secret" });
   assert.equal(over.status, 429);
   assert.equal(over.headers["set-cookie"], undefined);
+});
+
+test("page views count strangers, not the family, the operator, or bots", async () => {
+  const { token } = await parent("views@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } }));
+  assert.equal(pub.status, 200);
+
+  const browser = { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" };
+  // Two neighbors open the page.
+  assert.equal((await call("GET", "/api/site/sam", { headers: browser })).status, 200);
+  assert.equal((await call("GET", "/api/site/sam", { headers: browser })).status, 200);
+  // The family's own checks of the page do not count, by Bearer or by cookie.
+  await call("GET", "/api/site/sam", { token, headers: browser });
+  await call("GET", "/api/site/sam", { headers: { ...browser, cookie: "hb_session=" + token } });
+  // Crawlers and link previews do not count.
+  await call("GET", "/api/site/sam", { headers: { "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" } });
+  await call("GET", "/api/site/sam", { headers: { "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" } });
+  await call("GET", "/api/site/sam", { headers: { "user-agent": "Twitterbot/1.0" } });
+  // The operator, signed in to the admin view, does not count either.
+  const login = await call("POST", "/admin/login", { raw: "secret=test-admin-secret" });
+  assert.equal(login.status, 302);
+  const adminCookie = (login.headers["set-cookie"] || "").split(";")[0];
+  await call("GET", "/api/site/sam", { headers: { ...browser, cookie: adminCookie } });
+
+  const mine = await json(await call("GET", "/api/views", { token }));
+  assert.equal(mine.body.ok, true);
+  assert.equal(mine.body.slug, "sam");
+  assert.equal(mine.body.total, 2);
+  assert.equal(mine.body.last7, 2);
+
+  // The stored record is only counts: a total and day buckets, nothing else.
+  const stored = JSON.parse(await readFile(path.join(dir, "views", "sam.json"), "utf8"));
+  assert.deepEqual(Object.keys(stored).sort(), ["days", "total"]);
+  assert.equal(stored.total, 2);
+  assert.equal(Object.values(stored.days).reduce((a, b) => a + b, 0), 2);
+
+  // Signed out, there is no count to read; another family reads only its own.
+  const stranger = await json(await call("GET", "/api/views"));
+  assert.equal(stranger.status, 401);
+  const other = await parent("views-other@example.com");
+  const theirs = await json(await call("GET", "/api/views", { token: other.token }));
+  assert.equal(theirs.body.ok, true);
+  assert.equal(theirs.body.total, 0);
+});
+
+test("resting and missing pages do not count, and the week sum reads day buckets", async () => {
+  const { token } = await parent("views-week@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "cleo", html: page("Cleo") } });
+  const browser = { "user-agent": "Mozilla/5.0 (Android 15; Mobile; rv:133.0) Gecko/133.0 Firefox/133.0" };
+  await call("GET", "/api/site/cleo", { headers: browser });
+  // Pause the page: neighbors now see the pause note, and those loads do not count.
+  const paused = await json(await call("POST", "/api/account/pause", { token, body: { slug: "cleo" } }));
+  assert.equal(paused.body.ok, true);
+  await call("GET", "/api/site/cleo", { headers: browser });
+  await call("GET", "/api/site/cleo", { headers: browser });
+  // A slug that was never published has nothing to count.
+  assert.equal((await call("GET", "/api/site/no-such-kid", { headers: browser })).status, 404);
+  const mine = await json(await call("GET", "/api/views", { token }));
+  assert.equal(mine.body.total, 1);
+  assert.equal(mine.body.last7, 1);
+
+  // Seed day buckets: the week is today plus the six days before it, and a
+  // fresh view prunes buckets older than the kept window.
+  const dayMs = 864e5, now = Date.now();
+  const key = (t) => new Date(t).toISOString().slice(0, 10);
+  const days = {};
+  days[key(now)] = 1;
+  days[key(now - 3 * dayMs)] = 4;
+  days[key(now - 6 * dayMs)] = 5;
+  days[key(now - 7 * dayMs)] = 7;
+  days[key(now - 40 * dayMs)] = 9;
+  await mkdir(path.join(dir, "views"), { recursive: true });
+  await writeFile(path.join(dir, "views", "cleo.json"), JSON.stringify({ total: 26, days }));
+  const week = await json(await call("GET", "/api/views", { token }));
+  assert.equal(week.body.total, 26);
+  assert.equal(week.body.last7, 10);
+
+  const resumed = await json(await call("POST", "/api/account/resume", { token, body: { slug: "cleo" } }));
+  assert.equal(resumed.body.ok, true);
+  await call("GET", "/api/site/cleo", { headers: browser });
+  const stored = JSON.parse(await readFile(path.join(dir, "views", "cleo.json"), "utf8"));
+  assert.equal(stored.total, 27);
+  assert.equal(stored.days[key(now)], 2);
+  assert.equal(stored.days[key(now - 40 * dayMs)], undefined);
 });

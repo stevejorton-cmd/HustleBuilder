@@ -720,15 +720,61 @@ async function adminDashboardPage(origin) {
 // page cannot load outside code or ship a visiting parent's data elsewhere.
 const PAGE_CSP = "default-src 'self'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; style-src 'unsafe-inline'; font-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
-async function serveSlug(slug) {
-  const res = await serveSlugInner(slug);
+// Page view counts: a small motivation number for the kid ("your page has
+// been viewed N times"). Only aggregate counts are stored — a running total
+// plus one bucket per day — in views/<slug>.json, apart from the page record.
+// No visitor addresses, user agents, or per-visit data of any kind are kept.
+// A count happens only when the real page is served (below, at the one
+// return that hands out the page HTML): the break / pause / review / missing
+// pages never count, and neither do the family's own checks of their page,
+// the operator's admin visits, obvious bots and link previews, or non-GET
+// requests. Counting is best-effort — a store hiccup must never break the
+// page — and read-modify-write like countKey, so two views landing in the
+// same instant can undercount by one. At this app's traffic that is fine.
+const VIEW_BOT_UA = /bot|crawler|spider|preview|facebookexternalhit/i;
+const VIEW_KEEP_DAYS = 35;
+function viewDayKey(when = Date.now()) {
+  return new Date(when).toISOString().slice(0, 10);
+}
+async function noteView(slug, meta, view) {
+  try {
+    if (!view || view.method !== "GET") return;
+    const headers = view.headers || {};
+    const ua = String(headers["user-agent"] || headers["User-Agent"] || "");
+    if (VIEW_BOT_UA.test(ua)) return;
+    if (await adminAuthed(headers)) return;
+    if (meta && meta.accountId) {
+      const viewer = (await accountByTokenValue(cookieValue(headers.cookie || headers.Cookie, SESSION_COOKIE)))
+        || (await accountByToken(headers.authorization || headers.Authorization));
+      if (viewer && viewer.id === meta.accountId) return;
+    }
+    const key = "views/" + slug + ".json";
+    const rec = (await readJson(key)) || { total: 0, days: {} };
+    rec.total = (Number(rec.total) || 0) + 1;
+    if (!rec.days || typeof rec.days !== "object") rec.days = {};
+    const today = viewDayKey();
+    rec.days[today] = (Number(rec.days[today]) || 0) + 1;
+    const cutoff = viewDayKey(Date.now() - VIEW_KEEP_DAYS * 864e5);
+    for (const day of Object.keys(rec.days)) if (day < cutoff) delete rec.days[day];
+    await writeJson(key, rec);
+  } catch { /* counting never breaks the page */ }
+}
+async function viewCounts(slug) {
+  const rec = (await readJson("views/" + slug + ".json")) || { total: 0, days: {} };
+  let last7 = 0;
+  for (let i = 0; i < 7; i++) last7 += Number((rec.days || {})[viewDayKey(Date.now() - i * 864e5)]) || 0;
+  return { total: Number(rec.total) || 0, last7 };
+}
+
+async function serveSlug(slug, view) {
+  const res = await serveSlugInner(slug, view);
   if (res && res.headers && String(res.headers["content-type"] || "").includes("text/html")) {
     res.headers = { ...res.headers, "content-security-policy": PAGE_CSP };
   }
   return res;
 }
 
-async function serveSlugInner(slug) {
+async function serveSlugInner(slug, view) {
   if (slug === "privacy") return privacyPage();
   const why = checkSlug(slug);
   if (why) return missingPage(slug, false);
@@ -747,7 +793,12 @@ async function serveSlugInner(slug) {
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
   const page = await (await store()).get("pages/" + slug + ".html");
   if (!page) return missingPage(slug, false);
-  return html(200, page);
+  const res = html(200, page);
+  // The response is settled; only now does the view count. noteView swallows
+  // its own errors, and every other return above (break, pause, review,
+  // missing, down, redirect) leaves the counter untouched.
+  await noteView(slug, meta, view);
+  return res;
 }
 
 function parseBody(raw) {
@@ -988,7 +1039,7 @@ export async function handleRequest(req) {
 
   if (method === "GET" && (route.startsWith("site/") || path.startsWith("/api/site/"))) {
     const slug = decodeURIComponent((route || path.replace(/^\/api\//, "")).slice(5));
-    return withCors(await serveSlug(slug), req.headers && req.headers.origin);
+    return withCors(await serveSlug(slug, { method, headers: req.headers || {} }), req.headers && req.headers.origin);
   }
 
   const calFeed = route.match(/^cal\/([a-f0-9]{32,128})\.ics$/i);
@@ -2015,6 +2066,17 @@ document.getElementById("done").onclick=()=>mark("done");
       });
     }
     return withCors(json(200, { ok: true, email: account.email, accountUrl: accountUrl(origin), sites }), req.headers && req.headers.origin);
+  }
+
+  if (method === "GET" && route === "views") {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    // Only ever the caller's own page: the slug comes from their account,
+    // never from the request, so nobody can read another family's count.
+    const slug = String(account.slug || "").trim().toLowerCase();
+    if (!slug) return withCors(json(200, { ok: true, slug: "", total: 0, last7: 0 }), req.headers && req.headers.origin);
+    const counts = await viewCounts(slug);
+    return withCors(json(200, { ok: true, slug, total: counts.total, last7: counts.last7 }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && (route === "account/pause" || route === "account/resume")) {

@@ -4185,8 +4185,10 @@ async function showAccount(){
   if(outBtn)outBtn.hidden=false;
   if(box)box.innerHTML="";
   if(!data.sites||!data.sites.length){if(box){const p=document.createElement("p"); p.textContent="No page yet. Publish one below, and it will show up here."; box.appendChild(p);} return;}
+  const viewCards=[];
   data.sites.forEach(site=>{
     const card=document.createElement("div"); card.className="acct";
+    viewCards.push({slug:site.slug, card});
     const h=document.createElement("h3"); h.textContent=site.slug; card.appendChild(h);
     const st=document.createElement("p"); st.textContent=statusWord(site.status)+" · "+accountWords(site); card.appendChild(st);
     if(site.url){const a=document.createElement("a"); a.className="link"; a.href=site.url; a.target="_blank"; a.rel="noopener"; a.textContent=site.url; card.appendChild(a);}
@@ -4228,6 +4230,21 @@ async function showAccount(){
     card.appendChild(actions);
     box.appendChild(card);
   });
+  // Page views: one quiet line on the family's own card, above the buttons.
+  // If the count cannot load, the card just stays as it was — no error.
+  try{
+    const v=await pubApi("/api/views",{method:"GET"});
+    if(v&&v.ok&&v.slug){
+      const hit=viewCards.find(c=>c.slug===v.slug);
+      if(hit){
+        const p=document.createElement("p");
+        p.textContent=v.total>0
+          ? "👁 "+v.total+(v.total===1?" view":" views")+" · "+v.last7+" this week"
+          : "👁 No views yet — share your link to get your first views!";
+        hit.card.insertBefore(p, hit.card.querySelector(".mbtns"));
+      }
+    }
+  }catch(e){}
 }
 const openAccountBtn=$("#openAccount");
 if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);};
