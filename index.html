@@ -690,13 +690,13 @@ details.help li{margin-bottom:10px}
       <p class="lead">First name only. Never your last name or street address.</p>
       <button type="button" class="btn ghost" id="surprise" style="margin-bottom:22px">Surprise me</button>
       <div class="two">
-        <label class="field"><span>Your first name</span><input type="text" data-k="first" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Alex"></label>
-        <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
+        <label class="field"><span>Your first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Alex"></label>
+        <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
       </div>
-      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
+      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
       <details class="fold" id="foldNames"><summary>Name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleNames">Shuffle</button></div><div class="chips" id="nameChips"></div><p class="help2" id="nameHint"></p><p class="help2">Before you pick one, search it online to make sure no business near you already uses it.</p></div></details>
       <details class="fold" id="funnyIdeas"><summary>Funny name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleFunny">Shuffle</button></div><div id="funnyCats"></div></div></details>
-      <label class="field"><span>Tagline</span><input type="text" data-k="tagline" id="tagline" autocomplete="off"></label>
+      <label class="field"><span>Tagline</span><input type="text" data-k="tagline" id="tagline" maxlength="120" autocomplete="off"></label>
       <details class="fold" id="foldTags"><summary>Tagline ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleTags">Shuffle</button></div><div id="tagList"></div></div></details>
     </section>
 
@@ -1294,7 +1294,7 @@ function siteMain(){
   if(t){t.onclick=function(){var m=build(); if(m){window.location.href="sms:"+C.phoneDigits+"?&body="+encodeURIComponent(m);}};}
   if(e){e.onclick=function(){var m=build(); if(m){window.location.href="mailto:"+C.email+"?subject="+encodeURIComponent("Booking request: "+C.biz)+"&body="+encodeURIComponent(m);}};}
   var ph=$("ph");
-  if(ph){ph.onchange=function(){var f=ph.files&&ph.files[0];photoData="";$("phPrev").hidden=true;if(!f)return;shrink(f,function(u){if(u&&u.length<580000){photoData=u;$("phPrev").src=u;$("phPrev").hidden=false;}else{$("phNote").textContent="That photo could not be used. Please try a different one.";}});};}
+  if(ph){ph.onchange=function(){var f=ph.files&&ph.files[0];photoData="";$("phPrev").hidden=true;if(!f)return;if(f.size>20*1024*1024){$("phNote").textContent="That photo is too big. Please try a different one.";return;}shrink(f,function(u){if(u&&u.length<580000){photoData=u;$("phPrev").src=u;$("phPrev").hidden=false;}else{$("phNote").textContent="That photo could not be used. Please try a different one.";}});};}
   var si=$("sendInbox");
   if(si){si.onclick=function(){
     var m=build(true); if(!m)return;
@@ -1364,7 +1364,9 @@ function siteMain(){
 
 /* ============ Helpers + palettes ============ */
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
-function fmtPrice(p){p=String(p||"").trim(); return /^\d+(\.\d{1,2})?$/.test(p)?"$"+p:p;}
+function priceNum(p){const t=String(p==null?"":p).trim(); return /^-?\d+(\.\d+)?$/.test(t)?parseFloat(t):null;}
+function fmtPrice(p){p=String(p||"").trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(10000,Math.round(n*100)/100); return v>0?"$"+v:"";}
+function cleanPrice(p){p=String(p==null?"":p).trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(10000,Math.round(n*100)/100); return v>0?String(v):"";}
 const RIGS={
   ember:{name:"Ember",c:"#FF5B14"},
   gold:{name:"Gold",c:"#F5B800"},
@@ -1828,17 +1830,17 @@ function save(){try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}}
 
 function resolve(preview, opt){
   opt=opt||{};
-  const first=S.first.trim()||(preview?"Alex":"");
-  const town=S.town.trim()||(preview?"your neighborhood":"");
-  const biz=S.bizName.trim()||autoBiz(S.type,first||"Alex");
-  const tagline=S.tagline.trim()||TAGS[S.type];
+  const first=S.first.trim().slice(0,40)||(preview?"Alex":"");
+  const town=S.town.trim().slice(0,60)||(preview?"your neighborhood":"");
+  const biz=S.bizName.trim().slice(0,80)||autoBiz(S.type,first||"Alex");
+  const tagline=S.tagline.trim().slice(0,120)||TAGS[S.type];
   const parentName=S.parentName.trim(), phone=S.phone.trim(), phoneDigits=phone.replace(/[^\d+]/g,""), email=S.email.trim();
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=typeInfo(S.type).target;
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
-  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:(S.seasonPrice||"").trim(),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
-    services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:s.p})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
-    proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()),publish:opt.publish||null};
+  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:cleanPrice(S.seasonPrice),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
+    services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:cleanPrice(s.p)})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
+    proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()).map(r=>({...r,n:r.n.trim().slice(0,40)})),publish:opt.publish||null};
 }
 
 /* ============ Builder UI ============ */
@@ -3244,7 +3246,7 @@ function renderRevs(){
   const recent=[...new Set(B.jobs.slice().reverse().map(x=>x.customer.trim()).filter(Boolean))].slice(0,5);
   S.reviews.forEach((r,i)=>{
     const card=document.createElement("div");card.className="rcard";
-    const nm=document.createElement("input");nm.type="text";nm.placeholder="Customer first name";nm.value=r.n||"";nm.autocomplete="off";nm.autocapitalize="words";nm.setAttribute("aria-label","Customer first name");nm.oninput=()=>{r.n=nm.value;queue();};
+    const nm=document.createElement("input");nm.type="text";nm.maxLength=40;nm.placeholder="Customer first name";nm.value=r.n||"";nm.autocomplete="off";nm.autocapitalize="words";nm.setAttribute("aria-label","Customer first name");nm.oninput=()=>{r.n=nm.value;queue();};
     card.appendChild(nm);
     if(recent.length){const ch=document.createElement("div");ch.className="chips";recent.forEach(n=>{const b=document.createElement("button");b.type="button";b.textContent=n;b.onclick=()=>{r.n=n;nm.value=n;queue();};ch.appendChild(b);});card.appendChild(ch);}
     const q=document.createElement("textarea");q.placeholder="What did they say?";q.value=r.q||"";q.maxLength=240;q.setAttribute("aria-label","Review");q.oninput=()=>{r.q=q.value;queue();};card.appendChild(q);

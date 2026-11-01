@@ -511,6 +511,41 @@ test("ask my parent emails a link, opens a session, and shows waiting until live
   assert.equal(limited.status, 429);
 });
 
+test("auth start is limited to five code emails per address per day", async () => {
+  const email = "codes@example.com";
+  for (let i = 0; i < 5; i++) {
+    const ok = await json(await call("POST", "/api/auth/start", { body: { email } }));
+    assert.equal(ok.body.ok, true);
+  }
+  const limited = await json(await call("POST", "/api/auth/start", { body: { email } }));
+  assert.equal(limited.status, 429);
+  assert.equal(limited.body.error, "limit");
+});
+
+test("auth start is limited to eight code emails per IP per day", async () => {
+  for (let i = 0; i < 8; i++) {
+    const ok = await json(await call("POST", "/api/auth/start", { body: { email: "person" + i + "@example.com" } }));
+    assert.equal(ok.body.ok, true);
+  }
+  const limited = await json(await call("POST", "/api/auth/start", { body: { email: "person8@example.com" } }));
+  assert.equal(limited.status, 429);
+  assert.equal(limited.body.error, "limit");
+});
+
+test("an expired ask link cannot be marked done", async () => {
+  const draft = { type: "pet", first: "Sam", town: "Elkhorn", bizName: "Sam’s Pet Care", services: [{ n: "Dog walk", p: "8" }] };
+  const sent = await json(await call("POST", "/api/ask", { body: { email: "dad@example.com", draft } }));
+  assert.equal(sent.body.ok, true);
+  const file = path.join(dir, "asks", sent.body.token + ".json");
+  const rec = JSON.parse(await readFile(file, "utf8"));
+  rec.expires = new Date(Date.now() - 60000).toISOString();
+  await writeFile(file, JSON.stringify(rec));
+  const done = await json(await call("POST", "/api/ask/" + sent.body.token + "/done", { body: { url: "https://sites.test/sam-pets" } }));
+  assert.equal(done.status, 404);
+  const after = JSON.parse(await readFile(file, "utf8"));
+  assert.equal(after.status, "waiting");
+});
+
 test("a draft saves under a private code and attaches to a parent", async () => {
   const saved = await json(await call("POST", "/api/draft", { body: { draft: { type: "wash", first: "Riley", services: [{ n: "Wash the outside", p: "10" }] } } }));
   assert.equal(saved.body.ok, true);
