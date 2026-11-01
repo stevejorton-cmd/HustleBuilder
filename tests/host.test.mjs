@@ -1732,7 +1732,7 @@ function extractBuilderParts(src) {
   let code = "";
   for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
   for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }
-  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, SITE_THEMES };")({}, "", "");
+  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, SITE_THEMES, fmtPrice, cleanPrice, petFace, PET_ART };")({}, "", "");
 }
 function demoCfg(extra) {
   const sched = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ on: i >= 1 && i <= 6, from: "16:00", to: "20:00" }));
@@ -1802,4 +1802,60 @@ test("page reskins: the builder offers the picker and carries the choice to publ
   for (const name of ["Bold Block", "Clean", "Paper", "Sport Stripe", "Friendly", "Midnight", "Retro Badge"]) {
     assert.ok(src.includes('"' + name + '"') || src.includes(name), name);
   }
+});
+
+/* ---- pilot fixes (Nov 1): prices, pet art, sticky preview, pet hero, tagline, Make It Yours ---- */
+test("pilot fixes: prices cap at $500 wherever they render, free text untouched", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite, fmtPrice, cleanPrice } = extractBuilderParts(src);
+  assert.equal(cleanPrice("10000"), "500");
+  assert.equal(cleanPrice("501"), "500");
+  assert.equal(cleanPrice("500"), "500");
+  assert.equal(cleanPrice("499.99"), "499.99");
+  assert.equal(cleanPrice("20/hr"), "20/hr"); // free text stays free text
+  assert.equal(cleanPrice("-50"), "");
+  assert.equal(fmtPrice("10000"), "$500");
+  assert.equal(fmtPrice("25"), "$25");
+  const html = genSite(demoCfg({ services: [{ n: "Big job", p: "10000" }, { n: "Hourly help", p: "20/hr" }] }));
+  assert.ok(html.includes("$500"), "page renders the capped price");
+  assert.equal(html.includes("$10000"), false);
+  assert.ok(html.includes("20/hr"), "free-text price renders as typed");
+  // the builder clamps the field itself on blur, in both price inputs
+  assert.match(src, /p\.onblur=\(\)=>\{const v=priceNum\(p\.value\);if\(v!==null&&\(v>500\|\|v<0\)\)/);
+  assert.match(src, /addEventListener\("blur",\(\)=>\{const inp=\$\("#seasonPrice"\),v=priceNum\(inp\.value\);if\(v!==null&&\(v>500\|\|v<0\)\)/);
+});
+
+test("pilot fixes: small animal has real art like the other pets", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite, petFace, PET_ART } = extractBuilderParts(src);
+  assert.equal(PET_ART.small.file, "pet-small.webp");
+  const face = petFace("small", "Small animal", {});
+  assert.ok(face.startsWith("<img"), "small pet renders an image, not the emoji fallback");
+  assert.ok(face.includes("pet-small.webp"));
+  const art = await readFile(new URL("../assets/pets/pet-small.webp", import.meta.url));
+  assert.ok(art.length > 5000, "the hamster tile is a real image file");
+  const html = genSite(demoCfg({ type: "pet", pets: ["dog", "cat", "fish", "bird", "small"] }));
+  assert.ok(html.includes("pet-small.webp"), "the published pets row uses the hamster art");
+  assert.equal(html.includes("🐹"), false, "no emoji stand-in left on the page");
+});
+
+test("pilot fixes: sticky preview offset survives, pet hero spans full width, friendly tag is solid", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const stageRule = src.match(/\.stage,\.shell\.sheet \.stage\{display:flex;position:sticky;[^}]*\}/);
+  assert.ok(stageRule, "desktop stage rule found");
+  assert.ok(stageRule[0].indexOf("inset:auto") < stageRule[0].indexOf("top:62px"),
+    "inset:auto must come before top:62px or it silently resets the sticky offset");
+  const { genSite } = extractBuilderParts(src);
+  const pet = genSite(demoCfg({ type: "pet", pets: ["dog"] }));
+  assert.ok(pet.includes("grid-template-columns:minmax(0,1fr)"), "pet hero grid track spans the full width");
+  const friendly = genSite(demoCfg({ theme: "friendly" }));
+  assert.equal(friendly.includes("rgba(51,38,26,.42)"), false, "the translucent gray tag pill is gone");
+  assert.match(friendly, /\.hero \.tag\{color:var\(--bone\)[^}]*background:var\(--card\)/, "friendly tag is a solid chip with dark text");
+});
+
+test("pilot fixes: Make It Yours offers the same page designs as step 5", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /id="lkThemes"/, "the look panel has a page-design grid");
+  assert.match(src, /paintThemeCards\(mbody\.querySelector\("#lkThemes"\)/, "the panel paints the shared theme cards");
+  assert.match(src, /function renderThemes\(\)\{\s*paintThemeCards\(\$\("#themes"\),\$\("#themeHelp"\)\);/, "step 5 uses the same painter, so both bind S.theme");
 });
