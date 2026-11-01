@@ -1859,3 +1859,92 @@ test("pilot fixes: Make It Yours offers the same page designs as step 5", async 
   assert.match(src, /paintThemeCards\(mbody\.querySelector\("#lkThemes"\)/, "the panel paints the shared theme cards");
   assert.match(src, /function renderThemes\(\)\{\s*paintThemeCards\(\$\("#themes"\),\$\("#themeHelp"\)\);/, "step 5 uses the same painter, so both bind S.theme");
 });
+
+/* ---- start a new page (Nov 1): several kids, one browser ---- */
+function extractNamedFns(src, names) {
+  const lines = src.split("\n");
+  const extractFn = (name) => {
+    const start = lines.findIndex((l) => new RegExp("^(async )?function " + name + "\\b").test(l));
+    if (start < 0) return null;
+    let depth = 0, begun = false;
+    for (let i = start; i < lines.length; i++) {
+      for (const ch of lines[i]) {
+        if (ch === "{") { depth++; begun = true; }
+        else if (ch === "}") { depth--; if (begun && depth === 0) return lines.slice(start, i + 1).join("\n"); }
+      }
+    }
+    return null;
+  };
+  let code = "";
+  const out = {};
+  for (const n of names) { const t = extractFn(n); assert.ok(t, "fn " + n); code += t + "\n"; out[n] = true; }
+  return new Function(code + "\nreturn { " + names.join(", ") + " };")();
+}
+function fnBody(src, name) {
+  const start = src.indexOf("function " + name + "(");
+  assert.ok(start >= 0, name + " exists");
+  const rest = src.slice(start + 10);
+  const next = rest.search(/\n(async )?function [A-Za-z]+\(/);
+  return next < 0 ? rest : rest.slice(0, next);
+}
+
+test("start a new page: build labels prefer the business name, then the kid's first name", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { buildLabelOf } = extractNamedFns(src, ["buildLabelOf"]);
+  assert.equal(buildLabelOf({ bizName: "  Maryn's Pet Care ", first: "Maryn" }), "Maryn's Pet Care");
+  assert.equal(buildLabelOf({ bizName: "  ", first: " Levi " }), "Levi");
+  assert.equal(buildLabelOf({ bizName: "", first: "" }), "Untitled page");
+  assert.equal(buildLabelOf({}), "Untitled page");
+  assert.equal(buildLabelOf(null), "Untitled page");
+});
+
+test("start a new page: the device registry dedupes by code, newest first, capped at ten", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { buildsClean, buildsUpsert } = extractNamedFns(src, ["buildsClean", "buildsUpsert"]);
+  assert.deepEqual(buildsClean("junk"), []);
+  assert.deepEqual(buildsClean([{ code: " A1 ", label: " One ", updatedAt: "5" }, { code: "A1", label: "Dupe" }, { code: "" }, null, { label: "No code" }]),
+    [{ code: "A1", label: "One", updatedAt: 5 }]);
+  let list = [];
+  list = buildsUpsert(list, { code: "AAA", label: "First", updatedAt: 1 });
+  list = buildsUpsert(list, { code: "BBB", label: "Second", updatedAt: 2 });
+  assert.deepEqual(list.map((x) => x.code), ["BBB", "AAA"], "newest first");
+  list = buildsUpsert(list, { code: "AAA", label: "First, renamed", updatedAt: 3 });
+  assert.deepEqual(list.map((x) => [x.code, x.label]), [["AAA", "First, renamed"], ["BBB", "Second"]], "re-using a code refreshes its label in place");
+  assert.deepEqual(buildsUpsert(list, { code: " ", label: "Nope" }), list, "a blank code changes nothing");
+  let big = [];
+  for (let i = 0; i < 14; i++) big = buildsUpsert(big, { code: "C" + i, label: "Build " + i, updatedAt: i });
+  assert.equal(big.length, 10, "the registry is capped at ten");
+  assert.equal(big[0].code, "C13");
+  assert.equal(big[9].code, "C4");
+});
+
+test("start a new page: switching never disturbs the current build before the target loads and the current build saves", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /id="buildsBox"/, "the account screen has a builds box");
+  assert.match(src, /renderBuildsBox\(\);[\s\S]{0,160}?let data; try\{data=await pubApi\("\/api\/account"/, "the account view renders the builds box on every open");
+  assert.match(src, /btn\.id="startNewPage"; btn\.textContent="Start a new page"/, "the button is labeled Start a new page");
+  assert.match(src, /<h3>Start a new page\?<\/h3>/, "starting asks first, naming the current build");
+  const open = fnBody(src, "openBuild");
+  const getAt = open.indexOf('pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"})');
+  const stashAt = open.indexOf("stashCurrentBuild()");
+  const applyAt = open.indexOf("applyDraft(target)");
+  assert.ok(getAt >= 0 && stashAt > getAt, "openBuild fetches the target draft before touching the current build");
+  assert.ok(applyAt > stashAt, "openBuild saves the current build before applying the target");
+  assert.match(open, /90 days may be up/, "an expired target draft fails with a plain message, not a wipe");
+  const start = fnBody(src, "startNewPage");
+  assert.ok(start.indexOf("stashCurrentBuild()") < start.indexOf("clearBuildLeftovers()"), "startNewPage saves before it clears anything");
+  assert.ok(start.indexOf("clearBuildLeftovers()") < start.indexOf("S=defaults()"), "the reset happens only after the save and the clear");
+  assert.match(src, /localStorage\.removeItem\("hb-draft"\)/, "the old draft code is released so the next save mints a new one");
+  assert.match(src, /hb-boss-/, "Boss data is stashed per build code");
+});
+
+test("start a new page: publishing a different build over a live page asks first", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /localStorage\.setItem\("hb-site-draft", localStorage\.getItem\("hb-draft"\)\|\|""\)/, "a successful publish remembers which build the live page came from");
+  const push = fnBody(src, "pubPush");
+  const warnAt = push.indexOf('confirmModal(');
+  const postAt = push.indexOf('pubApi("/api/publish"');
+  assert.ok(warnAt >= 0 && postAt > warnAt, "the replace warning is asked before the publish call");
+  assert.match(push, /siteDraft!==curDraft/, "the warning fires only when the open build is not the one that is live");
+  assert.match(src, /Replace the live page\?/, "the warning says plainly what would happen");
+});

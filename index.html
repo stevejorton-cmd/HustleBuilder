@@ -802,6 +802,7 @@ details.help li{margin-bottom:10px}
         <h3 class="h3">Your account</h3>
         <p class="lead" id="accountLead">Sign in with the email code below. Then each kid page shows here.</p>
         <div id="accountSites"></div>
+        <div id="buildsBox"></div>
         <p class="status" id="accountMsg" role="status"></p>
         <p><button type="button" class="btn ghost" id="acctSignOut" hidden>Sign out on this device</button></p>
       </section>
@@ -2548,7 +2549,8 @@ $("#copyShare").onclick=async()=>{
 /* ============ Boss mode ============ */
 const BK="hustle-boss-v1";
 let storageOK=true;
-let B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};
+function freshBoss(){return {goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};}
+let B=freshBoss();
 try{const r=localStorage.getItem(BK); if(r){B=Object.assign(B,JSON.parse(r));} localStorage.setItem("hb-test","1");localStorage.removeItem("hb-test");}catch(e){storageOK=false;}
 if(!Array.isArray(B.upcoming))B.upcoming=[];
 if(!B.missions)B.missions={};if(!B.mdone)B.mdone={};if(!B.mweeks)B.mweeks={};
@@ -4414,6 +4416,13 @@ async function pubCheckout(){
   if(!data.ok){pubErr(data.error==="stripe-key"?"Payment is not set up yet.":"Pick a plan and try again."); return false;}
   return true;
 }
+function confirmModal(html){
+  return new Promise(res=>{
+    openModal(html+'<div class="mbtns"><button type="button" class="btn" id="cfYes">Replace the live page</button><button type="button" class="btn outline" id="cfNo">Cancel</button></div>');
+    mbody.querySelector("#cfYes").onclick=()=>{closeModal();res(true);};
+    mbody.querySelector("#cfNo").onclick=()=>{closeModal();res(false);};
+  });
+}
 async function pubPush(){
   pubErr("");
   if(missing().length){updateLaunch(); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
@@ -4422,6 +4431,18 @@ async function pubPush(){
     const probe=await pubApi("/api/me", {method:"GET"}).catch(()=>null);
     if(!probe||!probe.ok){pubErr("Verify the parent’s email first."); return;}
     session.email=probe.email||""; session.slug=probe.slug||session.slug||"";
+  }
+  /* One live page per account today: if this device remembers which build
+     the live page came from and this is a different build, say so before
+     anything is replaced — a parent building a second kid's page in the
+     same browser should never wipe the first kid's page by accident. */
+  if(session.slug){
+    let siteDraft="", curDraft="";
+    try{siteDraft=localStorage.getItem("hb-site-draft")||""; curDraft=localStorage.getItem("hb-draft")||"";}catch(e){}
+    if(siteDraft&&curDraft&&siteDraft!==curDraft){
+      const yes=await confirmModal('<h3>Replace the live page?</h3><p class="small2">The live page at hustlebuilder.org/'+esc(session.slug)+' came from a different build on this device. Publishing this build — '+esc(buildLabelOf(S))+' — would replace what neighbors see at that link.</p>');
+      if(!yes){pubErr("Nothing was published."); return;}
+    }
   }
   if(!session.slug && !$("#pubConsent").checked){
     const prior=await pubApi("/api/me", {method:"GET"});
@@ -4440,6 +4461,7 @@ async function pubPush(){
     const data=await pubApi("/api/publish", {body:publishExtras(slug)});
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
     session.slug=data.slug; pubSaveSession(session); clearPending();
+    try{localStorage.setItem("hb-site-draft", localStorage.getItem("hb-draft")||"");}catch(e){}
     if(data.jobCode)localStorage.setItem("hb-job-code", data.jobCode);
     const askTok=localStorage.getItem("hb-ask");
     if(askTok)pubApi("/api/ask/"+askTok+"/done",{body:{url:data.url}}).catch(function(){});
@@ -4464,6 +4486,7 @@ async function showAccount(){
   if(msg)msg.textContent="";
   const session=pubSession();
   const hadHint=!!(session||pubMemToken);
+  renderBuildsBox();
   const outBtn=$("#acctSignOut"); if(outBtn)outBtn.hidden=true;
   let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(msg)msg.textContent="Could not open the account. Try again."; return;}
   if(!data.ok){
@@ -4669,6 +4692,157 @@ async function loadDraft(code){
     const data=await pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"});
     if(data.ok&&data.draft){localStorage.setItem("hb-draft",code);applyDraft(data.draft);toast("Opened your saved page.");}
   }catch(e){}
+}
+
+/* ============ Several kids, one browser: build registry + switching ============
+   The builder holds one build at a time on a device. The registry remembers
+   the builds started or opened here (draft code + a friendly label) so a
+   parent can start a fresh page for another kid and switch back later.
+   Nothing is ever wiped before the current build is safely saved to the
+   server under its code, and a build's Boss book is stashed per code. */
+const BUILDS_KEY="hb-builds";
+function buildLabelOf(state){
+  const biz=String((state&&state.bizName)||"").trim();
+  if(biz)return biz;
+  const first=String((state&&state.first)||"").trim();
+  if(first)return first;
+  return "Untitled page";
+}
+function buildsClean(list){
+  const out=[], seen={};
+  if(!Array.isArray(list))return out;
+  for(const item of list){
+    if(!item||typeof item!=="object")continue;
+    const code=String(item.code||"").trim();
+    if(!code||seen[code])continue;
+    seen[code]=1;
+    out.push({code,label:String(item.label||"").trim()||"Untitled page",updatedAt:Number(item.updatedAt)||0});
+    if(out.length>=10)break;
+  }
+  return out;
+}
+function buildsUpsert(list, entry){
+  const code=String((entry&&entry.code)||"").trim();
+  const base=buildsClean(list);
+  if(!code)return base;
+  const next=base.filter(x=>x.code!==code);
+  next.unshift({code,label:String((entry&&entry.label)||"").trim()||"Untitled page",updatedAt:Number(entry&&entry.updatedAt)||0});
+  return next.slice(0,10);
+}
+function buildsList(){try{return buildsClean(JSON.parse(localStorage.getItem(BUILDS_KEY)||"[]"));}catch(e){return [];}}
+function buildsSave(list){try{localStorage.setItem(BUILDS_KEY,JSON.stringify(buildsClean(list)));}catch(e){}}
+function currentDraftCode(){try{return localStorage.getItem("hb-draft")||"";}catch(e){return "";}}
+function noteCurrentBuild(){
+  const code=currentDraftCode(); if(!code)return "";
+  buildsSave(buildsUpsert(buildsList(),{code,label:buildLabelOf(S),updatedAt:Date.now()}));
+  return code;
+}
+function bossKeyFor(code){return "hb-boss-"+code;}
+function stashBoss(code){if(!code)return; try{localStorage.setItem(bossKeyFor(code),JSON.stringify(B));}catch(e){}}
+function restoreBoss(code){
+  let raw=null; try{raw=code?localStorage.getItem(bossKeyFor(code)):null;}catch(e){}
+  B=freshBoss();
+  if(raw){try{B=Object.assign(freshBoss(),JSON.parse(raw));}catch(e){}}
+  if(!Array.isArray(B.jobs))B.jobs=[];
+  if(!Array.isArray(B.costs))B.costs=[];
+  if(!Array.isArray(B.upcoming))B.upcoming=[];
+  if(!B.missions)B.missions={}; if(!B.mdone)B.mdone={}; if(!B.mweeks)B.mweeks={};
+  saveB(); renderBoss();
+}
+async function saveDraftChecked(){
+  if(!publishOrigin())return false;
+  clearTimeout(draftTimer);
+  try{
+    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    if(data.ok&&data.code){localStorage.setItem("hb-draft",data.code);return true;}
+  }catch(e){}
+  return false;
+}
+async function stashCurrentBuild(){
+  const ok=await saveDraftChecked();
+  if(!ok)return false;
+  const code=noteCurrentBuild();
+  if(code)stashBoss(code);
+  return true;
+}
+function clearBuildLeftovers(){
+  try{localStorage.removeItem("hb-draft");localStorage.removeItem("hb-job-code");localStorage.removeItem("hb-draft-code");localStorage.removeItem("hb-ask");localStorage.removeItem("hb-ask-link");}catch(e){}
+  clearPending();
+}
+function paintCurrentBuild(){
+  document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
+  const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
+  const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";
+  renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();syncOther();refresh();
+}
+function confirmStartNew(){
+  const label=buildLabelOf(S);
+  openModal('<h3>Start a new page?</h3><p class="small2">Your current build — '+esc(label)+' — stays saved on this device, and its live page does not change. You can switch back to it any time from Your account.</p><div class="mbtns"><button type="button" class="btn" id="npGo">Start new page</button><button type="button" class="btn outline" id="npCancel">Cancel</button></div>');
+  mbody.querySelector("#npCancel").onclick=closeModal;
+  mbody.querySelector("#npGo").onclick=()=>{closeModal(); startNewPage();};
+}
+async function startNewPage(){
+  const msg=$("#accountMsg");
+  const ok=await stashCurrentBuild();
+  if(!ok){if(msg)msg.textContent="Could not save the current build, so nothing was changed. Check your connection and try again."; return;}
+  clearBuildLeftovers();
+  S=defaults(); save();
+  B=freshBoss(); saveB(); renderBoss();
+  paintCurrentBuild();
+  scheduleDraft();
+  showAccount();
+  go(0);
+  toast("New blank page started.");
+}
+async function openBuild(code){
+  const msg=$("#accountMsg");
+  if(code===currentDraftCode()){if(msg)msg.textContent="That build is already open."; return;}
+  let target=null;
+  try{
+    const data=await pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"});
+    if(data.ok&&data.draft)target=data.draft;
+  }catch(e){}
+  if(!target){if(msg)msg.textContent="That saved build could not be opened. Its 90 days may be up. The build you have open was not changed."; return;}
+  const ok=await stashCurrentBuild();
+  if(!ok){if(msg)msg.textContent="Could not save the current build, so nothing was changed. Check your connection and try again."; return;}
+  clearBuildLeftovers();
+  try{localStorage.setItem("hb-draft",code);}catch(e){}
+  applyDraft(target);
+  restoreBoss(code);
+  noteCurrentBuild();
+  showAccount();
+  toast("Opened your saved page.");
+}
+function renderBuildsBox(){
+  const box=$("#buildsBox"); if(!box)return;
+  noteCurrentBuild();
+  const cur=currentDraftCode(), list=buildsList();
+  box.innerHTML="";
+  const card=document.createElement("div"); card.className="acct";
+  const h=document.createElement("h3"); h.textContent="Build another page"; card.appendChild(h);
+  const p=document.createElement("p"); p.textContent="One parent can build a page for each kid in this same browser. Starting a new page never changes a page that is already live."; card.appendChild(p);
+  const btn=document.createElement("button"); btn.type="button"; btn.className="btn"; btn.id="startNewPage"; btn.textContent="Start a new page";
+  btn.onclick=confirmStartNew;
+  card.appendChild(btn);
+  box.appendChild(card);
+  if(list.length){
+    const wrap=document.createElement("div"); wrap.className="acct";
+    const h2=document.createElement("h3"); h2.textContent="Builds on this device"; wrap.appendChild(h2);
+    list.forEach(entry=>{
+      const row=document.createElement("p");
+      const name=document.createElement("b"); name.textContent=entry.label; row.appendChild(name);
+      row.appendChild(document.createTextNode(" · code "+entry.code));
+      if(entry.code===cur){
+        row.appendChild(document.createTextNode(" · open now"));
+      }else{
+        const open=document.createElement("button"); open.type="button"; open.className="btn outline"; open.textContent="Open"; open.style.marginLeft="10px";
+        open.onclick=()=>openBuild(entry.code);
+        row.appendChild(open);
+      }
+      wrap.appendChild(row);
+    });
+    box.appendChild(wrap);
+  }
 }
 function drawQr(canvas,text){
   const mods=qrMods(text); if(!mods||!canvas)return;
