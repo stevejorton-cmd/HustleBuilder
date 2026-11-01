@@ -1402,6 +1402,117 @@ test("admin login is limited to ten tries an hour per address", async () => {
   assert.equal(over.headers["set-cookie"], undefined);
 });
 
+async function adminCookie() {
+  const good = await call("POST", "/admin/login", { raw: "secret=" + "test-admin-secret" });
+  assert.equal(good.status, 302);
+  return (good.headers["set-cookie"] || "").split(";")[0];
+}
+
+test("friends & family comp: the admin grants it, the page stays up, and no reminder ever queues", async () => {
+  const { token, email } = await parent("comp@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "comp-kid", html: page("Comp Kid") } }));
+  assert.equal(pub.status, 200);
+  const account = await patchAccount((a) => {
+    a.trialStartedAt = new Date(Date.now() - 30 * 864e5).toISOString();
+    a.trialEndsAt = new Date(Date.now() - 864e5).toISOString();
+  });
+  // The trial is long over: the page rests and the payload says so.
+  const resting = await call("GET", "/api/site/comp-kid");
+  assert.match(resting.body, /Taking a break/);
+  const before = await json(await call("GET", "/api/me", { token }));
+  assert.equal(before.body.comp, false);
+  assert.equal(before.body.trialOver, true);
+
+  // Without the admin session the grant endpoint changes nothing.
+  const denied = await call("POST", "/admin/comp", { raw: "id=" + account.id + "&on=1" });
+  assert.equal(denied.status, 302);
+  assert.equal(denied.headers.location, "/admin");
+  const stillOff = await json(await call("GET", "/api/me", { token }));
+  assert.equal(stillOff.body.comp, false);
+
+  // The operator grants the comp from the dashboard.
+  const cookie = await adminCookie();
+  const grant = await call("POST", "/admin/comp", { raw: "id=" + account.id + "&on=1", headers: { cookie } });
+  assert.equal(grant.status, 302);
+  assert.equal(grant.headers.location, "/admin");
+  const after = await json(await call("GET", "/api/me", { token }));
+  assert.equal(after.body.comp, true);
+  assert.equal(after.body.paid, true);
+  assert.equal(after.body.planName, "Friends & family");
+  assert.equal(after.body.trialOver, false);
+  assert.equal(after.body.grace, false);
+  const acct = await json(await call("GET", "/api/account", { token }));
+  assert.equal(acct.body.sites[0].comp, true);
+  assert.equal(acct.body.sites[0].planName, "Friends & family");
+
+  // The page is back on its feet on the very next serve.
+  const live = await call("GET", "/api/site/comp-kid");
+  assert.equal(live.status, 200);
+  assert.match(live.body, /Comp Kid/);
+  assert.equal(live.body.includes("Taking a break"), false);
+
+  // Checkout resolves as already covered and stamps no paid plan.
+  const checkout = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+  assert.equal(checkout.body.ok, true);
+  assert.equal(checkout.body.alreadyPaid, true);
+  const saved = JSON.parse(await readFile(path.join(dir, "accounts", account.id + ".json"), "utf8"));
+  assert.equal(saved.comp, true);
+  assert.ok(saved.compAt);
+  assert.equal(saved.paidUntil || "", "");
+
+  // The dashboard names the comp and offers the way back.
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.match(dash.body, />1<\/div><div>Free</);
+  assert.match(dash.body, /Free \(friends &amp; family\)/);
+  assert.match(dash.body, /Remove free/);
+  assert.match(dash.body, new RegExp('name="id" value="' + account.id + '"'));
+
+  // No renewal or trial reminder ever queues for this account, whichever
+  // clock the cron looks at: a paid date three days out (paid loop) and
+  // a trial end three days out (trial loop) both pass it by.
+  await patchAccount((a) => {
+    a.paidUntil = new Date(Date.now() + 3 * 864e5).toISOString();
+    a.trialEndsAt = new Date(Date.now() + 3 * 864e5).toISOString();
+  });
+  const secret = { authorization: "Bearer " + "test-admin-secret" };
+  const dry = await json(await call("GET", "/api/cron/renewals?dry=1", { headers: secret }));
+  assert.equal(dry.body.due.some((d) => d.email === email), false);
+  const sent = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
+  assert.equal(sent.body.due.some((d) => d.email === email), false);
+  const outbox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.equal(outbox.body.messages.some((m) => /ends|Renew/.test(m.subject || "")), false);
+
+  // Revoking hands the account back to its dates: the break returns.
+  const revoke = await call("POST", "/admin/comp", { raw: "id=" + account.id + "&on=0", headers: { cookie } });
+  assert.equal(revoke.status, 302);
+  await patchAccount((a) => {
+    delete a.paidUntil;
+    a.trialEndsAt = new Date(Date.now() - 864e5).toISOString();
+  });
+  const revoked = await json(await call("GET", "/api/me", { token }));
+  assert.equal(revoked.body.comp, false);
+  const restingAgain = await call("GET", "/api/site/comp-kid");
+  assert.match(restingAgain.body, /Taking a break/);
+});
+
+test("a comped account in the dashboard shows Free in the summary and its row", async () => {
+  const { token } = await parent("comp-dash@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "comp-dash", html: page("Comp Dash") } });
+  await patchAccount((a) => { a.comp = true; a.compAt = new Date().toISOString(); });
+  const cookie = await adminCookie();
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.equal(dash.status, 200);
+  assert.match(dash.body, />1<\/div><div>Free</);
+  assert.match(dash.body, /Free \(friends &amp; family\)/);
+  assert.match(dash.body, /comp-dash@example\.com/);
+  // The comped row's own button offers the way back, not another grant.
+  assert.match(dash.body, /Remove free/);
+  assert.match(dash.body, /name="on" value="0"/);
+  assert.equal(dash.body.includes('name="on" value="1"'), false);
+});
+
 test("page views count strangers, not the family, the operator, or bots", async () => {
   const { token } = await parent("views@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });

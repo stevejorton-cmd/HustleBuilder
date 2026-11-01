@@ -3956,6 +3956,7 @@ function trialLine(me){
 }
 function planHelp(me){
   if(!me)return "Try free: your first 3 jobs are on us, for 14 days.";
+  if(me.comp)return "Friends & family — free, no payment due.";
   if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
   if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
   if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
@@ -4160,6 +4161,7 @@ async function pubPush(){
 }
 $("#pubGo").onclick=pubPush;
 function accountWords(site){
+  if(site.comp)return "Friends & family — free, no payment due";
   if(site.paid)return (site.planName||"Paid plan")+(site.paidUntilLabel?" through "+site.paidUntilLabel:"")+(site.grace?" · "+site.graceDays+" grace days left":"");
   if(site.trialOver)return "Free trial is over. Renew to bring the page back.";
   const days=site.trialEndsLabel?site.trialDaysLeft+" days left":"trial not started";
@@ -4226,7 +4228,8 @@ async function showAccount(){
       if(msg)msg.textContent=res.ok?"The page is offline. Update puts it back on the same link.":"Could not take it offline.";
       showAccount();
     };
-    actions.appendChild(season); actions.appendChild(year); actions.appendChild(pause); actions.appendChild(down);
+    if(!site.comp){actions.appendChild(season); actions.appendChild(year);}
+    actions.appendChild(pause); actions.appendChild(down);
     card.appendChild(actions);
     box.appendChild(card);
   });
