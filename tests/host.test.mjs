@@ -1702,7 +1702,7 @@ test("admin view shows a zero legacy-inbox count when no page carries one", asyn
 });
 
 /* ---- page reskins: the theme system inside index.html's genSite ---- */
-function extractBuilderParts(src) {
+function extractBuilderParts(src, fontData) {
   const lines = src.split("\n");
   const extractFn = (name) => {
     const start = lines.findIndex((l) => new RegExp("^(async )?function " + name + "\\b").test(l));
@@ -1732,7 +1732,7 @@ function extractBuilderParts(src) {
   let code = "";
   for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
   for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }
-  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, SITE_THEMES, fmtPrice, cleanPrice, petFace, PET_ART };")({}, "", "");
+  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, SITE_THEMES, fmtPrice, cleanPrice, petFace, PET_ART, siteFontCss };")(fontData || {}, "", "");
 }
 function demoCfg(extra) {
   const sched = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ on: i >= 1 && i <= 6, from: "16:00", to: "20:00" }));
@@ -1802,6 +1802,55 @@ test("page reskins: the builder offers the picker and carries the choice to publ
   for (const name of ["Bold Block", "Clean", "Paper", "Sport Stripe", "Friendly", "Midnight", "Retro Badge"]) {
     assert.ok(src.includes('"' + name + '"') || src.includes(name), name);
   }
+});
+
+/* ---- website font: a font picked in "Make it yours" reaches the published page ---- */
+const STUB_FONT_DATA = { pacifico: "QUJD", bebas: "REVG" };
+
+test("website font: genSite embeds the picked face for headings in every theme", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite, SITE_THEMES } = extractBuilderParts(src, STUB_FONT_DATA);
+  for (const id of Object.keys(SITE_THEMES)) {
+    const html = genSite(demoCfg({ theme: id, font: "pacifico" }));
+    assert.ok(html.includes('@font-face{font-family:"HB-pacifico"'), id + " embeds the picked face");
+    assert.ok(html.includes("data:font/woff2;base64,QUJD"), id + " carries the face data");
+    assert.ok(html.includes('--display:"HB-pacifico"'), id + " points headings at the pick");
+    // the font block is emitted after the theme CSS, so the pick wins over theme heading rules
+    assert.ok(html.indexOf("HB-pacifico") > html.indexOf("/* hb-theme:" + id + " */"), id + " font css lands after theme css");
+  }
+  const bebas = genSite(demoCfg({ theme: "clean", font: "bebas" }));
+  assert.ok(bebas.includes('@font-face{font-family:"HB-bebas"'), "a second pick embeds its own face");
+  assert.equal(bebas.includes("HB-pacifico"), false);
+});
+
+test("website font: no pick, the default, and an unknown pick stay clean", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite, siteFontCss } = extractBuilderParts(src, STUB_FONT_DATA);
+  assert.equal(siteFontCss(""), "");
+  assert.equal(siteFontCss("workwear"), ""); // the default keeps today's exact rendering
+  assert.equal(siteFontCss("comic"), ""); // unknown id falls back, never breaks the page
+  assert.ok(siteFontCss("pacifico").includes('@font-face{font-family:"HB-pacifico"'));
+  const plain = genSite(demoCfg({ font: "" }));
+  assert.equal(plain.includes('font-family:"HB-'), false);
+  const unknown = genSite(demoCfg({ font: "comic" }));
+  assert.equal(unknown.includes("HB-comic"), false);
+  for (const el of ["cal", "svc", "nm", "sendHost"]) {
+    assert.ok(unknown.includes(`id="${el}"`), "unknown pick keeps #" + el);
+  }
+});
+
+test("website font: the Make it yours panel drives the website pick", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const handler = src.split("\n").find((l) => l.includes("lkFont") && l.includes("LOOK.font=v"));
+  assert.ok(handler, "the panel font handler exists");
+  assert.match(handler, /S\.siteFont=v==="workwear"\?"":v/); // the pick lands in the website state
+  assert.match(handler, /S\.siteFont\|\|LOOK\.font/); // the panel shows the website's current font
+  assert.match(handler, /queue\(\)/); // preview + draft refresh through the usual path
+  // the Step 5 "Website font" picker still writes the same state field
+  assert.match(src, /id="siteFonts"/);
+  // honest copy: the font covers the website too, and the old app/posters-only wording is gone
+  assert.ok(src.includes("The big headings in the app and on your website."));
+  assert.equal(src.includes("by default, on your posters"), false);
 });
 
 /* ---- pilot fixes (Nov 1): prices, pet art, sticky preview, pet hero, tagline, Make It Yours ---- */
