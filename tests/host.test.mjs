@@ -1653,3 +1653,50 @@ test("resting, missing, and already-belted pages get no second belt", async () =
   assert.equal(served.body.split('id="hb-belt"').length - 1, 1);
   assert.ok(served.body.includes("already here"));
 });
+
+test("admin view flags a page still wired to a legacy Apps Script inbox", async () => {
+  // A family whose page dates from when bookings ran through their own
+  // Google Apps Script inbox: the config embedded in the page carries the
+  // inbox object instead of null.
+  const legacy = await parent("legacy-flag@example.com");
+  await call("POST", "/api/consent", { token: legacy.token, body: { consent: true } });
+  const legacyPage = `<!DOCTYPE html><html><head><title>Legacy Lawn Co</title></head><body><!-- hb-public --><h1>Legacy Lawn Co</h1><script>window.__C={"first":"Lee","biz":"Legacy Lawn Co","inbox":{"url":"https://script.google.com/macros/s/AKfycbxTEST123/exec","key":"testkey"}};</script></body></html>`;
+  const pubLegacy = await json(await call("POST", "/api/publish", { token: legacy.token, body: { slug: "legacy-lawn", html: legacyPage } }));
+  assert.equal(pubLegacy.status, 200);
+  // A family on today's hosted booking: the same spot in the config is null.
+  const modern = await parent("modern-flag@example.com");
+  await call("POST", "/api/consent", { token: modern.token, body: { consent: true } });
+  const modernPage = `<!DOCTYPE html><html><head><title>Modern Mowing</title></head><body><!-- hb-public --><h1>Modern Mowing</h1><script>window.__C={"first":"Mo","biz":"Modern Mowing","inbox":null};</script></body></html>`;
+  const pubModern = await json(await call("POST", "/api/publish", { token: modern.token, body: { slug: "modern-lawn", html: modernPage } }));
+  assert.equal(pubModern.status, 200);
+
+  const cookie = await adminCookie();
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.equal(dash.status, 200);
+  // The summary counts the one legacy page, and exactly one badge is drawn.
+  assert.match(dash.body, />1<\/div><div>Legacy inbox</);
+  assert.equal((dash.body.match(/background:#fde68a/g) || []).length, 1);
+  // The badge sits on the legacy page's own row, not the modern family's.
+  const rows = dash.body.split("<tr>");
+  const legacyRow = rows.find((r) => r.includes("/legacy-lawn")) || "";
+  const modernRow = rows.find((r) => r.includes("/modern-lawn")) || "";
+  assert.match(legacyRow, />Legacy inbox<\/span>/);
+  assert.equal(modernRow.includes("Legacy inbox"), false);
+  // Both families are otherwise listed as usual.
+  assert.match(dash.body, /legacy-flag@example\.com/);
+  assert.match(dash.body, /modern-flag@example\.com/);
+});
+
+test("admin view shows a zero legacy-inbox count when no page carries one", async () => {
+  const { token } = await parent("zero-flag@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const cleanPage = `<!DOCTYPE html><html><head><title>Clean Cuts</title></head><body><!-- hb-public --><h1>Clean Cuts</h1><script>window.__C={"first":"Cl","biz":"Clean Cuts","inbox":null};</script></body></html>`;
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "clean-cuts", html: cleanPage } }));
+  assert.equal(pub.status, 200);
+  const cookie = await adminCookie();
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.equal(dash.status, 200);
+  // The tile is always there so a clean board visibly reads zero.
+  assert.match(dash.body, />0<\/div><div>Legacy inbox</);
+  assert.equal(dash.body.includes(">Legacy inbox</span>"), false);
+});

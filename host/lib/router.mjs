@@ -569,11 +569,20 @@ function adminSetupPage() {
 // live in the config the builder embeds in the published page. Read just those
 // two fields out of it — never the phone digits or contact email the config
 // also carries. Fall back to the share-card title stored on the page record.
+// The same pass flags a page still wired to the family's own Google Apps
+// Script inbox (the pre-hosting booking path): its embedded config carries an
+// inbox object instead of "inbox":null. The published-page CSP now blocks
+// those outside calls, so the sheet's busy times and customer photos silently
+// fail — the operator needs to spot those pages and reach the family.
+// Nothing is stripped server-side, so the marker is read, never rewritten.
+const LEGACY_INBOX_MARK = '"inbox":{"url":"https://script.google.com/';
 async function siteNames(slug, meta) {
   let first = "";
   let biz = "";
+  let legacyInbox = false;
   const raw = await (await store()).get("pages/" + slug + ".html");
   if (raw) {
+    legacyInbox = raw.includes(LEGACY_INBOX_MARK);
     const m = raw.match(/window\.__C=(\{.*?\});<\/script>/s);
     if (m) {
       try {
@@ -584,7 +593,7 @@ async function siteNames(slug, meta) {
     }
   }
   if (!biz && meta && meta.card) biz = String(meta.card.title || "").slice(0, 80);
-  return { first, biz };
+  return { first, biz, legacyInbox };
 }
 
 function adminStatus(account, meta, used) {
@@ -643,7 +652,7 @@ async function adminDashboardPage(origin) {
     const meta = await readJson(key);
     if (meta && meta.slug && meta.status !== "redirect") metas.set(meta.slug, meta);
   }
-  const counts = { accounts: 0, live: 0, trial: 0, paid: 0, free: 0, grace: 0, break: 0, hidden: 0, bookings: 0 };
+  const counts = { accounts: 0, live: 0, trial: 0, paid: 0, free: 0, grace: 0, break: 0, hidden: 0, bookings: 0, legacy: 0 };
   for (const meta of metas.values()) {
     if (meta.status === "live") counts.live += 1;
     if (meta.status === "review") counts.hidden += 1;
@@ -666,10 +675,12 @@ async function adminDashboardPage(origin) {
     if (status.key === "break") counts.break += 1;
     const requests = await loadRequests(account.id);
     counts.bookings += requests.length;
-    const names = meta ? await siteNames(meta.slug, meta) : { first: "", biz: "" };
+    const names = meta ? await siteNames(meta.slug, meta) : { first: "", biz: "", legacyInbox: false };
+    if (names.legacyInbox) counts.legacy += 1;
     rows.push({
       id: account.id,
       comp: comped(account),
+      legacyInbox: names.legacyInbox,
       biz: names.biz,
       first: names.first,
       slug: meta ? meta.slug : account.slug || "",
@@ -684,9 +695,11 @@ async function adminDashboardPage(origin) {
     if (seen.has(meta.slug)) continue;
     const status = adminStatus(null, meta, 0);
     const names = await siteNames(meta.slug, meta);
+    if (names.legacyInbox) counts.legacy += 1;
     rows.push({
       id: "",
       comp: false,
+      legacyInbox: names.legacyInbox,
       biz: names.biz,
       first: names.first,
       slug: meta.slug,
@@ -708,13 +721,14 @@ async function adminDashboardPage(origin) {
     tile(counts.grace, "In grace"),
     tile(counts.break, "Taking a break"),
     tile(counts.hidden, "Hidden by reports"),
+    tile(counts.legacy, "Legacy inbox"),
     tile(counts.bookings, "Bookings stored")
   ].join("");
   const body = rows.map((row) => `<tr>
 <td style="padding:8px;vertical-align:top">${row.biz ? `<b>${mailEscape(row.biz)}</b>` : ""}${row.first ? `<br>${mailEscape(row.first)}` : ""}${!row.biz && !row.first ? "—" : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.slug ? `<a href="${mailEscape((origin || "") + "/" + row.slug)}">/${mailEscape(row.slug)}</a>` : "—"}</td>
 <td style="padding:8px;vertical-align:top">${row.email ? mailEscape(row.email) : "—"}</td>
-<td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}</td>
+<td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}${row.legacyInbox ? `<br><span style="display:inline-block;margin-top:4px;padding:1px 8px;border-radius:999px;background:#fde68a;border:1px solid #d97706;color:#7c2d12;font-size:13px;font-weight:700">Legacy inbox</span>` : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.bookings}</td>
 <td style="padding:8px;vertical-align:top">${row.reports}</td>
 <td style="padding:8px;vertical-align:top">${row.id ? `<form method="post" action="/admin/comp"><input type="hidden" name="id" value="${mailEscape(row.id)}"><input type="hidden" name="on" value="${row.comp ? "0" : "1"}"><button type="submit" style="font:14px system-ui;padding:6px 10px">${row.comp ? "Remove free" : "Make free"}</button></form>` : "—"}</td>
