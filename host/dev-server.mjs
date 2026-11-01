@@ -62,7 +62,7 @@ const server = createServer(async (req, res) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   let reqPath = url.pathname;
-  if (req.method === "GET" && /^\/[a-z0-9][a-z0-9-]{1,40}$/.test(reqPath)) reqPath = "/api/site" + reqPath;
+  if (req.method === "GET" && /^\/[a-z0-9][a-z0-9-]{1,40}$/.test(reqPath) && reqPath !== "/admin") reqPath = "/api/site" + reqPath;
   const result = await handleRequest({
     method: req.method,
     path: reqPath,

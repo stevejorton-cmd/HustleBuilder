@@ -1318,3 +1318,86 @@ test("published pages carry a Content-Security-Policy, the builder API does not"
   const plans = await call("GET", "/api/plans");
   assert.equal(plans.headers["content-security-policy"], undefined);
 });
+
+test("admin view gates on the secret and lists accounts without private details", async () => {
+  // A trial family with a published page whose config carries a kid name,
+  // a business name, and a phone number that must never reach the dashboard.
+  const trial = await parent("admin-trial@example.com");
+  await call("POST", "/api/consent", { token: trial.token, body: { consent: true } });
+  const cfgPage = `<!DOCTYPE html><html><head><title>Green Guys Lawn Care</title></head><body><!-- hb-public --><h1>Green Guys Lawn Care</h1><script>window.__C={"first":"Sam","biz":"Green Guys Lawn Care","phoneDigits":"4025551234"};</script></body></html>`;
+  const pub = await json(await call("POST", "/api/publish", { token: trial.token, body: { slug: "sam-mows", html: cfgPage, cardTitle: "Card Title Biz" } }));
+  assert.equal(pub.status, 200);
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "sam-mows", name: "Riley", contact: "402-555-0199", service: "Mow", when: "Monday at 4:00 PM",
+    address: "999 Secret Lane", note: "Gate code 4321", start: "2026-11-16T16:00", t: 5000
+  } }));
+  assert.equal(book.body.ok, true);
+  // A paid family.
+  const paidParent = await parent("admin-paid@example.com");
+  await call("POST", "/api/consent", { token: paidParent.token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token: paidParent.token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token: paidParent.token, body: { slug: "cleo-lawns", html: page("Cleo") } });
+  // A verified parent who never published, and one who only asked for a code.
+  await parent("admin-draft@example.com");
+  await call("POST", "/api/auth/start", { body: { email: "admin-waiting@example.com" } });
+
+  const gate = await call("GET", "/admin");
+  assert.equal(gate.status, 200);
+  assert.match(gate.body, /Admin password/);
+  assert.equal(gate.body.includes("admin-trial@example.com"), false);
+  assert.equal(gate.body.includes("Green Guys"), false);
+
+  const bad = await call("POST", "/admin/login", { raw: "secret=wrong" });
+  assert.equal(bad.status, 401);
+  assert.equal(bad.headers["set-cookie"], undefined);
+
+  const good = await call("POST", "/admin/login", { raw: "secret=test-admin-secret" });
+  assert.equal(good.status, 302);
+  assert.equal(good.headers.location, "/admin");
+  const setCookie = good.headers["set-cookie"] || "";
+  assert.match(setCookie, /hb_admin=[a-f0-9]{64}/);
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /Secure/);
+  assert.match(setCookie, /SameSite=Lax/);
+  assert.match(setCookie, /Path=\/admin/);
+  const cookie = setCookie.split(";")[0];
+
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.equal(dash.status, 200);
+  assert.match(dash.body, />4<\/div><div>Accounts</);
+  assert.match(dash.body, />1<\/div><div>Bookings stored</);
+  assert.match(dash.body, /Green Guys Lawn Care/);
+  assert.match(dash.body, />Sam</);
+  assert.match(dash.body, /\/sam-mows/);
+  assert.match(dash.body, /admin-trial@example\.com/);
+  assert.match(dash.body, /Free trial/);
+  assert.match(dash.body, /admin-paid@example\.com/);
+  assert.match(dash.body, /Paid/);
+  assert.match(dash.body, /Cleo/);
+  assert.match(dash.body, /admin-draft@example\.com/);
+  assert.match(dash.body, /Draft/);
+  assert.match(dash.body, /admin-waiting@example\.com/);
+  assert.match(dash.body, /Awaiting parent/);
+  // The page config's phone, the customer's name, address, and gate note stay out.
+  assert.equal(dash.body.includes("4025551234"), false);
+  assert.equal(dash.body.includes("Riley"), false);
+  assert.equal(dash.body.includes("999 Secret Lane"), false);
+  assert.equal(dash.body.includes("4321"), false);
+
+  const out = await call("POST", "/admin/logout", { headers: { cookie } });
+  assert.equal(out.status, 302);
+  assert.match(out.headers["set-cookie"] || "", /Max-Age=0/);
+  const after = await call("GET", "/admin", { headers: { cookie } });
+  assert.match(after.body, /Admin password/);
+  assert.equal(after.body.includes("admin-trial@example.com"), false);
+});
+
+test("admin login is limited to ten tries an hour per address", async () => {
+  for (let i = 0; i < 10; i++) {
+    const res = await call("POST", "/admin/login", { raw: "secret=wrong-" + i });
+    assert.equal(res.status, 401);
+  }
+  const over = await call("POST", "/admin/login", { raw: "secret=test-admin-secret" });
+  assert.equal(over.status, 429);
+  assert.equal(over.headers["set-cookie"], undefined);
+});

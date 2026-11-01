@@ -159,6 +159,40 @@ function cookieValue(header, name) {
   }
   return "";
 }
+
+// The operator view at /admin is gated by the same ADMIN_SECRET as
+// /api/admin/restore, but a correct password trades for a random HttpOnly
+// cookie session (same shape as the parent sessions above), so the secret
+// itself is typed once into a form and never sits in browser storage.
+const ADMIN_COOKIE = "hb_admin";
+const ADMIN_COOKIE_MAX_AGE = 12 * 3600;
+function adminCookieHeader(token) {
+  return ADMIN_COOKIE + "=" + token + "; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=" + ADMIN_COOKIE_MAX_AGE;
+}
+function clearAdminCookieHeader() {
+  return ADMIN_COOKIE + "=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0";
+}
+async function issueAdminSession() {
+  const token = rand(32);
+  await writeJson("adminsessions/" + sha(token) + ".json", { exp: Date.now() + ADMIN_COOKIE_MAX_AGE * 1000 });
+  return token;
+}
+async function adminAuthed(headers) {
+  const token = cookieValue(headers && (headers.cookie || headers.Cookie), ADMIN_COOKIE);
+  if (!/^[a-f0-9]{64}$/.test(token)) return false;
+  const key = "adminsessions/" + sha(token) + ".json";
+  const rec = await readJson(key);
+  if (!rec) return false;
+  if (Number(rec.exp) <= Date.now()) {
+    await (await store()).del(key);
+    return false;
+  }
+  return true;
+}
+async function dropAdminSession(headers) {
+  const token = cookieValue(headers && (headers.cookie || headers.Cookie), ADMIN_COOKIE);
+  if (/^[a-f0-9]{64}$/.test(token)) await (await store()).del("adminsessions/" + sha(token) + ".json");
+}
 async function saveAccount(account) {
   await writeJson("accounts/" + account.id + ".json", account);
   await (await store()).put("email/" + sha(account.email), account.id);
@@ -497,6 +531,188 @@ function breakPage() {
 </body></html>`);
 }
 
+function adminLoginPage(status, note) {
+  return html(status, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Admin sign in</title></head><body>
+<main style="max-width:24rem;margin:3rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem">
+<h1>Hustle Builder admin</h1>
+${note ? `<p><b>${mailEscape(note)}</b></p>` : ""}
+<form method="post" action="/admin/login">
+<label style="display:block;margin:14px 0">Admin password
+<input type="password" name="secret" autocomplete="current-password" required style="display:block;width:100%;margin-top:6px;font:18px system-ui;padding:10px;box-sizing:border-box"></label>
+<button type="submit" style="font:18px system-ui;padding:12px 18px">Sign in</button>
+</form>
+</main></body></html>`);
+}
+
+function adminSetupPage() {
+  return html(503, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Admin not set up</title></head><body>
+<main style="max-width:24rem;margin:3rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem">
+<h1>Admin is not set up</h1>
+<p>This server has no ADMIN_SECRET, so the admin view stays closed.</p>
+</main></body></html>`);
+}
+
+// A site's business name and the kid's first name are not account fields; they
+// live in the config the builder embeds in the published page. Read just those
+// two fields out of it — never the phone digits or contact email the config
+// also carries. Fall back to the share-card title stored on the page record.
+async function siteNames(slug, meta) {
+  let first = "";
+  let biz = "";
+  const raw = await (await store()).get("pages/" + slug + ".html");
+  if (raw) {
+    const m = raw.match(/window\.__C=(\{.*?\});<\/script>/s);
+    if (m) {
+      try {
+        const cfg = JSON.parse(m[1]);
+        first = String(cfg.first || "").slice(0, 40);
+        biz = String(cfg.biz || "").slice(0, 80);
+      } catch { /* fall through to the card title */ }
+    }
+  }
+  if (!biz && meta && meta.card) biz = String(meta.card.title || "").slice(0, 80);
+  return { first, biz };
+}
+
+function adminStatus(account, meta, used) {
+  if (account && !account.emailVerifiedAt) {
+    return { key: "awaiting", label: "Awaiting parent", date: account.createdAt ? "Started " + niceDate(account.createdAt) : "" };
+  }
+  if (!account) {
+    if (meta && meta.status === "review") return { key: "hidden", label: "Hidden (reports)", date: meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
+    if (meta && meta.status === "down") return { key: "down", label: "Taken down", date: meta.downAt ? "Since " + niceDate(meta.downAt) : "" };
+    if (meta && meta.status === "paused") return { key: "break", label: "Paused by family", date: meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
+    return { key: "live", label: "Live", date: meta && meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
+  }
+  if (!account.slug || !meta) {
+    return { key: "draft", label: "Draft", date: account.createdAt ? "Started " + niceDate(account.createdAt) : "" };
+  }
+  if (meta.status === "review") {
+    return { key: "hidden", label: "Hidden (reports)", date: meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
+  }
+  if (meta.status === "down") {
+    return { key: "down", label: "Taken down", date: meta.downAt ? "Since " + niceDate(meta.downAt) : "" };
+  }
+  if (paid(account)) {
+    return { key: "paid", label: "Paid" + (account.planName ? " · " + account.planName : ""), date: "Through " + niceDate(account.paidUntil) };
+  }
+  if (inGrace(account)) {
+    return { key: "grace", label: "Grace period", date: graceLeftDays(account) + " day" + (graceLeftDays(account) === 1 ? "" : "s") + " of grace left" };
+  }
+  if (onBreak(account) || trialOver(account, used)) {
+    const ended = account.paidUntil ? "Plan ended " + niceDate(account.paidUntil) : account.trialEndsAt ? "Trial ended " + niceDate(account.trialEndsAt) : "";
+    return { key: "break", label: "Taking a break", date: ended };
+  }
+  if (meta.status === "paused") {
+    return { key: "break", label: "Paused by family", date: meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
+  }
+  if (meta.status === "offline") {
+    return { key: "draft", label: "Unpublished", date: meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
+  }
+  return {
+    key: "trial",
+    label: "Free trial",
+    date: (account.trialEndsAt ? "Ends " + niceDate(account.trialEndsAt) : "") + " · " + used + " of " + FREE_JOBS + " free jobs used"
+  };
+}
+
+async function adminDashboardPage(origin) {
+  const s = await store();
+  const canList = typeof s.list === "function";
+  const accountKeys = canList ? await s.list("accounts/") : [];
+  const pageKeys = canList ? await s.list("pages/") : [];
+  const metas = new Map();
+  for (const key of pageKeys) {
+    if (!key.endsWith(".json")) continue;
+    const meta = await readJson(key);
+    if (meta && meta.slug && meta.status !== "redirect") metas.set(meta.slug, meta);
+  }
+  const counts = { accounts: 0, live: 0, trial: 0, paid: 0, grace: 0, break: 0, hidden: 0, bookings: 0 };
+  for (const meta of metas.values()) {
+    if (meta.status === "live") counts.live += 1;
+    if (meta.status === "review") counts.hidden += 1;
+  }
+  const rows = [];
+  const seen = new Set();
+  for (const key of accountKeys) {
+    if (!key.endsWith(".json")) continue;
+    const account = await readJson(key);
+    if (!account || !account.id) continue;
+    counts.accounts += 1;
+    const meta = account.slug ? metas.get(account.slug) || null : null;
+    if (meta) seen.add(meta.slug);
+    const used = await trialCount(account.email);
+    const status = adminStatus(account, meta, used);
+    if (status.key === "trial") counts.trial += 1;
+    if (status.key === "paid") counts.paid += 1;
+    if (status.key === "grace") counts.grace += 1;
+    if (status.key === "break") counts.break += 1;
+    const requests = await loadRequests(account.id);
+    counts.bookings += requests.length;
+    const names = meta ? await siteNames(meta.slug, meta) : { first: "", biz: "" };
+    rows.push({
+      biz: names.biz,
+      first: names.first,
+      slug: meta ? meta.slug : account.slug || "",
+      email: account.email || "",
+      status,
+      bookings: requests.length,
+      reports: meta && Array.isArray(meta.reports) ? meta.reports.length : 0,
+      sortAt: (meta && meta.updatedAt) || account.createdAt || ""
+    });
+  }
+  for (const meta of metas.values()) {
+    if (seen.has(meta.slug)) continue;
+    const status = adminStatus(null, meta, 0);
+    const names = await siteNames(meta.slug, meta);
+    rows.push({
+      biz: names.biz,
+      first: names.first,
+      slug: meta.slug,
+      email: "",
+      status,
+      bookings: 0,
+      reports: Array.isArray(meta.reports) ? meta.reports.length : 0,
+      sortAt: meta.updatedAt || ""
+    });
+  }
+  rows.sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
+  const tile = (n, label) => `<div style="border:1px solid #ccd2d8;border-radius:10px;padding:10px 14px;min-width:6.5rem"><div style="font-size:28px;font-weight:800">${n}</div><div>${label}</div></div>`;
+  const tiles = [
+    tile(counts.accounts, "Accounts"),
+    tile(counts.live, "Sites live"),
+    tile(counts.trial, "In trial"),
+    tile(counts.paid, "Paid"),
+    tile(counts.grace, "In grace"),
+    tile(counts.break, "Taking a break"),
+    tile(counts.hidden, "Hidden by reports"),
+    tile(counts.bookings, "Bookings stored")
+  ].join("");
+  const body = rows.map((row) => `<tr>
+<td style="padding:8px;vertical-align:top">${row.biz ? `<b>${mailEscape(row.biz)}</b>` : ""}${row.first ? `<br>${mailEscape(row.first)}` : ""}${!row.biz && !row.first ? "—" : ""}</td>
+<td style="padding:8px;vertical-align:top">${row.slug ? `<a href="${mailEscape((origin || "") + "/" + row.slug)}">/${mailEscape(row.slug)}</a>` : "—"}</td>
+<td style="padding:8px;vertical-align:top">${row.email ? mailEscape(row.email) : "—"}</td>
+<td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}</td>
+<td style="padding:8px;vertical-align:top">${row.bookings}</td>
+<td style="padding:8px;vertical-align:top">${row.reports}</td>
+</tr>`).join("");
+  return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Hustle Builder admin</title></head><body>
+<main style="max-width:64rem;margin:2rem auto;font:16px/1.5 system-ui,sans-serif;padding:0 1rem">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+<h1 style="margin:0">Hustle Builder admin</h1>
+<form method="post" action="/admin/logout"><button type="submit" style="font:16px system-ui;padding:8px 14px">Sign out</button></form>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0">${tiles}</div>
+<table style="border-collapse:collapse;width:100%">
+<thead><tr style="text-align:left;border-bottom:2px solid #1d2226">
+<th style="padding:8px">Business · kid</th><th style="padding:8px">Page</th><th style="padding:8px">Parent email</th><th style="padding:8px">Status</th><th style="padding:8px">Bookings</th><th style="padding:8px">Reports</th>
+</tr></thead>
+<tbody>${body || `<tr><td colspan="6" style="padding:8px">No accounts yet.</td></tr>`}</tbody>
+</table>
+<p style="color:#5a6672">Bookings are the requests still stored per family (newest 80 kept). Reports are the reports on a page right now; restoring a page clears them.</p>
+</main></body></html>`);
+}
+
 // Published pages are account-supplied HTML and can carry inline script (the
 // booking widget). This policy keeps the page's own inline code, same-origin
 // fetches, embedded data: photos/fonts and same-origin images working, while
@@ -764,6 +980,11 @@ export async function handleRequest(req) {
   if (method === "OPTIONS") return withCors({ status: 204, headers: {}, body: "" }, req.headers && req.headers.origin);
   if (method === "GET" && path === "/favicon.ico") return { status: 204, headers: { "cache-control": "public, max-age=86400" }, body: "" };
   const route = path.startsWith("/api/") ? path.slice(5) : "";
+  // /admin is a small operator site, not an API route. Vercel rewrites /admin
+  // and /admin/* to /api/handler?hbpath=admin... (so they arrive as route
+  // "admin..."), while the dev server passes the bare path through; meet both
+  // shapes under one name.
+  const adminRoute = route.startsWith("admin") ? route : (path === "/admin" || path.startsWith("/admin/") ? path.slice(1) : "");
 
   if (method === "GET" && (route.startsWith("site/") || path.startsWith("/api/site/"))) {
     const slug = decodeURIComponent((route || path.replace(/^\/api\//, "")).slice(5));
@@ -1698,6 +1919,31 @@ document.getElementById("done").onclick=()=>mark("done");
     }
     if (asJson) return withCors(json(200, { ok: true, status: meta.status, reports: meta.reports.length }), req.headers && req.headers.origin);
     return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report sent</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Thanks</h1><p>We got your note. You can close this page.</p></body></html>`);
+  }
+
+  if (method === "GET" && adminRoute === "admin") {
+    const secret = process.env.ADMIN_SECRET || "";
+    if (!secret) return adminSetupPage();
+    if (await adminAuthed(req.headers)) return await adminDashboardPage(origin);
+    return adminLoginPage(200, "");
+  }
+
+  if (method === "POST" && adminRoute === "admin/login") {
+    const secret = process.env.ADMIN_SECRET || "";
+    if (!secret) return adminSetupPage();
+    // Every try from one address counts, right or wrong: 10 an hour is plenty
+    // for the operator and far too slow for guessing. Mirrors the countKey
+    // limits on auth/start, with an hour bucket instead of a day.
+    const hour = new Date().toISOString().slice(0, 13);
+    if (await countKey("adminip/" + sha(clientIp(req) + "|" + hour), 10)) return adminLoginPage(429, "Too many tries. Wait an hour, then try again.");
+    if (!safeEqual(String(body.secret || ""), secret)) return adminLoginPage(401, "That password did not work.");
+    const token = await issueAdminSession();
+    return { status: 302, headers: { location: "/admin", "cache-control": "no-store", "set-cookie": adminCookieHeader(token) }, body: "" };
+  }
+
+  if (method === "POST" && adminRoute === "admin/logout") {
+    await dropAdminSession(req.headers);
+    return { status: 302, headers: { location: "/admin", "cache-control": "no-store", "set-cookie": clearAdminCookieHeader() }, body: "" };
   }
 
   if (method === "POST" && route === "admin/restore") {

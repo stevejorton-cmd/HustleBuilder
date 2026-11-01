@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/admin", "destination": "/api/handler?hbpath=admin" },
+    { "source": "/admin/(.*)", "destination": "/api/handler?hbpath=admin/$1" },
     { "source": "/api/(.*)", "destination": "/api/handler?hbpath=$1" },
     { "source": "/((?!api/|icons/|manifest\\.webmanifest|sw\\.js)[^/]+)", "destination": "/api/handler?hbsite=$1" }
   ],
