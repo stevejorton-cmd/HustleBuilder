@@ -828,6 +828,9 @@ export async function handleRequest(req) {
   if (method === "POST" && route === "auth/start") {
     const email = emailOk(body.email);
     if (!email) return withCors(json(400, { ok: false, error: "email" }), req.headers && req.headers.origin);
+    const day = new Date().toISOString().slice(0, 10);
+    if (await countKey("authem/" + sha(email + "|" + day), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (await countKey("authip/" + sha(clientIp(req) + "|" + day), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     let account = await accountByEmail(email);
     const code = String(randomInt(100000, 1000000));
     if (!account) account = { id: rand(8), email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null };
@@ -1121,7 +1124,7 @@ export async function handleRequest(req) {
   const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
   if (method === "POST" && askDone) {
     const rec = await readJson("asks/" + askDone[1] + ".json");
-    if (!rec) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     rec.status = "live";
     rec.url = String(body.url || rec.url || "").slice(0, 200);
     rec.liveAt = new Date().toISOString();
