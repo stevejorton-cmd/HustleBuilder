@@ -1231,3 +1231,90 @@ test("a parent account lists the site, trial, receipts, and requests", async () 
   assert.equal(stranger.status, 401);
 });
 
+test("verify sets an HttpOnly session cookie and the cookie alone signs in", async () => {
+  const email = "cookie@example.com";
+  const start = await json(await call("POST", "/api/auth/start", { body: { email } }));
+  assert.equal(start.body.ok, true);
+  const verifyRes = await call("POST", "/api/auth/verify", { body: { email, code: start.body.devCode } });
+  const verify = await json(verifyRes);
+  assert.equal(verify.body.ok, true);
+  const setCookie = verifyRes.headers["set-cookie"] || "";
+  assert.match(setCookie, new RegExp("hb_session=" + verify.body.token));
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /Secure/);
+  assert.match(setCookie, /SameSite=Lax/);
+  assert.match(setCookie, /Path=\//);
+  assert.match(setCookie, /Max-Age=15552000/);
+  const cookie = "hb_session=" + verify.body.token;
+  const me = await json(await call("GET", "/api/me", { headers: { cookie } }));
+  assert.equal(me.body.ok, true);
+  assert.equal(me.body.email, email);
+  const consent = await json(await call("POST", "/api/consent", { headers: { cookie }, body: { consent: true } }));
+  assert.equal(consent.body.ok, true);
+  const pub = await json(await call("POST", "/api/publish", { headers: { cookie }, body: { slug: "cookie-kid", html: page("Cookie") } }));
+  assert.equal(pub.status, 200);
+  assert.equal(pub.body.ok, true);
+});
+
+test("Bearer tokens still work during the cookie transition", async () => {
+  const { token } = await parent("bearer@example.com");
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.ok, true);
+  const both = await json(await call("GET", "/api/me", { token: "0".repeat(64), headers: { cookie: "hb_session=" + token } }));
+  assert.equal(both.body.ok, true);
+  const stale = await json(await call("GET", "/api/me", { token, headers: { cookie: "hb_session=" + "f".repeat(64) } }));
+  assert.equal(stale.body.ok, true);
+  assert.equal(stale.body.email, "bearer@example.com");
+});
+
+test("ask open also sets the session cookie", async () => {
+  const draft = { type: "lawn", first: "Sam", town: "Elkhorn", bizName: "Sam Mows", services: [{ n: "Mow", p: "20" }] };
+  const sent = await json(await call("POST", "/api/ask", { body: { email: "dad@example.com", draft } }));
+  assert.equal(sent.body.ok, true);
+  const openRes = await call("POST", "/api/ask/" + sent.body.token + "/open", { body: {} });
+  const opened = await json(openRes);
+  assert.equal(opened.body.ok, true);
+  const setCookie = openRes.headers["set-cookie"] || "";
+  assert.match(setCookie, /hb_session=[a-f0-9]{64}/);
+  assert.match(setCookie, /HttpOnly/);
+  const me = await json(await call("GET", "/api/me", { headers: { cookie: "hb_session=" + opened.body.token } }));
+  assert.equal(me.body.email, "dad@example.com");
+});
+
+test("logout clears the cookie and ends the session everywhere", async () => {
+  const { token } = await parent("bye@example.com");
+  const cookie = "hb_session=" + token;
+  const outRes = await call("POST", "/api/auth/logout", { headers: { cookie }, body: {} });
+  const out = await json(outRes);
+  assert.equal(out.body.ok, true);
+  const cleared = outRes.headers["set-cookie"] || "";
+  assert.match(cleared, /hb_session=;/);
+  assert.match(cleared, /Max-Age=0/);
+  const meCookie = await json(await call("GET", "/api/me", { headers: { cookie } }));
+  assert.equal(meCookie.status, 401);
+  const meBearer = await json(await call("GET", "/api/me", { token }));
+  assert.equal(meBearer.status, 401);
+});
+
+test("published pages carry a Content-Security-Policy, the builder API does not", async () => {
+  const { token } = await parent("csp@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "csp-kid", html: page("Csp Kid") } }));
+  assert.equal(pub.status, 200);
+  const live = await call("GET", "/api/site/csp-kid");
+  assert.equal(live.status, 200);
+  assert.match(live.body, /Csp Kid/);
+  const csp = live.headers["content-security-policy"] || "";
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'unsafe-inline'/);
+  assert.doesNotMatch(csp, /script-src[^;]*https:/);
+  assert.match(csp, /connect-src 'self'/);
+  assert.match(csp, /img-src 'self' data: blob:/);
+  assert.match(csp, /style-src 'unsafe-inline'/);
+  assert.match(csp, /font-src 'self' data:/);
+  assert.match(csp, /form-action 'self'/);
+  assert.match(csp, /base-uri 'none'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  const plans = await call("GET", "/api/plans");
+  assert.equal(plans.headers["content-security-policy"], undefined);
+});

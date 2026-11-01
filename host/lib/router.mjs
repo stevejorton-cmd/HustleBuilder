@@ -123,14 +123,41 @@ async function accountByEmail(email) {
   if (!id) return null;
   return readJson("accounts/" + id.trim() + ".json");
 }
+async function accountByTokenValue(token) {
+  if (!/^[a-f0-9]{64}$/i.test(String(token || ""))) return null;
+  const id = await (await store()).get("tokens/" + sha(token));
+  if (!id) return null;
+  const account = await readJson("accounts/" + id.trim() + ".json");
+  if (!account || !safeEqual(account.tokenHash || "", sha(token))) return null;
+  return account;
+}
 async function accountByToken(header) {
   const m = String(header || "").match(/^Bearer\s+([a-f0-9]{64})$/i);
   if (!m) return null;
-  const id = await (await store()).get("tokens/" + sha(m[1]));
-  if (!id) return null;
-  const account = await readJson("accounts/" + id.trim() + ".json");
-  if (!account || !safeEqual(account.tokenHash || "", sha(m[1]))) return null;
-  return account;
+  return accountByTokenValue(m[1]);
+}
+
+// Parent sessions also travel as an HttpOnly cookie, so a script running on a
+// published page (same origin) cannot read the token out of localStorage.
+// Server-side session tokens have no expiry of their own: a token stays valid
+// until a new sign-in replaces it or the account is deleted. The cookie
+// mirrors that with a long Max-Age; the server stays the source of truth, so
+// replacing the token kills old cookies and Bearer tokens at once.
+const SESSION_COOKIE = "hb_session";
+const SESSION_COOKIE_MAX_AGE = 180 * 86400;
+function sessionCookieHeader(token) {
+  return SESSION_COOKIE + "=" + token + "; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=" + SESSION_COOKIE_MAX_AGE;
+}
+function clearSessionCookieHeader() {
+  return SESSION_COOKIE + "=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
+}
+function cookieValue(header, name) {
+  for (const part of String(header || "").split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
+  }
+  return "";
 }
 async function saveAccount(account) {
   await writeJson("accounts/" + account.id + ".json", account);
@@ -470,7 +497,22 @@ function breakPage() {
 </body></html>`);
 }
 
+// Published pages are account-supplied HTML and can carry inline script (the
+// booking widget). This policy keeps the page's own inline code, same-origin
+// fetches, embedded data: photos/fonts and same-origin images working, while
+// blocking scripts, connections and form posts to outside origins — a rogue
+// page cannot load outside code or ship a visiting parent's data elsewhere.
+const PAGE_CSP = "default-src 'self'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; style-src 'unsafe-inline'; font-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+
 async function serveSlug(slug) {
+  const res = await serveSlugInner(slug);
+  if (res && res.headers && String(res.headers["content-type"] || "").includes("text/html")) {
+    res.headers = { ...res.headers, "content-security-policy": PAGE_CSP };
+  }
+  return res;
+}
+
+async function serveSlugInner(slug) {
   if (slug === "privacy") return privacyPage();
   const why = checkSlug(slug);
   if (why) return missingPage(slug, false);
@@ -781,11 +823,15 @@ export async function handleRequest(req) {
   const body = method === "GET" ? {} : parseBody(req.body);
   if (body === null) return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin);
   const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
+  const cookieHdr = req.headers && (req.headers.cookie || req.headers.Cookie);
 
   async function me() {
-    const account = await accountByToken(auth);
-    if (!account) return null;
-    return account;
+    // The HttpOnly cookie is the primary credential now. The Bearer token is
+    // still accepted so parents who signed in before cookies existed (token
+    // in localStorage) are not logged out; the cookie wins when it resolves.
+    const fromCookie = await accountByTokenValue(cookieValue(cookieHdr, SESSION_COOKIE));
+    if (fromCookie) return fromCookie;
+    return accountByToken(auth);
   }
 
   if (method === "POST" && route === "slug") {
@@ -870,7 +916,17 @@ export async function handleRequest(req) {
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
     account.tokenHash = sha(token);
     await saveAccount(account);
-    return withCors(json(200, { ok: true, token, email, consent: !!account.consentAt, slug: account.slug || "", plan: account.plan || "", paid: paid(account) }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, token, email, consent: !!account.consentAt, slug: account.slug || "", plan: account.plan || "", paid: paid(account) }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "auth/logout") {
+    const account = await me();
+    if (account) {
+      if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
+      account.tokenHash = "";
+      await saveAccount(account);
+    }
+    return withCors(json(200, { ok: true }, { "set-cookie": clearSessionCookieHeader() }), req.headers && req.headers.origin);
   }
 
   if (method === "GET" && route === "me") {
@@ -1082,7 +1138,7 @@ export async function handleRequest(req) {
     await (await store()).del("email/" + sha(account.email));
     await (await store()).del("outbox/" + sha(account.email) + ".json");
     await (await store()).del("accounts/" + account.id + ".json");
-    return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true }, { "set-cookie": clearSessionCookieHeader() }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "ask") {
@@ -1118,7 +1174,7 @@ export async function handleRequest(req) {
     let account = await accountByEmail(rec.email);
     if (!account) account = { id: rand(8), email: rec.email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null };
     const token = await issueSession(account);
-    return withCors(json(200, { ok: true, token, email: rec.email, draft: rec.draft, consent: !!account.consentAt, paid: paid(account), slug: account.slug || "", status: rec.status || "waiting", url: rec.url || "" }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, token, email: rec.email, draft: rec.draft, consent: !!account.consentAt, paid: paid(account), slug: account.slug || "", status: rec.status || "waiting", url: rec.url || "" }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
   }
 
   const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
