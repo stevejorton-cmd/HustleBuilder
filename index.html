@@ -247,6 +247,16 @@ body.soft .hours-quick button{border-radius:999px}
 .rig .slab::after{content:"";position:absolute;left:14px;bottom:14px;width:84px;height:30px;background:rgba(11,12,13,.9);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
 .rig .nm{display:block;padding:10px 14px 12px;font-family:var(--display);font-style:italic;font-weight:800;font-size:26px;text-transform:uppercase}
 .rig[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.themecard{border:2px solid var(--line);background:var(--surface);border-radius:10px;padding:0;cursor:pointer;overflow:hidden;text-align:left;color:var(--ink);font:inherit}
+.themecard[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.themecard .tp{display:block;height:82px;padding:12px}
+.themecard .tp-h{display:block;width:58%;height:14px;margin-bottom:8px}
+.themecard .tp-l{display:block;width:88%;height:6px;margin-bottom:5px;opacity:.85}
+.themecard .tp-l.short{width:60%}
+.themecard .tp-b{display:block;width:44%;height:16px;margin-top:9px}
+.themecard .tn{display:block;padding:10px 12px 0;font-family:var(--display);font-style:italic;font-weight:800;font-size:21px;text-transform:uppercase;line-height:1}
+.themecard .tb{display:block;padding:3px 12px 12px;font-size:13.5px;color:var(--muted);line-height:1.35}
 
 .callout{display:flex;gap:12px;background:var(--surface);border-left:5px solid var(--accent);padding:14px 16px;margin:0 0 22px;font-size:16px}
 .callout svg{flex:none;width:26px;height:26px}
@@ -762,6 +772,7 @@ details.help li{margin-bottom:10px}
       <p class="lead">Pick your brand color, then pick how your website feels. Choose the ones that look like you.</p>
       <div class="rigs" id="rigs"></div>
       <div class="mf" style="margin-top:26px"><label>Website look</label><div class="chips" id="looks"></div><small class="help2" id="lookHelp"></small></div>
+      <div class="mf" style="margin-top:18px"><label>Page design</label><div class="themes" id="themes"></div><small class="help2" id="themeHelp">The layout of your page, not just colors.</small></div>
       <div class="mf" style="margin-top:18px"><label>Pictures</label><div class="chips" id="skies"></div><small class="help2" id="skyHelp"></small></div>
       <div class="mf" style="margin-top:18px"><label>Website font</label><div class="chips" id="siteFonts"></div><small class="help2">The big headings on your website.</small></div>
     </section>
@@ -1393,6 +1404,30 @@ const RIGS={
 const NOISE="url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
 /* ============ Generated site HTML ============ */
+/* Page designs (reskins). "bold" is the original look: the base CSS in
+   genSite with no override block. Every other theme is an override block
+   appended after the base CSS, the same slot the day look uses. A saved
+   state with no theme (or an unknown one handled by siteTheme) renders
+   exactly as it always has. */
+const SITE_THEMES={
+  bold:{name:"Bold Block",blurb:"The original. Big, blocky, slashed lines.",dark:true},
+  clean:{name:"Clean",blurb:"Light and calm, with room to breathe.",dark:false},
+  paper:{name:"Paper",blurb:"A classic printed flyer. Serif headlines, neat prices.",dark:false},
+  sport:{name:"Sport Stripe",blurb:"Fast stripes, numbered rows, tight and loud.",dark:true},
+  friendly:{name:"Friendly",blurb:"Rounded, soft, and warm.",dark:false},
+  midnight:{name:"Midnight",blurb:"Dark mode with a quiet glow.",dark:true},
+  retro:{name:"Retro Badge",blurb:"Vintage sign-painter style, like a badge.",dark:false}
+};
+const THEME_PREVIEWS={
+  bold:{bg:"#14171A",bar:"#F1EFEA",line:"#39424C",rad:"0px",btnRad:"0px"},
+  clean:{bg:"#FFFFFF",bar:"#191C1E",line:"#DFDFD8",rad:"8px",btnRad:"8px"},
+  paper:{bg:"#F7F1E3",bar:"#2B2118",line:"#D8CBB0",rad:"2px",btnRad:"2px"},
+  sport:{bg:"#0C0E11",bar:"#F1EFEA",line:"#39424C",rad:"0px",btnRad:"0px"},
+  friendly:{bg:"#FFFBF5",bar:"#33261A",line:"#F0DFC6",rad:"16px",btnRad:"999px"},
+  midnight:{bg:"#060809",bar:"#EDF2F5",line:"#223040",rad:"10px",btnRad:"10px"},
+  retro:{bg:"#F6EDD8",bar:"#26324B",line:"#D3BE96",rad:"4px",btnRad:"4px"}
+};
+function siteTheme(id){if(!id)return "";return SITE_THEMES[id]?id:"bold";}
 function dayCss(acc){const m=(h,k)=>"#"+[1,3,5].map(i=>Math.round(parseInt(h.slice(i,i+2),16)*(1-k)).toString(16).padStart(2,"0")).join("");const ink=m(acc,.42);
   return `
 :root{--bg:#FBF8F2;--bg2:#F2EDE3;--card:#FFFFFF;--line:#E2DACB;--bone:#1D2226;--mute:#5C636A;--ink:${ink}}
@@ -1430,6 +1465,236 @@ input,select,textarea{border-radius:12px;background:#fff}
 .season{border-radius:14px;box-shadow:0 10px 30px rgba(60,50,30,.08)}
 .season .p{font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:34px;color:var(--ink)}
 `;}
+function themeCss(id,acc){const m=(h,k)=>"#"+[1,3,5].map(i=>Math.round(parseInt(h.slice(i,i+2),16)*(1-k)).toString(16).padStart(2,"0")).join("");const ink=m(acc,.42);
+  const blocks={
+clean:`
+:root{--bg:#FFFFFF;--bg2:#F4F4F0;--card:#FFFFFF;--line:#E5E5DE;--bone:#191C1E;--mute:#68707A;--ink:#191C1E}
+body{font-size:17px;line-height:1.65}
+h1,h2,h3{font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:600;letter-spacing:-.01em;line-height:1.12}
+.hero{min-height:520px}
+.hero::after{background:linear-gradient(180deg,rgba(10,14,18,0) 0%,rgba(10,14,18,0) 34%,rgba(10,14,18,.36) 66%,rgba(10,14,18,.62) 100%)}
+.hero-in{text-align:center;padding-bottom:44px}
+.hero h1{color:#fff;font-weight:600;font-size:clamp(40px,11vw,68px);text-shadow:0 2px 20px rgba(10,22,34,.45)}
+.hero .tag{color:#fff;border-left:0;padding-left:0;margin:16px auto 24px;max-width:34ch;text-shadow:0 1px 12px rgba(10,22,34,.5)}
+.cta{justify-content:center}
+.meta{justify-content:center;color:#fff;text-shadow:0 1px 10px rgba(10,22,34,.5)}
+.hazard{height:1px;background:var(--line)}
+section{padding:56px 22px 8px}
+section h2{font-size:14px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--mute);margin-bottom:22px}
+.std{gap:22px}
+.std div{border-left:0;border-top:1px solid var(--line);padding:16px 0 0}
+.std h3{font-size:22px}
+.btn,.venmo{clip-path:none;border-radius:8px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:600;text-transform:none;font-size:17px;letter-spacing:0;padding:0 24px;min-height:50px}
+.btn.alt{background:var(--bg2);color:var(--bone);border:1px solid var(--line)}
+.rates li{padding:15px 0}
+.rates .p{font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:600;font-size:21px;color:var(--bone)}
+.panel{border-radius:10px;box-shadow:0 8px 28px rgba(25,28,30,.07)}
+.panel::before{display:none}
+.q b{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;font-size:18px}
+.q span,.cal-head strong,.rwho{font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:600}
+.q span{font-size:22px}.cal-head strong{font-size:19px}.rwho{font-size:16px}
+.cal-head button,.day{border-radius:8px}
+.day:disabled{color:#A8ADB3}
+label{color:var(--bone)}
+input,select,textarea{border-radius:8px;background:#fff}
+.mono{clip-path:none;border-radius:10px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:600;font-size:44px}
+.dock{background:rgba(255,255,255,.94);border-top:1px solid var(--line)}
+.rev{border-radius:10px;border-left:1px solid var(--line);border-top:4px solid var(--accent)}
+.ba{border-radius:10px}.ba .kn{clip-path:none;border-radius:999px}
+.ba .tg{border-radius:999px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:600;font-size:14px}
+.err{color:#B3261E}
+.flake{fill:#BFD6EA}
+.how b{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;font-size:18px}
+.promise{border-radius:10px;border-left:1px solid var(--line);border-top:4px solid var(--accent)}
+.season{border-radius:10px}
+.season .p{font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:600;font-size:26px;color:var(--bone)}
+.sent{border-radius:10px}`,
+paper:`
+:root{--bg:#F7F1E3;--bg2:#EFE6CF;--card:#FFFDF6;--line:#D8CBB0;--bone:#2B2118;--mute:#7A6A52;--ink:${ink}}
+body{font-family:Georgia,"Times New Roman",serif;font-size:17px;line-height:1.6}
+h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-style:normal;text-transform:none;font-weight:700;letter-spacing:0;line-height:1.05}
+.hero{min-height:560px}
+.hero::after{background:linear-gradient(180deg,rgba(30,20,8,0) 0%,rgba(30,20,8,0) 34%,rgba(30,20,8,.38) 66%,rgba(30,20,8,.62) 100%)}
+.hero-in{text-align:center}
+.hero h1{color:#fff;font-size:clamp(40px,11vw,72px);text-shadow:0 2px 18px rgba(30,20,8,.55)}
+.hero .tag{color:#fff;border-left:0;padding-left:0;margin:16px auto 24px;font-style:italic;text-shadow:0 1px 12px rgba(30,20,8,.55)}
+.cta{justify-content:center}
+.meta{justify-content:center;color:#fff;text-shadow:0 1px 10px rgba(30,20,8,.55)}
+.hazard{height:5px;background:transparent;border-top:3px solid var(--bone);border-bottom:1px solid var(--bone)}
+section{padding:52px 22px 8px}
+section h2{font-size:clamp(30px,7.5vw,42px);text-align:center;margin-bottom:20px}
+.std div{border-left:0;border-top:4px double var(--line);padding:14px 0 0;text-align:center}
+.std h3{font-size:24px}
+.rates{border-top:3px double var(--line)}
+@media(min-width:680px){.rates{display:grid;grid-template-columns:1fr 1fr;column-gap:40px}}
+.rates li{border-bottom:1px dotted var(--mute);padding:13px 0}
+.rates .n{font-size:18px}
+.rates .p{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:700;font-size:23px;color:var(--ink)}
+.btn,.venmo{clip-path:none;border-radius:2px;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;text-transform:uppercase;font-size:16px;letter-spacing:.12em;padding:0 26px;min-height:52px}
+.btn.alt{background:var(--card);color:var(--bone);border:1px solid var(--bone)}
+.panel{border-radius:2px;box-shadow:none;text-align:left}
+.panel::before{display:none}
+.q b{clip-path:none;border-radius:50%;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:19px}
+.q span,.cal-head strong,.rwho{font-family:Georgia,"Times New Roman",serif;font-style:normal;text-transform:none;font-weight:700}
+.q span{font-size:23px}.cal-head strong{font-size:20px}.rwho{font-size:17px}
+.cal-head button,.day{border-radius:2px}
+.day:disabled{color:#B4A888}
+label{color:var(--bone)}
+input,select,textarea{border-radius:2px;background:#FFFDF6}
+.mono{clip-path:none;border-radius:2px;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:44px}
+.dock{background:rgba(247,241,227,.96)}
+.rev{border-radius:2px}
+.ba{border-radius:2px}.ba .kn{clip-path:none;border-radius:2px}
+.ba .tg{font-family:Georgia,"Times New Roman",serif;font-style:italic;text-transform:none;font-size:15px}
+.err{color:#A02A20}
+.flake{fill:#BFD6EA}
+.how b{clip-path:none;border-radius:50%;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-size:19px}
+.promise{border-radius:2px;border-left:1px solid var(--line);border-top:4px double var(--accent)}
+.season{border-radius:2px}
+.season .p{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:700;font-size:26px;color:var(--ink)}`,
+sport:`
+:root{--bg:#0C0E11;--bg2:#12151A;--card:#151920;--line:#262C35}
+h1,h2,h3{font-style:normal;letter-spacing:.01em}
+.hero{min-height:600px}
+.hero h1{font-style:normal}
+.hazard{height:12px;background:repeating-linear-gradient(90deg,var(--accent) 0 44px,transparent 44px 56px,rgba(255,255,255,.16) 56px 64px,transparent 64px 76px)}
+section{padding:40px 22px 4px}
+section h2{font-size:clamp(40px,10vw,60px);border-left:12px solid var(--accent);padding-left:16px;line-height:.95}
+.std{gap:18px}
+.std div{border-left:8px solid var(--accent);padding-left:14px}
+.std h3{font-style:normal;font-size:clamp(28px,7vw,38px)}
+.btn,.venmo{clip-path:none;border-radius:0;font-style:normal}
+.rates{counter-reset:row;border-top:2px solid var(--line)}
+.rates li{counter-increment:row;padding:11px 0;align-items:center}
+.rates li::before{content:counter(row,decimal-leading-zero);font-family:var(--display);font-style:normal;font-weight:900;font-size:19px;color:var(--accent);flex:none;width:38px}
+.rates .n{font-size:18.5px}
+.rates .p{font-style:normal;font-size:34px}
+.panel{border-radius:0}
+.panel::before{width:120px;height:6px}
+.q b{clip-path:none;border-radius:0;font-style:normal}
+.q span,.cal-head strong{font-style:normal}
+.cal-head button,.day{border-radius:0}
+.mono{clip-path:none;border-radius:0;font-style:normal}
+.how b{clip-path:none;border-radius:0;font-style:normal}
+.rev{border-radius:0}
+.ba{border-radius:0}.ba .kn{clip-path:none;border-radius:0}
+.ba .tg{font-style:normal}
+.season{border-radius:0}
+.promise{border-left-width:8px}`,
+friendly:`
+:root{--bg:#FFFBF5;--bg2:#FFF1DC;--card:#FFFFFF;--line:#F0DFC6;--bone:#33261A;--mute:#8A7360;--ink:#33261A}
+body{font-size:17.5px;line-height:1.6}
+h1,h2,h3{font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:800;letter-spacing:0;line-height:1.08}
+.hero{min-height:560px}
+.hero::after{background:linear-gradient(180deg,rgba(60,32,4,0) 0%,rgba(60,32,4,0) 34%,rgba(60,32,4,.36) 66%,rgba(60,32,4,.6) 100%)}
+.hero h1{color:#fff;font-size:clamp(42px,12vw,76px);text-shadow:0 3px 18px rgba(80,40,0,.45)}
+.hero .tag{color:#fff;border-left:0;padding-left:12px;padding-right:12px;background:rgba(51,38,26,.42);border-radius:999px;display:inline-block;text-shadow:none}
+.hazard{height:0;background:none;border-top:4px dashed var(--accent)}
+section{padding:54px 22px 8px}
+section h2{font-size:clamp(30px,8vw,42px);margin-bottom:20px}
+.std{gap:16px}
+.std div{border-left:0;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 10px 24px rgba(190,130,60,.10)}
+.std h3{font-size:23px}
+.btn,.venmo{clip-path:none;border-radius:999px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;text-transform:none;font-size:18px;letter-spacing:0;min-height:54px;padding:0 28px}
+.btn.alt{background:var(--bg2);color:var(--bone)}
+.rates li{padding:17px 2px;border-bottom:2px dashed var(--line)}
+.rates .p{font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:25px;color:var(--bone)}
+.panel{border-radius:24px;box-shadow:0 14px 34px rgba(190,130,60,.13)}
+.panel::before{display:none}
+.q b{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:19px}
+.q span,.cal-head strong,.rwho{font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:800}
+.q span{font-size:23px}.cal-head strong{font-size:20px}.rwho{font-size:17px}
+.cal-head button{border-radius:14px}
+.day{border-radius:14px}
+.day:disabled{color:#C4AE97}
+label{color:var(--bone)}
+input,select,textarea{border-radius:16px;background:#fff;border-width:2px}
+.mono{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:42px}
+.dock{background:rgba(255,251,245,.95)}
+.rev{border-radius:20px;border-left:1px solid var(--line);border-top:5px solid var(--accent)}
+.ba{border-radius:20px}.ba .kn{clip-path:none;border-radius:999px}
+.ba .tg{border-radius:999px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:700;font-size:14px}
+.err{color:#B3261E}
+.flake{fill:#BFD6EA}
+.how b{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:19px}
+.promise{border-radius:20px;border-left:1px solid var(--line);border-top:5px solid var(--accent)}
+.season{border-radius:20px}
+.season .p{font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:28px;color:var(--bone)}
+.sent{border-radius:16px}`,
+midnight:`
+:root{--bg:#060809;--bg2:#0A0D10;--card:#0E1318;--line:#223040;--bone:#EDF2F5;--mute:#93A1AD}
+h1,h2,h3{font-style:normal;letter-spacing:.01em}
+.hero h1{font-style:normal}
+.hazard{height:2px;background:var(--accent);box-shadow:0 0 14px var(--accent),0 0 4px var(--accent)}
+section{padding:52px 22px 8px}
+section h2{font-size:clamp(38px,9.5vw,58px)}
+.std div{border-left:2px solid var(--accent);box-shadow:-8px 0 16px -10px var(--accent)}
+.btn,.venmo{clip-path:none;border-radius:10px;font-style:normal;box-shadow:0 0 20px color-mix(in srgb,var(--accent) 40%,transparent)}
+.btn.alt{background:var(--card);color:var(--bone);border:1px solid var(--line);box-shadow:none}
+.rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;border-top:0}
+.rates li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;flex-direction:column;align-items:flex-start;gap:4px}
+.rates .p{font-style:normal;font-size:30px;text-align:left;max-width:none}
+.panel{border-radius:14px}
+.panel::before{box-shadow:0 0 10px var(--accent)}
+.q b{clip-path:none;border-radius:8px;font-style:normal}
+.q span,.cal-head strong{font-style:normal}
+.cal-head button,.day{border-radius:8px}
+.day:disabled{color:#4A5866}
+input,select,textarea{border-radius:10px;background:#0A0D10}
+.mono{clip-path:none;border-radius:12px;font-style:normal}
+.dock{background:rgba(6,8,9,.94)}
+.rev{border-radius:12px}
+.ba{border-radius:12px}.ba .kn{clip-path:none;border-radius:10px}
+.how b{clip-path:none;border-radius:8px;font-style:normal}
+.promise{border-radius:12px}
+.season{border-radius:12px}
+.sent{border-radius:12px}`,
+retro:`
+:root{--bg:#F6EDD8;--bg2:#EEE0BE;--card:#FFF9EA;--line:#D3BE96;--bone:#26324B;--mute:#7C6A4F;--ink:#26324B}
+body{font-size:17px;line-height:1.6}
+h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-style:normal;text-transform:none;font-weight:700;line-height:1.08}
+.hero{min-height:600px}
+.hero::after{background:linear-gradient(180deg,rgba(20,16,8,.04) 0%,rgba(20,16,8,.16) 55%,rgba(20,16,8,.42) 100%)}
+.hero-in{width:calc(100% - 40px);max-width:640px;margin:0 auto 40px;background:#FFF9EA;color:#26324B;border:3px double #26324B;outline:1px solid #26324B;outline-offset:5px;border-radius:4px;padding:28px 24px 30px;text-align:center;box-shadow:0 14px 34px rgba(30,22,8,.35)}
+.hero h1{color:#26324B;font-size:clamp(36px,9.5vw,58px);text-shadow:none}
+.hero .tag{color:#26324B;border-left:0;padding-left:0;margin:12px auto 20px;font-style:italic;text-shadow:none}
+.cta{justify-content:center}
+.meta{justify-content:center;color:#26324B;text-shadow:none}
+.hazard{height:0;background:none;border-top:2px dashed var(--mute)}
+section{padding:50px 22px 8px}
+section h2{font-size:clamp(28px,7.5vw,40px);text-align:center;margin-bottom:22px}
+.std div{border-left:0;border-top:3px double var(--line);padding:14px 0 0;text-align:center}
+.std h3{font-size:23px}
+.btn,.venmo{clip-path:none;border-radius:4px;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:15.5px;padding:0 24px;min-height:52px}
+.btn.alt{background:var(--card);color:var(--bone);border:1.5px solid var(--bone)}
+.rates{border-top:3px double var(--line)}
+.rates li{padding:14px 0;align-items:center}
+.rates .n{font-family:Georgia,"Times New Roman",serif;font-size:18.5px}
+.rates .p{font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:21px;color:var(--accent);border:2px solid var(--accent);border-radius:4px;padding:3px 10px;transform:rotate(-3deg);background:rgba(255,249,234,.6);max-width:none}
+.panel{border-radius:4px;border:3px double var(--line);box-shadow:none}
+.panel::before{display:none}
+.q b{clip-path:none;border-radius:50%;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:19px}
+.q span,.cal-head strong,.rwho{font-family:Georgia,"Times New Roman",serif;font-style:normal;text-transform:none;font-weight:700}
+.q span{font-size:23px}.cal-head strong{font-size:20px}.rwho{font-size:17px}
+.cal-head button,.day{border-radius:4px}
+.day:disabled{color:#B7A67F}
+label{color:var(--bone)}
+input,select,textarea{border-radius:4px;background:#FFF9EA}
+.mono{clip-path:none;border-radius:50%;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:40px}
+.dock{background:rgba(246,237,216,.96)}
+.rev{border-radius:4px}
+.ba{border-radius:4px}.ba .kn{clip-path:none;border-radius:4px}
+.ba .tg{font-family:Georgia,"Times New Roman",serif;font-style:italic;text-transform:none;font-size:15px}
+.err{color:#A02A20}
+.flake{fill:#9FB6C9}
+.how b{clip-path:none;border-radius:50%;font-family:Georgia,"Times New Roman",serif;font-style:normal;font-size:19px}
+.promise{border-radius:4px;border:3px double var(--line)}
+.season{border-radius:4px}
+.season .p{font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:26px;color:var(--accent)}
+.sent{border-radius:4px}`
+  };
+  return "\n/* hb-theme:"+id+" */"+(blocks[id]||"");
+}
 function typeInfo(type){
   const all={
     lawn:{label:"Lawn care",target:"yard",right:"Straight lines. Clean edges. No shortcuts.",emoji:"🌿",color:"#1F6B3A",biz:"Lawn Co.",tag:"Straight lines. Clean edges. Done right."},
@@ -1483,8 +1748,10 @@ function bannerArt(type, art, pets, publicUrl){
 function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
+  const th=siteTheme(c.theme);
+  const metaBg=({clean:"#FFFFFF",paper:"#F7F1E3",friendly:"#FFFBF5",retro:"#F6EDD8",midnight:"#060809"})[th]||(day?"#FBF8F2":"#0E1012");
   const sched=(Array.isArray(c.sched)&&c.sched.length===7)?c.sched:c.days.map((on,i)=>Object.assign({on:!!on},defHours(i)));
-  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
+  const cfg={first:c.first,biz:c.biz,phoneDigits:c.phoneDigits,email:c.email,days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",theme:th,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
   const hasContact=!!(c.phoneDigits||c.email);
   const rows=c.services.map(s=>`<li><span class="n">${esc(s.n)}</span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
@@ -1537,7 +1804,7 @@ function genSite(c){
   const revHTML=(c.reviews&&c.reviews.length)?`<section id="reviews"><h2>What neighbors say</h2><div class="revs">${c.reviews.map(r=>`<div class="rev"><div class="stars" role="img" aria-label="${r.r||5} out of 5 stars">${star.repeat(r.r||5)}</div><q>${esc(r.q)}</q><div class="rwho">${esc(r.n)}</div></div>`).join("")}</div></section>`:"";
   const revForm=(publicPhone||c.email)?`<section id="review"><h2>Been a customer?</h2><p>Tell me how I did. Your review helps the next neighbor decide.</p><div class="panel"><label>Your first name<input id="rvName" autocomplete="given-name"></label><label>How did I do?<select id="rvStars"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option></select></label><label>Your review<textarea id="rvText"></textarea></label><div class="btns">${publicPhone?'<button type="button" class="btn" id="sendRvText">Text my review</button>':""}${c.email?'<button type="button" class="btn '+(publicPhone?"alt":"")+'" id="sendRvMail">Email my review</button>':""}</div><p class="err" id="rvErr" role="alert"></p><div id="rvOutWrap" hidden><label>If your messages app didn’t open, copy this and send it to ${esc(c.parentName||"my parent")}<textarea id="rvOut" readonly></textarea></label></div></div></section>`:"";
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en"${th?` data-theme="${th}"`:""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(c.biz)}${c.town?" - "+esc(c.town):""}</title>
 <!-- hb-public -->
 <!-- This website was made with Hustle Builder. It embeds the Barlow fonts under the SIL Open Font License 1.1; the notice and license text are in the style block below. -->
@@ -1552,7 +1819,7 @@ ${c.publish&&c.publish.image?`<meta property="og:image" content="${esc(c.publish
 <meta name="twitter:title" content="${esc(c.biz)}">
 <meta name="twitter:description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. Book a day online.">
 ${c.publish&&c.publish.image?`<meta name="twitter:image" content="${esc(c.publish.image)}">`:""}
-<meta name="theme-color" content="${day?"#FBF8F2":"#0E1012"}">
+<meta name="theme-color" content="${metaBg}">
 <style>
 ${FONT_CSS}
 :root{--bg:#0E1012;--bg2:#14171A;--card:#181C20;--line:#2B3137;--bone:#F1EFEA;--mute:#A3AAB1;--accent:${rig.c};--on:#0B0C0D;--display:"Barlow Condensed","Arial Narrow",Impact,sans-serif}
@@ -1663,7 +1930,7 @@ footer p{margin:0 20px}
 #copyBook{display:inline-flex;margin-top:12px;background:none;border:0;padding:8px 0;min-height:44px;color:var(--ink);font:inherit;font-weight:700;font-size:17px;text-decoration:underline;cursor:pointer}
 .btns a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .promise{margin:0;border-left:5px solid var(--accent);background:var(--card);padding:18px;font-size:19px;line-height:1.45}
-${day?dayCss(rig.c):""}
+${th?themeCss(th,rig.c):(day?dayCss(rig.c):"")}
 ${siteFontCss(c.font)}
 ${c.type==="pet"?`.hero.pethead{display:grid;min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
@@ -1823,7 +2090,7 @@ const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
   return {type:"lawn",first:"",town:"",bizName:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,
-    palette:"ember",look:"night",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
+    palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
 let savedRaw=null;
@@ -1851,7 +2118,7 @@ function resolve(preview, opt){
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=typeInfo(S.type).target;
   const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
-  return {type:S.type,look:S.look==="day"?"day":"night",sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:cleanPrice(S.seasonPrice),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
+  return {type:S.type,look:S.look==="day"?"day":"night",theme:siteTheme(S.theme),sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:cleanPrice(S.seasonPrice),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:cleanPrice(s.p)})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()).map(r=>({...r,n:r.n.trim().slice(0,40)})),publish:opt.publish||null};
 }
@@ -2156,6 +2423,21 @@ function renderHours(){
   box.appendChild(q);
 }
 
+function renderThemes(){
+  const w=$("#themes"); if(!w)return; w.innerHTML="";
+  const acc=(RIGS[S.palette]||RIGS.ember).c;
+  Object.keys(SITE_THEMES).forEach(k=>{
+    const t=SITE_THEMES[k], p=THEME_PREVIEWS[k];
+    const b=document.createElement("button"); b.type="button"; b.className="themecard";
+    b.setAttribute("aria-pressed",String(!!S.theme&&siteTheme(S.theme)===k));
+    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${acc};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}${k==="bold"?" · current":""}</span><span class="tb">${t.blurb}</span>`;
+    b.onclick=()=>{S.theme=k;S.look=t.dark?"night":"day";renderRigs();queue();};
+    w.appendChild(b);
+  });
+  const help=$("#themeHelp");
+  if(help)help.textContent=S.theme?("Your page will use the "+SITE_THEMES[siteTheme(S.theme)].name+" design when you publish."):"The layout of your page, not just colors. Right now your page uses the original look — tap a design to switch.";
+}
+
 function renderRigs(){
   const w=$("#rigs"); w.innerHTML="";
   Object.keys(RIGS).forEach(k=>{
@@ -2171,6 +2453,7 @@ function renderRigs(){
   $("#skyHelp").textContent="Ten picture styles. They show on the front page, your website, and your Skyline poster.";
   const sf=$("#siteFonts");if(sf)fontChips(sf,S.siteFont||"workwear",v=>{S.siteFont=v==="workwear"?"":v;renderRigs();queue();});
   $("#lookHelp").textContent=(S.look==="day")?"Light and bright, with a sunny scene and softer shapes.":"Dark and cinematic, with a scene at dusk.";
+  renderThemes();
 }
 
 function missing(){
