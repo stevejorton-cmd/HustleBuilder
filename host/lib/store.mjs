@@ -1,7 +1,7 @@
-import { mkdir, readFile, rm, writeFile } from "fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 
-/** @typedef {{ get(key: string): Promise<string|null>, put(key: string, text: string): Promise<void>, del(key: string): Promise<void> }} Store */
+/** @typedef {{ get(key: string): Promise<string|null>, put(key: string, text: string): Promise<void>, del(key: string): Promise<void>, list(prefix: string): Promise<string[]> }} Store */
 
 /** @type {Store|null} */
 let override = null;
@@ -20,14 +20,28 @@ export function fileStore(root) {
     },
     async del(key) {
       await rm(file(key), { force: true });
+    },
+    async list(prefix) {
+      const out = [];
+      const walk = async (rel) => {
+        let entries;
+        try { entries = await readdir(file(prefix + rel), { withFileTypes: true }); }
+        catch { return; }
+        for (const entry of entries) {
+          if (entry.isDirectory()) await walk(rel + entry.name + "/");
+          else if (entry.isFile()) out.push(prefix + rel + entry.name);
+        }
+      };
+      await walk("");
+      return out;
     }
   };
 }
 
 async function blobStore() {
-  const { put, list, del, get } = await import("@vercel/blob");
+  const { put, list: listBlobs, del, get } = await import("@vercel/blob");
   async function find(key) {
-    const { blobs } = await list({ prefix: key, limit: 10 });
+    const { blobs } = await listBlobs({ prefix: key, limit: 10 });
     return blobs.find((b) => b.pathname === key) || null;
   }
   return {
@@ -50,6 +64,16 @@ async function blobStore() {
     async del(key) {
       const hit = await find(key);
       if (hit) await del(hit.url);
+    },
+    async list(prefix) {
+      const out = [];
+      let cursor;
+      do {
+        const res = await listBlobs({ prefix, limit: 1000, cursor });
+        for (const blob of res.blobs) out.push(blob.pathname);
+        cursor = res.hasMore ? res.cursor : undefined;
+      } while (cursor);
+      return out;
     }
   };
 }
