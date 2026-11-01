@@ -840,6 +840,7 @@ details.help li{margin-bottom:10px}
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
           <button type="button" class="btn block" id="pubGo" disabled>Publish my website</button>
+          <p class="small2" id="familyNote" hidden></p>
         </div>
         <p class="merr" id="pubErr" role="alert"></p>
         <p class="status" id="pubOk" role="status"></p>
@@ -4328,6 +4329,44 @@ function publishedHtml(slug){
   const indexable=!!($("#pubIndex")&&$("#pubIndex").checked);
   return genSite(resolve(false, {publish:{slug, book:origin+"/api/book", indexable, url:origin+"/"+slug, image:origin+"/api/card/"+slug+".png"}}));
 }
+// Family plan: an account can own several pages. This build's own page is
+// the one its saved site link points at — not the account's first page.
+function ownSlug(){
+  const raw=String((typeof S!=="undefined"&&S&&S.siteUrl)||"").trim();
+  if(!raw)return "";
+  const seg=raw.replace(/[?#].*$/,"").replace(/\/+$/,"").split("/").filter(Boolean).pop()||"";
+  const s=seg.trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{1,40}$/.test(s)?s:"";
+}
+function ownedSlugs(me){
+  if(me&&Array.isArray(me.slugs)&&me.slugs.length)return me.slugs;
+  return me&&me.slug?[me.slug]:[];
+}
+// Point the publish panel at THIS build's page: an owned page means update
+// mode (locked address, Update button); no page of its own yet, on an
+// account that already has one, means this page joins the family plan.
+function applyPublishState(me){
+  const origin=publishOrigin();
+  const owned=ownedSlugs(me);
+  const own=ownSlug();
+  const slugEl=$("#pubSlug"), go=$("#pubGo"), note=$("#familyNote");
+  if(own&&owned.includes(own)){
+    if(slugEl){slugEl.value=own; slugEl.readOnly=true;}
+    if(note)note.hidden=true;
+    showPublished((origin||"")+"/"+own);
+    return;
+  }
+  if(slugEl)slugEl.readOnly=false;
+  if(owned.length){
+    if(go){go.hidden=false; go.textContent="Put this page online too";}
+    if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial.";}
+    if(slugEl&&!slugEl.value)suggestSlug();
+  }else{
+    if(go)go.textContent="Publish my website";
+    if(note)note.hidden=true;
+    if(slugEl&&!slugEl.value)suggestSlug();
+  }
+}
 function publishExtras(slug){
   const origin=publishOrigin();
   return {
@@ -4358,7 +4397,7 @@ async function initPublish(){
   pubSaveSession({email:me.email||"", slug:me.slug||""});
   if($("#pubEmail"))$("#pubEmail").value=me.email||"";
   if(me.consent)$("#pubReady").hidden=false;
-  if(me.slug){if($("#pubSlug")){$("#pubSlug").value=me.slug; $("#pubSlug").readOnly=true;} showPublished(me.url|| (origin+"/"+me.slug));}
+  applyPublishState(me);
   const help=$("#pubPlanHelp");
   if(help)help.textContent=planHelp(me);
   if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;
@@ -4380,8 +4419,7 @@ $("#pubVerify").onclick=async()=>{
     pubMemToken=data.token||"";
     pubSaveSession({email:data.email, slug:data.slug||""});
     $("#pubReady").hidden=false;
-    suggestSlug();
-    if(data.slug){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true; $("#pubManage").hidden=false;}
+    applyPublishState(data);
     $("#pubOk").textContent="Email verified. A parent checks the box. The first 3 jobs are free, or they can pick a plan.";
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
@@ -4428,6 +4466,8 @@ async function pubPush(){
     if(!prior.consent){pubErr("A parent has to check the box before the first publish."); return;}
   }
   const slug=($("#pubSlug").value||session.slug||"").trim().toLowerCase();
+  const familyNote=$("#familyNote");
+  if(familyNote&&!familyNote.hidden&&!($("#pubSlug").value||"").trim()){pubErr("Pick a link name for this page first."); return;}
   try{
     if(!session.slug){
       const agreed=await pubApi("/api/consent", {body:{consent:true}});
@@ -4435,7 +4475,10 @@ async function pubPush(){
     }
     const me=await pubApi("/api/me", {method:"GET"});
     showHosting(me);
-    const needsPay=!me.paid && !me.grace && !(me.trialLeft>0) && !me.slug;
+    // Family plan: updating a page the account owns, and adding a page
+    // while the shared trial still has room, never detour to checkout.
+    // A new page on an account whose trial is used up pays first, as before.
+    const needsPay=!me.paid && !me.grace && !(me.trialLeft>0) && !ownedSlugs(me).includes(slug);
     if(needsPay){const paid=await pubCheckout(); if(!paid)return;}
     const data=await pubApi("/api/publish", {body:publishExtras(slug)});
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
@@ -4445,7 +4488,7 @@ async function pubPush(){
     if(askTok)pubApi("/api/ask/"+askTok+"/done",{body:{url:data.url}}).catch(function(){});
     $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
     showPublished(data.url);
-    $("#pubOk").textContent=data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
+    $("#pubOk").textContent=data.added?"Published. This page is covered by your family plan.":data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
   }catch(e){pubErr("Could not publish. Try again.");}
 }
 $("#pubGo").onclick=pubPush;
@@ -4513,7 +4556,7 @@ async function showAccount(){
     const down=document.createElement("button"); down.type="button"; down.className="btn outline"; down.textContent="Take the page offline";
     down.onclick=async()=>{
       if(down.dataset.arm!=="1"){down.dataset.arm="1"; down.textContent="Tap again to take it offline"; return;}
-      const res=await pubApi("/api/unpublish",{body:{}});
+      const res=await pubApi("/api/unpublish",{body:{slug:site.slug}});
       if(msg)msg.textContent=res.ok?"The page is offline. Update puts it back on the same link.":"Could not take it offline.";
       showAccount();
     };
@@ -4591,7 +4634,8 @@ async function saveNewAddress(){
   const name=($("#newSlug").value||"").trim().toLowerCase();
   const status=$("#newSlugStatus");
   try{
-    const data=await pubApi("/api/slug",{body:{slug:name}});
+    const from=ownSlug()||((pubSession()||{}).slug||"");
+    const data=await pubApi("/api/slug",{body:from?{slug:name,from}:{slug:name}});
     if(!data.ok){if(status)status.textContent=data.message||"Could not change the address."; return;}
     if($("#pubSlug")){$("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true;}
     const session=pubSession(); if(session){session.slug=data.slug; pubSaveSession(session);}
@@ -4607,7 +4651,7 @@ $("#pubDown").onclick=async()=>{
   const b=$("#pubDown");
   if(!pubDownArmed){pubDownArmed=true; b.textContent="Tap again to take it offline"; return;}
   pubDownArmed=false; b.textContent="Take the page offline";
-  const data=await pubApi("/api/unpublish", {body:{}});
+  const data=await pubApi("/api/unpublish", {body:{slug:ownSlug()}});
   if(data.ok){$("#pubOk").textContent="The page is offline. Update puts it back on the same link."; $("#pubUrlWrap").hidden=true;}
   else pubErr("Could not take the page offline.");
 };

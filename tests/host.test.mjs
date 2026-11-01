@@ -105,8 +105,15 @@ test("publish and republish keep the same url", async () => {
   const live2 = await call("GET", "/api/site/sam-yard");
   assert.match(live2.body, /Sam Yard Updated/);
 
-  const locked = await json(await call("POST", "/api/publish", { token, body: { slug: "other-yard", html: page("Other") } }));
-  assert.equal(locked.status, 409);
+  // Family plan: a second, unowned address JOINS the same account instead
+  // of the old 409 slug-locked refusal. Another family's address (below)
+  // still refuses.
+  const joined = await json(await call("POST", "/api/publish", { token, body: { slug: "other-yard", html: page("Other") } }));
+  assert.equal(joined.status, 200);
+  assert.equal(joined.body.added, true);
+  const joinedLive = await call("GET", "/api/site/other-yard");
+  assert.equal(joinedLive.status, 200);
+  assert.match(joinedLive.body, /Other/);
 
   const other = await parent("other@example.com");
   await call("POST", "/api/consent", { token: other.token, body: { consent: true } });
@@ -1907,4 +1914,181 @@ test("pilot fixes: Make It Yours offers the same page designs as step 5", async 
   assert.match(src, /id="lkThemes"/, "the look panel has a page-design grid");
   assert.match(src, /paintThemeCards\(mbody\.querySelector\("#lkThemes"\)/, "the panel paints the shared theme cards");
   assert.match(src, /function renderThemes\(\)\{\s*paintThemeCards\(\$\("#themes"\),\$\("#themeHelp"\)\);/, "step 5 uses the same painter, so both bind S.theme");
+});
+
+// ---- Family plan: one account, several kid pages, one trial/payment ----
+
+function bookOn(slug, n) {
+  return {
+    slug,
+    name: "Riley " + n,
+    contact: "riley" + n + "@example.com",
+    service: "Mow " + n,
+    when: "Monday at 4:0" + n + " PM",
+    address: n + " Oak Street",
+    start: "2026-11-02T16:0" + n,
+    t: 4000
+  };
+}
+
+async function accountIdFor(email) {
+  const names = await readdir(path.join(dir, "accounts"));
+  for (const name of names) {
+    const raw = JSON.parse(await readFile(path.join(dir, "accounts", name), "utf8"));
+    if (raw.email === email) return raw.id;
+  }
+  return "";
+}
+
+test("family plan: one account publishes two pages under one trial", async () => {
+  const { token } = await parent("fam-one@example.test");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const first = await json(await call("POST", "/api/publish", { token, body: { slug: "kid-one", html: page("Kid One") } }));
+  assert.equal(first.status, 200);
+  assert.equal(first.body.added, true);
+  const before = await json(await call("GET", "/api/me", { token }));
+
+  const second = await json(await call("POST", "/api/publish", { token, body: { slug: "kid-two", html: page("Kid Two") } }));
+  assert.equal(second.status, 200);
+  assert.equal(second.body.added, true);
+  assert.deepEqual(second.body.slugs, ["kid-one", "kid-two"]);
+
+  // (a) both pages serve live
+  const one = await call("GET", "/api/site/kid-one");
+  assert.equal(one.status, 200);
+  assert.match(one.body, /Kid One/);
+  const two = await call("GET", "/api/site/kid-two");
+  assert.equal(two.status, 200);
+  assert.match(two.body, /Kid Two/);
+
+  // (b) the second publish did not restart or extend the trial, and the
+  // account still has not paid anything
+  const after = await json(await call("GET", "/api/me", { token }));
+  assert.equal(after.body.trialEndsAt, before.body.trialEndsAt);
+  assert.equal(after.body.trialEndsAt, first.body.trialEndsAt);
+  assert.equal(after.body.paidUntil || "", before.body.paidUntil || "");
+  assert.equal(after.body.paid, false);
+  assert.deepEqual(after.body.slugs, ["kid-one", "kid-two"]);
+
+  // the account view lists one card per page
+  const acct = await json(await call("GET", "/api/account", { token }));
+  assert.equal(acct.body.sites.length, 2);
+  assert.deepEqual(acct.body.sites.map((s) => s.slug), ["kid-one", "kid-two"]);
+  assert.ok(acct.body.sites.every((s) => s.status === "live"));
+
+  // (c) another family cannot publish at either address
+  const other = await parent("fam-other@example.test");
+  await call("POST", "/api/consent", { token: other.token, body: { consent: true } });
+  const steal = await json(await call("POST", "/api/publish", { token: other.token, body: { slug: "kid-two", html: page("Stolen") } }));
+  assert.equal(steal.status, 409);
+
+  // the dashboard shows one row per page for the same family
+  const good = await call("POST", "/admin/login", { raw: "secret=test-admin-secret" });
+  const cookie = (good.headers["set-cookie"] || "").split(";")[0];
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.equal(dash.status, 200);
+  assert.match(dash.body, /\/kid-one/);
+  assert.match(dash.body, /\/kid-two/);
+  assert.equal(dash.body.split("fam-one@example.test").length - 1, 2);
+});
+
+test("family plan: both pages take the break together and one payment revives all", async () => {
+  const { token, email } = await parent("fam-break@example.test");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "break-one", html: page("Break One") } });
+  await call("POST", "/api/publish", { token, body: { slug: "break-two", html: page("Break Two") } });
+
+  // Three bookings across the two pages use up the ONE shared trial.
+  const b1 = await json(await call("POST", "/api/book", { body: bookOn("break-one", 1), headers: { "x-forwarded-for": "203.0.113.201" } }));
+  assert.equal(b1.body.ok, true);
+  const b2 = await json(await call("POST", "/api/book", { body: bookOn("break-two", 2), headers: { "x-forwarded-for": "203.0.113.202" } }));
+  assert.equal(b2.body.ok, true);
+  const b3 = await json(await call("POST", "/api/book", { body: bookOn("break-one", 3), headers: { "x-forwarded-for": "203.0.113.203" } }));
+  assert.equal(b3.body.ok, true);
+
+  // (d) the account is on break, so BOTH pages serve the break page
+  for (const slug of ["break-one", "break-two"]) {
+    const res = await call("GET", "/api/site/" + slug);
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Taking a break/);
+    assert.match(res.body, /resting for now/);
+  }
+  // and a fresh job on either page is held, not accepted as live
+  const held = await json(await call("POST", "/api/book", { body: bookOn("break-two", 4), headers: { "x-forwarded-for": "203.0.113.204" } }));
+  assert.equal(held.body.held, true);
+
+  // one test-mode payment for the account revives both pages
+  const accountId = await accountIdFor(email);
+  assert.ok(accountId);
+  const payload = JSON.stringify({ id: "evt_family_paid", type: "checkout.session.completed", data: { object: { metadata: { accountId, plan: "year" } } } });
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  const t = String(Math.floor(Date.now() / 1000));
+  const sig = createHmac("sha256", "whsec_test").update(t + "." + payload).digest("hex");
+  const hook = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=" + t + ",v1=" + sig } }));
+  assert.equal(hook.body.ok, true);
+  for (const slug of ["break-one", "break-two"]) {
+    const res = await call("GET", "/api/site/" + slug);
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Break (One|Two)/);
+    assert.doesNotMatch(res.body, /Taking a break/);
+  }
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.paid, true);
+  assert.deepEqual(me.body.slugs, ["break-one", "break-two"]);
+});
+
+test("family plan: renaming one page keeps the other page live", async () => {
+  const { token } = await parent("fam-rename@example.test");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "rename-one", html: page("Rename One") } });
+  await call("POST", "/api/publish", { token, body: { slug: "rename-two", html: page("Rename Two") } });
+
+  // (e) rename the SECOND page, naming it in the request
+  const moved = await json(await call("POST", "/api/slug", { token, body: { slug: "rename-two-new", from: "rename-two" } }));
+  assert.equal(moved.status, 200);
+  assert.equal(moved.body.ok, true);
+  assert.equal(moved.body.slug, "rename-two-new");
+
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.deepEqual(me.body.slugs, ["rename-one", "rename-two-new"]);
+  assert.equal(me.body.slug, "rename-one"); // the primary page did not move
+
+  const one = await call("GET", "/api/site/rename-one");
+  assert.equal(one.status, 200);
+  assert.match(one.body, /Rename One/);
+  const fresh = await call("GET", "/api/site/rename-two-new");
+  assert.equal(fresh.status, 200);
+  assert.match(fresh.body, /Rename Two/);
+  const old = await call("GET", "/api/site/rename-two");
+  assert.equal(old.status, 302);
+  assert.equal(old.headers.location, "/rename-two-new");
+
+  // the untouched page still updates under its own address
+  const upd = await json(await call("POST", "/api/publish", { token, body: { slug: "rename-one", html: page("Rename One v2") } }));
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.updated, true);
+  assert.equal(upd.body.added, false);
+});
+
+test("family plan: pausing one page leaves its sibling up", async () => {
+  const { token } = await parent("fam-pause@example.test");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "pause-one", html: page("Pause One") } });
+  await call("POST", "/api/publish", { token, body: { slug: "pause-two", html: page("Pause Two") } });
+
+  const paused = await json(await call("POST", "/api/account/pause", { token, body: { slug: "pause-two" } }));
+  assert.equal(paused.body.ok, true);
+  const two = await call("GET", "/api/site/pause-two");
+  assert.equal(two.status, 200);
+  assert.match(two.body, /paused/);
+  assert.doesNotMatch(two.body, /Pause Two/);
+  const one = await call("GET", "/api/site/pause-one");
+  assert.equal(one.status, 200);
+  assert.match(one.body, /Pause One/);
+
+  // taking just that page offline works too, and the sibling stays live
+  const off = await json(await call("POST", "/api/unpublish", { token, body: { slug: "pause-two" } }));
+  assert.equal(off.body.ok, true);
+  assert.equal((await call("GET", "/api/site/pause-two")).status, 404);
+  assert.equal((await call("GET", "/api/site/pause-one")).status, 200);
 });
