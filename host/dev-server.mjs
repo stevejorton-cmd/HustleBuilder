@@ -39,6 +39,14 @@ const server = createServer(async (req, res) => {
       res.writeHead(404); res.end(); return;
     }
   }
+  if (req.method === "GET" && url.pathname === "/assets/heic2any.js") {
+    try {
+      const file = await readFile(new URL("assets/heic2any.js", rootDir));
+      res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=86400" });
+      res.end(file);
+      return;
+    } catch { /* fall through */ }
+  }
   if (req.method === "GET" && url.pathname.startsWith("/assets/pets/")) {
     const name = path.basename(url.pathname);
     const type = assetTypes[path.extname(name).toLowerCase()];
