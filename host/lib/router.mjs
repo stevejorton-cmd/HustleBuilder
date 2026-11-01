@@ -214,6 +214,41 @@ function paid(account, now = Date.now()) {
   return !!(account && account.paidUntil && Date.parse(account.paidUntil) > now);
 }
 
+// Family plan: one account can hold several kid pages under its single
+// trial/payment. account.slug stays the first (primary) address — payloads
+// and older records speak of it in the singular — and account.slugs is the
+// full set. Accounts written before the family plan carry only the single
+// field, so reads derive the set from both and writes keep the array in
+// step. A page record (pages/<slug>.json) names its account in accountId
+// and stays the lookup of record for which family a page belongs to.
+function slugsOf(account) {
+  const set = [];
+  const push = (v) => {
+    const s = String(v || "").trim().toLowerCase();
+    if (s && !set.includes(s)) set.push(s);
+  };
+  if (account) {
+    if (Array.isArray(account.slugs)) account.slugs.forEach(push);
+    push(account.slug);
+  }
+  return set;
+}
+
+function addAccountSlug(account, slug) {
+  const s = String(slug || "").trim().toLowerCase();
+  if (!s) return;
+  const set = slugsOf(account);
+  if (!set.includes(s)) set.push(s);
+  account.slugs = set;
+  if (!account.slug) account.slug = s;
+}
+
+function swapAccountSlug(account, from, next) {
+  const set = slugsOf(account).map((s) => (s === from ? next : s));
+  account.slugs = [...new Set(set)];
+  if (account.slug === from) account.slug = next;
+}
+
 function graceLeftDays(account, now = Date.now()) {
   const end = Date.parse(account && account.paidUntil || "");
   if (!Number.isFinite(end) || end > now) return 0;
@@ -249,7 +284,7 @@ function trialDaysLeft(account, now = Date.now()) {
 
 function trialOver(account, used, now = Date.now()) {
   if (!account || paid(account, now) || inGrace(account, now)) return false;
-  if (!account.trialEndsAt && !account.slug) return false;
+  if (!account.trialEndsAt && slugsOf(account).length === 0) return false;
   if (used >= FREE_JOBS) return true;
   return !trialClockOpen(account, now);
 }
@@ -434,22 +469,34 @@ async function sendOnce(flag, message) {
   return mailed;
 }
 
-async function sendLiveNote(account, origin, slug) {
-  if (account.liveMailed === slug) return;
+// One "live" note per page, tracked as a set (liveMailedSlugs, with the
+// legacy single liveMailed folded in) so a family's second page gets its
+// own note and republishing either page never re-sends. kind picks the
+// wording: "added" for a further page joining the family plan, "renamed"
+// when the primary address moved, "" for the first page.
+async function sendLiveNote(account, origin, slug, kind = "") {
+  const mailed = new Set(Array.isArray(account.liveMailedSlugs) ? account.liveMailedSlugs : []);
+  if (account.liveMailed) mailed.add(account.liveMailed);
+  if (mailed.has(slug)) return;
   const url = (origin || "") + "/" + slug;
   const qr = (origin || "") + "/api/qr/" + slug + ".png";
   const accountLink = accountUrl(origin);
-  const renamed = !!(account.liveMailed && account.liveMailed !== slug);
-  const subject = renamed ? "Your new web address is live" : "Your page is live";
-  const lead = renamed ? "Your new web address is live." : "Your page is live.";
-  const mailed = await sendOnce("sentmail/live-" + account.id + "-" + slug, {
+  const renamed = kind === "renamed";
+  const added = kind === "added";
+  const subject = renamed ? "Your new web address is live" : added ? "Your new page is live" : "Your page is live";
+  const lead = renamed ? "Your new web address is live." : added ? "Your new page is live." : "Your page is live.";
+  const sent = await sendOnce("sentmail/live-" + account.id + "-" + slug, {
     to: account.email,
     replyTo: supportReply(),
     subject,
     text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
     html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
   });
-  if (mailed.ok) account.liveMailed = slug;
+  if (sent.ok) {
+    mailed.add(slug);
+    account.liveMailedSlugs = [...mailed];
+    account.liveMailed = slug;
+  }
 }
 
 async function sendReceiptNote(account, origin, eventId) {
@@ -606,7 +653,7 @@ function adminStatus(account, meta, used) {
     if (meta && meta.status === "paused") return { key: "break", label: "Paused by family", date: meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
     return { key: "live", label: "Live", date: meta && meta.updatedAt ? "Updated " + niceDate(meta.updatedAt) : "" };
   }
-  if (!account.slug || !meta) {
+  if (!meta || slugsOf(account).length === 0) {
     return { key: "draft", label: "Draft", date: account.createdAt ? "Started " + niceDate(account.createdAt) : "" };
   }
   if (meta.status === "review") {
@@ -665,31 +712,67 @@ async function adminDashboardPage(origin) {
     if (!account || !account.id) continue;
     counts.accounts += 1;
     if (comped(account)) counts.free += 1;
-    const meta = account.slug ? metas.get(account.slug) || null : null;
-    if (meta) seen.add(meta.slug);
+    // Family plan: one row per page the account owns, all sharing the
+    // account's status and the account-level comp button (making a family
+    // free frees every page at once). Page records that name this account
+    // are adopted even if the account's slug set somehow missed them.
+    const ownedMetas = [];
+    for (const s of slugsOf(account)) {
+      const meta = metas.get(s);
+      if (meta && !ownedMetas.includes(meta)) ownedMetas.push(meta);
+    }
+    for (const meta of metas.values()) {
+      if (meta.accountId === account.id && !ownedMetas.includes(meta)) ownedMetas.push(meta);
+    }
+    for (const meta of ownedMetas) seen.add(meta.slug);
     const used = await trialCount(account.email);
-    const status = adminStatus(account, meta, used);
-    if (status.key === "trial") counts.trial += 1;
-    if (status.key === "paid") counts.paid += 1;
-    if (status.key === "grace") counts.grace += 1;
-    if (status.key === "break") counts.break += 1;
     const requests = await loadRequests(account.id);
     counts.bookings += requests.length;
-    const names = meta ? await siteNames(meta.slug, meta) : { first: "", biz: "", legacyInbox: false };
-    if (names.legacyInbox) counts.legacy += 1;
-    rows.push({
-      id: account.id,
-      comp: comped(account),
-      legacyInbox: names.legacyInbox,
-      biz: names.biz,
-      first: names.first,
-      slug: meta ? meta.slug : account.slug || "",
-      email: account.email || "",
-      status,
-      bookings: requests.length,
-      reports: meta && Array.isArray(meta.reports) ? meta.reports.length : 0,
-      sortAt: (meta && meta.updatedAt) || account.createdAt || ""
-    });
+    if (!ownedMetas.length) {
+      const status = adminStatus(account, null, used);
+      if (status.key === "trial") counts.trial += 1;
+      if (status.key === "paid") counts.paid += 1;
+      if (status.key === "grace") counts.grace += 1;
+      if (status.key === "break") counts.break += 1;
+      rows.push({
+        id: account.id,
+        comp: comped(account),
+        legacyInbox: false,
+        biz: "",
+        first: "",
+        slug: account.slug || "",
+        email: account.email || "",
+        status,
+        bookings: requests.length,
+        reports: 0,
+        sortAt: account.createdAt || ""
+      });
+      continue;
+    }
+    // The summary tiles count each account once, by its primary page's
+    // status; the rows below carry each page's own status.
+    const headStatus = adminStatus(account, ownedMetas[0], used);
+    if (headStatus.key === "trial") counts.trial += 1;
+    if (headStatus.key === "paid") counts.paid += 1;
+    if (headStatus.key === "grace") counts.grace += 1;
+    if (headStatus.key === "break") counts.break += 1;
+    for (const [index, meta] of ownedMetas.entries()) {
+      const names = await siteNames(meta.slug, meta);
+      if (names.legacyInbox) counts.legacy += 1;
+      rows.push({
+        id: account.id,
+        comp: comped(account),
+        legacyInbox: names.legacyInbox,
+        biz: names.biz,
+        first: names.first,
+        slug: meta.slug,
+        email: account.email || "",
+        status: adminStatus(account, meta, used),
+        bookings: requests.filter((row) => (row.slug ? row.slug === meta.slug : index === 0)).length,
+        reports: Array.isArray(meta.reports) ? meta.reports.length : 0,
+        sortAt: meta.updatedAt || account.createdAt || ""
+      });
+    }
   }
   for (const meta of metas.values()) {
     if (seen.has(meta.slug)) continue;
@@ -1172,9 +1255,11 @@ export async function handleRequest(req) {
   if (method === "POST" && route === "slug") {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    const from = String(account.slug || "").trim().toLowerCase();
+    // Family plan: the caller may name which of the family's pages is
+    // moving (body.from); without one, the primary page moves, as before.
+    const from = String(body.from || account.slug || "").trim().toLowerCase();
     const next = String(body.slug || "").trim().toLowerCase();
-    if (!from) return withCors(json(400, { ok: false, error: "slug", message: "Publish the page first." }), req.headers && req.headers.origin);
+    if (!from || !slugsOf(account).includes(from)) return withCors(json(400, { ok: false, error: "slug", message: "Publish the page first." }), req.headers && req.headers.origin);
     if (next === from) return withCors(json(200, { ok: true, slug: from, url: (origin || "") + "/" + from, same: true }), req.headers && req.headers.origin);
     const slugErr = checkSlug(next);
     if (slugErr) return withCors(json(400, { ok: false, error: "slug", message: slugErr }), req.headers && req.headers.origin);
@@ -1192,7 +1277,9 @@ export async function handleRequest(req) {
     account.formerSlugs = Array.isArray(account.formerSlugs) ? account.formerSlugs : [];
     for (const old of account.formerSlugs) {
       const rec = await readJson("pages/" + old + ".json");
-      if (rec && rec.accountId === account.id && rec.status === "redirect") {
+      // Only this page's own redirects follow it to the new address; a
+      // sibling page's redirects keep pointing at the sibling.
+      if (rec && rec.accountId === account.id && rec.status === "redirect" && rec.to === from) {
         rec.to = next;
         rec.until = until;
         await writeJson("pages/" + old + ".json", rec);
@@ -1200,7 +1287,7 @@ export async function handleRequest(req) {
     }
     await writeJson("pages/" + from + ".json", { slug: from, accountId: account.id, status: "redirect", to: next, until, updatedAt: new Date(now).toISOString() });
     account.formerSlugs.push(from);
-    account.slug = next;
+    swapAccountSlug(account, from, next);
     account.slugChanges.push(new Date(now).toISOString());
     await saveAccount(account);
     return withCors(json(200, { ok: true, slug: next, from, url: (origin || "") + "/" + next, until }), req.headers && req.headers.origin);
@@ -1214,7 +1301,7 @@ export async function handleRequest(req) {
     if (await countKey("authip/" + sha(clientIp(req) + "|" + day), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     let account = await accountByEmail(email);
     const code = String(randomInt(100000, 1000000));
-    if (!account) account = { id: rand(8), email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null };
+    if (!account) account = { id: rand(8), email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null, slugs: [] };
     account.verifyHash = sha(code + ":" + email);
     account.verifyExpires = Date.now() + 20 * 60 * 1000;
     account.verifyTries = 0;
@@ -1251,7 +1338,7 @@ export async function handleRequest(req) {
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
     account.tokenHash = sha(token);
     await saveAccount(account);
-    return withCors(json(200, { ok: true, token, email, consent: !!account.consentAt, slug: account.slug || "", plan: account.plan || "", paid: paid(account) }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, token, email, consent: !!account.consentAt, slug: account.slug || "", slugs: slugsOf(account), plan: account.plan || "", paid: paid(account) }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "auth/logout") {
@@ -1281,7 +1368,7 @@ export async function handleRequest(req) {
       trialOver: trialOver(account, used),
       seasonName: season.name, seasonEnd: season.end, yearEnd: year.end,
       shareStreet: !!account.shareStreet, jobCode: account.jobCode || account.draftCode || "",
-      slug: account.slug || "", url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
+      slug: account.slug || "", slugs: slugsOf(account), url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
       payMode: paywallMode(), indexable: !!account.indexable, draftCode: account.draftCode || "",
       ...feedLinks(base, account.calToken)
     }), req.headers && req.headers.origin);
@@ -1399,7 +1486,6 @@ export async function handleRequest(req) {
     if (!account.consentAt) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
     if (onBreak(account)) return withCors(json(402, { ok: false, error: "break", message: "This plan is taking a break. Renew it, then publish again." }), req.headers && req.headers.origin);
     const slug = String(body.slug || account.slug || "").trim().toLowerCase();
-    if (account.slug && slug !== account.slug) return withCors(json(409, { ok: false, error: "slug-locked", slug: account.slug }), req.headers && req.headers.origin);
     const slugErr = checkSlug(slug);
     if (slugErr) return withCors(json(400, { ok: false, error: "slug", message: slugErr }), req.headers && req.headers.origin);
     const htmlIn = String(body.html || "");
@@ -1410,6 +1496,13 @@ export async function handleRequest(req) {
     const existing = await readJson("pages/" + slug + ".json");
     if (existing && existing.accountId !== account.id) return withCors(json(409, { ok: false, error: "taken" }), req.headers && req.headers.origin);
     if (existing && existing.status === "down") return withCors(json(403, { ok: false, error: "down" }), req.headers && req.headers.origin);
+    // Family plan: a slug this account does not own yet — and, per the
+    // check above, no other family owns — JOINS the account instead of
+    // refusing. It rides the account's one trial/payment: the trial-start
+    // block below only fires when trialStartedAt is unset, so an added
+    // page never restarts or extends the trial and never opens a checkout.
+    const ownedBefore = slugsOf(account);
+    const addedPage = !ownedBefore.includes(slug);
     const titleMatch = htmlIn.match(/<title>([^<]*)<\/title>/i);
     const cardTitle = clipField(body.cardTitle || (titleMatch && titleMatch[1]) || slug, 60);
     const cardLine = clipField(body.cardLine || "Book a day", 80);
@@ -1427,7 +1520,7 @@ export async function handleRequest(req) {
       slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
       indexable, card: { title: cardTitle, line: cardLine, accent, pets }
     });
-    account.slug = slug;
+    addAccountSlug(account, slug);
     account.indexable = indexable;
     if (!paid(account) && !account.trialStartedAt) {
       const now = Date.now();
@@ -1438,32 +1531,42 @@ export async function handleRequest(req) {
     const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
     account.jobCode = /^[a-z0-9]{8}$/.test(jobCode) ? jobCode : account.jobCode || rand(4).slice(0, 8);
     await (await store()).put("jobcode/" + account.jobCode, account.id);
-    if (account.liveMailed !== slug) await sendLiveNote(account, origin, slug);
+    // "renamed" is when the page at the primary address is not the one the
+    // last live note announced — the address moved and this publish is the
+    // first at the new one. (sendLiveNote's mailed set suppresses the note
+    // entirely for pages already announced, so this only picks wording.)
+    const liveKind = addedPage && ownedBefore.length > 0
+      ? "added"
+      : account.slug === slug && account.liveMailed && account.liveMailed !== slug ? "renamed" : "";
+    await sendLiveNote(account, origin, slug, liveKind);
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
     const used = await trialCount(account.email);
-    return withCors(json(200, { ok: true, slug, url, updated: !!existing, jobCode: account.jobCode, trialLeft: Math.max(0, FREE_JOBS - used), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "" }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, slug, url, updated: !!existing, added: addedPage, slugs: slugsOf(account), jobCode: account.jobCode, trialLeft: Math.max(0, FREE_JOBS - used), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "" }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "unpublish") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    if (!account.slug) return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
-    const meta = await readJson("pages/" + account.slug + ".json");
+    // Family plan: unpublishing is per page — the caller names the page,
+    // defaulting to the primary, and sibling pages stay up.
+    const slug = String(body.slug || account.slug || "").trim().toLowerCase();
+    if (!slug || !slugsOf(account).includes(slug)) return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+    const meta = await readJson("pages/" + slug + ".json");
     if (meta && meta.accountId === account.id) {
       meta.status = "offline";
-      await writeJson("pages/" + account.slug + ".json", meta);
-      await (await store()).del("pages/" + account.slug + ".html");
+      await writeJson("pages/" + slug + ".json", meta);
+      await (await store()).del("pages/" + slug + ".html");
     }
-    return withCors(json(200, { ok: true, slug: account.slug }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, slug }), req.headers && req.headers.origin);
   }
 
   if (method === "DELETE" && route === "account") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    if (account.slug) {
-      await (await store()).del("pages/" + account.slug + ".html");
-      await (await store()).del("pages/" + account.slug + ".json");
+    for (const slug of slugsOf(account)) {
+      await (await store()).del("pages/" + slug + ".html");
+      await (await store()).del("pages/" + slug + ".json");
     }
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
     if (account.calToken) await (await store()).del("caltokens/" + sha(account.calToken));
@@ -1507,9 +1610,9 @@ export async function handleRequest(req) {
     const rec = await readJson("asks/" + askOpen[1] + ".json");
     if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     let account = await accountByEmail(rec.email);
-    if (!account) account = { id: rand(8), email: rec.email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null };
+    if (!account) account = { id: rand(8), email: rec.email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null, slugs: [] };
     const token = await issueSession(account);
-    return withCors(json(200, { ok: true, token, email: rec.email, draft: rec.draft, consent: !!account.consentAt, paid: paid(account), slug: account.slug || "", status: rec.status || "waiting", url: rec.url || "" }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, token, email: rec.email, draft: rec.draft, consent: !!account.consentAt, paid: paid(account), slug: account.slug || "", slugs: slugsOf(account), status: rec.status || "waiting", url: rec.url || "" }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
   }
 
   const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
@@ -1863,6 +1966,7 @@ document.getElementById("done").onclick=()=>mark("done");
     const row = {
       id: requestId,
       actionToken,
+      slug,
       parentEmail: account.email,
       replyTo: reply || supportReply(),
       firstName: firstName(fields.name),
@@ -2127,12 +2231,19 @@ document.getElementById("done").onclick=()=>mark("done");
     await saveAccount(account);
     const used = await trialCount(account.email);
     const sites = [];
-    if (account.slug) {
-      const meta = await readJson("pages/" + account.slug + ".json") || {};
-      const rows = await loadRequests(account.id);
+    // Family plan: one card per page the account owns. Plan, trial, and
+    // renewal fields are the account's single shared state, repeated on
+    // each card as before; receipts ride on the first card only (they are
+    // the family's, not a page's). Booking requests are stored per
+    // account; newer rows name the page they came through, and rows
+    // without a page name belong to the primary (first) card.
+    const rows = await loadRequests(account.id);
+    const ownedSlugs = slugsOf(account);
+    for (const [index, siteSlug] of ownedSlugs.entries()) {
+      const meta = await readJson("pages/" + siteSlug + ".json") || {};
       sites.push({
-        slug: account.slug,
-        url: (origin || "") + "/" + account.slug,
+        slug: siteSlug,
+        url: (origin || "") + "/" + siteSlug,
         status: meta.status || "offline",
         plan: account.plan || "",
         planName: comped(account) ? "Friends & family" : account.planName || (paid(account) ? "Paid plan" : "Free trial"),
@@ -2148,10 +2259,10 @@ document.getElementById("done").onclick=()=>mark("done");
         trialEndsLabel: account.trialEndsAt ? niceDate(account.trialEndsAt) : "",
         trialOver: trialOver(account, used),
         renew: payLinks(origin, account),
-        receipts: (account.receipts || []).slice(-12).map((item) => ({
+        receipts: index === 0 ? (account.receipts || []).slice(-12).map((item) => ({
           id: item.id, plan: item.planName || item.plan || "", amount: item.amountLabel || "", at: item.at || "", end: item.endLabel || "", url: item.url || ""
-        })),
-        requests: rows.slice(-20).reverse().map((row) => ({
+        })) : [],
+        requests: rows.filter((row) => (row.slug ? row.slug === siteSlug : index === 0)).slice(-20).reverse().map((row) => ({
           service: row.service || "A job",
           when: row.when || "",
           firstName: row.firstName || "Neighbor",
@@ -2177,7 +2288,9 @@ document.getElementById("done").onclick=()=>mark("done");
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     const slug = String(body.slug || account.slug || "").trim().toLowerCase();
-    if (!account.slug || slug !== account.slug) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    // Family plan: pause/resume is per page — any page the account owns
+    // can be paused or resumed on its own; siblings are untouched.
+    if (!slugsOf(account).includes(slug)) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     const meta = await readJson("pages/" + slug + ".json");
     if (!meta || meta.accountId !== account.id) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     if (meta.status === "down") return withCors(json(403, { ok: false, error: "down" }), req.headers && req.headers.origin);
