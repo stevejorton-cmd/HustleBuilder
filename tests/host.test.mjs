@@ -2092,3 +2092,122 @@ test("family plan: pausing one page leaves its sibling up", async () => {
   assert.equal((await call("GET", "/api/site/pause-two")).status, 404);
   assert.equal((await call("GET", "/api/site/pause-one")).status, 200);
 });
+
+/* ---- start a new page, refit onto the family plan (Nov 1): several kids, one browser, one account ---- */
+function extractNamedFns(src, names) {
+  const lines = src.split("\n");
+  const extractFn = (name) => {
+    const start = lines.findIndex((l) => new RegExp("^(async )?function " + name + "\\b").test(l));
+    if (start < 0) return null;
+    let depth = 0, begun = false;
+    for (let i = start; i < lines.length; i++) {
+      for (const ch of lines[i]) {
+        if (ch === "{") { depth++; begun = true; }
+        else if (ch === "}") { depth--; if (begun && depth === 0) return lines.slice(start, i + 1).join("\n"); }
+      }
+    }
+    return null;
+  };
+  let code = "";
+  const out = {};
+  for (const n of names) { const t = extractFn(n); assert.ok(t, "fn " + n); code += t + "\n"; out[n] = true; }
+  return new Function(code + "\nreturn { " + names.join(", ") + " };")();
+}
+function fnBody(src, name) {
+  const start = src.indexOf("function " + name + "(");
+  assert.ok(start >= 0, name + " exists");
+  const rest = src.slice(start + 10);
+  const next = rest.search(/\n(async )?function [A-Za-z]+\(/);
+  return next < 0 ? rest : rest.slice(0, next);
+}
+
+test("start a new page: build labels prefer the business name, then the kid's first name", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { buildLabelOf } = extractNamedFns(src, ["buildLabelOf"]);
+  assert.equal(buildLabelOf({ bizName: "  Maryn's Pet Care ", first: "Maryn" }), "Maryn's Pet Care");
+  assert.equal(buildLabelOf({ bizName: "  ", first: " Levi " }), "Levi");
+  assert.equal(buildLabelOf({ bizName: "", first: "" }), "Untitled page");
+  assert.equal(buildLabelOf({}), "Untitled page");
+  assert.equal(buildLabelOf(null), "Untitled page");
+});
+
+test("start a new page: the device registry dedupes by code, newest first, capped at ten", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { buildsClean, buildsUpsert } = extractNamedFns(src, ["buildsClean", "buildsUpsert"]);
+  assert.deepEqual(buildsClean("junk"), []);
+  assert.deepEqual(buildsClean([{ code: " A1 ", label: " One ", updatedAt: "5" }, { code: "A1", label: "Dupe" }, { code: "" }, null, { label: "No code" }]),
+    [{ code: "A1", label: "One", updatedAt: 5 }]);
+  let list = [];
+  list = buildsUpsert(list, { code: "AAA", label: "First", updatedAt: 1 });
+  list = buildsUpsert(list, { code: "BBB", label: "Second", updatedAt: 2 });
+  assert.deepEqual(list.map((x) => x.code), ["BBB", "AAA"], "newest first");
+  list = buildsUpsert(list, { code: "AAA", label: "First, renamed", updatedAt: 3 });
+  assert.deepEqual(list.map((x) => [x.code, x.label]), [["AAA", "First, renamed"], ["BBB", "Second"]], "re-using a code refreshes its label in place");
+  assert.deepEqual(buildsUpsert(list, { code: " ", label: "Nope" }), list, "a blank code changes nothing");
+  let big = [];
+  for (let i = 0; i < 14; i++) big = buildsUpsert(big, { code: "C" + i, label: "Build " + i, updatedAt: i });
+  assert.equal(big.length, 10, "the registry is capped at ten");
+  assert.equal(big[0].code, "C13");
+  assert.equal(big[9].code, "C4");
+});
+
+test("start a new page: switching never disturbs the current build before the target loads and the current build saves", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /id="buildsBox"/, "the account screen has a builds box");
+  assert.match(src, /renderBuildsBox\(\);[\s\S]{0,160}?let data; try\{data=await pubApi\("\/api\/account"/, "the account view renders the builds box on every open");
+  assert.match(src, /btn\.id="startNewPage"; btn\.textContent="Start a new page"/, "the button is labeled Start a new page");
+  assert.match(src, /<h3>Start a new page\?<\/h3>/, "starting asks first, naming the current build");
+  const open = fnBody(src, "openBuild");
+  const getAt = open.indexOf('pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"})');
+  const stashAt = open.indexOf("stashCurrentBuild()");
+  const applyAt = open.indexOf("applyDraft(target)");
+  assert.ok(getAt >= 0 && stashAt > getAt, "openBuild fetches the target draft before touching the current build");
+  assert.ok(applyAt > stashAt, "openBuild saves the current build before applying the target");
+  assert.match(open, /90 days may be up/, "an expired target draft fails with a plain message, not a wipe");
+  assert.ok(open.indexOf("initPublish()", applyAt) > applyAt, "after a switch the publish panel is re-pointed at the opened build's own page");
+  const start = fnBody(src, "startNewPage");
+  assert.ok(start.indexOf("stashCurrentBuild()") < start.indexOf("clearBuildLeftovers()"), "startNewPage saves before it clears anything");
+  assert.ok(start.indexOf("clearBuildLeftovers()") < start.indexOf("S=defaults()"), "the reset happens only after the save and the clear");
+  assert.ok(start.indexOf("initPublish()") > start.indexOf("paintCurrentBuild()"), "a fresh build re-points the publish panel too");
+  assert.match(src, /localStorage\.removeItem\("hb-draft"\)/, "the old draft code is released so the next save mints a new one");
+  assert.match(src, /hb-boss-/, "Boss data is stashed per build code");
+});
+
+test("start a new page: publishing remembers which build owns each live page, per page", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { siteDraftsClean, siteDraftsWith, siteOwnerOf } = extractNamedFns(src, ["siteDraftsClean", "siteDraftsWith", "siteOwnerOf"]);
+  assert.deepEqual(siteDraftsClean("junk"), {});
+  assert.deepEqual(siteDraftsClean(null), {});
+  assert.deepEqual(siteDraftsClean({ " A ": " x ", "": "y", B: "" }), { a: "x" }, "keys and codes are trimmed, blanks dropped");
+  let map = siteDraftsWith({}, " Maryn-Pet-Care ", " AAA ");
+  assert.deepEqual(map, { "maryn-pet-care": "AAA" }, "recording normalizes the address");
+  map = siteDraftsWith(map, "levi-snow-crew", "BBB");
+  assert.deepEqual(map, { "maryn-pet-care": "AAA", "levi-snow-crew": "BBB" }, "a second page's record keeps its sibling's");
+  assert.deepEqual(siteDraftsWith(map, "", "CCC"), map, "a blank address records nothing");
+  assert.equal(siteOwnerOf(map, "maryn-pet-care", "ZZZ", "maryn-pet-care"), "AAA", "the per-page record wins");
+  assert.equal(siteOwnerOf(map, "levi-snow-crew", "", "maryn-pet-care"), "BBB");
+  assert.equal(siteOwnerOf({}, "maryn-pet-care", "ZZZ", "maryn-pet-care"), "ZZZ", "the pre-family-plan single record still answers for the primary page");
+  assert.equal(siteOwnerOf({}, "levi-snow-crew", "ZZZ", "maryn-pet-care"), "", "but it never claims a sibling's page");
+  assert.equal(siteOwnerOf({}, "levi-snow-crew", "", ""), "", "no record anywhere means no known owner");
+  const push = fnBody(src, "pubPush");
+  assert.match(push, /recordSiteDraft\(data\.slug\)/, "a successful publish records the owner of the page it just published");
+  assert.match(fnBody(src, "recordSiteDraft"), /hb-site-drafts/, "the record is stored per page");
+});
+
+test("start a new page: the replace warning guards another build's page — never an added page or this build's own page", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { replaceWarnNeeded } = extractNamedFns(src, ["replaceWarnNeeded"]);
+  assert.equal(replaceWarnNeeded("AAA", "AAA"), false, "this build's own page updates quietly");
+  assert.equal(replaceWarnNeeded("AAA", "BBB"), true, "a different build's page asks first");
+  assert.equal(replaceWarnNeeded("", "BBB"), false, "no remembered owner, no warning");
+  assert.equal(replaceWarnNeeded("AAA", ""), false, "no open build code, no warning");
+  const push = fnBody(src, "pubPush");
+  const gateAt = push.indexOf("ownedSlugs(me).includes(slug)");
+  const warnAt = push.indexOf("confirmModal(");
+  const postAt = push.indexOf('pubApi("/api/publish"');
+  assert.ok(gateAt >= 0 && warnAt > gateAt, "the warning can only fire for an address the account already owns — a new page is added, never warned");
+  assert.ok(postAt > warnAt, "the warning is asked before the publish call");
+  assert.match(push, /if\(!yes\)\{pubErr\("Nothing was published\."\); return;\}/, "cancelling publishes nothing");
+  assert.match(push, /Replace the live page\?/, "the warning says plainly what would happen");
+  assert.match(push, /hustlebuilder\.org\/'\+esc\(slug\)/, "the warning names the page at risk");
+});
