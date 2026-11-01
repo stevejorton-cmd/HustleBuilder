@@ -766,6 +766,29 @@ async function viewCounts(slug) {
   return { total: Number(rec.total) || 0, last7 };
 }
 
+// The "Built with Hustle Builder" belt: a slim credit strip the host adds
+// to a kid's page when the page is SERVED, not when it is published — so
+// pages already out in the world carry it too, and it can be restyled or
+// removed later in this one place. It is attached at the same single
+// return that hands out the real page HTML (and counts the view), so the
+// break / pause / review / down / missing pages never get one. The belt
+// is inert markup with inline styles only — a published page's CSP
+// allows inline styles but no outside scripts, images or fonts — and it
+// sits in normal flow at the very end of the page, never fixed over the
+// booking buttons. Its own dark strip and text colors are declared on
+// the belt itself, so it reads the same on light and dark kid pages. A
+// page whose stored HTML somehow already carries the marker is served
+// exactly as stored, never double-belted.
+const BELT_MARKER = 'id="hb-belt"';
+const BELT_HTML = `<div id="hb-belt" style="margin:28px 0 0;padding:14px 12px;background:#14181d;border-top:3px solid #ff5b14;text-align:center;font:13px/1.4 system-ui,sans-serif;color:#aeb8c2"><a href="https://hustlebuilder.org" target="_top" style="color:#e8ecf0;text-decoration:none;font-weight:600"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="vertical-align:-1px;margin-right:5px"><polygon points="9,1 3,9 7,9 6,15 13,7 9,7" fill="#ff5b14"/></svg>Built with Hustle Builder</a></div>`;
+function withBelt(pageHtml) {
+  if (typeof pageHtml !== "string" || pageHtml.includes(BELT_MARKER)) return pageHtml;
+  const at = pageHtml.toLowerCase().lastIndexOf("</body>");
+  return at >= 0
+    ? pageHtml.slice(0, at) + BELT_HTML + "\n" + pageHtml.slice(at)
+    : pageHtml + BELT_HTML;
+}
+
 async function serveSlug(slug, view) {
   const res = await serveSlugInner(slug, view);
   if (res && res.headers && String(res.headers["content-type"] || "").includes("text/html")) {
@@ -793,7 +816,10 @@ async function serveSlugInner(slug, view) {
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
   const page = await (await store()).get("pages/" + slug + ".html");
   if (!page) return missingPage(slug, false);
-  const res = html(200, page);
+  // The real page is the only response that gets the "Built with" belt,
+  // added here at serve time so the stored page stays exactly as the
+  // family published it.
+  const res = html(200, withBelt(page));
   // The response is settled; only now does the view count. noteView swallows
   // its own errors, and every other return above (break, pause, review,
   // missing, down, redirect) leaves the counter untouched.

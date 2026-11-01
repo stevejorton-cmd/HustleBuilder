@@ -1487,3 +1487,58 @@ test("resting and missing pages do not count, and the week sum reads day buckets
   assert.equal(stored.days[key(now)], 2);
   assert.equal(stored.days[key(now - 40 * dayMs)], undefined);
 });
+
+test("live pages are served with one Built with Hustle Builder belt, added at serve time", async () => {
+  const { token } = await parent("belt@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "belt-kid", html: page("Belt Kid") } }));
+  assert.equal(pub.status, 200);
+
+  const first = await call("GET", "/api/site/belt-kid");
+  assert.equal(first.status, 200);
+  // Exactly one belt, linking home, after the page's own content and
+  // still inside the body.
+  assert.equal(first.body.split('id="hb-belt"').length - 1, 1);
+  assert.ok(first.body.includes('<a href="https://hustlebuilder.org" target="_top"'));
+  assert.ok(first.body.indexOf('id="hb-belt"') > first.body.indexOf("<h1>Belt Kid</h1>"));
+  assert.ok(first.body.indexOf('id="hb-belt"') < first.body.toLowerCase().indexOf("</body>"));
+  // The family's own words are untouched.
+  assert.ok(first.body.includes("<p>Student-owned. Parent-backed.</p>"));
+
+  // Serving again does not stack a second belt...
+  const second = await call("GET", "/api/site/belt-kid");
+  assert.equal(second.body.split('id="hb-belt"').length - 1, 1);
+  // ...because the belt is added at serve time only: the page stored on
+  // disk is byte-for-byte what the family published, with no belt in it.
+  const stored = await readFile(path.join(dir, "pages", "belt-kid.html"), "utf8");
+  assert.equal(stored.includes("hb-belt"), false);
+});
+
+test("resting, missing, and already-belted pages get no second belt", async () => {
+  const { token } = await parent("belt2@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "belt-rest", html: page("Belt Rest") } });
+
+  // Pause the page: neighbors see the pause note, and it carries no belt.
+  const paused = await json(await call("POST", "/api/account/pause", { token, body: { slug: "belt-rest" } }));
+  assert.equal(paused.body.ok, true);
+  const rest = await call("GET", "/api/site/belt-rest");
+  assert.equal(rest.status, 200);
+  assert.equal(rest.body.includes("hb-belt"), false);
+
+  // A slug that was never published has no belt either.
+  const missing = await call("GET", "/api/site/no-such-kid");
+  assert.equal(missing.status, 404);
+  assert.equal(missing.body.includes("hb-belt"), false);
+
+  // A page whose stored HTML already carries the marker (say it was baked
+  // in by some future publisher) is served as stored, never double-belted.
+  const other = await parent("belt3@example.com");
+  await call("POST", "/api/consent", { token: other.token, body: { consent: true } });
+  const baked = page("Belt Baked").replace("</body>", '<div id="hb-belt">already here</div></body>');
+  const pub = await json(await call("POST", "/api/publish", { token: other.token, body: { slug: "belt-baked", html: baked } }));
+  assert.equal(pub.status, 200);
+  const served = await call("GET", "/api/site/belt-baked");
+  assert.equal(served.body.split('id="hb-belt"').length - 1, 1);
+  assert.ok(served.body.includes("already here"));
+});
