@@ -839,7 +839,7 @@ details.help li{margin-bottom:10px}
           <p class="status" id="graceBanner" hidden></p>
           <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Or pick a plan. No card is charged in test mode.</small></div>
           <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
-          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sam-yard"><small>Use a first name or a business nickname, like sam or sam-yard.</small><p class="small2" id="slugStatus" role="status"></p></label>
+          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Your first name plus your business name works great, like josie-josies-pet-care. It is harder for strangers to guess than a first name alone.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
           <button type="button" class="btn block" id="pubGo" disabled>Publish my website</button>
@@ -4411,7 +4411,14 @@ async function slugStatus(name){
 async function suggestSlug(){
   const el=$("#pubSlug"); if(!el||el.value.trim()||el.readOnly)return;
   const first=(S.first||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-  const ideas=[first,first+"-yard",first+"-lawn",first+"-mow",first+"-snow"].filter(s=>s.length>=3&&s.length<=24);
+  const bizSlug=(S.bizName||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  let combo="";
+  if(first&&bizSlug){
+    combo=(bizSlug===first||bizSlug.startsWith(first+"-"))?bizSlug:first+"-"+bizSlug;
+    if(combo.length>24){const cut=combo.slice(0,24),hy=cut.lastIndexOf("-");combo=hy>=3?cut.slice(0,hy):"";}
+    if(combo.length<3)combo="";
+  }
+  const ideas=[combo,first,first+"-yard",first+"-lawn",first+"-mow",first+"-snow"].filter((s,i,a)=>s&&s.length>=3&&s.length<=24&&a.indexOf(s)===i);
   for(const s of ideas){
     try{
       const data=await pubApi("/api/slug?name="+encodeURIComponent(s),{method:"GET"});
