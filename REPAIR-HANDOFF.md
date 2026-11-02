@@ -127,3 +127,5 @@ The last command needs an isolated PostgreSQL server. Never paste a real connect
 - An opaque-origin HTTP sandbox is the implemented content isolation boundary. A dedicated separate origin for user sites would add defense in depth. Do not add `allow-same-origin` to the sandbox.
 - Phone hiding is a fallback for generated pages and common representations, not a comprehensive detector of arbitrary personal information embedded in uploaded HTML or photographs. Retain the structured builder's first-name-only and private-contact design; perform the pending privacy/legal review separately.
 - The deployable v4 source is `hustlebuilder-repo-main/index.html` with `api/`, `host/`, dependencies, the existing PWA files and `vercel.json`. Artwork records outside the source folder are preserved. Use this v4 package instead of the earlier v3 repair package.
+
+<!-- Preview rebuilt Nov 1, 2026 ~9:45 PM CT so the deployment picks up the Neon DATABASE_URL (preview branch) for the Phase 2 rehearsal. -->
