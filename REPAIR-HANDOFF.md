@@ -133,3 +133,6 @@ The last command needs an isolated PostgreSQL server. Never paste a real connect
 <!-- Preview rebuilt Nov 1, 2026 ~9:50 PM CT: preview PUBLISH_TEST_MODE set to 1 so the rehearsal uses on-screen test codes. -->
 
 <!-- rebuild Nov 1 late: pick up HB_MAINTENANCE_MODE + MIGRATE_TOKEN_SHA env for the cutover endpoint test -->
+
+## Cutover complete (Nov 1, 2026, ~11:20 PM CT)
+PR #49 merged to main; the Blob -> PostgreSQL migration ran inside the production deployment via a temporary token-gated endpoint (api/migrate-once.js, removed by the cleanup PR right after). One snag, fixed by PR #50: the 6 leftover handoff-art/* binaries in Blob are not valid UTF-8 text and PostgreSQL rejected them; nothing in the app references that prefix, so the migration skipped exactly those files (byte-exact copies saved to the cutover backup folder first; originals remain in Blob). Final apply: 49 objects -> 48 rows, 1 account (Maryn's family), hash-verified inside the transaction. HB_MAINTENANCE_MODE was set to 1 for the window and set back to 0 after; the MIGRATE_TOKEN_SHA env value was emptied. All sessions/calendar links were invalidated by the migration as designed — families sign in again. Blob data is frozen and untouched as the backup of record (plus a local export in the cutover folder).
