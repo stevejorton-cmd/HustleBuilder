@@ -129,3 +129,5 @@ The last command needs an isolated PostgreSQL server. Never paste a real connect
 - The deployable v4 source is `hustlebuilder-repo-main/index.html` with `api/`, `host/`, dependencies, the existing PWA files and `vercel.json`. Artwork records outside the source folder are preserved. Use this v4 package instead of the earlier v3 repair package.
 
 <!-- Preview rebuilt Nov 1, 2026 ~9:45 PM CT so the deployment picks up the Neon DATABASE_URL (preview branch) for the Phase 2 rehearsal. -->
+
+<!-- Preview rebuilt Nov 1, 2026 ~9:50 PM CT: preview PUBLISH_TEST_MODE set to 1 so the rehearsal uses on-screen test codes. -->
