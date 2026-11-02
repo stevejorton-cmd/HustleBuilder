@@ -1,3 +1,5 @@
+> **V4 security repair:** read [REPAIR-HANDOFF.md](REPAIR-HANDOFF.md) before deployment. Production state now requires PostgreSQL and a controlled migration from Blob. The older Blob-only instructions below do not configure this repaired version. This package has not been deployed.
+
 # One-time setup for family hosting
 
 Steve does this once. After it works, a parent publishes from the app. There is no per-site step and no Netlify drop.

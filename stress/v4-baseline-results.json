@@ -1,0 +1,212 @@
+{
+  "generatedAt": "2026-11-02T02:42:20.087Z",
+  "baseline": "v4 uploaded snapshot 1b57d7a, original unmodified source",
+  "findings": [
+    {
+      "name": "400 simultaneous public page reads",
+      "pass": true,
+      "requests": 400,
+      "success": 400,
+      "totalMs": 53,
+      "p95Ms": 47,
+      "storageReads": 2000,
+      "scope": "synthetic async store, 2ms/read; not Vercel capacity"
+    },
+    {
+      "name": "400 distinct parents publish simultaneously",
+      "pass": false,
+      "success": 400,
+      "trackedForRenewals": 1,
+      "expected": 400,
+      "totalMs": 93
+    },
+    {
+      "name": "40 simultaneous bookings on one paid site",
+      "pass": false,
+      "accepted": 40,
+      "limited": 0,
+      "storedRequests": 1,
+      "storedCalendarJobs": 1,
+      "dailyCount": 1,
+      "expected": "max 30 accepted; every accepted booking retained"
+    },
+    {
+      "name": "20 simultaneous bookings bypass trial and same-IP limit",
+      "pass": false,
+      "accepted": 20,
+      "held": 0,
+      "trialCount": 1,
+      "expected": "max 3 delivered trial bookings; max 12 accepted per IP/day"
+    },
+    {
+      "name": "two parents claim same slug simultaneously",
+      "pass": false,
+      "statuses": [
+        200,
+        200
+      ],
+      "bothAccountsClaimSlug": true,
+      "expected": "one success, one conflict"
+    },
+    {
+      "name": "ask link grants parent session without email verification",
+      "pass": false,
+      "askStatus": 200,
+      "sessionIssued": true,
+      "consentStatus": 200,
+      "publishStatus": 200,
+      "expected": "requester cannot become recipient parent without independent email proof"
+    },
+    {
+      "name": "ask link takes over existing parent account",
+      "pass": false,
+      "victimSessionStatus": 401,
+      "requesterSessionStatus": 200,
+      "requesterCanUnpublish": true
+    },
+    {
+      "name": "auth start has no serial email throttle",
+      "pass": true,
+      "accepted": 5,
+      "attempted": 25,
+      "expected": "bounded email sends per IP and recipient"
+    },
+    {
+      "name": "parallel invalid OTP guesses lose attempt increments",
+      "pass": false,
+      "guesses": 40,
+      "storedAttempts": 1,
+      "validCodeStillWorks": true
+    },
+    {
+      "name": "ask recipient and IP limits under concurrency",
+      "pass": false,
+      "accepted": 20,
+      "expectedMax": 5
+    },
+    {
+      "name": "published HTML retains arbitrary same-origin script",
+      "pass": false,
+      "publishStatus": 200,
+      "scriptRetained": true,
+      "eventHandlerRetained": true,
+      "contentSecurityPolicy": "default-src 'self'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; style-src 'unsafe-inline'; font-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "scope": "stored executable HTML confirmed; browser execution not needed for this assertion"
+    },
+    {
+      "name": "phone hidden default is bypassable with HTML formatting",
+      "pass": false,
+      "singleQuotedTelRetained": true,
+      "formattedNumberRetained": true
+    },
+    {
+      "name": "historical signed webhook accepted",
+      "pass": true,
+      "accepted": false,
+      "timestamp": "1970-01-01T00:00:01Z"
+    },
+    {
+      "name": "duplicate webhook changes year entitlement date",
+      "pass": true,
+      "endChanged": false,
+      "expected": "event/session applied once"
+    },
+    {
+      "name": "unpaid checkout completion activates paid plan",
+      "pass": false,
+      "status": 200,
+      "planActivated": true,
+      "scope": "validly signed synthetic provider event; not unsigned external bypass"
+    },
+    {
+      "name": "20 parallel checkout requests create multiple provider sessions",
+      "pass": false,
+      "providerSessions": 20,
+      "idempotencyHeaderUsed": false,
+      "responses200": 20
+    },
+    {
+      "name": "provider checkout failure locks retry for 20 minutes",
+      "pass": false,
+      "firstStatus": 502,
+      "retryPending": true,
+      "retryHasCheckoutUrl": false
+    },
+    {
+      "name": "renew link in stripe mode without key grants unpaid renewal",
+      "pass": false,
+      "status": 200,
+      "planActivated": true,
+      "scope": "misconfigured stripe deployment; key deliberately missing"
+    },
+    {
+      "name": "account deletion retains customer request records",
+      "pass": false,
+      "retainedRequests": 1,
+      "retainedCustomerAddress": true,
+      "retainedJobPointers": 1
+    },
+    {
+      "name": "request records persist beyond 30 days",
+      "pass": false,
+      "oldRequestsReturned": 1,
+      "storedCustomerAddressRetained": true,
+      "scope": "requests storage has no age pruning; calendar has separate pruning"
+    },
+    {
+      "name": "malformed site URL crashes route handler",
+      "pass": false,
+      "uncaughtException": "URIError"
+    },
+    {
+      "name": "serial limits and isolation controls",
+      "pass": true,
+      "bookingsAccepted": 12,
+      "slugConflict": 409,
+      "adminUnauthorized": 401
+    },
+    {
+      "name": "draft max size rejects oversize content",
+      "pass": true,
+      "status": 413
+    },
+    {
+      "name": "400 simultaneous draft creations bypass IP quota",
+      "pass": false,
+      "success": 400,
+      "expectedMax": 40,
+      "storedDrafts": 400
+    },
+    {
+      "name": "file-store concurrent bookings reproduction",
+      "pass": false,
+      "success": 12,
+      "exceptions": 0,
+      "retainedRequests": 1,
+      "validRequestJson": true
+    },
+    {
+      "name": "failed booking email leaves duplicate requests on retry",
+      "pass": false,
+      "firstStatus": 503,
+      "retryStatus": 200,
+      "storedRequests": 2,
+      "expected": "one logical request survives retry"
+    },
+    {
+      "name": "storage write failure during publish leaves orphan public page",
+      "pass": false,
+      "publishThrew": true,
+      "publicPageStatus": 200,
+      "accountSlug": null,
+      "expected": "failed operation should not expose an untracked public page"
+    },
+    {
+      "name": "neighbor cancellation remains on family calendar",
+      "pass": false,
+      "cancelStatus": 200,
+      "requestStatus": "cancelled",
+      "calendarJobsRemaining": 1
+    }
+  ]
+}

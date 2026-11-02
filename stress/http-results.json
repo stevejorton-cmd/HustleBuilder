@@ -1,0 +1,122 @@
+{
+  "scope": "loopback Node dev server with temporary file store; warm reads; not production capacity; no real email or payment",
+  "results": [
+    {
+      "path": "/",
+      "concurrency": 1,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 4149,
+      "requestsPerSecond": 193,
+      "p50Ms": 4,
+      "p95Ms": 12,
+      "p99Ms": 16
+    },
+    {
+      "path": "/api/site/http-yard",
+      "concurrency": 1,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 3846,
+      "requestsPerSecond": 208,
+      "p50Ms": 4,
+      "p95Ms": 10,
+      "p99Ms": 15
+    },
+    {
+      "path": "/",
+      "concurrency": 25,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 2327,
+      "requestsPerSecond": 344,
+      "p50Ms": 67,
+      "p95Ms": 90,
+      "p99Ms": 114
+    },
+    {
+      "path": "/api/site/http-yard",
+      "concurrency": 25,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 1557,
+      "requestsPerSecond": 514,
+      "p50Ms": 48,
+      "p95Ms": 62,
+      "p99Ms": 70
+    },
+    {
+      "path": "/",
+      "concurrency": 100,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 2575,
+      "requestsPerSecond": 311,
+      "p50Ms": 240,
+      "p95Ms": 382,
+      "p99Ms": 1763
+    },
+    {
+      "path": "/api/site/http-yard",
+      "concurrency": 100,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 3189,
+      "requestsPerSecond": 251,
+      "p50Ms": 368,
+      "p95Ms": 565,
+      "p99Ms": 593
+    },
+    {
+      "path": "/",
+      "concurrency": 400,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 3895,
+      "requestsPerSecond": 205,
+      "p50Ms": 1388,
+      "p95Ms": 3739,
+      "p99Ms": 3783
+    },
+    {
+      "path": "/api/site/http-yard",
+      "concurrency": 400,
+      "requests": 800,
+      "statuses": {
+        "200": 800
+      },
+      "failures": 0,
+      "totalMs": 3071,
+      "requestsPerSecond": 260,
+      "p50Ms": 1354,
+      "p95Ms": 1725,
+      "p99Ms": 1825
+    },
+    {
+      "name": "malformed JSON recovery",
+      "malformedStatus": 400,
+      "subsequentHomeStatus": 200
+    }
+  ]
+}
