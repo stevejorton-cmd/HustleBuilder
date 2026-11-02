@@ -6,6 +6,12 @@ export const SCHEMA=`CREATE TABLE IF NOT EXISTS hb_kv (key text PRIMARY KEY, val
 export function postgresStore(connectionString, injectedPool) {
   const pool=injectedPool||new Pool({connectionString,max:5,connectionTimeoutMillis:5000,idleTimeoutMillis:10000});
   pool.on?.('error',()=>{}); // Never log connection strings or credentials.
+  // A brand-new database (a preview branch, a restored backup) has no table
+  // until the migration runs. Create it on first use so the app can boot
+  // against an empty database; the statement is idempotent, and a failure
+  // clears the memo so the next call retries.
+  let schemaPromise=null;
+  const ensureSchema=()=>{if(!schemaPromise)schemaPromise=pool.query(SCHEMA).catch(error=>{schemaPromise=null;throw error;});return schemaPromise;};
   const adapter=client=>({
     async get(key){return (await client.query('SELECT value FROM hb_kv WHERE key=$1',[key])).rows[0]?.value??null;},
     async put(key,value){await client.query('INSERT INTO hb_kv(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()',[key,value]);},
@@ -20,9 +26,17 @@ export function postgresStore(connectionString, injectedPool) {
     async dueMail(limit=100,now=Date.now()){return (await client.query("SELECT key FROM hb_kv WHERE starts_with(key,'mailqueue/') AND COALESCE((value::jsonb->>'nextAttemptAt')::bigint,0)<=$1 ORDER BY COALESCE((value::jsonb->>'lastAttemptAt')::bigint,0), key LIMIT $2",[now,limit])).rows.map(r=>r.key);},
     async list(prefix=''){return (await client.query('SELECT key FROM hb_kv WHERE starts_with(key,$1) ORDER BY key',[prefix])).rows.map(r=>r.key);}
   });
+  const base=adapter(pool);
+  const withSchema=fn=>async(...args)=>{await ensureSchema();return fn(...args);};
   return {
-    ...adapter(pool),
+    get:withSchema(base.get),
+    put:withSchema(base.put),
+    del:withSchema(base.del),
+    incrementView:withSchema(base.incrementView),
+    dueMail:withSchema(base.dueMail),
+    list:withSchema(base.list),
     async transaction(fn,{keys=[],maintenance=false,readOnly=false}={}){
+      await ensureSchema();
       const client=await pool.connect();
       try{
         await client.query(readOnly?'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY':'BEGIN');
