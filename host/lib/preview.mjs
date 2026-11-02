@@ -36,13 +36,15 @@ export function decoratePage(html, { title, description, image, url, indexable }
   return out;
 }
 
-export function hidePhone(html, phone) {
-  let out = String(html || "");
-  out = out.replace(/href="tel:[^"]*"/gi, 'href="#book"');
-  out = out.replace(/href="sms:[^"]*"/gi, 'href="#book"');
-  const raw = String(phone || "").trim();
-  const digits = raw.replace(/\D/g, "");
-  if (raw) out = out.split(raw).join("");
-  if (digits.length >= 10) out = out.split(digits).join("");
-  return out;
+export function hidePhone(html,phone) {
+  // Preserve scripts, CSS and image data byte-for-byte. Phone-shaped digit
+  // sequences can appear inside embedded photos and must not be rewritten.
+  const pattern=/(?:\+?1[ .()-]*)?(?:\(?\d{3}\)?[ .-]*)\d{3}[ .-]*\d{4}/g;
+  const raw=String(phone||'').trim();
+  return String(html||'').replace(/<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<[^>]*>|[^<]+/gi,part=>{
+    if(/^<(?:script|style)\b/i.test(part))return part;
+    if(part.startsWith('<'))return part.replace(/href\s*=\s*(["'])\s*(?:tel|sms):[\s\S]*?\1/gi,'href="#book"');
+    if(raw)part=part.split(raw).join('');
+    return part.replace(pattern,'');
+  });
 }

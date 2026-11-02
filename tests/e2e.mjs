@@ -77,11 +77,19 @@ try {
     console.log("pageerrors", logs);
     throw err;
   }
+  const displaySession=await page.evaluate(()=>JSON.parse(localStorage.getItem('hb-parent-session')));
+  check('v4 keeps bearer tokens out of localStorage',!displaySession.token);
+  const cookies=await page.cookies();
+  check('v4 HttpOnly session cookie exists',cookies.some(c=>c.name==='hb_session'&&c.httpOnly&&c.secure));
+  const cookieMe=await page.evaluate(async()=>{const r=await fetch('/api/me');return {status:r.status,data:await r.json()};});
+  check('v4 cookie alone authenticates in browser',cookieMe.status===200&&cookieMe.data.email==='parent@example.com');
   const url = await page.$eval("#pubUrl", (a) => a.href);
   check("stable url", url === base + "/sam-yard", url);
   await page.screenshot({ path: path.join(out, "published_desktop.png") });
 
   const site = await browser.newPage();
+  site.on("console",m=>{if(m.type()==="error")console.log("site console:",m.text());});
+  site.on("pageerror",e=>console.log("site pageerror:",String(e)));
   await site.setViewport({ width: 390, height: 844 });
   await site.goto(url, { waitUntil: "domcontentloaded" });
   const h1 = await site.$eval("h1", (e) => e.textContent);
@@ -100,10 +108,12 @@ try {
   await site.type("#nm", "Riley");
   await site.type("#ct", "402-555-0199");
   await site.type("#addr", "999 Secret Lane");
+  await site.waitForFunction(()=>true,{polling:100});
+  await new Promise(r=>setTimeout(r,2700));
   await site.click("#sendHost");
-  await site.waitForFunction(() => /email/.test(document.getElementById("sentBox").textContent));
+  try{await site.waitForFunction(() => /Request saved!/.test(document.getElementById("sentBox").textContent),{timeout:15000});}catch(e){console.log("booking status:",await site.$eval("#sentBox",el=>el.textContent));throw e;}
   const sent = await site.$eval("#sentBox", (e) => e.textContent);
-  check("booking sent", /parent got an email/.test(sent), sent.slice(0, 80));
+  check("booking sent", /Request saved!/.test(sent), sent.slice(0, 80));
   const stored = await fetch(url).then((r) => r.text());
   check("address not stored on page", !stored.includes("999 Secret Lane"));
   await site.screenshot({ path: path.join(out, "live_phone_sent.png") });
@@ -119,7 +129,7 @@ try {
     const html = (await fetch(liveUrl).then((r) => r.text())).replace("Clean edges.", "Fresh cut.");
     const res = await fetch(location.origin + "/api/publish", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.token },
+      headers: { "Content-Type": "application/json", Authorization: "" },
       body: JSON.stringify({ slug: session.slug, html })
     });
     return res.json();

@@ -1,0 +1,16 @@
+PASS on publish step
+PASS desktop overflow {"sw":1366,"cw":1366}
+PASS v4 keeps bearer tokens out of localStorage
+PASS v4 HttpOnly session cookie exists
+PASS v4 cookie alone authenticates in browser
+PASS stable url http://127.0.0.1:8799/sam-yard
+PASS live h1 Sam’s Lawn Co.
+PASS phone site overflow {"sw":390,"cw":390}
+PASS open day 9
+PASS booking sent Request saved! Sam’s parent will be notified and will confirm with you. Nothing 
+PASS address not stored on page
+PASS phone builder overflow {"sw":390,"cw":390,"step":"Step 8 of 8"}
+PASS republish same url {"ok":true,"slug":"sam-yard","url":"http://127.0.0.1:8799/sam-yard","updated":true,"added":false,"slugs":["sam-yard"],"jobCode":"95c42658","trialLeft":2,"trialDaysLeft":14,"trialEndsAt":"2026-11-16T02:50:23.498Z"}
+PASS republish content Fresh cut.
+PASS console
+e2e ok

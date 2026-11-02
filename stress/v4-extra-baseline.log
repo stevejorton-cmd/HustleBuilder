@@ -1,0 +1,155 @@
+✖ renaming a page cannot overwrite an owned sibling page (67.663221ms)
+✖ republishing a page does not clear its moderation hold or reports (38.613326ms)
+✖ renaming a held or paused page preserves its state (32.24678ms)
+✖ republishing does not reset the daily booking ceiling (47.406703ms)
+✖ an existing generated booking form works after its page is renamed (28.225531ms)
+✔ the same customer can submit the same request to two family pages (39.336021ms)
+✖ concurrent bookings across sibling pages share exactly one three-job trial (97.542929ms)
+✖ concurrent publishing adds every sibling without losing family membership (68.507253ms)
+✖ a cookie session cannot authorize writes from another origin (21.741071ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 1
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 633.473149
+
+✖ failing tests:
+
+test at ../v4-review/tests/v4-features.test.mjs:9:1
+✖ renaming a page cannot overwrite an owned sibling page (67.663221ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 409
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:9:250)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 409,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:10:1
+✖ republishing a page does not clear its moderation hold or reports (38.613326ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'live' !== 'review'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:10:380)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'live',
+    expected: 'review',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:11:1
+✖ renaming a held or paused page preserves its state (32.24678ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'live' !== 'review'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:11:368)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'live',
+    expected: 'review',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:12:1
+✖ republishing does not reset the daily booking ceiling (47.406703ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 429
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:12:348)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 429,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:13:1
+✖ an existing generated booking form works after its page is renamed (28.225531ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  404 !== 200
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:13:272)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 404,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:15:1
+✖ concurrent bookings across sibling pages share exactly one three-job trial (97.542929ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 21
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:15:376)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 21,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:16:1
+✖ concurrent publishing adds every sibling without losing family membership (68.507253ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 10
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:16:289)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 10,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../v4-review/tests/v4-features.test.mjs:17:1
+✖ a cookie session cannot authorize writes from another origin (21.741071ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 403
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/7f7580d13281/v4-review/tests/v4-features.test.mjs:17:237)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

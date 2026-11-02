@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import path from "path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHmac } from "crypto";
+import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
@@ -27,7 +27,7 @@ function call(method, path, { body, token, headers, raw } = {}) {
   return handleRequest({
     method,
     path,
-    headers: { origin: "http://127.0.0.1:8787", authorization: token ? "Bearer " + token : "", ...(headers || {}) },
+    headers: { origin: "http://sites.test", authorization: token ? "Bearer " + token : "", ...(headers || {}) },
     body: raw != null ? raw : (body ? JSON.stringify(body) : ""),
     origin: "http://sites.test",
     query: new URL("http://sites.test" + path).searchParams
@@ -45,6 +45,15 @@ async function parent(email = "parent@example.com") {
   const verify = await json(await call("POST", "/api/auth/verify", { body: { email, code: start.body.devCode } }));
   assert.equal(verify.body.ok, true);
   return { email, token: verify.body.token, code: start.body.devCode };
+}
+
+async function pendingSession(accountId,plan,id) {
+  const file=dir+'/accounts/'+accountId+'.json';
+  const account=JSON.parse(await readFile(file,'utf8'));
+  account.checkoutSessionId=id;account.checkoutPlan=plan;
+  const attempt=createHash('sha256').update('checkout:'+accountId+':'+(account.checkoutGeneration||0)).digest('hex');
+  await writeFile(file,JSON.stringify(account));
+  return {id,payment_status:'paid',amount_total:plan==='year'?2999:1999,currency:'usd',metadata:{accountId,plan,attempt}};
 }
 
 test("slug rules block last names, reserved words, and bad shapes", () => {
@@ -223,7 +232,7 @@ test("stripe webhook marks the account paid only with a valid signature", async 
     const raw = await readFile(dir + "/accounts/" + names[0], "utf8");
     return JSON.parse(raw).id;
   })());
-  const payload = JSON.stringify({ id: "evt_paid_once", type: "checkout.session.completed", data: { object: { metadata: { accountId, plan: "season" } } } });
+  const payload = JSON.stringify({ id: "evt_paid_once", type: "checkout.session.completed", data: { object: await pendingSession(accountId,"season","cs_paid_once") } });
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
   const bad = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=1,v1=deadbeef" } }));
   assert.equal(bad.status, 400);
@@ -320,7 +329,7 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
   let seen = "";
   global.fetch = async (_url, opt) => {
     seen = String(opt && opt.body);
-    return { ok: true, json: async () => ({ url: "https://checkout.stripe.test/c" }) };
+    return { ok: true, json: async () => ({id:"cs_descriptor", url: "https://checkout.stripe.test/c" }) };
   };
   try {
     const res = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
@@ -423,15 +432,15 @@ test("a pending stripe checkout is not opened twice", async () => {
   process.env.STRIPE_SECRET_KEY = "sk_test_x";
   const prev = global.fetch;
   let calls = 0;
-  global.fetch = async () => {
-    calls += 1;
-    return { ok: true, json: async () => ({ url: "https://checkout.stripe.test/once" }) };
+  global.fetch = async (_url,init) => {
+    if(!init?.method)return {ok:true,json:async()=>({id:'cs_once',status:'open',url:'https://checkout.stripe.test/once'})};
+    calls++;return {ok:true,json:async()=>({id:'cs_once',url:'https://checkout.stripe.test/once'})};
   };
   try {
     const first = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
     assert.equal(first.body.url, "https://checkout.stripe.test/once");
     const second = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
-    assert.equal(second.body.pending, true);
+    assert.equal(second.body.url,"https://checkout.stripe.test/once");
     assert.equal(calls, 1);
   } finally {
     global.fetch = prev;
@@ -491,7 +500,7 @@ test("new work types stay allowed by the slug and word checks", () => {
   assert.equal(hits.block, "");
 });
 
-test("ask my parent emails a link, opens a session, and shows waiting until live", async () => {
+test("ask my parent requires verification and reports only the verified family page live", async () => {
   const draft = { type: "pet", first: "Sam", town: "Elkhorn", bizName: "Sam’s Pet Care", services: [{ n: "Dog walk", p: "8" }] };
   const sent = await json(await call("POST", "/api/ask", { body: { email: "mom@example.com", draft } }));
   assert.equal(sent.body.ok, true);
@@ -506,13 +515,17 @@ test("ask my parent emails a link, opens a session, and shows waiting until live
   assert.equal(opened.body.ok, true);
   assert.equal(opened.body.email, "mom@example.com");
   assert.equal(opened.body.draft.first, "Sam");
-  const me = await json(await call("GET", "/api/me", { token: opened.body.token }));
-  assert.equal(me.body.email, "mom@example.com");
-  const done = await json(await call("POST", "/api/ask/" + sent.body.token + "/done", { body: { url: "https://sites.test/sam-pets" } }));
-  assert.equal(done.body.status, "live");
+  assert.equal(opened.body.token,undefined);
+  assert.equal(opened.body.requiresVerification,true);
+  assert.equal((await json(await call('POST','/api/ask/'+sent.body.token+'/done',{body:{url:'https://bad.invalid'}}))).status,401);
+  const verified=await parent('mom@example.com');
+  await call('POST','/api/consent',{token:verified.token,body:{consent:true}});
+  await call('POST','/api/publish',{token:verified.token,body:{slug:'sam-pets',html:page('Sam')}});
+  const done=await json(await call('POST','/api/ask/'+sent.body.token+'/done',{token:verified.token,body:{slug:'sam-pets',url:'https://bad.invalid'}}));
+  assert.equal(done.body.status,'live');
   const live = await json(await call("GET", "/api/ask/" + sent.body.token));
   assert.equal(live.body.status, "live");
-  assert.equal(live.body.url, "https://sites.test/sam-pets");
+  assert.equal(live.body.url, "http://sites.test/sam-pets");
   for (let i = 0; i < 5; i++) await call("POST", "/api/ask", { body: { email: "mom@example.com", draft } });
   const limited = await json(await call("POST", "/api/ask", { body: { email: "mom@example.com", draft } }));
   assert.equal(limited.status, 429);
@@ -747,7 +760,8 @@ test("renewal reminders send once, then the page takes a break after grace", asy
   assert.equal(grace.body.grace, true);
   assert.ok(grace.body.graceDays >= 1 && grace.body.graceDays <= 7);
   const renewed = await call("GET", renewPath);
-  assert.match(renewed.body, /You're renewed/);
+  assert.match(renewed.body,/Sign in with your parent email/);
+  assert.equal((await json(await call('GET','/api/me',{token}))).body.paid,false);
   await patchAccount((account) => { account.paidUntil = new Date(Date.now() - 8 * 864e5).toISOString(); });
   const resting = await call("GET", "/api/site/sam");
   assert.equal(resting.status, 200);
@@ -1198,7 +1212,7 @@ test("a repeated year webhook does not extend the plan or send another receipt",
   const moved = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.equal(moved.body.messages.filter((m) => m.subject === "Your new web address is live").length, 1);
   assert.equal(moved.body.messages.filter((m) => m.subject === "Your page is live").length, 1);
-  const payload = JSON.stringify({ id: "evt_year_once", type: "checkout.session.completed", data: { object: { metadata: { accountId: account.id, plan: "year" } } } });
+  const payload = JSON.stringify({ id: "evt_year_once", type: "checkout.session.completed", data: { object: await pendingSession(account.id,"year","cs_year_once") } });
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_year";
   const t = String(Math.floor(Date.now() / 1000));
   const sig = createHmac("sha256", "whsec_year").update(t + "." + payload).digest("hex");
@@ -1331,18 +1345,13 @@ test("Bearer tokens still work during the cookie transition", async () => {
   assert.equal(stale.body.email, "bearer@example.com");
 });
 
-test("ask open also sets the session cookie", async () => {
-  const draft = { type: "lawn", first: "Sam", town: "Elkhorn", bizName: "Sam Mows", services: [{ n: "Mow", p: "20" }] };
-  const sent = await json(await call("POST", "/api/ask", { body: { email: "dad@example.com", draft } }));
-  assert.equal(sent.body.ok, true);
-  const openRes = await call("POST", "/api/ask/" + sent.body.token + "/open", { body: {} });
-  const opened = await json(openRes);
-  assert.equal(opened.body.ok, true);
-  const setCookie = openRes.headers["set-cookie"] || "";
-  assert.match(setCookie, /hb_session=[a-f0-9]{64}/);
-  assert.match(setCookie, /HttpOnly/);
-  const me = await json(await call("GET", "/api/me", { headers: { cookie: "hb_session=" + opened.body.token } }));
-  assert.equal(me.body.email, "dad@example.com");
+test("ask open cannot mint a cookie or bearer credential without independent verification", async()=>{
+  const sent=await json(await call('POST','/api/ask',{body:{email:'dad@example.com',draft:{first:'Sam'}}}));
+  const response=await call('POST','/api/ask/'+sent.body.token+'/open',{body:{}});
+  const opened=await json(response);
+  assert.equal(opened.body.requiresVerification,true);
+  assert.equal(opened.body.token,undefined);assert.equal(response.headers['set-cookie'],undefined);
+  assert.equal((await json(await call('GET','/api/me'))).status,401);
 });
 
 test("logout clears the cookie and ends the session everywhere", async () => {
@@ -1369,14 +1378,14 @@ test("published pages carry a Content-Security-Policy, the builder API does not"
   assert.equal(live.status, 200);
   assert.match(live.body, /Csp Kid/);
   const csp = live.headers["content-security-policy"] || "";
-  assert.match(csp, /default-src 'self'/);
+  assert.match(csp,/sandbox allow-scripts/);assert.doesNotMatch(csp,/allow-same-origin/);assert.match(csp, /default-src 'none'/);
   assert.match(csp, /script-src 'unsafe-inline'/);
   assert.doesNotMatch(csp, /script-src[^;]*https:/);
-  assert.match(csp, /connect-src 'self'/);
-  assert.match(csp, /img-src 'self' data: blob:/);
+  assert.match(csp,/connect-src http:\/\/sites\.test\/api\/book/);
+  assert.match(csp,/img-src http:\/\/sites\.test data: blob:/);
   assert.match(csp, /style-src 'unsafe-inline'/);
-  assert.match(csp, /font-src 'self' data:/);
-  assert.match(csp, /form-action 'self'/);
+  assert.match(csp,/font-src data:/);
+  assert.match(csp,/form-action 'none'/);
   assert.match(csp, /base-uri 'none'/);
   assert.match(csp, /frame-ancestors 'none'/);
   const plans = await call("GET", "/api/plans");
@@ -2150,7 +2159,7 @@ test("family plan: both pages take the break together and one payment revives al
   // one test-mode payment for the account revives both pages
   const accountId = await accountIdFor(email);
   assert.ok(accountId);
-  const payload = JSON.stringify({ id: "evt_family_paid", type: "checkout.session.completed", data: { object: { metadata: { accountId, plan: "year" } } } });
+  const payload = JSON.stringify({ id: "evt_family_paid", type: "checkout.session.completed", data: { object: await pendingSession(accountId,"year","cs_family_paid") } });
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
   const t = String(Math.floor(Date.now() / 1000));
   const sig = createHmac("sha256", "whsec_test").update(t + "." + payload).digest("hex");

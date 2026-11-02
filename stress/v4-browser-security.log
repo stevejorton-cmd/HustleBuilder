@@ -1,0 +1,65 @@
+[
+  {
+    "name": "published script cannot read builder localStorage",
+    "pass": true,
+    "blocked": true,
+    "denial": "SecurityError",
+    "stolen": null
+  },
+  {
+    "name": "published script cannot read parent account API with ambient cookies",
+    "pass": true
+  },
+  {
+    "name": "opaque-origin page successfully books through restricted CORS",
+    "pass": true
+  },
+  {
+    "name": "parent invitation UI asks for independent email verification",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: lawn",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: snow",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: both",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: pet",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: odd",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: wash",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: help",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: tutor",
+    "pass": true
+  },
+  {
+    "name": "phone builder step sweep: other",
+    "pass": true
+  },
+  {
+    "name": "service worker never caches private API responses",
+    "pass": true
+  },
+  {
+    "name": "v4 builder reopens saved progress offline",
+    "pass": true
+  }
+]

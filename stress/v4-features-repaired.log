@@ -1,0 +1,17 @@
+✔ renaming a page cannot overwrite an owned sibling page (113.965006ms)
+✔ republishing a page does not clear its moderation hold or reports (60.720442ms)
+✔ renaming a held or paused page preserves its state (61.0621ms)
+✔ republishing does not reset the daily booking ceiling (88.536583ms)
+✔ an existing generated booking form works after its page is renamed (94.606573ms)
+✔ the same customer can submit the same request to two family pages (108.602392ms)
+✔ concurrent bookings across sibling pages share exactly one three-job trial (328.735171ms)
+✔ concurrent publishing adds every sibling without losing family membership (208.160391ms)
+✔ a cookie session cannot authorize writes from another origin (40.343162ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1261.999162

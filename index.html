@@ -1344,17 +1344,21 @@ function siteMain(){
       else{box.textContent="I couldn’t send that. Please use Text it instead or Email it instead.";$("outWrap").hidden=false;}
     },10000);
   };}
+  var bookingKey="",bookingFingerprint="";
   var shost=$("sendHost");
   if(shost){shost.onclick=function(){
     var m=build(true); if(!m)return;
     var ct=$("ct")?$("ct").value.trim():"";
     var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
     var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:val("awayFrom"),awayTo:val("awayTo"),access:val("access")};
+    var fingerprint=JSON.stringify(Object.assign({},payload,{t:0}));
+    if(fingerprint!==bookingFingerprint){bookingFingerprint=fingerprint;bookingKey=Array.from(crypto.getRandomValues(new Uint8Array(16)),function(b){return b.toString(16).padStart(2,"0");}).join("");}
+    payload.requestId=bookingKey;
     shost.disabled=true; shost.textContent="Sending..."; showCopy(false);
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
       var box=$("sentBox"); box.hidden=false;
-      if(r&&r.ok){box.textContent="Request sent! "+C.first+"’s parent got an email and will confirm with you. Nothing is booked until they reply."; showCopy(true); $("outWrap").hidden=true;}
+      if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; showCopy(true); $("outWrap").hidden=true;}
       else if(r&&r.error==="fast"){box.textContent=r.message||"Wait a few seconds, then send it again.";}
       else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
       else{box.textContent="I couldn’t send that. Please try again in a minute.";}
@@ -2286,7 +2290,7 @@ function renderTiles(){
   const fill=(box,list)=>{
     const w=$(box); if(!w)return; w.innerHTML="";
     list.forEach(t=>{
-      const b=document.createElement("button"); b.type="button"; b.className="tile"+(t.emoji?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
+      const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
       b.innerHTML=tileHtml(t);
       b.onclick=()=>pickType(t.id);
       w.appendChild(b);
@@ -4559,17 +4563,9 @@ async function pollPaid(ms){
 async function pubCheckout(){
   const nowMe=await pubApi("/api/me",{method:"GET"});
   if(nowMe&&nowMe.paid)return true;
-  const pending=pendingPublish();
-  if(pending&&Date.now()-pending.at<20*60*1000){
-    $("#pubOk").textContent="Payment is still processing. You will not be charged twice.";
-    const waited=await pollPaid(20000);
-    if(waited)return true;
-    pubErr("Still waiting on the payment. Try again in a minute. You will not be charged twice.");
-    return false;
-  }
   const data=await pubApi("/api/checkout", {body:{plan:chosenPlan()}});
   if(data.alreadyPaid)return true;
-  if(data.pending){pubErr("A payment is already in progress. You will not be charged twice."); return false;}
+  if(data.pending){pubErr("A payment is already in progress. Check your payment status before trying again."); return false;}
   if(data.mode==="stripe"&&data.url){savePending(($("#pubSlug").value||"").trim().toLowerCase()); location.href=data.url; return false;}
   if(!data.ok){pubErr(data.error==="stripe-key"?"Payment is not set up yet.":"Pick a plan and try again."); return false;}
   return true;
@@ -5125,14 +5121,18 @@ async function openAsk(token){
   try{
     const data=await pubApi("/api/ask/"+token+"/open",{body:{}});
     if(!data.ok){go(7);pubErr("That parent link expired. Ask for a new one.");return;}
-    pubMemToken=data.token||"";
-    pubSaveSession({email:data.email,slug:data.slug||""});
+    if(data.requiresVerification){
+      await pubSignOut();clearPending();
+      if($("#pubSlug")){$("#pubSlug").value="";$("#pubSlug").readOnly=false;}
+      if($("#pubGo"))$("#pubGo").hidden=false;
+      showPublished("");
+    }
     if(data.draft)applyDraft(data.draft);
     if($("#pubEmail"))$("#pubEmail").value=data.email||"";
     go(7);
-    if($("#pubReady"))$("#pubReady").hidden=false;
-    const st=$("#askStatus"); if(st)st.textContent="Your kid asked you to publish this page. Check the box, pick a plan, and it goes up.";
-    initPublish();
+    if($("#pubReady"))$("#pubReady").hidden=!!data.requiresVerification;
+    const st=$("#askStatus");if(st)st.textContent=data.requiresVerification?"Verify your parent email with a code before publishing. Tap Send code above.":"Your kid asked you to publish this page. Review it, then check the consent box.";
+    if(!data.requiresVerification)initPublish();
   }catch(e){go(7);pubErr("Could not open that link.");}
 }
 const customEl=$("#customJob");
@@ -5155,11 +5155,11 @@ async function resumeHosting(kind){
   go(7);
   const box=$("#pubOk");
   if(kind==="cancel"){
-    if(box)box.textContent="Payment was not finished. If the card was charged, wait here. You will not be charged twice.";
+    if(box)box.textContent="Payment was not finished. If the card was charged, wait here. Check your payment status before trying again.";
   }else if(box)box.textContent="Payment received, publishing…";
   const me=await pollPaid(kind==="cancel"?20000:45000);
   if(!me){
-    if(box)box.textContent="Payment is still processing. Tap Try again. You will not be charged twice.";
+    if(box)box.textContent="Payment is still processing. Tap Try again. Check your payment status before trying again.";
     let b=$("#pubRetry");
     if(!b&&box){b=document.createElement("button");b.type="button";b.className="btn";b.id="pubRetry";b.textContent="Try again";box.after(b);b.onclick=()=>resumeHosting("paid");}
     if(b)b.hidden=false;
@@ -5172,7 +5172,7 @@ async function resumeHosting(kind){
   if($("#pubConsent")&&!$("#pubConsent").checked)$("#pubConsent").checked=true;
   await pubPush();
 }
-initPublish();
+if(!new URLSearchParams(location.search).get("ask"))initPublish();
 const startQ=new URLSearchParams(location.search);
 const hostQ=startQ.get("hosting");
 const askQ=startQ.get("ask");

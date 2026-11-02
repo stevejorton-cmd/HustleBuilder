@@ -1,3 +1,4 @@
+import {readBody,unavailable} from "../host/lib/http.mjs";
 import { handleRequest } from "../host/lib/router.mjs";
 
 function pathnameFrom(req) {
@@ -20,9 +21,8 @@ function pathnameFrom(req) {
 }
 
 export default async function handler(req, res) {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const body = Buffer.concat(chunks).toString("utf8");
+  try {
+  const body=await readBody(req);
   const { pathname, query, origin } = pathnameFrom(req);
   const result = await handleRequest({
     method: req.method,
@@ -37,4 +37,5 @@ export default async function handler(req, res) {
     if (value != null && value !== "") res.setHeader(key, value);
   }
   res.end(result.body || "");
+  }catch(error){unavailable(res,error.status||503);}
 }

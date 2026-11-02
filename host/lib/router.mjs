@@ -3,7 +3,8 @@ import { feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs } from "./cal
 import { cardPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone } from "./preview.mjs";
-import { store } from "./store.mjs";
+import { store, transaction } from "./store.mjs";
+import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
 
 export const PLANS = {
@@ -88,7 +89,7 @@ function safeEqual(a, b) {
 }
 
 function testMode() { return process.env.PUBLISH_TEST_MODE === "1"; }
-function paywallMode() { return process.env.PAYWALL_MODE || "test"; }
+function paywallMode() { return testMode() ? (process.env.PAYWALL_MODE || "test") : "stripe"; }
 
 function emailOk(email) {
   const e = String(email || "").trim().toLowerCase();
@@ -97,7 +98,7 @@ function emailOk(email) {
 }
 
 function json(status, body, extra = {}) {
-  return { status, headers: { "content-type": "application/json; charset=utf-8", ...extra }, body: JSON.stringify(body) };
+  return { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control":"no-store", "x-content-type-options":"nosniff", ...extra }, body: JSON.stringify(body) };
 }
 
 function html(status, markup) {
@@ -128,7 +129,7 @@ async function accountByTokenValue(token) {
   const id = await (await store()).get("tokens/" + sha(token));
   if (!id) return null;
   const account = await readJson("accounts/" + id.trim() + ".json");
-  if (!account || !safeEqual(account.tokenHash || "", sha(token))) return null;
+  if (!account || account.sessionVersion!==2 || !safeEqual(account.tokenHash || "", sha(token))) return null;
   return account;
 }
 async function accountByToken(header) {
@@ -174,7 +175,7 @@ function clearAdminCookieHeader() {
 }
 async function issueAdminSession() {
   const token = rand(32);
-  await writeJson("adminsessions/" + sha(token) + ".json", { exp: Date.now() + ADMIN_COOKIE_MAX_AGE * 1000 });
+  await writeJson("adminsessions/" + sha(token) + ".json", { exp: Date.now() + ADMIN_COOKIE_MAX_AGE * 1000, version:2 });
   return token;
 }
 async function adminAuthed(headers) {
@@ -182,7 +183,7 @@ async function adminAuthed(headers) {
   if (!/^[a-f0-9]{64}$/.test(token)) return false;
   const key = "adminsessions/" + sha(token) + ".json";
   const rec = await readJson(key);
-  if (!rec) return false;
+  if (!rec || rec.version!==2) return false;
   if (Number(rec.exp) <= Date.now()) {
     await (await store()).del(key);
     return false;
@@ -318,12 +319,11 @@ async function setTrialCount(email, used) {
 }
 
 async function rememberAccount(account) {
-  if (!account || !account.id) return;
-  const ids = (await readJson("plan-ids.json")) || [];
-  if (!ids.includes(account.id)) {
-    ids.push(account.id);
-    await writeJson("plan-ids.json", ids.slice(-5000));
-  }
+  if(account?.id)await (await store()).put('planacct/'+account.id,account.id);
+}
+async function trackedAccounts() {
+  const s=await store();
+  return [...new Set([...(await readJson('plan-ids.json')||[]),...(await s.list('planacct/')).map(k=>k.slice(9))])];
 }
 
 async function trackPlan(account) {
@@ -331,12 +331,22 @@ async function trackPlan(account) {
   await rememberAccount(account);
 }
 
+const REQUEST_KEEP_MS=30*864e5;
+async function removeRequestArtifacts(row,accountId) {
+  const s=await store();
+  if(row.actionToken)await s.del('jobact/'+row.actionToken);
+  if(row.cancelToken)await s.del('cancels/'+row.cancelToken+'.json');
+  if(row.idempotencyKey)await s.del('bookingids/'+accountId+'/'+row.idempotencyKey);
+}
 async function loadRequests(accountId) {
-  return (await readJson("requests/" + accountId + ".json")) || [];
+  const rows=(await readJson('requests/'+accountId+'.json'))||[],keep=[];
+  for(const row of rows){if(Date.parse(row.createdAt)>Date.now()-REQUEST_KEEP_MS)keep.push(row);else await removeRequestArtifacts(row,accountId);}
+  if(keep.length!==rows.length)await saveRequests(accountId,keep);
+  return keep;
 }
 
 async function saveRequests(accountId, rows) {
-  await writeJson("requests/" + accountId + ".json", rows.slice(-80));
+  await writeJson("requests/" + accountId + ".json", rows);
 }
 
 function kidJob(row, account) {
@@ -382,9 +392,9 @@ async function releaseHeld(account, origin) {
   let changed = false;
   for (const row of rows) {
     if (row.status !== "held") continue;
-    row.status = "new";
     changed = true;
     const mailed = await sendMail(parentBookingMail(row, origin));
+    if(mailed.ok)row.status="new";
     if (mailed.ok && row.calJob) {
       await ensureCalToken(account);
       const jobs = await loadJobs(account.id);
@@ -513,7 +523,7 @@ async function sendReceiptNote(account, origin, eventId) {
   });
 }
 
-async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forParent, origin }) {
+async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forParent, origin, ownerId, expiresAt }) {
   let bodyText = String(text || "");
   let markup = htmlBody ? String(htmlBody) : "";
   if (forParent) {
@@ -526,30 +536,7 @@ async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forPa
   const icsText = ics ? String(ics).slice(0, 20000) : "";
   markup = markup.slice(0, 20000);
   const reply = String(replyTo || "").trim();
-  if (testMode()) {
-    const key = "outbox/" + sha(to) + ".json";
-    const prev = (await readJson(key)) || [];
-    const entry = { at: new Date().toISOString(), to, subject: sub, text: clean, replyTo: reply };
-    if (markup) entry.html = markup;
-    if (icsText) entry.ics = icsText;
-    prev.push(entry);
-    await writeJson(key, prev.slice(-20));
-    return { ok: true, test: true };
-  }
-  const key = process.env.RESEND_API_KEY;
-  const from = process.env.BOOKING_FROM;
-  if (!key || !from) return { ok: false, error: "mail" };
-  const payload = { from, to: [to], subject: sub, text: clean };
-  if (markup) payload.html = markup;
-  if (reply) payload.reply_to = reply;
-  if (icsText) payload.attachments = [{ filename: "booking.ics", content: Buffer.from(icsText, "utf8").toString("base64") }];
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) return { ok: false, error: "mail" };
-  return { ok: true };
+  return queueMail({to,subject:sub,text:clean,html:markup,ics:icsText,replyTo:reply,ownerId:ownerId||'',expiresAt:expiresAt||null});
 }
 
 function privacyPage() {
@@ -868,6 +855,8 @@ async function noteView(slug, meta, view) {
         || (await accountByToken(headers.authorization || headers.Authorization));
       if (viewer && viewer.id === meta.accountId) return;
     }
+    const backing=await store();
+    if(backing.incrementView)return backing.incrementView(slug,viewDayKey(),viewDayKey(Date.now()-VIEW_KEEP_DAYS*864e5));
     const key = "views/" + slug + ".json";
     const rec = (await readJson(key)) || { total: 0, days: {} };
     rec.total = (Number(rec.total) || 0) + 1;
@@ -912,7 +901,8 @@ function withBelt(pageHtml) {
 async function serveSlug(slug, view) {
   const res = await serveSlugInner(slug, view);
   if (res && res.headers && String(res.headers["content-type"] || "").includes("text/html")) {
-    res.headers = { ...res.headers, "content-security-policy": PAGE_CSP };
+    const origin=await publicOrigin();
+    res.headers = {...res.headers,"content-security-policy":"sandbox allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation; default-src 'none'; script-src 'unsafe-inline'; connect-src "+(origin?new URL(origin).origin+"/api/book":"'self'")+"; img-src "+(origin?new URL(origin).origin:"'self'")+" data: blob:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",'referrer-policy':'no-referrer'};
   }
   return res;
 }
@@ -943,7 +933,7 @@ async function serveSlugInner(slug, view) {
   // The response is settled; only now does the view count. noteView swallows
   // its own errors, and every other return above (break, pause, review,
   // missing, down, redirect) leaves the counter untouched.
-  await noteView(slug, meta, view);
+  res.viewEvent={slug,meta,view};
   return res;
 }
 
@@ -955,7 +945,7 @@ function parseBody(raw) {
     if (!s.includes("=")) return {};
     return Object.fromEntries(new URLSearchParams(s));
   }
-  try { return JSON.parse(s); }
+  try { const value=JSON.parse(s);return value&&typeof value==="object"&&!Array.isArray(value)?value:null; }
   catch { return null; }
 }
 
@@ -1111,9 +1101,11 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId }) {
     customer: fields.name,
     service: fields.service,
     when: fields.when,
-    used: false
+    used: false, createdAt:new Date().toISOString(), expiresAt:Date.now()+30*864e5
   });
+  if(requestId){const rows=await loadRequests(account.id);const row=rows.find(r=>r.id===requestId);if(row){row.cancelToken=cancel;await saveRequests(account.id,rows);}}
   const url = (origin || "") + "/api/cancel/" + cancel;
+
   const support = supportReply();
   const unread = support ? "" : "Replies to this email aren't read. The family will confirm with you.";
   const text = [
@@ -1135,7 +1127,7 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId }) {
     + "<p><a href=\"" + mailEscape(url) + "\">Cancel this request</a></p>"
     + (unread ? "<p>" + mailEscape(unread) + "</p>" : "")
     + "</div>";
-  await sendMail({ to: reply, replyTo: support, subject: "We got your request", text, html: htmlMail });
+  await sendMail({ to: reply, ownerId:account.id, replyTo: support, subject: "We got your request", text, html: htmlMail });
 }
 
 function cancelPage(token, done, missing) {
@@ -1148,14 +1140,6 @@ function cancelPage(token, done, missing) {
   return html(missing ? 404 : 200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body><main style="max-width:36rem;margin:2rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem"><h1>${title}</h1>${inner}</main></body></html>`);
 }
 
-async function issueSession(account) {
-  const token = rand(32);
-  if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
-  account.tokenHash = sha(token);
-  account.emailVerifiedAt = account.emailVerifiedAt || new Date().toISOString();
-  await saveAccount(account);
-  return token;
-}
 function clipDraft(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = JSON.stringify(value);
@@ -1168,7 +1152,7 @@ async function countKey(key, limit) {
   return n > limit;
 }
 
-export async function handleRequest(req) {
+async function routeRequest(req) {
   const method = String(req.method || "GET").toUpperCase();
   let path = String(req.path || "/");
   const qMark = path.indexOf("?");
@@ -1219,7 +1203,7 @@ export async function handleRequest(req) {
   if (method === "GET" && askGet) {
     const rec = await readJson("asks/" + askGet[1] + ".json");
     if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
-    return withCors(json(200, { ok: true, status: rec.status || "waiting", url: rec.url || "", email: rec.email, expires: rec.expires }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, status: rec.status || "waiting", url: rec.url || "", expires: rec.expires }), req.headers && req.headers.origin);
   }
 
   const draftGet = route.match(/^draft\/([a-z0-9]{8})$/);
@@ -1264,7 +1248,7 @@ export async function handleRequest(req) {
     const slugErr = checkSlug(next);
     if (slugErr) return withCors(json(400, { ok: false, error: "slug", message: slugErr }), req.headers && req.headers.origin);
     const taken = await readJson("pages/" + next + ".json");
-    if (taken && taken.accountId !== account.id) return withCors(json(409, { ok: false, error: "taken", message: "That link is taken. Try another." }), req.headers && req.headers.origin);
+    if (taken && (taken.accountId !== account.id || taken.status!=="redirect" || taken.to!==from)) return withCors(json(409, { ok: false, error: "taken", message: "That link is taken. Try another." }), req.headers && req.headers.origin);
     const now = Date.now();
     account.slugChanges = (Array.isArray(account.slugChanges) ? account.slugChanges : []).filter((at) => now - Date.parse(at) < 90 * 864e5);
     if (account.slugChanges.length >= 3) return withCors(json(429, { ok: false, error: "limit", message: "You can change the web address 3 times in 90 days. Try again later." }), req.headers && req.headers.origin);
@@ -1273,7 +1257,7 @@ export async function handleRequest(req) {
     if (!htmlPage || !prev || prev.accountId !== account.id) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     const until = new Date(now + 90 * 864e5).toISOString();
     await (await store()).put("pages/" + next + ".html", htmlPage);
-    await writeJson("pages/" + next + ".json", { ...prev, slug: next, status: prev.status === "down" ? "down" : "live", updatedAt: new Date(now).toISOString() });
+    await writeJson("pages/" + next + ".json", { ...prev, slug: next, status: prev.status, updatedAt: new Date(now).toISOString() });
     account.formerSlugs = Array.isArray(account.formerSlugs) ? account.formerSlugs : [];
     for (const old of account.formerSlugs) {
       const rec = await readJson("pages/" + old + ".json");
@@ -1314,6 +1298,7 @@ export async function handleRequest(req) {
       forParent: true,
       origin,
       subject: "Your Hustle Builder code",
+      expiresAt:account.verifyExpires,
       text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name and a town. A booked job’s name, address, and time are saved for the family calendar for about 30 days." + unread,
       html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">Your code is <b>" + code + "</b>. It expires in 20 minutes.</p>" + (reply ? "" : "<p style=\"font:18px/1.45 system-ui,sans-serif\">Replies to this email aren't read.</p>")
     });
@@ -1333,6 +1318,7 @@ export async function handleRequest(req) {
     if (account.verifyTries > 8) { account.verifyHash = ""; await saveAccount(account); return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin); }
     if (!safeEqual(account.verifyHash, sha(code + ":" + email))) { await saveAccount(account); return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin); }
     account.emailVerifiedAt = new Date().toISOString();
+    account.sessionVersion=2;
     account.verifyHash = "";
     const token = rand(32);
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
@@ -1387,15 +1373,11 @@ export async function handleRequest(req) {
   if (method === "POST" && route === "checkout") {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    const plan = PLANS[body.plan];
+    const plan = Object.hasOwn(PLANS,body.plan)?PLANS[body.plan]:null;
     if (!plan) return withCors(json(400, { ok: false, error: "plan" }), req.headers && req.headers.origin);
     const mode = paywallMode();
     if (paid(account)) {
       return withCors(json(200, { ok: true, alreadyPaid: true, mode, plan: account.plan || plan.id, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
-    }
-    const pendingAt = Date.parse(account.checkoutPendingAt || "");
-    if (mode === "stripe" && pendingAt && Date.now() - pendingAt < 20 * 60 * 1000) {
-      return withCors(json(200, { ok: true, pending: true, mode: "stripe" }), req.headers && req.headers.origin);
     }
     if (mode === "test" || mode === "off") {
       applyPlan(account, plan.id);
@@ -1415,29 +1397,34 @@ export async function handleRequest(req) {
       return withCors(json(200, { ok: true, mode, plan: plan.id, planName: account.planName, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
     }
     if (mode === "stripe") {
-      if (!process.env.STRIPE_SECRET_KEY) return withCors(json(503, { ok: false, error: "stripe-key" }), req.headers && req.headers.origin);
-      const params = new URLSearchParams();
-      params.set("mode", "payment");
-      params.set("customer_email", account.email);
-      params.set("success_url", (origin || "") + "/?hosting=paid");
-      params.set("cancel_url", (origin || "") + "/?hosting=cancel");
-      params.set("line_items[0][quantity]", "1");
-      params.set("line_items[0][price_data][currency]", "usd");
-      params.set("line_items[0][price_data][unit_amount]", String(plan.amount));
-      params.set("line_items[0][price_data][product_data][name]", "Hustle Builder hosting, " + planOffer(plan.id).name + ", " + plan.label);
-      params.set("metadata[accountId]", account.id);
-      params.set("metadata[plan]", plan.id);
-      params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
-      account.checkoutPendingAt = new Date().toISOString();
+      if(!process.env.STRIPE_SECRET_KEY)return json(503,{ok:false,error:'stripe-key'});
+      const providerHeaders={Authorization:'Bearer '+process.env.STRIPE_SECRET_KEY};
+      if(account.checkoutSessionId){
+        let session;
+        try{const r=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(account.checkoutSessionId),{headers:providerHeaders,signal:AbortSignal.timeout(8000)});if(!r.ok)return json(502,{ok:false,error:'stripe'});session=await r.json();}catch{return json(502,{ok:false,error:'stripe'});}
+        if(session.status==='complete')return json(200,{ok:true,pending:true,mode:'stripe'});
+        if(session.status==='open'&&session.url)return json(200,{ok:true,mode:'stripe',url:session.url,reused:true});
+        if(session.status!=='expired')return json(502,{ok:false,error:'stripe'});
+        account.checkoutGeneration=(account.checkoutGeneration||0)+1;
+        account.checkoutSessionId='';account.checkoutUrl='';account.checkoutPlan='';
+      }
+      const checkoutPlan=PLANS[account.checkoutPlan]||plan;
+      account.checkoutPlan=checkoutPlan.id;
+      const attempt=sha('checkout:'+account.id+':'+(account.checkoutGeneration||0));
+      const params=new URLSearchParams();
+      params.set('mode','payment');params.set('customer_email',account.email);
+      params.set('success_url',origin+'/?hosting=paid');params.set('cancel_url',origin+'/?hosting=cancel');
+      params.set('line_items[0][quantity]','1');params.set('line_items[0][price_data][currency]','usd');
+      params.set('line_items[0][price_data][unit_amount]',String(checkoutPlan.amount));
+      params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id).name);
+      params.set('metadata[accountId]',account.id);params.set('metadata[plan]',checkoutPlan.id);params.set('metadata[attempt]',attempt);
+      params.set('payment_intent_data[statement_descriptor_suffix]','HUSTLE BLDR');
+      let response,data;
+      try{response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...providerHeaders,'Content-Type':'application/x-www-form-urlencoded','Idempotency-Key':'hb-checkout-'+attempt},body:params,signal:AbortSignal.timeout(8000)});data=await response.json();}catch{await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
+      if(!response.ok||!data.url||!data.id){await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
+      account.checkoutSessionId=data.id;account.checkoutUrl=data.url;account.checkoutPendingAt=new Date().toISOString();
       await saveAccount(account);
-      const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
-        body: params
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) return withCors(json(502, { ok: false, error: "stripe" }), req.headers && req.headers.origin);
-      return withCors(json(200, { ok: true, mode: "stripe", url: data.url }), req.headers && req.headers.origin);
+      return json(200,{ok:true,mode:'stripe',url:data.url});
     }
     return withCors(json(400, { ok: false, error: "paywall" }), req.headers && req.headers.origin);
   }
@@ -1448,36 +1435,29 @@ export async function handleRequest(req) {
     if (!stripeSignatureOk(req.body || "", header, secret)) return withCors(json(400, { ok: false, error: "signature" }), req.headers && req.headers.origin);
     let event;
     try { event = JSON.parse(req.body || "{}"); } catch { return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin); }
-    const eventId = String(event.id || "").trim();
-    if (event.type === "checkout.session.completed") {
-      if (!eventId) return withCors(json(400, { ok: false, error: "event" }), req.headers && req.headers.origin);
-      const seenKey = "stripe-events/" + eventId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
-      if (await (await store()).get(seenKey)) return withCors(json(200, { ok: true, duplicate: true }), req.headers && req.headers.origin);
-      await (await store()).put(seenKey, "1");
-      const session = (event.data && event.data.object) || {};
-      const meta = session.metadata || {};
-      const plan = PLANS[meta.plan];
-      const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
-      if (account && plan) {
-        applyPlan(account, plan.id);
-        account.payMode = "stripe";
-        account.checkoutPendingAt = "";
-        const stripeUrl = session.receipt_url || (session.payment_intent && session.payment_intent.receipt_url) || "";
-        await addReceipt(account, origin, {
-          id: "stripe-" + eventId.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 60),
-          plan: plan.id,
-          planName: account.planName,
-          amountLabel: plan.label,
-          end: account.paidUntil,
-          stripeUrl
-        });
-        await sendReceiptNote(account, origin, eventId);
-        await saveAccount(account);
-        await trackPlan(account);
-        await releaseHeld(account, origin);
+    const legacyEvent=String(event.id||'');
+    if(/^[A-Za-z0-9_-]{1,80}$/.test(legacyEvent)&&await (await store()).get('stripe-events/'+legacyEvent))return json(200,{ok:true,duplicate:true});
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+      const session=event.data?.object||{},meta=session.metadata||{},plan=Object.hasOwn(PLANS,meta.plan)?PLANS[meta.plan]:null;
+      if(!/^evt_[A-Za-z0-9_]+$/.test(event.id||'')||!/^cs_[A-Za-z0-9_]+$/.test(session.id||''))return json(400,{ok:false,error:'event'});
+      if(session.payment_status!=='paid')return json(200,{ok:true,ignored:true});
+      if(!plan||session.amount_total!==plan.amount||session.currency!=='usd'||!/^([a-f0-9]{16})$/.test(meta.accountId||''))return json(400,{ok:false,error:'payment'});
+      if(await readJson('payments/'+sha(session.id)+'.json'))return json(200,{ok:true,duplicate:true});
+      const account=await readJson('accounts/'+meta.accountId+'.json');
+      if(account){
+        if(!account.checkoutSessionId||account.checkoutSessionId!==session.id)return json(400,{ok:false,error:'session'});
+        if(meta.attempt!==sha('checkout:'+account.id+':'+(account.checkoutGeneration||0))||account.checkoutPlan!==plan.id)return json(400,{ok:false,error:'session'});
+        const base=paid(account)?new Date(account.paidUntil):new Date();
+        applyPlan(account,plan.id,base);account.payMode='stripe';account.checkoutPendingAt='';
+        // Keep payment deduplication in its own ledger; leave the next renewal available.
+        account.lastPaidSessionId=session.id;account.checkoutSessionId='';account.checkoutUrl='';account.checkoutPlan='';account.checkoutGeneration=(account.checkoutGeneration||0)+1;
+        await addReceipt(account,origin,{id:'stripe-'+session.id.toLowerCase().replace(/[^a-z0-9-]+/g,'-').slice(0,60),plan:plan.id,planName:account.planName,amountLabel:plan.label,end:account.paidUntil,stripeUrl:session.receipt_url||''});
+        await sendReceiptNote(account,origin,session.id);
+        await saveAccount(account);await trackPlan(account);await releaseHeld(account,origin);
       }
+      await writeJson('payments/'+sha(session.id)+'.json',{eventId:event.id,sessionId:session.id,processedAt:new Date().toISOString()});
     }
-    return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+    return withCors(json(200,{ok:true}),req.headers?.origin);
   }
 
   if (method === "POST" && route === "publish") {
@@ -1515,9 +1495,9 @@ export async function handleRequest(req) {
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
     await (await store()).put("pages/" + slug + ".html", stored);
-    const keptStatus = existing && existing.status === "paused" ? "paused" : "live";
+    const keptStatus = existing && ["paused","review"].includes(existing.status) ? existing.status : "live";
     await writeJson("pages/" + slug + ".json", {
-      slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
+      ...existing, slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
       indexable, card: { title: cardTitle, line: cardLine, accent, pets }
     });
     addAccountSlug(account, slug);
@@ -1564,6 +1544,7 @@ export async function handleRequest(req) {
   if (method === "DELETE" && route === "account") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    await eraseRelated(account);
     for (const slug of slugsOf(account)) {
       await (await store()).del("pages/" + slug + ".html");
       await (await store()).del("pages/" + slug + ".json");
@@ -1609,18 +1590,22 @@ export async function handleRequest(req) {
   if (method === "POST" && askOpen) {
     const rec = await readJson("asks/" + askOpen[1] + ".json");
     if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
-    let account = await accountByEmail(rec.email);
-    if (!account) account = { id: rand(8), email: rec.email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null, slugs: [] };
-    const token = await issueSession(account);
-    return withCors(json(200, { ok: true, token, email: rec.email, draft: rec.draft, consent: !!account.consentAt, paid: paid(account), slug: account.slug || "", slugs: slugsOf(account), status: rec.status || "waiting", url: rec.url || "" }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
+    const account=await me();
+    if(!account || account.email!==rec.email)return withCors(json(200,{ok:true,requiresVerification:true,email:rec.email,draft:rec.draft}),req.headers?.origin);
+    return withCors(json(200,{ok:true,email:rec.email,draft:rec.draft,consent:!!account.consentAt,paid:paid(account),slug:account.slug||'',slugs:slugsOf(account),status:rec.status||'waiting',url:rec.url||''}),req.headers?.origin);
   }
 
   const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
   if (method === "POST" && askDone) {
     const rec = await readJson("asks/" + askDone[1] + ".json");
     if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const account=await me();
+    const slug=String(body.slug||String(body.url||'').split('/').pop()||account?.slug||'').trim().toLowerCase();
+    if(!account||account.email!==rec.email||!slugsOf(account).includes(slug))return json(401,{ok:false,error:'auth'});
+    const live=await readJson('pages/'+slug+'.json');
+    if(!live||live.status!=='live'||live.accountId!==account.id)return json(409,{ok:false,error:'page'});
     rec.status = "live";
-    rec.url = String(body.url || rec.url || "").slice(0, 200);
+    rec.url=origin+"/"+slug;
     rec.liveAt = new Date().toISOString();
     await writeJson("asks/" + askDone[1] + ".json", rec);
     return withCors(json(200, { ok: true, status: "live", url: rec.url }), req.headers && req.headers.origin);
@@ -1657,7 +1642,7 @@ export async function handleRequest(req) {
   const cancelPost = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
   if (method === "POST" && cancelPost) {
     const rec = await readJson("cancels/" + cancelPost[1] + ".json");
-    if (!rec) return cancelPage(cancelPost[1], false, true);
+    if (!rec || rec.expiresAt && rec.expiresAt<Date.now()) return cancelPage(cancelPost[1], false, true);
     if (!rec.used) {
       rec.used = true;
       rec.cancelledAt = new Date().toISOString();
@@ -1667,6 +1652,7 @@ export async function handleRequest(req) {
         const row = rows.find((item) => item.id === rec.requestId);
         if (row && row.status !== "done") {
           row.status = "cancelled";
+          await removeCalendarRequest(rec.accountId,row);
           await saveRequests(rec.accountId, rows);
         }
       }
@@ -1735,6 +1721,7 @@ export async function handleRequest(req) {
       const next = String(body.status || "");
       if (next !== "confirmed" && next !== "done" && next !== "cancelled") return json(400, { ok: false, error: "status" });
       row.status = next;
+      if(next==='cancelled')await removeCalendarRequest(account.id,row);
       await saveRequests(account.id, rows);
     }
     const title = row.status === "new" ? "New request" : row.status[0].toUpperCase() + row.status.slice(1);
@@ -1765,24 +1752,14 @@ document.getElementById("done").onclick=()=>mark("done");
       return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>You're covered</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're covered</h1><p>This page is on the friends &amp; family plan — free, with no payment due. There is nothing to renew.</p><p><a href="${mailEscape(accountUrl(origin))}">Your account</a></p></body></html>`);
     }
     const planId = (req.query && req.query.get && req.query.get("plan")) === "year" ? "year" : "season";
-    if (paywallMode() === "stripe" && process.env.STRIPE_SECRET_KEY) {
-      return html(200, "<!DOCTYPE html><html><body><p>Open the builder to pay with a card. Test mode is off.</p></body></html>");
-    }
-    applyPlan(account, planId);
-    const offer = PLANS[planId];
-    const receiptId = "pay-" + account.id + "-" + rand(4);
-    await addReceipt(account, origin, {
-      id: receiptId,
-      plan: planId,
-      planName: account.planName,
-      amountLabel: offer.label,
-      end: account.paidUntil
-    });
-    await sendReceiptNote(account, origin, receiptId);
-    await saveAccount(account);
-    await trackPlan(account);
-    await releaseHeld(account, origin);
-    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Renewed</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're renewed</h1><p>${mailEscape(account.planName)} is on through ${mailEscape(niceDate(account.paidUntil))}.</p><p>Any requests that were waiting have been emailed to you.</p><p><a href="${mailEscape(accountUrl(origin))}">Your account</a></p></body></html>`);
+    return html(200,`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Renew your page</title></head><body><h1>Renew your page</h1><p>Sign in with your parent email, then choose a plan.</p><a href="${mailEscape(origin)}/?account=1">Open your account</a></body></html>`);
+  }
+
+  if(method==='GET' && route==='cron/mail'){
+    const secret=process.env.CRON_SECRET||process.env.ADMIN_SECRET||'';
+    const token=String(req.headers?.authorization||'').replace(/^Bearer\s+/i,'');
+    if(!secret||!safeEqual(secret,token))return json(401,{ok:false,error:'auth'});
+    return json(200,{ok:true});
   }
 
   if (method === "GET" && route === "cron/renewals") {
@@ -1791,8 +1768,9 @@ document.getElementById("done").onclick=()=>mark("done");
     const token = String(header).replace(/^Bearer\s+/i, "");
     if (!secret || !safeEqual(token, secret)) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     const dry = !!(req.query && req.query.get && req.query.get("dry") === "1");
-    const ids = (await readJson("plan-ids.json")) || [];
+    const ids = await trackedAccounts();
     const due = [];
+    if(!dry)await cleanupExpired();
     for (const id of ids) {
       const account = await readJson("accounts/" + id + ".json");
       if (!account || comped(account) || !account.paidUntil) continue;
@@ -1857,13 +1835,26 @@ document.getElementById("done").onclick=()=>mark("done");
   }
 
   if (method === "POST" && route === "book") {
-    const slug = String(body.slug || "").trim().toLowerCase();
-    const meta = await readJson("pages/" + slug + ".json");
-    if (!meta || meta.status !== "live") return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    let slug=String(body.slug||'').trim().toLowerCase();
+    if(checkSlug(slug))return json(400,{ok:false,error:'slug'});
+    let meta=await readJson('pages/'+slug+'.json');
+    const owner=meta?.accountId,seen=new Set([slug]);
+    for(let hops=0;meta?.status==='redirect'&&hops<8;hops++){
+      if(Date.parse(meta.until||'')<=Date.now()||checkSlug(meta.to)||seen.has(meta.to))return json(404,{ok:false,error:'missing'});
+      slug=meta.to;seen.add(slug);meta=await readJson('pages/'+slug+'.json');
+      if(meta?.accountId!==owner)return json(404,{ok:false,error:'missing'});
+    }
+    if(!meta||meta.status!=='live')return json(404,{ok:false,error:'missing'});
     const account = await readJson("accounts/" + meta.accountId + ".json");
     if (!account) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     if (onBreak(account)) return withCors(json(403, { ok: false, error: "break", message: "This page is taking a break. Bookings are paused." }), req.headers && req.headers.origin);
     const ip = clientIp(req);
+    const idempotency=String(body.requestId||'');
+    if(idempotency && !/^[A-Za-z0-9_-]{16,80}$/.test(idempotency))return json(400,{ok:false,error:'request-id'});
+    const payloadHash=sha(JSON.stringify(Object.fromEntries(Object.entries(body).filter(([key])=>!['t','hp','company','requestId','slug'].includes(key)).sort(([a],[b])=>a.localeCompare(b)))));
+    const dedupe=idempotency?sha(slug+'|'+idempotency):sha(slug+'|'+ip+'|'+payloadHash+'|'+Math.floor(Date.now()/300000));
+    const prior=await readJson('bookingids/'+account.id+'/'+dedupe);
+    if(prior){if(prior.payloadHash!==payloadHash)return json(409,{ok:false,error:'request-id'});return json(200,{ok:true,held:prior.held,id:prior.id,duplicate:true});}
     const hits = await bumpIp(ip);
     if (String(body.hp || body.company || "").trim()) return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
     const waited = Number(body.t);
@@ -1977,19 +1968,22 @@ document.getElementById("done").onclick=()=>mark("done");
       fields,
       ics,
       calJob: job,
+      calendarJobId:job?.id||null,
+      idempotencyKey:dedupe,
       createdAt: new Date().toISOString()
     };
     await (await store()).put("jobact/" + actionToken, account.id + ":" + requestId);
     const rows = await loadRequests(account.id);
     rows.push(row);
     await saveRequests(account.id, rows);
+    await writeJson('bookingids/'+account.id+'/'+dedupe,{id:requestId,payloadHash,held:mode==='hold',createdAt:new Date().toISOString()});
+    meta.bookCount=(meta.bookCount||0)+1;
+    await writeJson('pages/'+slug+'.json',meta);
     if (mode === "hold") {
       const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + fields.service + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n$19.99 season:\n" + links.season + "\n\n$29.99 year:\n" + links.year + "\n";
       const held = await sendMail({
         to: account.email,
         replyTo: supportReply(),
-        forParent: true,
-        origin,
         subject: "You have a new request waiting",
         text: heldText,
         html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(fields.service) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
@@ -2003,8 +1997,6 @@ document.getElementById("done").onclick=()=>mark("done");
     const mailed = await sendMail({
       to: account.email,
       replyTo: reply || supportReply(),
-      forParent: true,
-      origin,
       subject: (hitsWords.flag ? "Check this booking: " : "Booking request: ") + (fields.service || "a job"),
       text: fullText, html: fullHtml, ics
     });
@@ -2025,16 +2017,13 @@ document.getElementById("done").onclick=()=>mark("done");
         await sendMail({
           to: account.email,
           replyTo: supportReply(),
-          forParent: true,
-          origin,
           subject: "Your 3 free jobs are used up",
           text: trialText,
           html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>Your 3 free jobs are used up.</b></p><p>New requests will wait until you pick a plan.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
         });
       }
     }
-    meta.bookCount = (meta.bookCount || 0) + 1;
-    await writeJson("pages/" + slug + ".json", meta);
+
     if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId });
     return withCors(json(200, { ok: true, trialLeft: mode === "trial" ? Math.max(0, FREE_JOBS - used - 1) : undefined }), req.headers && req.headers.origin);
   }
@@ -2320,4 +2309,117 @@ document.getElementById("done").onclick=()=>mark("done");
   }
 
   return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+}
+
+async function removeCalendarRequest(accountId,row) {
+  const id=row.calendarJobId||row.calJob?.id||row.ics?.match(/UID:([^@\r\n]+)@/)?.[1];
+  if(id)await saveJobs(accountId,(await loadJobs(accountId)).filter(j=>j.id!==id));
+  row.calJob=null;
+}
+async function eraseRelated(account) {
+  const s=await store();
+  for(const row of await loadRequests(account.id))await removeRequestArtifacts(row,account.id);
+  await s.del('requests/'+account.id+'.json');
+  await s.del('planacct/'+account.id);
+  for(const slug of [...slugsOf(account),...(account.formerSlugs||[])]){await s.del('pages/'+slug+'.html');await s.del('pages/'+slug+'.json');await s.del('views/'+slug+'.json');}
+  if(account.renewToken)await s.del('renew/'+account.renewToken);
+  if(account.jobCode)await s.del('jobcode/'+account.jobCode);
+  for(const key of await s.list('')){
+    if(key==='accounts/'+account.id+'.json')continue;
+    const raw=await s.get(key);let rec;try{rec=JSON.parse(raw);}catch{}
+    const owned=rec&&typeof rec==='object'&&!Array.isArray(rec)&&(rec.accountId===account.id||rec.ownerId===account.id||rec.email===account.email||rec.parentEmail===account.email||rec.to===account.email);
+    const pointer=raw===account.id||String(raw).startsWith(account.id+':');
+    if(owned||pointer||key.startsWith('bookingids/'+account.id+'/')||key==='requests/'+account.id+'.json'||key==='planacct/'+account.id)await s.del(key);
+  }
+  const legacy=await readJson('plan-ids.json');
+  if(legacy)await writeJson('plan-ids.json',legacy.filter(id=>id!==account.id));
+}
+async function cleanupExpired() {
+  const s=await store();
+  for(const id of await trackedAccounts()){await loadRequests(id);await loadJobs(id);}
+  for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
+    const rec=await readJson(key);if(!rec)continue;
+    const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;
+    if(!Number.isFinite(expiry)||expiry<Date.now())await s.del(key);
+  }
+}
+
+async function requestLocks(req) {
+  const s=await store(),keys=[];
+  const route=String(req.path||'').split('?')[0].replace(/^\/api\//,'').replace(/^\//,'');
+  if(String(req.method).toUpperCase()==='GET'&&/^(site\/|card\/|qr\/|slug$|plans$|test\/outbox$)/.test(route))return {readOnly:true};
+  const body=parseBody(req.body)||{};
+  const read=async k=>{const v=await s.get(k);try{return JSON.parse(v);}catch{return null;}};
+  const accountIds=new Set();
+  const email=emailOk(body.email);
+  if(email){keys.push('email:'+sha(email));const id=await s.get('email/'+sha(email));if(id)accountIds.add(id.trim());}
+  const auth=String(req.headers?.authorization||req.headers?.Authorization||'').match(/^Bearer\s+([a-f0-9]{64})$/i);
+  if(auth){const id=await s.get('tokens/'+sha(auth[1]));if(id)accountIds.add(id.trim());}
+  const cookieToken=cookieValue(req.headers?.cookie||req.headers?.Cookie,SESSION_COOKIE);
+  if(cookieToken){const id=await s.get('tokens/'+sha(cookieToken));if(id)accountIds.add(id.trim());}
+  if((route==='admin/comp'||req.path==='/admin/comp')&&/^[a-f0-9]{8,32}$/.test(body.id||''))accountIds.add(body.id);
+  if(route.startsWith('admin')||String(req.path).startsWith('/admin'))keys.push('quota:admin:'+sha(clientIp(req)));
+  const slug=String(body.slug||route.match(/^site\/(.*)$/)?.[1]||'').trim().toLowerCase();
+  if(slug&&!checkSlug(slug)){keys.push('slug:'+slug);const page=await read('pages/'+slug+'.json');if(page?.accountId)accountIds.add(page.accountId);}
+  if(route==='stripe/webhook'){
+    const id=body.data?.object?.metadata?.accountId;
+    if(/^[a-f0-9]{16}$/.test(id||''))accountIds.add(id);
+  }
+  const capability=route.match(/^(cancel|job|renew|cal)\/([a-f0-9]+)(?:\.ics)?$/);
+  if(capability){const [,kind,token]=capability;
+    if(kind==='cancel'){const row=await read('cancels/'+token+'.json');if(row?.accountId)accountIds.add(row.accountId);}
+    else {const pointer=await s.get((kind==='job'?'jobact/':kind==='cal'?'caltokens/':'renew/')+(kind==='cal'?sha(token):token));if(pointer)accountIds.add(pointer.split(':')[0]);}
+  }
+  const code=String(body.code||req.query?.get?.('code')||'').trim().toLowerCase();
+  if(/^[a-z0-9]{8}$/.test(code))keys.push('draft:'+code);
+  if(route.startsWith('ask/'))keys.push('ask:'+route.split('/')[1]);
+  if(route==='book'||route==='ask'||route==='draft'||route.startsWith('auth/'))keys.push('quota:'+route.split('/')[0]+':'+sha(clientIp(req)));
+  if(req.method==='GET'&&route==='my-jobs'&&code){const id=await s.get('jobcode/'+code);if(id)accountIds.add(id);else{const d=await read('drafts/'+code+'.json');if(d?.accountId)accountIds.add(d.accountId);}}
+  if(route==='slug'&&req.method==='POST'){
+    for(const id of accountIds){const account=await read('accounts/'+id+'.json');for(const owned of [...slugsOf(account),...(account?.formerSlugs||[])])keys.push('slug:'+owned);}
+  }
+  if(route==='report')keys.push('quota:report:'+sha(clientIp(req)));
+  keys.push(...[...accountIds].map(id=>'account:'+id));
+  const readOnly=String(req.method).toUpperCase()==='GET'&&(/^(site\/|card\/|qr\/|slug$|plans$|test\/outbox$)/.test(route));
+  return {keys,maintenance:route==='cron/renewals'||route==='account'&&req.method==='DELETE'||req.path==='/admin'||route==='admin',readOnly};
+}
+
+export async function handleRequest(req) {
+  try {
+    if(process.env.HB_MAINTENANCE_MODE==='1')return json(503,{ok:false,error:'maintenance'},{'retry-after':'60'});
+    const requestOrigin=req.headers?.origin||req.headers?.Origin;
+    const hasCookie=!!cookieValue(req.headers?.cookie||req.headers?.Cookie,SESSION_COOKIE)||!!cookieValue(req.headers?.cookie||req.headers?.Cookie,ADMIN_COOKIE);
+    if(hasCookie&&!['GET','HEAD','OPTIONS'].includes(String(req.method).toUpperCase())&&requestOrigin&&requestOrigin!==await publicOrigin(req.origin))return json(403,{ok:false,error:'origin'});
+    if(Buffer.byteLength(String(req.body||''),'utf8')>2_200_000)return json(413,{ok:false,error:'big'});
+    let batch;
+    for(let attempt=0;attempt<3;attempt++){
+      const options=await requestLocks(req);
+      try{
+        batch=await withMailBatch(()=>transaction(async()=>{
+          if(!options.readOnly){
+            // Ownership can change while waiting. Acquire its current lock set before mutation.
+            const current=await requestLocks(req);
+            if(current.keys.some(key=>!options.keys.includes(key))){const error=new Error('Ownership changed');error.code='HB_LOCK_RETRY';throw error;}
+          }
+          return routeRequest(req);
+        },options));break;
+      }catch(error){if(error.code!=='HB_LOCK_RETRY')throw error;}
+    }
+    if(!batch)return json(503,{ok:false,error:'busy'},{'retry-after':'5'});
+    const {result,ids}=batch;
+    if(result.viewEvent){
+      const {slug,meta,view}=result.viewEvent;delete result.viewEvent;
+      try{const backing=await store();if(backing.incrementView)await noteView(slug,meta,view);else await transaction(()=>noteView(slug,meta,view),{keys:['view:'+slug]});}catch{/* A failed counter must not break a public page. */}
+    }
+    // Mail is sent only after successful commit. Retryable failures remain durable.
+    if(ids.length)await flushMail(ids);
+    if(['/api/cron/renewals','/api/cron/mail'].includes(String(req.path).split('?')[0]) && result.status===200 && req.query?.get?.('dry')!=='1')await flushMail();
+    if(req.headers?.origin==='null'&&String(req.path).split('?')[0]==='/api/book'){
+      result.headers={...result.headers,'access-control-allow-origin':'null','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','vary':'Origin'};
+    }
+    return result;
+  }catch(error){
+    if(error instanceof URIError)return json(400,{ok:false,error:'path'});
+    return json(503,{ok:false,error:'unavailable',message:'Temporarily busy. Your saved page is safe. Please try again.',},{'retry-after':'5'});
+  }
 }

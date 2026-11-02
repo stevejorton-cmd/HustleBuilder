@@ -1,0 +1,34 @@
+{
+  "baselineCommit": "1b57d7a",
+  "assets": {
+    "assets/heic2any.js": "86e257d8b2c87030a9ed23068f8423a87451e5784e0697b3bbb8929df2f86abe",
+    "assets/pets/README.md": "76a8a928202444af1d5792853e9027bf835bab52489ecf3ec42b7a169dfe8511",
+    "assets/pets/pet-og.jpg": "8376b5865dd59d130703b82f7de6db8816322ad073b74d0fb623a8546e6da7be",
+    "assets/pets/pet-dog.webp": "00a1de65d318174d159ef129c05a053b9c38693f9c3858a32e08f1d000494fd2",
+    "assets/pets/pet-small.webp": "17880d8d66e027e343074fe12d2dd78991f06a1368577ec625c7efb643a3c70e",
+    "assets/pets/pet-cat.webp": "3347c2c6ecaf736c43e8118b96d7abfb5360965cd7d43329bbf2aaad9d6bd2f0",
+    "assets/pets/pet-bird.webp": "3210640844e2b99c0c29582f95679e70620ea6bf0bea67e1523270912a7eec98",
+    "assets/pets/pet-hero.webp": "60d4bd1eb2d3b07852cd200d09accb1f2947fa198c4eebb7695ffa51e149778e",
+    "assets/pets/pet-fish.webp": "c45f1c2e0853c72e620d1b15428a79c465f5a784915afec3295ea5a00e467d7c",
+    "assets/jobs/wash.webp": "33fb927e426182c8047f9503e069ec347967ea109af9c039a377c3438b047de1",
+    "assets/jobs/tutor.webp": "6e192b0ced2e415c7bda4457f5d9aa3136e28abe81a12fb5e163d595304e20c2",
+    "assets/jobs/odd-hero.webp": "d979f6477b98fa8855a727bf5647402bc3e623beb2caef9dbf271fd056c25138",
+    "assets/jobs/help.webp": "b3bc932e7fbccd39a7ea9af7c6073473207bcd70cd467116029e8e24d4430081",
+    "assets/jobs/tutor-hero.webp": "afc1076f76d100af442b571d53133cd37cda4f383503863c0733d3d143043f14",
+    "assets/jobs/odd.webp": "c564fc9c3a5943adddd83c30945e8ec3074b1a1b46913d09f157fbba6e51f69b",
+    "assets/jobs/help-hero.webp": "0a744c406c4db85a17292f2428d8351accfc7cb9cffe692592ee32fb8af4be18",
+    "assets/jobs/other.webp": "b31d7f27eb64b559731592dfa1b64f01f969b4ee64d3bcbbdc74720e33d8accb",
+    "assets/jobs/wash-hero.webp": "addcf5c5ed7c312ca605ddf2999aa67bc1998cbe33bb8c82615f86c77204821b",
+    "assets/jobs/README.txt": "e4f3e4448e470a312676fe969d894f8ba55c4cd0a02a3cbd7b44b10f6c544ccc",
+    "assets/jobs/other-hero.webp": "727d26ed4557a18b80fd9c842b349d423bb4b130520b297d1cb25129ada0a49e",
+    "icons/maskable-512.png": "74509e44936572c5869348f113f7a16acd04aec572ccf48206c6f3fe86f0cd95",
+    "icons/maskable-192.png": "b92e252fcb7664e550ee7d82c36ea020dba43231177dca57bde339da01c78249",
+    "icons/icon-512.png": "f4dc9759453a157d9a66a74b86745d16552d26344ab6864dcd04a3f341cf57cb",
+    "icons/icon-192.png": "6e8b023247419cb18ff720053f73bbcb78312f3841ae9ac6d89cbfd38e9b3cf5"
+  },
+  "cineRange": {
+    "startMarker": "const CINE",
+    "endMarker": "function cineUrl",
+    "sha256": "9bb606a3340c37e094c5dacbdc8634aa4a38278125861c01df9317fe41424d76"
+  }
+}
