@@ -131,3 +131,5 @@ The last command needs an isolated PostgreSQL server. Never paste a real connect
 <!-- Preview rebuilt Nov 1, 2026 ~9:45 PM CT so the deployment picks up the Neon DATABASE_URL (preview branch) for the Phase 2 rehearsal. -->
 
 <!-- Preview rebuilt Nov 1, 2026 ~9:50 PM CT: preview PUBLISH_TEST_MODE set to 1 so the rehearsal uses on-screen test codes. -->
+
+<!-- rebuild Nov 1 late: pick up HB_MAINTENANCE_MODE + MIGRATE_TOKEN_SHA env for the cutover endpoint test -->
