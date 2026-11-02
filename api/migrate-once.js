@@ -42,7 +42,15 @@ export default async function handler(req, res) {
         const accounts = await client.query("SELECT count(*)::int AS n FROM hb_kv WHERE key LIKE 'accounts/%'");
         return send(200, { ok: true, rows: rows.rows[0].n, pageKeys: pageKeys.rows[0].n, accountKeys: accounts.rows[0].n });
       }
-      const source = await blobStore();
+      const rawSource = await blobStore();
+      // Skip the leftover handoff-art/ binaries: nothing in the app reads
+      // them, they are not valid UTF-8 text, and PostgreSQL text columns
+      // reject them. They stay untouched in Blob (byte-exact copies were
+      // also saved to the cutover backup folder before this change).
+      const source = {
+        get: (k) => rawSource.get(k),
+        list: async (p) => (await rawSource.list(p)).filter((k) => !k.startsWith("handoff-art/")),
+      };
       const out = await migrate(source, client, { apply: mode === "apply" });
       return send(200, { ok: true, ...out });
     } finally {
