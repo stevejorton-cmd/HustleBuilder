@@ -211,6 +211,7 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .svcrow .offer{font-size:15px;font-weight:800}
 .tile.emoji{height:108px;background:#1b1e21;filter:none}
 .tile.emoji .emo{position:absolute;left:12px;top:18px;z-index:2;width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:30px}
+.tile.emoji img.emo{object-fit:cover}
 .tile.emoji .cap{left:74px;right:8px}
 .tile.emoji .cap strong{font-size:22px}
 
@@ -1743,9 +1744,31 @@ function petHero(publicUrl){
   const alt="A golden retriever wearing a red collar and leash, standing on a lawn at sunset with a tennis ball in the air";
   return `<img class="scene pthero" src="${esc(petSrc("pet-hero.webp", publicUrl))}" alt="${alt}" width="1280" height="720" decoding="async">`;
 }
+function jobSrc(file, publicUrl){
+  if(publicUrl){
+    try{
+      const host=new URL(publicUrl).hostname;
+      const origin=/(^|\.)hustlebuilder\.org$/i.test(host)?"https://hustlebuilder.org":new URL(publicUrl).origin;
+      return origin+"/assets/jobs/"+file;
+    }catch(e){}
+  }
+  return "assets/jobs/"+file;
+}
+const JOB_HERO={
+  odd:["odd-hero.webp","A red toolbox with a wrench and hammer on a workbench at sunset"],
+  wash:["wash-hero.webp","A red car covered in soap foam during a car wash at sunset"],
+  help:["help-hero.webp","A paper grocery bag full of groceries on a front porch at sunset"],
+  tutor:["tutor-hero.webp","An open book with golden light rising from its pages at sunset"],
+  other:["other-hero.webp","A golden star trophy with gold confetti falling at sunset"]
+};
+function jobHero(type, publicUrl){
+  const h=JOB_HERO[type]; if(!h)return "";
+  return `<img class="scene" src="${esc(jobSrc(h[0], publicUrl))}" alt="${h[1]}" width="1280" height="720" decoding="async">`;
+}
 function bannerArt(type, art, pets, publicUrl){
   if(type==="pet")return petHero(publicUrl);
   if(type==="lawn"||type==="snow"||type==="both")return sceneArt(type, art);
+  if(JOB_HERO[type])return jobHero(type, publicUrl);
   const info=typeInfo(type);
   return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="800" height="460" fill="${info.color}"/><text x="70" y="270" font-size="150">${info.emoji}</text></svg>`;
 }
@@ -2230,11 +2253,11 @@ const TYPES=[
   {id:"pet",name:"Pet care",blurb:"Walks, food, and cleanup"}
 ];
 const MORE_TYPES=[
-  {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",color:"#8A5A12"},
-  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",color:"#1D4E89"},
-  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",color:"#8E3A56"},
-  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",color:"#4C3A8A"},
-  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",color:"#3D6B16"}
+  {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",img:"assets/jobs/odd.webp",color:"#8A5A12"},
+  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",img:"assets/jobs/wash.webp",color:"#1D4E89"},
+  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",img:"assets/jobs/help.webp",color:"#8E3A56"},
+  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",img:"assets/jobs/tutor.webp",color:"#4C3A8A"},
+  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",img:"assets/jobs/other.webp",color:"#3D6B16"}
 ];
 const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
@@ -2256,7 +2279,7 @@ function pickType(id){
 }
 function tileHtml(t){
   const tick='<span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>';
-  const art=t.id==="pet"?`<img class="scene pthero" src="assets/pets/pet-hero.webp" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
+  const art=t.id==="pet"?`<img class="scene pthero" src="assets/pets/pet-hero.webp" alt="" width="1280" height="720">`:t.img?`<img class="emo" src="${t.img}" alt="" width="512" height="512">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
   return art+`<span class="cap"><strong>${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
 function renderTiles(){
