@@ -61,6 +61,18 @@ const server = createServer(async (req, res) => {
       } catch { /* fall through */ }
     }
   }
+  if (req.method === "GET" && url.pathname.startsWith("/assets/jobs/")) {
+    const name = path.basename(url.pathname);
+    const type = assetTypes[path.extname(name).toLowerCase()];
+    if (type && /^[a-z0-9]+(?:-hero)?\.webp$/.test(name)) {
+      try {
+        const file = await readFile(new URL("assets/jobs/" + name, rootDir));
+        res.writeHead(200, { "content-type": type, "cache-control": "public, max-age=86400" });
+        res.end(file);
+        return;
+      } catch { /* fall through */ }
+    }
+  }
   const body=await readBody(req);
   let reqPath = url.pathname;
   if (req.method === "GET" && /^\/[a-z0-9][a-z0-9-]{1,40}$/.test(reqPath) && reqPath !== "/admin") reqPath = "/api/site" + reqPath;

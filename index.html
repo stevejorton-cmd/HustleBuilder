@@ -2456,10 +2456,12 @@ const JOBS=[
  {g:"Pet jobs",t:"pet",items:[["Dog walk, 15 minutes",[5,6,8,10,12]],["Dog walk, 30 minutes",[8,10,12,14,16]],["Pet feeding drop-in",[6,8,10,12,14]],["Pet sitting visit",[8,10,12,14,16]],["Pet sitting, full day",[10,12,15,18,22]],["Poop scoop, one time",[10,12,15,18,20]],["Poop scoop, weekly",[8,10,12,14,16]],["Fresh water and food bowls",[4,5,6,8,10]],["Litter box cleaning",[5,6,8,10,12]],["Pet playtime",[6,8,10,12,14]],["Mail and pet check",[5,6,8,10,12]],["Small animal care",[6,8,10,12,14]],["Dog brushing",[5,6,8,10,12]],["Water the plants",[4,5,6,8,10]]]},
  {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,4,5,6,7]],["Leaf raking, whole yard",[15,20,25,30,40]],["Weeding flower beds",[8,10,12,15,20]],["Spread mulch (by hand)",[15,20,25,30,40]],["Trim small bushes (hand clippers)",[8,10,12,15,20]],["Pick up sticks and yard cleanup",[8,10,12,15,18]],["Sweep driveway and patio",[5,6,8,10,12]],["Plant flowers",[10,12,15,20,25]],["Water plants (per visit)",[4,5,6,8,10]],["Pick up dog mess in the yard",[4,5,6,8,10]],["Move patio furniture and hoses",[5,6,8,10,12]]]},
  {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,5,6,8,10]],["Clear the end of the driveway (plow pile)",[5,6,8,10,12]],["Clear around the mailbox",[3,4,5,6,8]],["Clear the back door and patio",[5,6,8,10,12]],["Clear a path to the trash cans",[3,4,5,6,8]],["Brush off and clear the car",[4,5,6,8,10]]]},
- {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,3,4,5,6]],["Wash the car",[6,8,10,14,18]],["Bring in mail and packages (per day)",[2,3,4,5,6]]]}];
+ {g:"Car jobs",t:"wash",items:[["Wash the outside",[8,10,12,15,18]],["Wash and vacuum",[12,15,18,22,28]],["Rims and windows",[6,8,10,12,15]],["Dry and shine",[5,6,8,10,12]],["Vacuum the inside",[6,8,10,12,15]],["Wash the car",[6,8,10,14,18]]]},
+ {g:"Reading jobs",t:"tutor",items:[["Reading together, 30 minutes",[8,10,12,15,18]],["Homework helper, 30 minutes",[10,12,15,18,22]],["Practice spelling",[6,8,10,12,14]],["Read a chapter",[6,8,10,12,15]],["Flash cards",[5,6,8,10,12]]]},
+ {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,3,4,5,6]],["Bring in mail and packages (per day)",[2,3,4,5,6]],["Playtime helper, 1 hour",[8,10,12,15,18]],["Tidy toys",[5,6,8,10,12]]]}];
 /* leftover sections stay in this order after the ones the kid picked */
-const JOB_SECTION_ORDER=["lawn","snow","pet","any"];
-const TYPE_JOB_SECTIONS={lawn:["lawn"],snow:["snow"],both:["lawn","snow"],pet:["pet"],odd:["lawn"],wash:["any"],help:["any"],tutor:[],other:[]};
+const JOB_SECTION_ORDER=["lawn","snow","pet","wash","tutor","any"];
+const TYPE_JOB_SECTIONS={lawn:["lawn"],snow:["snow"],both:["lawn","snow"],pet:["pet"],odd:["lawn"],wash:["wash"],help:["any"],tutor:["tutor"],other:[]};
 function orderedJobGroups(picked){
   const list=Array.isArray(picked)?picked:(picked?[picked]:["lawn"]);
   const first=[];
@@ -4627,7 +4629,7 @@ function recordSiteDraft(slug){
 }
 async function pubPush(){
   pubErr("");
-  if(missing().length){updateLaunch(); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
+  if(missing().length){updateLaunch(); pubErr("Add the items still needed above, then try Publish again."); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
   const session=pubSession()||{};
   if(!pubToken()&&!session.email){
     const probe=await pubApi("/api/me", {method:"GET"}).catch(()=>null);

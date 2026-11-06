@@ -897,7 +897,7 @@ test("add more jobs lists the selected business type first", async () => {
   const end = src.indexOf("JOBS.forEach(g=>g.items", start);
   if (start < 0 || end < 0) throw new Error("missing job catalog");
   const names = (picked) => runInNewContext(src.slice(start, end) + `orderedJobGroups(${JSON.stringify(picked)}).map(g=>g.g).join("|")`);
-  const all = ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"];
+  const all = ["Yard jobs", "Snow jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"];
   const expectOrder = (picked, first) => {
     const got = names(picked).split("|");
     assert.deepEqual(got.slice(0, first.length), first);
@@ -909,10 +909,10 @@ test("add more jobs lists the selected business type first", async () => {
   expectOrder("pet", ["Pet jobs"]);
   expectOrder("both", ["Yard jobs", "Snow jobs"]);
   expectOrder("odd", ["Yard jobs"]);
-  expectOrder("wash", ["Helpful extras"]);
+  expectOrder("wash", ["Car jobs"]);
   expectOrder("help", ["Helpful extras"]);
-  expectOrder("tutor", ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"]);
-  expectOrder("other", ["Yard jobs", "Snow jobs", "Pet jobs", "Helpful extras"]);
+  expectOrder("tutor", ["Reading jobs"]);
+  expectOrder("other", ["Yard jobs", "Snow jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"]);
   expectOrder(["pet", "snow"], ["Pet jobs", "Snow jobs"]);
   expectOrder(["snow", "lawn"], ["Snow jobs", "Yard jobs"]);
   expectOrder(["both", "pet"], ["Yard jobs", "Snow jobs", "Pet jobs"]);
