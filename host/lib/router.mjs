@@ -8,8 +8,8 @@ import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
 
 export const PLANS = {
-  season: { id: "season", amount: 1999, label: "$19.99" },
-  year: { id: "year", amount: 2999, label: "$29.99" }
+  season: { id: "season", amount: 999, label: "$9.99" },
+  year: { id: "year", amount: 1999, label: "$19.99" }
 };
 export const CONSENT_VERSION = "2026-10-31";
 export const FREE_JOBS = 3;
@@ -550,7 +550,7 @@ function privacyPage() {
 <p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
 <p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
-<p>A family can publish with no payment. The page stays up for 14 days from the first publish, or until 3 real booking requests are delivered, whichever comes first. The length is the TRIAL_DAYS setting. One trial belongs to the parent’s email and does not start over with a new link. We email the parent 3 days before that time ends and on the day it ends. When the trial ends, the public link shows a taking-a-break page. The page and the kid’s draft stay saved. New booking requests are saved and held until a parent pays, and paying brings the page back and sends those requests. A paid plan is $19.99 for the current season (summer, May–August, or winter, November–March) or $29.99 for 365 days. We email the parent 14 days before, 3 days before, and on the day a paid plan ends. The page stays up for 7 more days, then it shows a taking-a-break page and bookings pause.</p>
+<p>A family can publish with no payment. The page stays up for 14 days from the first publish, or until 3 real booking requests are delivered, whichever comes first. The length is the TRIAL_DAYS setting. One trial belongs to the parent’s email and does not start over with a new link. We email the parent 3 days before that time ends and on the day it ends. When the trial ends, the public link shows a taking-a-break page. The page and the kid’s draft stay saved. New booking requests are saved and held until a parent pays, and paying brings the page back and sends those requests. A paid plan is ${PLANS.season.label} for the current season (summer, May–August, or winter, November–March) or ${PLANS.year.label} for 365 days. We email the parent 14 days before, 3 days before, and on the day a paid plan ends. The page stays up for 7 more days, then it shows a taking-a-break page and bookings pause.</p>
 <p>The kid’s My jobs list shows the service, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on. Even then it shows the street name, not the house number.</p>
 <p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link. The free-trial count for that email stays, so a new account cannot start the 3 free jobs again.</p>
 <p>This notice is a plain summary. Have a lawyer read it before real families use hosting.</p>
@@ -1784,7 +1784,7 @@ document.getElementById("done").onclick=()=>mark("done");
       const links = payLinks(origin, account);
       const when = days === 0 ? "today" : "in " + days + " days";
       const subject = days === 0 ? "Your Hustle Builder plan ends today" : "Your Hustle Builder plan ends in " + days + " days";
-      const text = "Your " + (account.planName || "plan") + " ends " + when + ", on " + niceDate(account.paidUntil) + ".\n\nRenew in one tap.\n\n$19.99 for the season:\n" + links.season + "\n\n$29.99 for the year:\n" + links.year + "\n\nAfter the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.";
+      const text = "Your " + (account.planName || "plan") + " ends " + when + ", on " + niceDate(account.paidUntil) + ".\n\nRenew in one tap.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n\nAfter the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.";
       due.push({ email: account.email, kind: String(days), days });
       if (!dry) {
         await sendMail({
@@ -1794,7 +1794,7 @@ document.getElementById("done").onclick=()=>mark("done");
           origin,
           subject,
           text,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your <b>" + mailEscape(account.planName || "plan") + "</b> ends " + when + ", on " + mailEscape(niceDate(account.paidUntil)) + ".</p><p>Renew in one tap.</p><p><a href=\"" + mailEscape(links.season) + "\">Renew, $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Renew, $29.99 for the year</a></p><p>After the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.</p></div>"
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your <b>" + mailEscape(account.planName || "plan") + "</b> ends " + when + ", on " + mailEscape(niceDate(account.paidUntil)) + ".</p><p>Renew in one tap.</p><p><a href=\"" + mailEscape(links.season) + "\">Renew, " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Renew, " + PLANS.year.label + " for the year</a></p><p>After the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.</p></div>"
         });
         account.sentReminders[key] = new Date().toISOString();
         await saveAccount(account);
@@ -1815,7 +1815,7 @@ document.getElementById("done").onclick=()=>mark("done");
       const links = payLinks(origin, account);
       const when = days === 0 ? "today" : "in 3 days";
       const subject = days === 0 ? "Your free trial ends today" : "Your free trial ends in 3 days";
-      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe page then shows a taking-a-break page. Your draft and the site stay saved. Pay to bring it back.\n\n$19.99 for the season:\n" + links.season + "\n\n$29.99 for the year:\n" + links.year + "\n";
+      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe page then shows a taking-a-break page. Your draft and the site stay saved. Pay to bring it back.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n";
       due.push({ email: account.email, kind: "trial-" + days, days });
       if (!dry) {
         await sendMail({
@@ -1825,7 +1825,7 @@ document.getElementById("done").onclick=()=>mark("done");
           origin,
           subject,
           text,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pay in one tap to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pay in one tap to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
         });
         account.sentReminders[key] = new Date().toISOString();
         await saveAccount(account);
@@ -1980,13 +1980,13 @@ document.getElementById("done").onclick=()=>mark("done");
     meta.bookCount=(meta.bookCount||0)+1;
     await writeJson('pages/'+slug+'.json',meta);
     if (mode === "hold") {
-      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + fields.service + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n$19.99 season:\n" + links.season + "\n\n$29.99 year:\n" + links.year + "\n";
+      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + fields.service + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
       const held = await sendMail({
         to: account.email,
         replyTo: supportReply(),
         subject: "You have a new request waiting",
         text: heldText,
-        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(fields.service) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
+        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(fields.service) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
       });
       if (!held.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
       return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
@@ -2013,13 +2013,13 @@ document.getElementById("done").onclick=()=>mark("done");
       const next = used + 1;
       await setTrialCount(account.email, next);
       if (next >= FREE_JOBS) {
-        const trialText = "Your 3 free jobs are used up.\n\nNew requests will wait until you pick a plan.\n\n$19.99 season:\n" + links.season + "\n\n$29.99 year:\n" + links.year + "\n";
+        const trialText = "Your 3 free jobs are used up.\n\nNew requests will wait until you pick a plan.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
         await sendMail({
           to: account.email,
           replyTo: supportReply(),
           subject: "Your 3 free jobs are used up",
           text: trialText,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>Your 3 free jobs are used up.</b></p><p>New requests will wait until you pick a plan.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay $19.99 for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay $29.99 for the year</a></p></div>"
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>Your 3 free jobs are used up.</b></p><p>New requests will wait until you pick a plan.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
         });
       }
     }

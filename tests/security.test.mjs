@@ -28,7 +28,7 @@ test('production refuses the dev-only file adapter and honors maintenance mode',
 test('a completed payment clears its pending checkout so a later renewal can start',async()=>{
  const p=await parent(),key='accounts/'+p.id+'.json';const a=JSON.parse(await base.get(key));
  a.checkoutSessionId='cs_renew';a.checkoutPlan='year';await base.put(key,JSON.stringify(a));process.env.STRIPE_WEBHOOK_SECRET='placeholder';
- const attempt=sha('checkout:'+p.id+':0'),payload={id:'evt_renew',type:'checkout.session.completed',data:{object:{id:'cs_renew',payment_status:'paid',amount_total:2999,currency:'usd',metadata:{accountId:p.id,plan:'year',attempt}}}};
+ const attempt=sha('checkout:'+p.id+':0'),payload={id:'evt_renew',type:'checkout.session.completed',data:{object:{id:'cs_renew',payment_status:'paid',amount_total:1999,currency:'usd',metadata:{accountId:p.id,plan:'year',attempt}}}};
  const raw=JSON.stringify(payload),t=String(Math.floor(Date.now()/1000)),sig=createHmac('sha256','placeholder').update(t+'.'+raw).digest('hex');
  const r=await call('/api/stripe/webhook',payload,null,'POST',{'stripe-signature':'t='+t+',v1='+sig});assert.equal(r.status,200);
  const paid=JSON.parse(await base.get(key));assert.ok(paid.paidUntil);assert.equal(paid.checkoutSessionId,'');assert.equal(paid.checkoutGeneration,1);
