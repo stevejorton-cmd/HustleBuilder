@@ -53,7 +53,7 @@ async function pendingSession(accountId,plan,id) {
   account.checkoutSessionId=id;account.checkoutPlan=plan;
   const attempt=createHash('sha256').update('checkout:'+accountId+':'+(account.checkoutGeneration||0)).digest('hex');
   await writeFile(file,JSON.stringify(account));
-  return {id,payment_status:'paid',amount_total:plan==='year'?2999:1999,currency:'usd',metadata:{accountId,plan,attempt}};
+  return {id,payment_status:'paid',amount_total:plan==='year'?1999:999,currency:'usd',metadata:{accountId,plan,attempt}};
 }
 
 test("slug rules block last names, reserved words, and bad shapes", () => {
@@ -338,14 +338,14 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     const params = new URLSearchParams(seen);
     assert.equal(params.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
     assert.equal(params.get("line_items[0][price_data][currency]"), "usd");
-    assert.equal(params.get("line_items[0][price_data][unit_amount]"), "1999");
+    assert.equal(params.get("line_items[0][price_data][unit_amount]"), "999");
     assert.equal(params.get("line_items[0][price]"), null);
     const yearParent = await parent("card-year@example.com");
     const year = await json(await call("POST", "/api/checkout", { token: yearParent.token, body: { plan: "year" } }));
     assert.equal(year.body.ok, true);
     const yearParams = new URLSearchParams(seen);
     assert.equal(yearParams.get("line_items[0][price_data][currency]"), "usd");
-    assert.equal(yearParams.get("line_items[0][price_data][unit_amount]"), "2999");
+    assert.equal(yearParams.get("line_items[0][price_data][unit_amount]"), "1999");
     assert.equal(yearParams.get("line_items[0][price]"), null);
   } finally {
     global.fetch = prev;
@@ -649,8 +649,8 @@ function bookAt(n) {
 test("plans offer a named season or a year, and not a month", async () => {
   const plans = await json(await call("GET", "/api/plans"));
   assert.deepEqual(plans.body.plans.map((p) => p.id), ["season", "year"]);
-  assert.deepEqual(plans.body.plans.map((p) => p.price), ["$19.99", "$29.99"]);
-  assert.deepEqual(plans.body.plans.map((p) => p.amount), [1999, 2999]);
+  assert.deepEqual(plans.body.plans.map((p) => p.price), ["$9.99", "$19.99"]);
+  assert.deepEqual(plans.body.plans.map((p) => p.amount), [999, 1999]);
   assert.equal(JSON.stringify(plans.body).includes("$6"), false);
   assert.match(plans.body.free, /first 3 jobs/);
   const summer = seasonOffer(new Date("2026-06-15T12:00:00Z"));
@@ -683,7 +683,7 @@ test("three free jobs are delivered, then requests are held until the parent pay
   assert.equal(me.body.trialLeft, 0);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.equal(box.body.messages.filter((m) => /used up/.test(m.subject)).length, 1);
-  assert.match(box.body.messages.map((m) => m.text).join("\n"), /\$19\.99 season/);
+  assert.match(box.body.messages.map((m) => m.text).join("\n"), /\$9\.99 season/);
   const held = await json(await call("POST", "/api/book", { body: bookAt(4), headers: { "x-forwarded-for": "203.0.113.40" } }));
   assert.equal(held.body.held, true);
   const after = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -801,8 +801,8 @@ test("a free trial lasts TRIAL_DAYS or 3 jobs, then the page takes a break and b
     assert.equal(again.body.due.filter((row) => row.kind === "trial-3").length, 0);
     const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
     const note = mail.body.messages.find((m) => /trial ends in 3 days/.test(m.subject));
-    assert.match(note.text, /\$19\.99 for the season/);
-    assert.match(note.html, /Pay \$19\.99 for the season/);
+    assert.match(note.text, /\$9\.99 for the season/);
+    assert.match(note.html, /Pay \$9\.99 for the season/);
     const today = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), 23, 59, 0)).toISOString();
     await patchAccount((account) => { account.trialEndsAt = today; });
     const endRun = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
@@ -1190,7 +1190,7 @@ test("going live and paying each send one email", async () => {
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   const receipts = box.body.messages.filter((m) => m.subject === "Your Hustle Builder receipt");
   assert.equal(receipts.length, 1);
-  assert.match(receipts[0].text, /\$19\.99/);
+  assert.match(receipts[0].text, /\$9\.99/);
   assert.match(receipts[0].text, /Through /);
   assert.match(receipts[0].text, /\/\?account=1/);
   assert.equal(receipts[0].text.includes("steve@"), false);
@@ -1231,7 +1231,7 @@ test("a repeated year webhook does not extend the plan or send another receipt",
   assert.equal(after.body.plan, "year");
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.equal(box.body.messages.filter((m) => m.subject === "Your Hustle Builder receipt").length, 1);
-  assert.match(box.body.messages.find((m) => m.subject === "Your Hustle Builder receipt").text, /\$29\.99/);
+  assert.match(box.body.messages.find((m) => m.subject === "Your Hustle Builder receipt").text, /\$19\.99/);
 });
 
 test("a backup preview names every business type", async () => {
@@ -1283,12 +1283,12 @@ test("a parent account lists the site, trial, receipts, and requests", async () 
   assert.ok(site.paidUntil);
   assert.ok(site.receipts.length >= 1);
   assert.match(site.receipts[0].url, /\/api\/receipt\//);
-  assert.equal(site.receipts[0].amount, "$19.99");
+  assert.equal(site.receipts[0].amount, "$9.99");
   assert.equal(site.requests[0].service, "Mow the yard");
   assert.equal(site.requests[0].firstName, "Riley");
   assert.equal(site.requests[0].address, undefined);
   const receipt = await call("GET", site.receipts[0].url.replace("http://sites.test", ""));
-  assert.match(receipt.body, /\$19\.99/);
+  assert.match(receipt.body, /\$9\.99/);
   assert.equal(receipt.body.includes(email), false);
   const paused = await json(await call("POST", "/api/account/pause", { token, body: { slug: "sam-yard" } }));
   assert.equal(paused.body.status, "paused");
