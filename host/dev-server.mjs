@@ -61,6 +61,20 @@ const server = createServer(async (req, res) => {
       } catch { /* fall through */ }
     }
   }
+  if (req.method === "GET" && (url.pathname === "/assets/intro.mp4" || url.pathname === "/assets/intro.vtt")) {
+    const name = path.basename(url.pathname);
+    try {
+      const file = await readFile(new URL("assets/" + name, rootDir));
+      const type = name.endsWith(".vtt") ? "text/vtt; charset=utf-8" : "video/mp4";
+      res.writeHead(200, { "content-type": type, "cache-control": "public, max-age=86400" });
+      res.end(file);
+      return;
+    } catch {
+      res.writeHead(404, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      res.end("missing");
+      return;
+    }
+  }
   if (req.method === "GET" && url.pathname.startsWith("/assets/jobs/")) {
     const name = path.basename(url.pathname);
     const type = assetTypes[path.extname(name).toLowerCase()];

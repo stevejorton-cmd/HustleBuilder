@@ -649,6 +649,22 @@ details.help li{margin-bottom:10px}
 .acct p{margin:6px 0}
 .acct .mbtns{margin-top:10px}
 .acct a.btn{text-decoration:none}
+.intro{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.62)}
+.intro[hidden]{display:none}
+.intro-card{width:100%;max-width:520px;max-height:92vh;overflow:auto;background:var(--bg);border-top:5px solid var(--accent);padding:18px 20px calc(16px + env(safe-area-inset-bottom,0px))}
+.intro-card h2{font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:clamp(36px,10vw,48px);line-height:.9;margin:0 0 14px}
+.intro video{display:block;width:100%;max-height:42vh;background:#111;margin:0 0 4px}
+.intro video[hidden]{display:none}
+.intro-steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.intro-steps[hidden]{display:none}
+.intro-steps li{background:var(--surface);border-left:5px solid var(--accent);padding:10px 14px}
+.intro-steps b{display:block;font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:28px;line-height:1}
+.intro-steps span{color:var(--muted);font-size:15px}
+.intro .btn.block{margin-top:16px}
+.intro .skip{text-align:center;margin:8px 0 0}
+@media (min-width:700px){.intro{align-items:center;padding:20px}.intro-card{border:1px solid var(--line);border-top:5px solid var(--accent)}}
+body.soft .intro-card{border-radius:22px 22px 0 0}
+@media (min-width:700px){body.soft .intro-card{border-radius:22px}}
 </style>
 </head>
 <body>
@@ -695,6 +711,7 @@ details.help li{margin-bottom:10px}
       <p class="small2 looklink"><button type="button" class="link" data-look>Change how the app looks</button></p>
       <p class="small2" style="margin-top:6px"><button type="button" class="link" data-art>Change the pictures</button></p>
       <p class="small2" style="margin-top:6px"><button type="button" class="link" data-backup>Back up or load my business</button></p>
+      <p class="small2" style="margin-top:6px"><button type="button" class="link" id="watchIntro" data-intro>Watch intro</button></p>
     </section>
 
     <section class="step" data-step="1">
@@ -937,7 +954,7 @@ details.help li{margin-bottom:10px}
   </nav>
 </div>
 
-<section id="boss" aria-label="Boss mode"><div id="bossBody"></div></section>
+<section id="boss" aria-label="Boss mode"><div id="bossBody"></div><p class="small2" style="margin:4px 20px 0"><button type="button" class="link" id="watchIntroBoss" data-intro>Watch intro</button></p></section>
 
 <section id="flyers" aria-label="Flyers">
   <h2>Print and post.</h2>
@@ -990,6 +1007,19 @@ details.help li{margin-bottom:10px}
       <p class="status" id="pHint" role="status"></p>
       <div class="st-actions"><button type="button" class="btn block" id="pPdf">Save PDF to print</button><div class="row"><button type="button" class="btn ghost" id="pPng">Save as image</button><button type="button" class="btn ghost" id="pPrint">Print from here</button></div><p class="status" id="pStatus" role="status"></p></div>
     </div>
+  </div>
+</div>
+<div class="intro" id="intro" hidden>
+  <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+    <h2 id="introTitle">How this works</h2>
+    <video id="introVideo" playsinline controls preload="metadata"></video>
+    <ol class="intro-steps" id="introSteps" hidden>
+      <li><b>Build</b><span>Pick your work and your prices.</span></li>
+      <li><b>Print</b><span>Make a flyer to hand out.</span></li>
+      <li><b>Publish</b><span>A parent puts your page online.</span></li>
+    </ol>
+    <button type="button" class="btn block" id="introStart">Start building</button>
+    <p class="small2 skip"><button type="button" class="link" id="introSkip">Skip</button></p>
   </div>
 </div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">
@@ -5181,6 +5211,45 @@ async function resumeHosting(kind){
   if($("#pubConsent")&&!$("#pubConsent").checked)$("#pubConsent").checked=true;
   await pubPush();
 }
+/* Steve: put the intro film at assets/intro.mp4. Optional captions: assets/intro.vtt. */
+const INTRO_VIDEO="/assets/intro.mp4";
+const INTRO_CAPTIONS="/assets/intro.vtt";
+const INTRO_KEY="hb_intro_seen";
+function introSeen(){try{return localStorage.getItem(INTRO_KEY)==="1";}catch(e){return false;}}
+function markIntroSeen(){try{localStorage.setItem(INTRO_KEY,"1");}catch(e){}}
+function introFallback(){
+  const v=$("#introVideo"); if(v){v.hidden=true; try{v.pause();}catch(e){}}
+  const steps=$("#introSteps"); if(steps)steps.hidden=false;
+}
+function openIntro(){
+  const box=$("#intro"); if(!box)return;
+  const v=$("#introVideo");
+  const steps=$("#introSteps");
+  if(steps)steps.hidden=true;
+  if(v){
+    v.hidden=false;
+    v.onerror=introFallback;
+    if(!v.querySelector("source")){
+      const s=document.createElement("source"); s.src=INTRO_VIDEO; s.type="video/mp4"; s.onerror=introFallback; v.appendChild(s);
+      const tr=document.createElement("track"); tr.kind="captions"; tr.src=INTRO_CAPTIONS; tr.srclang="en"; tr.label="English"; v.appendChild(tr);
+    }
+    try{v.load();}catch(e){introFallback();}
+  }else if(steps)steps.hidden=false;
+  box.hidden=false;
+  const start=$("#introStart"); if(start)start.focus();
+}
+function closeIntro(){
+  markIntroSeen();
+  const box=$("#intro"); if(box)box.hidden=true;
+  const v=$("#introVideo"); if(v){try{v.pause();}catch(e){}}
+}
+const introStart=$("#introStart"), introSkip=$("#introSkip"), introBox=$("#intro");
+if(introStart)introStart.onclick=closeIntro;
+if(introSkip)introSkip.onclick=closeIntro;
+if(introBox)introBox.addEventListener("click",e=>{if(e.target===introBox)closeIntro();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&introBox&&!introBox.hidden)closeIntro();});
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
+if(!introSeen())openIntro();
 if(!new URLSearchParams(location.search).get("ask"))initPublish();
 const startQ=new URLSearchParams(location.search);
 const hostQ=startQ.get("hosting");
