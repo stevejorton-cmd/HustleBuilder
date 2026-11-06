@@ -8,7 +8,8 @@ try{
  await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('startup timeout')),10000);child.stdout.on('data',d=>{if(d.toString().includes('listening')){clearTimeout(t);resolve();}});child.once('error',reject);});
  browser=await puppeteer.launch({executablePath:process.env.CHROME||'/usr/local/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  const email='parent@example.com',auth=await post('/api/auth/start',{email}),session=await post('/api/auth/verify',{email,code:auth.devCode});await post('/api/consent',{consent:true},session.token);
- const victim=await browser.newPage();await victim.goto(base);
+ const dismissIntro=async(p)=>{await p.evaluate(()=>{const el=document.getElementById("intro");const b=document.getElementById("introSkip");if(el&&!el.hidden&&b)b.click();}).catch(()=>{});};
+ const victim=await browser.newPage();await victim.goto(base);await dismissIntro(victim);
  const cookieLogin=await victim.evaluate(async email=>{const start=await (await fetch('/api/auth/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})})).json();return (await fetch('/api/auth/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,code:start.devCode})})).json();},email);
  session.token=cookieLogin.token;assert.ok((await victim.cookies()).some(c=>c.name==='hb_session'&&c.httpOnly));
  await victim.evaluate(token=>localStorage.setItem('hb-parent-session',JSON.stringify({token,email:'parent@example.com'})),session.token);
@@ -24,11 +25,11 @@ try{
  const types=['lawn','snow','both','pet','odd','wash','help','tutor','other'];
  for(const type of types){
   const p=await browser.newPage();await p.setViewport({width:390,height:844});const errors=[];p.on('pageerror',e=>errors.push(String(e)));
-  await p.goto(base);const selector='button.tile[data-type="'+type+'"]';assert.ok(await p.$(selector),'missing type: '+type);
+  await p.goto(base);await dismissIntro(p);const selector='button.tile[data-type="'+type+'"]';assert.ok(await p.$(selector),'missing type: '+type);
   await p.click(selector);for(let step=0;step<7;step++){await p.click('#next');}
   await p.waitForSelector('#pubEmail');assert.equal(errors.length,0,errors.join('\n'));const width=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));assert.ok(width.scroll<=width.client+2,type+' overflow');results.push({name:'phone builder step sweep: '+type,pass:true});await p.close();
  }
- const offline=await browser.newPage();await offline.goto(base,{waitUntil:'networkidle0'});
+ const offline=await browser.newPage();await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
  await offline.evaluate(()=>navigator.serviceWorker.ready);
  await offline.click('#next');await offline.type('input[data-k="first"]','OfflineSam');
  await offline.waitForFunction(()=>Object.keys(localStorage).some(k=>String(localStorage.getItem(k)).includes('OfflineSam')));
