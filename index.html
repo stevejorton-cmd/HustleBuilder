@@ -4629,7 +4629,7 @@ function recordSiteDraft(slug){
 }
 async function pubPush(){
   pubErr("");
-  if(missing().length){updateLaunch(); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
+  if(missing().length){updateLaunch(); pubErr("Add the items still needed above, then try Publish again."); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
   const session=pubSession()||{};
   if(!pubToken()&&!session.email){
     const probe=await pubApi("/api/me", {method:"GET"}).catch(()=>null);
