@@ -739,7 +739,6 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
         <input type="range" id="lvl" min="1" max="5" step="1" value="1">
         <div class="lvl-ticks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
         <p class="lvl-say" id="lvlSay" aria-live="polite"></p>
-        <div id="lvlAct" class="lvl-act" aria-live="polite"></div>
       </div>
       <div id="petArtBox" hidden style="margin:0 0 16px">
         <label class="lvl-q" id="petArtLabel">Pets on your pictures</label>
@@ -2153,6 +2152,7 @@ function svcRowClone(rows){
   return (Array.isArray(rows)?rows:[]).filter(s=>s&&typeof s==="object").map(s=>{
     const r={n:String(s.n==null?"":s.n),p:String(s.p==null?"":s.p)};
     if(s.on===false)r.on=false; else if(s.on===true)r.on=true;
+    if(s.t)r.t=1;
     return r;
   });
 }
@@ -2433,7 +2433,7 @@ function renderServices(f){
     up.disabled=i===0; dn.disabled=i===S.services.length-1;
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
     n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
-    p.oninput=()=>{s.p=p.value;S.svcEdited=true;queue();};
+    p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
     p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;queue();}};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
@@ -2462,23 +2462,54 @@ const LEVELS=[
 /* prices for the starter services at each level (Beginner to Legend) */
 const PRICE_TABLE={"full mow, front and back":[15,18,20,25,30],"front yard mow":[10,12,15,18,22],"trim and edge":[5,8,10,12,15],"leaf cleanup":[20,25,30,35,45],"bag grass clippings":[3,4,5,6,8],"driveway":[10,12,15,18,22],"shovel driveway":[10,12,15,18,22],"driveway and walk":[12,16,20,24,28],"shovel driveway and walk":[12,16,20,24,28],"walk and steps":[5,6,8,10,12],"salt":[3,4,5,6,8]};
 Object.keys(PRESETS).forEach(k=>(PRESETS[k]||[]).forEach(row=>{if(Array.isArray(row[1]))PRICE_TABLE[row[0].toLowerCase()]=row[1];}));
-function priceFactor(name,from,to){const row=PRICE_TABLE[String(name||"").trim().toLowerCase()];return row?row[to-1]/row[from-1]:LEVELS[to-1].m/LEVELS[from-1].m;}
 function niceP(v){return v>=25?Math.round(v/5)*5:Math.max(1,Math.round(v));}
 function renderLevel(){
-  const L=Math.max(1,Math.min(5,S.lvl|0||1)),A=Math.max(1,Math.min(5,S.lvlApplied|0||1)),lv=LEVELS[L-1],rng=$("#lvl");
+  const L=Math.max(1,Math.min(5,S.lvl|0||1)),lv=LEVELS[L-1],rng=$("#lvl");
   rng.value=L;rng.style.setProperty("--pct",((L-1)/4*100)+"%");rng.setAttribute("aria-valuetext","Level "+L+": "+lv.n);
   $("#lvlName").textContent="Level "+L+": "+lv.n;$("#lvlSay").textContent=lv.say;
-  const act=$("#lvlAct");act.innerHTML="";
-  if(L!==A){
-    const fs=S.services.filter(x=>isFinite(parseFloat(String(x.p).replace(/[^0-9.]/g,"")))&&parseFloat(String(x.p).replace(/[^0-9.]/g,""))>0).map(x=>priceFactor(x.n,A,L));
-    const f=fs.length?fs.reduce((a,b)=>a+b,0)/fs.length:LEVELS[L-1].m/LEVELS[A-1].m,pc=Math.round(Math.abs(f-1)*100);
-    const p=document.createElement("p");p.textContent="Want to charge about "+pc+"% "+(f>1?"more":"less")+"? Tap the button and your prices will change.";
-    const b=document.createElement("button");b.type="button";b.className="btn ghost";b.textContent=f>1?"Raise my prices":"Lower my prices";
-    b.onclick=()=>{S.services.forEach(s=>{const v=parseFloat(String(s.p).replace(/[^0-9.]/g,""));if(isFinite(v)&&v>0)s.p=String(niceP(v*priceFactor(s.n,A,L)));});S.lvlApplied=L;S.svcEdited=true;renderServices();renderLevel();queue();};
-    act.appendChild(p);act.appendChild(b);
-  }
 }
-$("#lvl").addEventListener("input",()=>{S.lvl=parseInt($("#lvl").value,10)||1;renderLevel();queue();});
+/* Moving the slider reprices the list right away — there is no separate
+   apply tap. A row still showing a suggestion follows the slider: a
+   catalog row takes the catalog's own price for the new level, and a row
+   with no catalog price (the kid renamed it) scales by LEVEL_CURVE,
+   about +12% a level, so it goes up a bit, never a lot. A row the kid
+   priced themselves (s.t, set when they type in the price box) is theirs
+   and never moves. lvlApplied is the level the untouched prices were
+   last set at; the slider keeps it in step. */
+const LEVEL_CURVE=[1,1.12,1.24,1.36,1.48];
+function suggestedPrice(s,from,to){
+  const row=PRICE_TABLE[String(s.n||"").trim().toLowerCase()];
+  if(row)return String(row[Math.min(to,row.length)-1]);
+  const v=parseFloat(String(s.p).replace(/[^0-9.]/g,""));
+  if(!isFinite(v)||v<=0)return s.p;
+  return String(niceP(v*LEVEL_CURVE[to-1]/LEVEL_CURVE[from-1]));
+}
+function applyLevel(L){
+  const A=Math.max(1,Math.min(5,S.lvlApplied|0||1));
+  if(L===A)return;
+  S.services.forEach(s=>{if(!s.t)s.p=suggestedPrice(s,A,L);});
+  S.lvlApplied=L;
+}
+/* Which rows are the kid's own? Typing a price marks the row (s.t), and
+   the mark is kept. Drafts saved before rows remembered carry no mark:
+   a row whose price is not the catalog suggestion for the level its
+   prices were set at was set by hand, and a name the catalog does not
+   know is the kid's own words — both count as theirs and stay put. */
+function markTouched(rows){
+  const A=Math.max(1,Math.min(5,S.lvlApplied|0||1));
+  (Array.isArray(rows)?rows:[]).forEach(s=>{
+    if(!s||typeof s!=="object"||s.t)return;
+    const row=PRICE_TABLE[String(s.n||"").trim().toLowerCase()];
+    if(row&&String(row[Math.min(A,row.length)-1])===String(s.p==null?"":s.p).trim())return;
+    s.t=1;
+  });
+}
+function initSvcTouched(){
+  markTouched(S.services);
+  Object.keys(S.svcSets||{}).forEach(k=>{const v=S.svcSets[k];if(v&&Array.isArray(v.services))markTouched(v.services);});
+}
+initSvcTouched();
+$("#lvl").addEventListener("input",()=>{S.lvl=parseInt($("#lvl").value,10)||1;applyLevel(S.lvl);renderServices();renderLevel();queue();});
 renderLevel();
 
 /* ---- add more jobs ---- */
@@ -4922,6 +4953,7 @@ function applyDraft(d){
   S=Object.assign(defaults(),d);
   if(!PRESETS[S.type])S.type="lawn";
   fixSvcRows();
+  if(typeof initSvcTouched==="function")initSvcTouched();
   document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
   const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
   const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";
