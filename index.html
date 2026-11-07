@@ -739,8 +739,8 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
         <input type="range" id="lvl" min="1" max="5" step="1" value="1">
         <div class="lvl-ticks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
         <p class="lvl-say" id="lvlSay" aria-live="polite"></p>
-        <div id="lvlAct" class="lvl-act" aria-live="polite"></div>
       </div>
+      <div class="callout" id="extrasTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div id="extrasTipText">Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer.</div></div>
       <div id="petArtBox" hidden style="margin:0 0 16px">
         <label class="lvl-q" id="petArtLabel">Pets on your pictures</label>
         <div class="chips" id="petArt"></div>
@@ -2102,14 +2102,14 @@ ${promiseHTML}
 /* ============ Builder state ============ */
 const LS="hustle-builder-v3";
 const PRESETS={
-  lawn:[["Mow a small yard",[10,12,15,18,22]],["Mow a large yard",[15,18,22,26,32]],["Edging and trimming",[5,8,10,12,15]],["Leaf raking",[12,15,18,22,28]],["Weeding",[8,10,12,15,18]],["Bag the clippings",[3,4,5,6,8]]],
-  snow:[["Shovel the driveway",[10,12,15,18,22]],["Shovel driveway and walk",[12,16,20,24,28]],["Clear the walk and steps",[5,6,8,10,12]],["Salt the walk",[3,4,5,6,8]],["Clear the front steps",[4,5,6,8,10]],["Brush snow off the car",[4,5,6,8,10]]],
-  pet:[["Dog walk, 15 minutes",[5,6,8,10,12]],["Dog walk, 30 minutes",[8,10,12,14,16]],["Pet feeding drop-in",[6,8,10,12,14]],["Pet sitting visit",[8,10,12,14,16]],["Poop scoop, one time",[10,12,15,18,20]],["Fresh water and food bowls",[4,5,6,8,10]]],
-  odd:[["Yard cleanup",[15,18,22,26,30]],["Rake leaves",[12,15,18,22,26]],["Weed the garden",[10,12,15,18,22]],["Take cans to the curb",[4,5,6,8,10]],["Sweep the driveway",[5,6,8,10,12]],["Pick up sticks",[8,10,12,15,18]]],
-  wash:[["Wash the outside",[10,12,15,18,22]],["Wash and vacuum",[15,18,22,26,30]],["Rims and windows",[8,10,12,15,18]],["Dry and shine",[6,8,10,12,15]],["Vacuum the inside",[8,10,12,14,16]]],
-  help:[["Playtime helper, 1 hour",[10,12,15,18,22]],["Tidy toys",[6,8,10,12,14]],["Snack helper",[5,6,8,10,12]],["Reading together",[8,10,12,14,16]],["Set the table",[4,5,6,8,10]],["Bring in the mail",[3,4,5,6,8]]],
-  tutor:[["Reading together, 30 minutes",[10,12,15,18,22]],["Homework helper, 30 minutes",[12,14,16,20,24]],["Practice spelling",[8,10,12,14,16]],["Read a chapter",[8,10,12,14,18]],["Flash cards",[6,8,10,12,14]]],
-  other:[["My service",[10,12,15,18,22]]]
+  lawn:[["Mow a small yard",[10,11,12,14,15]],["Mow a large yard",[15,17,19,20,22]],["Edging and trimming",[5,6,6,7,7]],["Leaf raking",[12,13,15,16,18]],["Weeding",[8,9,10,11,12]],["Bag the clippings",[3,3,4,4,4]]],
+  snow:[["Shovel the driveway",[10,11,12,14,15]],["Shovel driveway and walk",[12,13,15,16,18]],["Clear the walk and steps",[5,6,6,7,7]],["Salt the walk",[3,3,4,4,4]],["Clear the front steps",[4,4,5,5,6]],["Brush snow off the car",[4,4,5,5,6]]],
+  pet:[["Dog walk, 15 minutes",[5,6,6,7,7]],["Dog walk, 30 minutes",[8,9,10,11,12]],["Pet feeding drop-in",[6,7,7,8,9]],["Pet sitting visit",[8,9,10,11,12]],["Poop scoop, one time",[10,11,12,14,15]],["Fresh water and food bowls",[4,4,5,5,6]]],
+  odd:[["Yard cleanup",[15,17,19,20,22]],["Rake leaves",[12,13,15,16,18]],["Weed the garden",[10,11,12,14,15]],["Take cans to the curb",[4,4,5,5,6]],["Sweep the driveway",[5,6,6,7,7]],["Pick up sticks",[8,9,10,11,12]]],
+  wash:[["Wash the outside",[10,11,12,14,15]],["Wash and vacuum",[15,17,19,20,22]],["Rims and windows",[8,9,10,11,12]],["Dry and shine",[6,7,7,8,9]],["Vacuum the inside",[8,9,10,11,12]]],
+  help:[["Playtime helper, 1 hour",[10,11,12,14,15]],["Tidy toys",[6,7,7,8,9]],["Snack helper",[5,6,6,7,7]],["Reading together",[8,9,10,11,12]],["Set the table",[4,4,5,5,6]],["Bring in the mail",[3,3,4,4,4]]],
+  tutor:[["Reading together, 30 minutes",[10,11,12,14,15]],["Homework helper, 30 minutes",[12,13,15,16,18]],["Practice spelling",[8,9,10,11,12]],["Read a chapter",[8,9,10,11,12]],["Flash cards",[6,7,7,8,9]]],
+  other:[["My service",[10,11,12,14,15]]]
 };
 PRESETS.both=PRESETS.lawn.concat(PRESETS.snow).filter((row,i,all)=>all.findIndex(x=>x[0].toLowerCase()===row[0].toLowerCase())===i);
 function chosenTypes(picked){
@@ -2153,6 +2153,7 @@ function svcRowClone(rows){
   return (Array.isArray(rows)?rows:[]).filter(s=>s&&typeof s==="object").map(s=>{
     const r={n:String(s.n==null?"":s.n),p:String(s.p==null?"":s.p)};
     if(s.on===false)r.on=false; else if(s.on===true)r.on=true;
+    if(s.t)r.t=1;
     return r;
   });
 }
@@ -2375,6 +2376,9 @@ function renderPetPicks(){
 function syncTypeCopy(){
   const lead=$("#rateLead");
   if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":"Starter prices to work from. Set them for the yards near you.";
+  const tip=$("#extrasTipText");
+  if(tip){const ex={lawn:"like bagging or edging",both:"like bagging, edging, or salting",snow:"like clearing the walk or salting",pet:"like a longer visit or an extra pet",wash:"like vacuuming the inside or a dry and shine"}[S.type];
+    tip.textContent="Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer"+(ex?", "+ex:"")+".";}
   renderPetPicks();
 }
 function syncOther(){
@@ -2433,7 +2437,7 @@ function renderServices(f){
     up.disabled=i===0; dn.disabled=i===S.services.length-1;
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
     n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
-    p.oninput=()=>{s.p=p.value;S.svcEdited=true;queue();};
+    p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
     p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;queue();}};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
@@ -2460,35 +2464,66 @@ const LEVELS=[
   {n:"Expert",say:"You are fast and you do great work. You can charge more.",m:1.7},
   {n:"Legend",say:"People ask for you by name. You can charge top prices.",m:2}];
 /* prices for the starter services at each level (Beginner to Legend) */
-const PRICE_TABLE={"full mow, front and back":[15,18,20,25,30],"front yard mow":[10,12,15,18,22],"trim and edge":[5,8,10,12,15],"leaf cleanup":[20,25,30,35,45],"bag grass clippings":[3,4,5,6,8],"driveway":[10,12,15,18,22],"shovel driveway":[10,12,15,18,22],"driveway and walk":[12,16,20,24,28],"shovel driveway and walk":[12,16,20,24,28],"walk and steps":[5,6,8,10,12],"salt":[3,4,5,6,8]};
+const PRICE_TABLE={"full mow, front and back":[15,17,19,20,22],"front yard mow":[10,11,12,14,15],"trim and edge":[5,6,6,7,7],"leaf cleanup":[20,22,25,27,30],"bag grass clippings":[3,3,4,4,4],"driveway":[10,11,12,14,15],"shovel driveway":[10,11,12,14,15],"driveway and walk":[12,13,15,16,18],"shovel driveway and walk":[12,13,15,16,18],"walk and steps":[5,6,6,7,7],"salt":[3,3,4,4,4]};
 Object.keys(PRESETS).forEach(k=>(PRESETS[k]||[]).forEach(row=>{if(Array.isArray(row[1]))PRICE_TABLE[row[0].toLowerCase()]=row[1];}));
-function priceFactor(name,from,to){const row=PRICE_TABLE[String(name||"").trim().toLowerCase()];return row?row[to-1]/row[from-1]:LEVELS[to-1].m/LEVELS[from-1].m;}
 function niceP(v){return v>=25?Math.round(v/5)*5:Math.max(1,Math.round(v));}
 function renderLevel(){
-  const L=Math.max(1,Math.min(5,S.lvl|0||1)),A=Math.max(1,Math.min(5,S.lvlApplied|0||1)),lv=LEVELS[L-1],rng=$("#lvl");
+  const L=Math.max(1,Math.min(5,S.lvl|0||1)),lv=LEVELS[L-1],rng=$("#lvl");
   rng.value=L;rng.style.setProperty("--pct",((L-1)/4*100)+"%");rng.setAttribute("aria-valuetext","Level "+L+": "+lv.n);
   $("#lvlName").textContent="Level "+L+": "+lv.n;$("#lvlSay").textContent=lv.say;
-  const act=$("#lvlAct");act.innerHTML="";
-  if(L!==A){
-    const fs=S.services.filter(x=>isFinite(parseFloat(String(x.p).replace(/[^0-9.]/g,"")))&&parseFloat(String(x.p).replace(/[^0-9.]/g,""))>0).map(x=>priceFactor(x.n,A,L));
-    const f=fs.length?fs.reduce((a,b)=>a+b,0)/fs.length:LEVELS[L-1].m/LEVELS[A-1].m,pc=Math.round(Math.abs(f-1)*100);
-    const p=document.createElement("p");p.textContent="Want to charge about "+pc+"% "+(f>1?"more":"less")+"? Tap the button and your prices will change.";
-    const b=document.createElement("button");b.type="button";b.className="btn ghost";b.textContent=f>1?"Raise my prices":"Lower my prices";
-    b.onclick=()=>{S.services.forEach(s=>{const v=parseFloat(String(s.p).replace(/[^0-9.]/g,""));if(isFinite(v)&&v>0)s.p=String(niceP(v*priceFactor(s.n,A,L)));});S.lvlApplied=L;S.svcEdited=true;renderServices();renderLevel();queue();};
-    act.appendChild(p);act.appendChild(b);
-  }
 }
-$("#lvl").addEventListener("input",()=>{S.lvl=parseInt($("#lvl").value,10)||1;renderLevel();queue();});
+/* Moving the slider reprices the list right away — there is no separate
+   apply tap. A row still showing a suggestion follows the slider: a
+   catalog row takes the catalog's own price for the new level, and a row
+   with no catalog price (the kid renamed it) scales by LEVEL_CURVE,
+   about +12% a level, so it goes up a bit, never a lot. A row the kid
+   priced themselves (s.t, set when they type in the price box) is theirs
+   and never moves. lvlApplied is the level the untouched prices were
+   last set at; the slider keeps it in step. */
+const LEVEL_CURVE=[1,1.12,1.24,1.36,1.48];
+function suggestedPrice(s,from,to){
+  const row=PRICE_TABLE[String(s.n||"").trim().toLowerCase()];
+  if(row)return String(row[Math.min(to,row.length)-1]);
+  const v=parseFloat(String(s.p).replace(/[^0-9.]/g,""));
+  if(!isFinite(v)||v<=0)return s.p;
+  return String(niceP(v*LEVEL_CURVE[to-1]/LEVEL_CURVE[from-1]));
+}
+function applyLevel(L){
+  const A=Math.max(1,Math.min(5,S.lvlApplied|0||1));
+  if(L===A)return;
+  S.services.forEach(s=>{if(!s.t)s.p=suggestedPrice(s,A,L);});
+  S.lvlApplied=L;
+}
+/* Which rows are the kid's own? Typing a price marks the row (s.t), and
+   the mark is kept. Drafts saved before rows remembered carry no mark:
+   a row whose price is not the catalog suggestion for the level its
+   prices were set at was set by hand, and a name the catalog does not
+   know is the kid's own words — both count as theirs and stay put. */
+function markTouched(rows){
+  const A=Math.max(1,Math.min(5,S.lvlApplied|0||1));
+  (Array.isArray(rows)?rows:[]).forEach(s=>{
+    if(!s||typeof s!=="object"||s.t)return;
+    const row=PRICE_TABLE[String(s.n||"").trim().toLowerCase()];
+    if(row&&String(row[Math.min(A,row.length)-1])===String(s.p==null?"":s.p).trim())return;
+    s.t=1;
+  });
+}
+function initSvcTouched(){
+  markTouched(S.services);
+  Object.keys(S.svcSets||{}).forEach(k=>{const v=S.svcSets[k];if(v&&Array.isArray(v.services))markTouched(v.services);});
+}
+initSvcTouched();
+$("#lvl").addEventListener("input",()=>{S.lvl=parseInt($("#lvl").value,10)||1;applyLevel(S.lvl);renderServices();renderLevel();queue();});
 renderLevel();
 
 /* ---- add more jobs ---- */
 const JOBS=[
- {g:"Pet jobs",t:"pet",items:[["Dog walk, 15 minutes",[5,6,8,10,12]],["Dog walk, 30 minutes",[8,10,12,14,16]],["Pet feeding drop-in",[6,8,10,12,14]],["Pet sitting visit",[8,10,12,14,16]],["Pet sitting, full day",[10,12,15,18,22]],["Poop scoop, one time",[10,12,15,18,20]],["Poop scoop, weekly",[8,10,12,14,16]],["Fresh water and food bowls",[4,5,6,8,10]],["Litter box cleaning",[5,6,8,10,12]],["Pet playtime",[6,8,10,12,14]],["Mail and pet check",[5,6,8,10,12]],["Small animal care",[6,8,10,12,14]],["Dog brushing",[5,6,8,10,12]],["Water the plants",[4,5,6,8,10]]]},
- {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,4,5,6,7]],["Leaf raking, whole yard",[15,20,25,30,40]],["Weeding flower beds",[8,10,12,15,20]],["Spread mulch (by hand)",[15,20,25,30,40]],["Trim small bushes (hand clippers)",[8,10,12,15,20]],["Pick up sticks and yard cleanup",[8,10,12,15,18]],["Sweep driveway and patio",[5,6,8,10,12]],["Plant flowers",[10,12,15,20,25]],["Water plants (per visit)",[4,5,6,8,10]],["Pick up dog mess in the yard",[4,5,6,8,10]],["Move patio furniture and hoses",[5,6,8,10,12]]]},
- {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,5,6,8,10]],["Clear the end of the driveway (plow pile)",[5,6,8,10,12]],["Clear around the mailbox",[3,4,5,6,8]],["Clear the back door and patio",[5,6,8,10,12]],["Clear a path to the trash cans",[3,4,5,6,8]],["Brush off and clear the car",[4,5,6,8,10]]]},
- {g:"Car jobs",t:"wash",items:[["Wash the outside",[8,10,12,15,18]],["Wash and vacuum",[12,15,18,22,28]],["Rims and windows",[6,8,10,12,15]],["Dry and shine",[5,6,8,10,12]],["Vacuum the inside",[6,8,10,12,15]],["Wash the car",[6,8,10,14,18]]]},
- {g:"Reading jobs",t:"tutor",items:[["Reading together, 30 minutes",[8,10,12,15,18]],["Homework helper, 30 minutes",[10,12,15,18,22]],["Practice spelling",[6,8,10,12,14]],["Read a chapter",[6,8,10,12,15]],["Flash cards",[5,6,8,10,12]]]},
- {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,3,4,5,6]],["Bring in mail and packages (per day)",[2,3,4,5,6]],["Playtime helper, 1 hour",[8,10,12,15,18]],["Tidy toys",[5,6,8,10,12]]]}];
+ {g:"Pet jobs",t:"pet",items:[["Dog walk, 15 minutes",[5,6,6,7,7]],["Dog walk, 30 minutes",[8,9,10,11,12]],["Pet feeding drop-in",[6,7,7,8,9]],["Pet sitting visit",[8,9,10,11,12]],["Pet sitting, full day",[10,11,12,14,15]],["Poop scoop, one time",[10,11,12,14,15]],["Poop scoop, weekly",[8,9,10,11,12]],["Fresh water and food bowls",[4,4,5,5,6]],["Litter box cleaning",[5,6,6,7,7]],["Pet playtime",[6,7,7,8,9]],["Mail and pet check",[5,6,6,7,7]],["Small animal care",[6,7,7,8,9]],["Dog brushing",[5,6,6,7,7]],["Water the plants",[4,4,5,5,6]]]},
+ {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,3,4,4,4]],["Leaf raking, whole yard",[15,17,19,20,22]],["Weeding flower beds",[8,9,10,11,12]],["Spread mulch (by hand)",[15,17,19,20,22]],["Trim small bushes (hand clippers)",[8,9,10,11,12]],["Pick up sticks and yard cleanup",[8,9,10,11,12]],["Sweep driveway and patio",[5,6,6,7,7]],["Plant flowers",[10,11,12,14,15]],["Water plants (per visit)",[4,4,5,5,6]],["Pick up dog mess in the yard",[4,4,5,5,6]],["Move patio furniture and hoses",[5,6,6,7,7]]]},
+ {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,4,5,5,6]],["Clear the end of the driveway (plow pile)",[5,6,6,7,7]],["Clear around the mailbox",[3,3,4,4,4]],["Clear the back door and patio",[5,6,6,7,7]],["Clear a path to the trash cans",[3,3,4,4,4]],["Brush off and clear the car",[4,4,5,5,6]]]},
+ {g:"Car jobs",t:"wash",items:[["Wash the outside",[8,9,10,11,12]],["Wash and vacuum",[12,13,15,16,18]],["Rims and windows",[6,7,7,8,9]],["Dry and shine",[5,6,6,7,7]],["Vacuum the inside",[6,7,7,8,9]],["Wash the car",[6,7,7,8,9]]]},
+ {g:"Reading jobs",t:"tutor",items:[["Reading together, 30 minutes",[8,9,10,11,12]],["Homework helper, 30 minutes",[10,11,12,14,15]],["Practice spelling",[6,7,7,8,9]],["Read a chapter",[6,7,7,8,9]],["Flash cards",[5,6,6,7,7]]]},
+ {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,2,2,3,3]],["Bring in mail and packages (per day)",[2,2,2,3,3]],["Playtime helper, 1 hour",[8,9,10,11,12]],["Tidy toys",[5,6,6,7,7]]]}];
 /* leftover sections stay in this order after the ones the kid picked */
 const JOB_SECTION_ORDER=["lawn","snow","pet","wash","tutor","any"];
 const TYPE_JOB_SECTIONS={lawn:["lawn"],snow:["snow"],both:["lawn","snow"],pet:["pet"],odd:["lawn"],wash:["wash"],help:["any"],tutor:["tutor"],other:[]};
@@ -4922,6 +4957,7 @@ function applyDraft(d){
   S=Object.assign(defaults(),d);
   if(!PRESETS[S.type])S.type="lawn";
   fixSvcRows();
+  if(typeof initSvcTouched==="function")initSvcTouched();
   document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
   const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
   const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";

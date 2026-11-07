@@ -940,7 +940,7 @@ test("each business type preloads starter jobs", async () => {
   assert.ok(lawn.includes("Mow a small yard"));
   assert.ok(lawn.includes("Weeding"));
   assert.equal(starterServices("lawn", 1)[0].p, "10");
-  assert.equal(starterServices("lawn", 5)[0].p, "22");
+  assert.equal(starterServices("lawn", 5)[0].p, "15"); // softened curve (Steven, 2026-11-07): L5 = base x1.48
   const mixed = starterServices(["pet", "lawn"], 1);
   assert.equal(mixed[0].n, "Dog walk, 15 minutes");
   assert.ok(mixed.some((job) => job.n === "Mow a small yard"));
@@ -992,7 +992,7 @@ test("price rows stay with the job they were made under", async () => {
 
   // a first visit to a job seeds at the applied level
   const firstSnow = svcSwitch({}, "lawn", { services: starterServices("lawn", 1), edited: false }, "snow", 5);
-  assert.equal(firstSnow.services[0].p, "22");
+  assert.equal(firstSnow.services[0].p, "15"); // softened curve (Steven, 2026-11-07): L5 = base x1.48
 
   // parked sets are validated: junk in a saved draft cannot ride along
   assert.deepEqual(plain(svcSetsClean({ nope: { services: [{ n: "X", p: "1" }], edited: true }, pet: { services: "no" }, lawn: { services: [{ n: "Mow", p: 5 }], edited: 1 } })),
