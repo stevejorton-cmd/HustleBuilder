@@ -1,4 +1,4 @@
-> **Status, November 10, 2026:** this app is live at https://hustlebuilder.org on PostgreSQL (the Blob-to-Postgres cutover finished on November 1, 2026; see the note at the end of [REPAIR-HANDOFF.md](REPAIR-HANDOFF.md)). Section 2 below describes the old Blob store and is kept only as history; a new deployment needs `DATABASE_URL`, not a Blob store. The variable list is in `.env.example`. What changed in the November 10 product pass is in [CHANGES-2026-11-10.md](CHANGES-2026-11-10.md).
+> **Status, November 10, 2026:** this app is live at https://hustlebuilder.org on PostgreSQL (the Blob-to-Postgres cutover finished on November 1, 2026). Section 2 below describes the old Blob store and is kept only as history; a new deployment needs `DATABASE_URL`, not a Blob store. The variable list is in `.env.example`. What changed in the November 10 product pass is in [CHANGES-2026-11-10.md](CHANGES-2026-11-10.md).
 
 # One-time setup for family hosting
 
