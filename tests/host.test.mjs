@@ -85,6 +85,11 @@ test("consent gate blocks publish until the parent verifies and agrees", async (
 
   const consent = await json(await call("POST", "/api/consent", { token, body: { consent: true } }));
   assert.equal(consent.body.ok, true);
+  assert.equal(consent.body.method, "card_charge");
+  assert.equal(consent.body.refunded, true);
+  const meChecked = await json(await call("GET", "/api/me", { token }));
+  assert.equal(meChecked.body.consent, true);
+  assert.equal(meChecked.body.consentMethod, "card_charge");
   const noPay = await json(await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } }));
   assert.equal(noPay.status, 200);
   assert.equal(noPay.body.ok, true);
@@ -95,6 +100,24 @@ test("consent gate blocks publish until the parent verifies and agrees", async (
   const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
   assert.equal(pay.body.mode, "test");
   assert.equal(pay.body.plan, "season");
+  const stillCard = await json(await call("GET", "/api/me", { token }));
+  assert.equal(stillCard.body.consentMethod, "card_charge", "a later plan does not erase a finished card check");
+});
+
+test("a real plan payment counts as the parent check and skips the 50 cent charge", async () => {
+  const { token } = await parent();
+  const blocked = await json(await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam") } }));
+  assert.equal(blocked.status, 403);
+  const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "year" } }));
+  assert.equal(pay.body.ok, true);
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.consent, true);
+  assert.equal(me.body.consentMethod, "plan_payment");
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam") } }));
+  assert.equal(pub.status, 200);
+  const again = await json(await call("POST", "/api/consent", { token, body: { consent: true } }));
+  assert.equal(again.body.already, true);
+  assert.equal(again.body.method, "plan_payment");
 });
 
 test("publish and republish keep the same url", async () => {

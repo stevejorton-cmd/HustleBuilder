@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
-import { handleRequest, seasonOffer, SEASON_MIN_DAYS, RENEW_WINDOW_DAYS, MAX_PAGES_PER_ACCOUNT } from "../host/lib/router.mjs";
+import { handleRequest, seasonOffer, SEASON_MIN_DAYS, RENEW_WINDOW_DAYS, MAX_PAGES_PER_ACCOUNT, CONSENT_VERSION } from "../host/lib/router.mjs";
 import { jobInstant, jobsToIcs, gcalTemplate, validTz } from "../host/lib/calendar.mjs";
 import { checkSlug } from "../host/lib/moderate.mjs";
 import { decoratePage } from "../host/lib/preview.mjs";
@@ -299,6 +299,10 @@ test("privacy and terms are real pages with no internal notes", async () => {
   assert.match(terms.body, /do not renew on their own/);
   assert.match(privacy.body, /Stripe/);
   assert.match(privacy.body, /about 30 days/);
+  assert.match(privacy.body, /50¢/);
+  assert.match(privacy.body, /do not store the card number/i);
+  assert.match(terms.body, /Parent check/);
+  assert.match(terms.body, /refund the 50¢ in full/i);
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.equal(src.includes("will be added before this app is sold"), false);
   assert.equal(src.includes("Nothing is sent to a server"), false);
@@ -333,6 +337,7 @@ test("the admin dashboard can take a page down and put it back without the comma
   const cookie = login.headers["set-cookie"].split(";")[0];
   const dash = await call("GET", "/admin", { headers: { cookie } });
   assert.match(dash.body, /action="\/admin\/takedown"/);
+  assert.match(dash.body, /Consent: card check, refunded/);
   const anon = await call("POST", "/admin/takedown", { raw: "slug=sam-yard" });
   assert.equal(anon.status, 302);
   assert.match((await call("GET", "/api/site/sam-yard")).body, /<h1>Sam<\/h1>/, "no session, no change");
@@ -416,6 +421,149 @@ test("mail the provider rejects outright is dropped after three tries; outages k
     }
     assert.equal(JSON.parse(await store.get(key2)).attempts, 5, "a provider outage is retried");
   } finally { console.error = quiet; process.env.PUBLISH_TEST_MODE = "1"; }
+});
+
+function signStripe(raw, secret = "placeholder") {
+  const t = String(Math.floor(Date.now() / 1000));
+  const sig = createHmac("sha256", secret).update(t + "." + raw).digest("hex");
+  return { raw, headers: { "stripe-signature": "t=" + t + ",v1=" + sig } };
+}
+async function verifiedOnly(email) {
+  const start = await json(await call("POST", "/api/auth/start", { body: { email } }));
+  const verify = await json(await call("POST", "/api/auth/verify", { body: { email, code: start.body.devCode } }));
+  const id = (await readFile(path.join(dir, "email", sha(email)), "utf8")).trim();
+  return { email, token: verify.body.token, id };
+}
+function cardMock(state) {
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url), method = opts.method || "GET";
+    state.calls.push(method + " " + u.replace("https://api.stripe.com/v1/", ""));
+    if (method === "POST" && u.endsWith("/checkout/sessions")) {
+      const params = new URLSearchParams(String(opts.body));
+      const id = "cs_test_verify_" + state.calls.length;
+      state.sessions[id] = {
+        id, url: "https://checkout.invalid/" + id, status: "open", payment_status: "unpaid", currency: "usd",
+        amount_total: Number(params.get("line_items[0][price_data][unit_amount]")),
+        customer_email: params.get("customer_email"),
+        receipt_email: params.get("payment_intent_data[receipt_email]"),
+        metadata: { accountId: params.get("metadata[accountId]"), purpose: params.get("metadata[purpose]"), notice: params.get("metadata[notice]") },
+        payment_intent: "",
+        name: params.get("line_items[0][price_data][product_data][name]")
+      };
+      return new Response(JSON.stringify(state.sessions[id]), { status: 200 });
+    }
+    if (method === "POST" && u.endsWith("/refunds")) {
+      const params = new URLSearchParams(String(opts.body));
+      state.refunds.push({ payment_intent: params.get("payment_intent"), purpose: params.get("metadata[purpose]"), key: opts.headers["Idempotency-Key"] });
+      return new Response(JSON.stringify({ id: "re_test_" + state.refunds.length }), { status: 200 });
+    }
+    if (method === "GET" && u.includes("/checkout/sessions?")) {
+      const q = new URL(u).searchParams.get("payment_intent");
+      const found = Object.values(state.sessions).find((s) => s.payment_intent === q);
+      return new Response(JSON.stringify({ data: found ? [found] : [] }), { status: 200 });
+    }
+    const get = u.match(/checkout\/sessions\/([^/?]+)$/);
+    if (method === "GET" && get) {
+      const sess = state.sessions[get[1]];
+      return new Response(JSON.stringify(sess || {}), { status: sess ? 200 : 404 });
+    }
+    throw new Error("unexpected provider call " + method + " " + u);
+  };
+}
+
+test("an unfinished 50 cent card check does not publish the page", async () => {
+  process.env.PAYWALL_MODE = "stripe"; process.env.STRIPE_SECRET_KEY = "placeholder";
+  const state = { calls: [], sessions: {}, refunds: [] };
+  cardMock(state);
+  const p = await verifiedOnly("left-checkout@example.com");
+  const started = await json(await call("POST", "/api/consent", { token: p.token, body: { consent: true } }));
+  assert.equal(started.body.needsCard, true);
+  assert.match(started.body.url, /^https:\/\/checkout\.invalid\//);
+  const sess = Object.values(state.sessions)[0];
+  assert.equal(sess.amount_total, 50);
+  assert.equal(sess.metadata.purpose, "parent_verification");
+  assert.equal(sess.customer_email, p.email);
+  assert.equal(sess.receipt_email, p.email, "Stripe emails the receipt to the parent");
+  assert.equal(sess.metadata.purpose === "parent_verification" && !sess.name.includes("hosting"), true);
+  const pub = await json(await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-yard", html: page("Sam") } }));
+  assert.equal(pub.status, 403);
+  assert.equal(pub.body.error, "consent");
+  const acct = await readAccount(p.id);
+  assert.equal(acct.consentAt || null, null);
+  assert.equal(state.refunds.length, 0);
+  assert.equal((await call("GET", "/api/site/sam-yard")).status, 404);
+});
+
+test("a finished 50 cent check refunds, stores consent, and then publish is allowed", async () => {
+  process.env.PAYWALL_MODE = "stripe"; process.env.STRIPE_SECRET_KEY = "placeholder"; process.env.STRIPE_WEBHOOK_SECRET = "placeholder";
+  const state = { calls: [], sessions: {}, refunds: [] };
+  cardMock(state);
+  const p = await verifiedOnly("card-ok@example.com");
+  await call("POST", "/api/consent", { token: p.token, body: { consent: true } });
+  const id = Object.keys(state.sessions)[0];
+  Object.assign(state.sessions[id], { status: "complete", payment_status: "paid", payment_intent: "pi_verify_ok_1" });
+  const event = { id: "evt_verify_ok", type: "checkout.session.completed", data: { object: state.sessions[id] } };
+  const hook = await json(await call("POST", "/api/stripe/webhook", signStripe(JSON.stringify(event))));
+  assert.equal(hook.status, 200);
+  assert.equal(hook.body.verification, true);
+  assert.equal(state.refunds.length, 1);
+  assert.equal(state.refunds[0].payment_intent, "pi_verify_ok_1");
+  assert.equal(state.refunds[0].purpose, "parent_verification");
+  assert.match(state.refunds[0].key, /^hb-verify-refund-/);
+  const again = await json(await call("POST", "/api/stripe/webhook", signStripe(JSON.stringify(event))));
+  assert.equal(again.status, 200);
+  assert.equal(state.refunds.length, 1, "the same check is refunded once");
+  const acct = await readAccount(p.id);
+  assert.equal(acct.consentMethod, "card_charge");
+  assert.equal(acct.consentPaymentIntent, "pi_verify_ok_1");
+  assert.equal(acct.consentVersion, CONSENT_VERSION);
+  assert.ok(acct.consentAt);
+  assert.ok(acct.consentRefundedAt);
+  assert.equal(acct.card, undefined);
+  assert.equal(JSON.stringify(acct).includes("last4"), false);
+  const pub = await json(await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-yard", html: page("Sam") } }));
+  assert.equal(pub.status, 200);
+  const sibling = await json(await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-pets", html: page("Sam Pets") } }));
+  assert.equal(sibling.status, 200);
+  assert.equal(state.refunds.length, 1, "a second page does not charge the card again");
+  const me = await json(await call("GET", "/api/me", { token: p.token }));
+  assert.equal(me.body.consent, true);
+  assert.equal(me.body.consentMethod, "card_charge");
+});
+
+test("coming back from the card check applies it on the server", async () => {
+  process.env.PAYWALL_MODE = "stripe"; process.env.STRIPE_SECRET_KEY = "placeholder";
+  const state = { calls: [], sessions: {}, refunds: [] };
+  cardMock(state);
+  const p = await verifiedOnly("card-return@example.com");
+  await call("POST", "/api/consent", { token: p.token, body: { consent: true } });
+  const early = await json(await call("POST", "/api/consent/confirm", { token: p.token, body: {} }));
+  assert.equal(early.body.consent, false);
+  assert.equal(early.body.state, "open");
+  const id = Object.keys(state.sessions)[0];
+  Object.assign(state.sessions[id], { status: "complete", payment_status: "paid", payment_intent: "pi_verify_back_1" });
+  const done = await json(await call("POST", "/api/consent/confirm", { token: p.token, body: {} }));
+  assert.equal(done.body.consent, true);
+  assert.equal(state.refunds.length, 1);
+  const pub = await json(await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-yard", html: page("Sam") } }));
+  assert.equal(pub.status, 200);
+});
+
+test("refunding the 50 cent parent check does not take the page or the plan down", async () => {
+  const p = await parent("verify-refund@example.com");
+  await call("POST", "/api/checkout", { token: p.token, body: { plan: "year" } });
+  await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-yard", html: page("Sam") } });
+  const before = await readAccount(p.id);
+  assert.equal(before.consentMethod, "card_charge");
+  process.env.STRIPE_WEBHOOK_SECRET = "placeholder";
+  const event = { id: "evt_verify_refund", type: "charge.refunded", data: { object: { payment_intent: before.consentPaymentIntent, refunded: true, amount: 50, amount_refunded: 50 } } };
+  const hook = await json(await call("POST", "/api/stripe/webhook", signStripe(JSON.stringify(event))));
+  assert.equal(hook.body.verification, true);
+  const after = await readAccount(p.id);
+  assert.equal(after.paidUntil, before.paidUntil);
+  assert.equal(after.plan, "year");
+  assert.equal(after.receipts.filter((r) => r.refundedAt).length, 0);
+  assert.equal((await call("GET", "/api/site/sam-yard")).status, 200);
 });
 
 /* ---------------- deployment files ---------------- */

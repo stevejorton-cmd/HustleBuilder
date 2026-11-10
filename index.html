@@ -827,11 +827,11 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
       </section>
       <div class="missing" id="missing" hidden></div>
       <h3 class="h3">Publish to hustlebuilder.org</h3>
-      <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
+      <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email, read the notice, and check a card for 50¢. We refund that right away. After that, Update puts the new page on the same link. A brother or sister does not do the check again.</p>
       <div id="pubBox">
         <button type="button" class="btn block" id="askParent">Ask my parent</button>
         <p class="small2">Until a parent agrees, this page stays on this phone. Ask my parent sends only their email, your first name, and your business name.</p>
-        <p class="small2">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically. After that, a season is $9.99 and a year is $19.99. A parent still verifies their email and agrees before the page goes live. <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
+        <p class="small2">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically. The 50¢ parent check is refunded right away. It is not the plan. After the trial, a season is $9.99 and a year is $19.99. <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
         <p class="small2">They get a link on their phone. They say yes, and the page goes up.</p>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
@@ -848,7 +848,8 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
         <label class="field" for="pubCode"><span>Code from the email</span><input type="text" id="pubCode" inputmode="numeric" autocomplete="one-time-code" spellcheck="false"></label>
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
         <div id="pubReady" hidden>
-          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
+          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on.</span></label>
+          <p class="small2" id="cardCheckNote">To show this is a parent, we charge 50¢ on a card. Stripe emails a receipt, and we refund the 50¢ right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
             <p class="lead" id="trialPitch">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically.</p>
@@ -4576,9 +4577,13 @@ function applyPublishState(me){
     return;
   }
   if(slugEl)slugEl.readOnly=false;
-  if(owned.length){
+  if(!(me&&me.consent)){
+    if(go){go.hidden=false; go.textContent="Check my card, 50¢";}
+    if(note)note.hidden=true;
+    if(slugEl&&!slugEl.value)suggestSlug();
+  }else if(owned.length){
     if(go){go.hidden=false; go.textContent="Put this page online too";}
-    if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial.";}
+    if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial. The parent check is already done.";}
     if(slugEl&&!slugEl.value)suggestSlug();
   }else{
     if(go)go.textContent="Publish my website";
@@ -4641,7 +4646,7 @@ $("#pubVerify").onclick=async()=>{
     pubSaveSession({email:data.email, slug:data.slug||""});
     $("#pubReady").hidden=false;
     applyPublishState(data);
-    $("#pubOk").textContent="Email verified. A parent checks the box. "+TRIAL_WORDS;
+    $("#pubOk").textContent="Email verified. A parent checks the box, then a card for 50¢. We refund it right away. "+TRIAL_WORDS;
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
@@ -4760,8 +4765,13 @@ async function pubPush(){
   if(familyNote&&!familyNote.hidden&&!($("#pubSlug").value||"").trim()){pubErr("Pick a link name for this page first."); return;}
   try{
     if(!session.slug){
-      const agreed=await pubApi("/api/consent", {body:{consent:true}});
-      if(!agreed.ok){pubErr("A parent has to agree before the page can go online."); return;}
+      const prior=await pubApi("/api/me", {method:"GET"});
+      if(!prior.consent){
+        if(!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
+        const agreed=await pubApi("/api/consent", {body:{consent:true}});
+        if(agreed&&agreed.url){savePending(slug); location.href=agreed.url; return;}
+        if(!agreed||!agreed.ok||agreed.needsCard){pubErr(agreed&&agreed.error==="stripe-key"?"The card check is not set up yet.":"The card check was not finished. Nothing was kept."); return;}
+      }
     }
     const me=await pubApi("/api/me", {method:"GET"});
     showHosting(me);
@@ -5408,7 +5418,32 @@ const accountQ=startQ.get("account");
 if(askQ&&publishOrigin()&&hostQ!=="paid")openAsk(askQ);
 else if(draftQ&&publishOrigin())loadDraft(draftQ);
 else if(localStorage.getItem("hb-ask"))startAskPoll();
-if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
+async function resumeConsent(kind){
+  try{history.replaceState({},"",location.pathname);}catch(e){}
+  go(7);
+  const box=$("#pubOk");
+  if(kind==="cancel"){
+    if(box)box.textContent="The card check was not finished. Nothing was charged. The page is not online.";
+    return;
+  }
+  if(box)box.textContent="Card check received. Refunding the 50¢…";
+  let ready=null;
+  for(const start=Date.now(); Date.now()-start<45000; ){
+    try{const now=await pubApi("/api/consent/confirm",{body:{}}); if(now&&now.consent){ready=now;break;}}catch(e){}
+    await new Promise(r=>setTimeout(r,2000));
+  }
+  if(!ready){
+    if(box)box.textContent="The card check is still processing. Tap Try again in a minute. You will not be charged twice.";
+    return;
+  }
+  const pending=pendingPublish();
+  if($("#pubSlug")&&pending&&pending.slug)$("#pubSlug").value=pending.slug;
+  if($("#pubConsent")&&!$("#pubConsent").checked)$("#pubConsent").checked=true;
+  await pubPush();
+}
+const consentQ=startQ.get("consent");
+if(consentQ==="paid"||consentQ==="cancel")resumeConsent(consentQ);
+else if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
 else if(accountQ){go(7); showAccount();}
 else if(!askQ)go(0);
 if(startQ.get("account")){go(7); const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}
