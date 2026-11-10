@@ -2264,8 +2264,8 @@ function fnBody(src, name) {
 test("start a new page: build labels prefer the business name, then the kid's first name", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { buildLabelOf } = extractNamedFns(src, ["buildLabelOf"]);
-  assert.equal(buildLabelOf({ bizName: "  Maryn's Pet Care ", first: "Maryn" }), "Maryn's Pet Care");
-  assert.equal(buildLabelOf({ bizName: "  ", first: " Levi " }), "Levi");
+  assert.equal(buildLabelOf({ bizName: "  Sam's Pet Care ", first: "Sam" }), "Sam's Pet Care");
+  assert.equal(buildLabelOf({ bizName: "  ", first: " Riley " }), "Riley");
   assert.equal(buildLabelOf({ bizName: "", first: "" }), "Untitled page");
   assert.equal(buildLabelOf({}), "Untitled page");
   assert.equal(buildLabelOf(null), "Untitled page");
@@ -2319,16 +2319,16 @@ test("start a new page: publishing remembers which build owns each live page, pe
   assert.deepEqual(siteDraftsClean("junk"), {});
   assert.deepEqual(siteDraftsClean(null), {});
   assert.deepEqual(siteDraftsClean({ " A ": " x ", "": "y", B: "" }), { a: "x" }, "keys and codes are trimmed, blanks dropped");
-  let map = siteDraftsWith({}, " Maryn-Pet-Care ", " AAA ");
-  assert.deepEqual(map, { "maryn-pet-care": "AAA" }, "recording normalizes the address");
-  map = siteDraftsWith(map, "levi-snow-crew", "BBB");
-  assert.deepEqual(map, { "maryn-pet-care": "AAA", "levi-snow-crew": "BBB" }, "a second page's record keeps its sibling's");
+  let map = siteDraftsWith({}, " Sam-Pet-Care ", " AAA ");
+  assert.deepEqual(map, { "sam-pet-care": "AAA" }, "recording normalizes the address");
+  map = siteDraftsWith(map, "riley-snow-crew", "BBB");
+  assert.deepEqual(map, { "sam-pet-care": "AAA", "riley-snow-crew": "BBB" }, "a second page's record keeps its sibling's");
   assert.deepEqual(siteDraftsWith(map, "", "CCC"), map, "a blank address records nothing");
-  assert.equal(siteOwnerOf(map, "maryn-pet-care", "ZZZ", "maryn-pet-care"), "AAA", "the per-page record wins");
-  assert.equal(siteOwnerOf(map, "levi-snow-crew", "", "maryn-pet-care"), "BBB");
-  assert.equal(siteOwnerOf({}, "maryn-pet-care", "ZZZ", "maryn-pet-care"), "ZZZ", "the pre-family-plan single record still answers for the primary page");
-  assert.equal(siteOwnerOf({}, "levi-snow-crew", "ZZZ", "maryn-pet-care"), "", "but it never claims a sibling's page");
-  assert.equal(siteOwnerOf({}, "levi-snow-crew", "", ""), "", "no record anywhere means no known owner");
+  assert.equal(siteOwnerOf(map, "sam-pet-care", "ZZZ", "sam-pet-care"), "AAA", "the per-page record wins");
+  assert.equal(siteOwnerOf(map, "riley-snow-crew", "", "sam-pet-care"), "BBB");
+  assert.equal(siteOwnerOf({}, "sam-pet-care", "ZZZ", "sam-pet-care"), "ZZZ", "the pre-family-plan single record still answers for the primary page");
+  assert.equal(siteOwnerOf({}, "riley-snow-crew", "ZZZ", "sam-pet-care"), "", "but it never claims a sibling's page");
+  assert.equal(siteOwnerOf({}, "riley-snow-crew", "", ""), "", "no record anywhere means no known owner");
   const push = fnBody(src, "pubPush");
   assert.match(push, /recordSiteDraft\(data\.slug\)/, "a successful publish records the owner of the page it just published");
   assert.match(fnBody(src, "recordSiteDraft"), /hb-site-drafts/, "the record is stored per page");

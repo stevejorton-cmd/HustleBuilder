@@ -4,7 +4,7 @@ Prepared November 1, 2026. **Repaired v4 source, tested locally; not deployed. T
 
 ## Baseline and preservation
 
-The uploaded v4 ZIP's source matched public GitHub commit **`1b57d7a`** byte-for-byte. The original v4 suite passed **78/78** before edits. Work was done in a separate copy of that source. The earlier v3 source was not substituted for it. No live account, including Maryn's, was accessed or changed. No real mail, payment, booking, or production cron was triggered.
+The uploaded v4 ZIP's source matched public GitHub commit **`1b57d7a`** byte-for-byte. The original v4 suite passed **78/78** before edits. Work was done in a separate copy of that source. The earlier v3 source was not substituted for it. No live account was accessed or changed. No real mail, payment, booking, or production cron was triggered.
 
 The repaired suite retains the 78 original test cases, including family plans, the seven page designs, picture selection, receipts, admin/comp controls, PWA behavior and saved builds. Security fixtures were updated where the intended behavior is stricter: invitation opening no longer authenticates, billing events include a legitimate pending session and payment fields, renewals never pay on GET, cookie writes use the correct origin, and CSP tests assert an opaque origin. No family or artwork assertions were removed to make the repairs pass.
 
