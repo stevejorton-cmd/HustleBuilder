@@ -24,6 +24,10 @@ export function trialLengthDays() {
   return Math.floor(days);
 }
 
+export function trialBlurb() {
+  return "Free until " + trialLengthDays() + " days after first publish or " + FREE_JOBS + " booking requests are delivered, whichever comes first. You are never charged automatically.";
+}
+
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export function niceDate(iso) {
@@ -731,13 +735,12 @@ async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forPa
 
 export const LEGAL_UPDATED = "November 10, 2026";
 function privacyPage() {
-  const days = trialLengthDays();
   return shell(200, "Privacy", `<h1>Privacy</h1>
 <p>Last updated ${LEGAL_UPDATED}.</p>
 <p>Hustle Builder helps a kid build a page for a small neighborhood business, and lets a parent or guardian put that page online. This page says what we keep, why, and for how long.</p>
 
 <h2>The builder, before anything is published</h2>
-<p>What a kid types in the builder is saved in the browser on that phone or computer. It is not sent to us unless one of these happens: the kid saves a draft to open on another device, the kid asks a parent to publish, or a parent publishes the page.</p>
+<p>Until a parent completes verification and consent, your draft stays only in this browser. “Ask my parent” sends only the contact information and names needed to request consent, not the business draft. If consent is not completed within seven days, we delete that request information. Cloud drafts become available only after parental consent.</p>
 
 <h2>What we keep for a parent account</h2>
 <p>The account belongs to the parent or guardian, not the child. We keep the parent’s email address, the date they agreed to publish, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
@@ -753,7 +756,7 @@ function privacyPage() {
 <p>The kid’s “My jobs” list shows the job, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on, and even then it shows the street name without the house number.</p>
 
 <h2>Drafts and “ask my parent” links</h2>
-<p>A kid can save a draft on our server so the same page opens on another device. The draft code is the key, so keep it private. We delete a draft about 90 days after its last save, or when the parent deletes the account. An “ask my parent” email link holds a copy of the draft and expires after 7 days.</p>
+<p>After a parent has verified their email and agreed, a draft can be saved on our server so the same page opens on another device. The draft code is the key, so keep it private. We delete a draft about 90 days after its last save, or when the parent deletes the account. Before that agreement, the draft stays in the browser. An “ask my parent” note keeps only the parent’s email, the kid’s first name, and the business name, and we delete it after 7 days if consent is not completed.</p>
 
 <h2>Job log and calendar sync</h2>
 <p>The job log in Boss mode stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Synced jobs go to the same private calendar link and follow the same 30-day delete.</p>
@@ -768,7 +771,7 @@ function privacyPage() {
 <p>We use service providers to host the site and database, send email, and take payments. They handle the information above only to provide those services to us.</p>
 
 <h2>Free trial and plans</h2>
-<p>A family can publish with no payment. The page stays up for ${days} days from the first publish, or until 3 booking requests are delivered, whichever comes first. One trial belongs to the parent’s email and does not start over with a new link. When the trial ends, the public link shows a taking-a-break page; the page and the kid’s draft stay saved, and new requests wait until a parent picks a plan. Plans and prices are on the <a href="/terms">Terms</a> page.</p>
+<p>${trialBlurb()} One trial belongs to the parent’s email and is shared by every page on that account. It does not start over with a new link. When the trial ends, the public link shows a taking-a-break page. The page and, after consent, the kid’s draft stay saved. New requests are saved and held until a parent picks a plan, and each request is deleted about 30 days after it arrives. Plans and prices are on the <a href="/terms">Terms</a> page.</p>
 
 <h2>Taking a page down, or deleting everything</h2>
 <p>A parent can pause the page, take it offline, or delete the account from the account screen at any time. Taking a page offline does not delete calendar jobs. Deleting the account removes the email, the consent record, every page on the account, the booking requests, the calendar jobs, and the calendar link. One thing stays: a scrambled marker that this email already used its free trial, so the trial cannot be restarted.</p>
@@ -778,7 +781,6 @@ function privacyPage() {
 }
 
 function termsPage() {
-  const days = trialLengthDays();
   return shell(200, "Terms", `<h1>Terms of use</h1>
 <p>Last updated ${LEGAL_UPDATED}.</p>
 <p>These terms cover the Hustle Builder app and the pages it hosts at hustlebuilder.org. By publishing a page or buying a plan you agree to them.</p>
@@ -790,7 +792,7 @@ function termsPage() {
 <p>We host the page and pass booking requests to the parent. A booking request is only a request: nothing is booked until the parent replies to the neighbor. We are not part of any job, we do not check who neighbors are, we do not supervise work, and we do not handle money between a family and a neighbor.</p>
 
 <h2>Free trial</h2>
-<p>A family can publish without paying. The page stays up for ${days} days from the first publish, or until 3 booking requests are delivered, whichever comes first. There is one trial per parent email.</p>
+<p>${trialBlurb()} There is one trial per parent email, shared by every page on that account.</p>
 
 <h2>Plans and payment</h2>
 <p>A season plan is ${PLANS.season.label}. It covers the page through the end of the current season: August 31 for summer, March 31 for winter. If fewer than ${SEASON_MIN_DAYS} days are left in a season, the plan runs through the end of the next one instead. A year plan is ${PLANS.year.label} and covers 365 days. The end date is shown before you pay.</p>
@@ -1444,6 +1446,24 @@ function clipDraft(value) {
   if (raw.length > 900000) return { error: "big" };
   return { draft: value, raw };
 }
+function askNames(body) {
+  const src = body && body.draft && typeof body.draft === "object" && !Array.isArray(body.draft) ? body.draft : {};
+  const clip = (v) => String(v || "").replace(/[\r\n]+/g, " ").trim();
+  return { first: clip(body && (body.first || src.first)).slice(0, 40), biz: clip(body && (body.biz || body.bizName || src.bizName || src.biz)).slice(0, 80) };
+}
+async function dropAsk(token, rec) {
+  await (await store()).del("asks/" + token + ".json");
+  if (rec && rec.email) await (await store()).del("askby/" + sha(rec.email) + "/" + token);
+}
+async function readAsk(token) {
+  const rec = await readJson("asks/" + token + ".json");
+  if (!rec) return null;
+  if (!(Date.parse(rec.expires) > Date.now())) {
+    await dropAsk(token, rec);
+    return null;
+  }
+  return rec;
+}
 async function countKey(key, limit) {
   const n = Number((await (await store()).get(key)) || 0) + 1;
   await (await store()).put(key, String(n));
@@ -1499,8 +1519,8 @@ async function routeRequest(req) {
 
   const askGet = route.match(/^ask\/([a-f0-9]{32,128})$/i);
   if (method === "GET" && askGet) {
-    const rec = await readJson("asks/" + askGet[1] + ".json");
-    if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const rec = await readAsk(askGet[1]);
+    if (!rec) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     return withCors(json(200, { ok: true, status: rec.status || "waiting", url: rec.url || "", expires: rec.expires }), req.headers && req.headers.origin);
   }
 
@@ -1907,26 +1927,26 @@ async function routeRequest(req) {
   if (method === "POST" && route === "ask") {
     const email = emailOk(body.email);
     if (!email) return withCors(json(400, { ok: false, error: "email" }), req.headers && req.headers.origin);
-    const packed = clipDraft(body.draft);
-    if (!packed) return withCors(json(400, { ok: false, error: "draft" }), req.headers && req.headers.origin);
-    if (packed.error) return withCors(json(413, { ok: false, error: "big" }), req.headers && req.headers.origin);
+    const names = askNames(body);
     const day = new Date().toISOString().slice(0, 10);
     if (await countKey(counterKey("askem", email), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     if (await countKey(counterKey("askip", clientIp(req)), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     const token = rand(24);
     const expires = new Date(Date.now() + ASK_MS).toISOString();
-    await writeJson("asks/" + token + ".json", { email, draft: packed.draft, createdAt: new Date().toISOString(), expires, status: "waiting", url: "" });
+    await writeJson("asks/" + token + ".json", { email, first: names.first, biz: names.biz, createdAt: new Date().toISOString(), expires, status: "waiting", url: "" });
     await ownerIndexSince();
     await (await store()).put("askby/" + sha(email) + "/" + token, String(Date.now()));
     const link = (origin || "") + "/?ask=" + token;
+    const who = names.first || "Your kid";
+    const ready = names.biz ? who + " is ready to publish " + names.biz + "." : "Your kid is ready to publish a Hustle Builder page.";
     const mailed = await sendMail({
       to: email,
       replyTo: supportReply(),
       forParent: true,
       origin,
-      subject: "Your kid asked you to publish their page",
-      text: "Your kid is ready to publish a Hustle Builder page.\n\nTry free: your first 3 jobs are on us. The page stays up for " + trialLengthDays() + " days, or until those 3 jobs are used, whichever comes first. You still confirm you are the parent. No payment is needed to go live.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nOpen this link on your phone. It expires in 7 days.\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
-      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your kid is ready to publish a Hustle Builder page.</p><p><b>Try free: your first 3 jobs are on us.</b> The page stays up for " + trialLengthDays() + " days, or until those 3 jobs are used, whichever comes first. You still confirm you are the parent. No payment is needed to go live.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
+      subject: names.biz ? who + " asked you to publish " + names.biz : "Your kid asked you to publish their page",
+      text: ready + "\n\n" + trialBlurb() + " You still confirm you are the parent. No payment is needed to go live.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nThe page itself stays on their phone until you agree. Open this link on your phone. It expires in 7 days, and we delete this request then if you have not agreed.\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
+      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(ready) + "</p><p>" + mailEscape(trialBlurb()) + " You still confirm you are the parent. No payment is needed to go live.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p>The page itself stays on their phone until you agree.</p><p><a href=\"" + mailEscape(link) + "\">Open it on your phone</a></p><p>The link expires in 7 days, and we delete this request then if you have not agreed.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     return withCors(json(200, { ok: true, token, link, expires }), req.headers && req.headers.origin);
@@ -1934,17 +1954,18 @@ async function routeRequest(req) {
 
   const askOpen = route.match(/^ask\/([a-f0-9]{32,128})\/open$/i);
   if (method === "POST" && askOpen) {
-    const rec = await readJson("asks/" + askOpen[1] + ".json");
-    if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const rec = await readAsk(askOpen[1]);
+    if (!rec) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     const account=await me();
-    if(!account || account.email!==rec.email)return withCors(json(200,{ok:true,requiresVerification:true,email:rec.email,draft:rec.draft}),req.headers?.origin);
-    return withCors(json(200,{ok:true,email:rec.email,draft:rec.draft,consent:!!account.consentAt,paid:paid(account),slug:account.slug||'',slugs:slugsOf(account),status:rec.status||'waiting',url:rec.url||''}),req.headers?.origin);
+    const names={first:rec.first||"",biz:rec.biz||""};
+    if(!account || account.email!==rec.email)return withCors(json(200,{ok:true,requiresVerification:true,email:rec.email,...names}),req.headers?.origin);
+    return withCors(json(200,{ok:true,email:rec.email,...names,consent:!!account.consentAt,paid:paid(account),slug:account.slug||'',slugs:slugsOf(account),status:rec.status||'waiting',url:rec.url||''}),req.headers?.origin);
   }
 
   const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
   if (method === "POST" && askDone) {
-    const rec = await readJson("asks/" + askDone[1] + ".json");
-    if (!rec || Date.parse(rec.expires) < Date.now()) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const rec = await readAsk(askDone[1]);
+    if (!rec) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     const account=await me();
     const slug=String(body.slug||String(body.url||'').split('/').pop()||account?.slug||'').trim().toLowerCase();
     if(!account||account.email!==rec.email||!slugsOf(account).includes(slug))return json(401,{ok:false,error:'auth'});
@@ -1958,6 +1979,8 @@ async function routeRequest(req) {
   }
 
   if (method === "POST" && route === "draft") {
+    const account = await me();
+    if (!account || !account.consentAt) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
     const packed = clipDraft(body.draft);
     if (!packed) return withCors(json(400, { ok: false, error: "draft" }), req.headers && req.headers.origin);
     if (packed.error) return withCors(json(413, { ok: false, error: "big" }), req.headers && req.headers.origin);
@@ -1966,7 +1989,6 @@ async function routeRequest(req) {
     const day = new Date().toISOString().slice(0, 10);
     const existing = code ? await readJson("drafts/" + code + ".json") : null;
     if (!existing && await countKey(counterKey("draftnew", clientIp(req)), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
-    const account = await me();
     let rec = existing;
     if (!code || !rec) {
       code = draftCode();
@@ -2023,7 +2045,7 @@ async function routeRequest(req) {
     const year = yearOffer();
     return withCors(json(200, {
       ok: true,
-      free: "Try free: your first 3 jobs are on us, for " + trialLengthDays() + " days.",
+      free: trialBlurb(),
       plans: [
         { id: "season", price: PLANS.season.label, amount: PLANS.season.amount, name: season.name, ends: season.end, endsLabel: niceDate(season.end), includes: season.includes },
         { id: "year", price: PLANS.year.label, amount: PLANS.year.amount, name: year.name, ends: year.end, endsLabel: niceDate(year.end), includes: year.includes }
@@ -2836,7 +2858,10 @@ async function sweepExpired() {
     for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
       const rec=await readJson(key);if(!rec)continue;
       const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;
-      if(!Number.isFinite(expiry)||expiry<Date.now())await s.del(key);
+      if(!Number.isFinite(expiry)||expiry<Date.now()){
+        await s.del(key);
+        if(prefix==='asks/'&&rec.email)await s.del('askby/'+sha(rec.email)+'/'+key.slice(5,-5));
+      }
     }
     // Owner index pointers outlive nothing: each holds the time it was written.
     for(const [prefix,keep] of [['draftby/',DRAFT_MS],['askby/',ASK_MS]])for(const key of await s.list(prefix)){

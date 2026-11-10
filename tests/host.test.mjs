@@ -514,7 +514,13 @@ test("ask my parent requires verification and reports only the verified family p
   const opened = await json(await call("POST", "/api/ask/" + sent.body.token + "/open", { body: {} }));
   assert.equal(opened.body.ok, true);
   assert.equal(opened.body.email, "mom@example.com");
-  assert.equal(opened.body.draft.first, "Sam");
+  assert.equal(opened.body.draft, undefined);
+  assert.equal(opened.body.first, "Sam");
+  assert.match(opened.body.biz, /Pet Care/);
+  const storedAsk = JSON.parse(await readFile(path.join(dir, "asks", sent.body.token + ".json"), "utf8"));
+  assert.equal(storedAsk.draft, undefined);
+  assert.equal(JSON.stringify(storedAsk).includes("Dog walk"), false);
+  assert.equal(JSON.stringify(storedAsk).includes("phone"), false);
   assert.equal(opened.body.token,undefined);
   assert.equal(opened.body.requiresVerification,true);
   assert.equal((await json(await call('POST','/api/ask/'+sent.body.token+'/done',{body:{url:'https://bad.invalid'}}))).status,401);
@@ -562,24 +568,43 @@ test("an expired ask link cannot be marked done", async () => {
   await writeFile(file, JSON.stringify(rec));
   const done = await json(await call("POST", "/api/ask/" + sent.body.token + "/done", { body: { url: "https://sites.test/sam-pets" } }));
   assert.equal(done.status, 404);
-  const after = JSON.parse(await readFile(file, "utf8"));
-  assert.equal(after.status, "waiting");
+  await assert.rejects(() => readFile(file));
 });
 
-test("a draft saves under a private code and attaches to a parent", async () => {
-  const saved = await json(await call("POST", "/api/draft", { body: { draft: { type: "wash", first: "Riley", services: [{ n: "Wash the outside", p: "10" }] } } }));
+test("an unfinished ask is deleted after 7 days", async () => {
+  const sent = await json(await call("POST", "/api/ask", { body: { email: "later@example.com", first: "Sam", biz: "Sam's Yard", draft: { phone: "4025550100", services: [{ n: "Mow" }] } } }));
+  assert.equal(sent.body.ok, true);
+  const file = path.join(dir, "asks", sent.body.token + ".json");
+  const rec = JSON.parse(await readFile(file, "utf8"));
+  assert.equal(rec.draft, undefined);
+  assert.equal(rec.first, "Sam");
+  assert.equal(rec.biz, "Sam's Yard");
+  assert.equal(JSON.stringify(rec).includes("4025550100"), false);
+  rec.expires = new Date(Date.now() - 1000).toISOString();
+  await writeFile(file, JSON.stringify(rec));
+  await call("GET", "/api/cron/renewals", { headers: { authorization: "Bearer test-admin-secret" } });
+  await assert.rejects(() => readFile(file));
+});
+
+test("a draft is not stored until a parent consents", async () => {
+  const denied = await json(await call("POST", "/api/draft", { body: { draft: { type: "wash", first: "Riley", phone: "4025550100", services: [{ n: "Wash the outside", p: "10" }] } } }));
+  assert.equal(denied.status, 403);
+  assert.equal(denied.body.error, "consent");
+  assert.deepEqual(await readdir(path.join(dir, "drafts")).catch(() => []), []);
+  const { token } = await parent("draft@example.com");
+  const early = await json(await call("POST", "/api/draft", { token, body: { draft: { first: "Riley", phone: "4025550100" } } }));
+  assert.equal(early.status, 403);
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const saved = await json(await call("POST", "/api/draft", { token, body: { draft: { type: "wash", first: "Riley", services: [{ n: "Wash the outside", p: "10" }] } } }));
   assert.equal(saved.body.ok, true);
   assert.match(saved.body.code, /^[a-z0-9]{8}$/);
   assert.match(saved.body.link, /draft=/);
   const loaded = await json(await call("GET", "/api/draft/" + saved.body.code));
   assert.equal(loaded.body.draft.first, "Riley");
-  const again = await json(await call("POST", "/api/draft", { body: { code: saved.body.code, draft: { type: "wash", first: "Riley", town: "Millard" } } }));
+  const again = await json(await call("POST", "/api/draft", { token, body: { code: saved.body.code, draft: { type: "wash", first: "Riley", town: "Millard" } } }));
   assert.equal(again.body.code, saved.body.code);
   const missing = await json(await call("GET", "/api/draft/zzzzzzzz"));
   assert.equal(missing.status, 404);
-  const { token } = await parent("draft@example.com");
-  const owned = await json(await call("POST", "/api/draft", { token, body: { code: saved.body.code, draft: { type: "tutor", first: "Riley" } } }));
-  assert.equal(owned.body.code, saved.body.code);
   const me = await json(await call("GET", "/api/me", { token }));
   assert.equal(me.body.draftCode, saved.body.code);
 });
@@ -652,7 +677,8 @@ test("plans offer a named season or a year, and not a month", async () => {
   assert.deepEqual(plans.body.plans.map((p) => p.price), ["$9.99", "$19.99"]);
   assert.deepEqual(plans.body.plans.map((p) => p.amount), [999, 1999]);
   assert.equal(JSON.stringify(plans.body).includes("$6"), false);
-  assert.match(plans.body.free, /first 3 jobs/);
+  assert.match(plans.body.free, /14 days after first publish or 3 booking requests are delivered/);
+  assert.match(plans.body.free, /never charged automatically/);
   const summer = seasonOffer(new Date("2026-06-15T12:00:00Z"));
   assert.equal(summer.name, "Summer season, May–Aug");
   assert.match(summer.end, /^2026-08-31/);
