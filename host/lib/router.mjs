@@ -953,6 +953,7 @@ function termsPage() {
 
 <h2>What Hustle Builder does, and does not do</h2>
 <p>We host the page and pass booking requests to the parent. A booking request is only a request: nothing is booked until the parent replies to the neighbor. We are not part of any job, we do not check who neighbors are, we do not supervise work, and we do not handle money between a family and a neighbor.</p>
+<p>Payments for jobs go directly between neighbors and the family. Hustle Builder doesn't collect, hold, or guarantee job payments.</p>
 
 <h2>Free trial</h2>
 <p>${trialBlurb()} There is one trial per parent email, shared by every page on that account.</p>

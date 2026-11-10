@@ -297,6 +297,7 @@ test("privacy and terms are real pages with no internal notes", async () => {
   assert.match(terms.body, /\$9\.99/);
   assert.match(terms.body, /\$19\.99/);
   assert.match(terms.body, /do not renew on their own/);
+  assert.match(terms.body, /Payments for jobs go directly between neighbors and the family/);
   assert.match(privacy.body, /Stripe/);
   assert.match(privacy.body, /about 30 days/);
   assert.match(privacy.body, /50¢/);
