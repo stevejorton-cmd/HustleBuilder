@@ -3,6 +3,8 @@ import {createHash,randomBytes} from 'node:crypto';
 import {store,transaction} from './store.mjs';
 const requests=new AsyncLocalStorage();
 const sha=v=>createHash('sha256').update(String(v)).digest('hex');
+const warned=new Set();
+const warnOnce=text=>{if(warned.has(text))return;warned.add(text);console.error(text);};
 export const withMailBatch=fn=>requests.run([],async()=>{const result=await fn();return {result,ids:requests.getStore()};});
 export async function queueMail(message){
   const id=randomBytes(20).toString('hex');
@@ -34,13 +36,21 @@ export async function flushMail(ids){
         const k='outbox/'+sha(m.to)+'.json',rows=JSON.parse(await s.get(k)||'[]');
         rows.push({at:new Date().toISOString(),...m});await s.put(k,JSON.stringify(rows.slice(-20)));await s.del(key);return;
       }
-      if(!process.env.RESEND_API_KEY||!process.env.BOOKING_FROM)return;
+      if(!process.env.RESEND_API_KEY||!process.env.BOOKING_FROM){warnOnce('[hb] mail is queued but cannot be sent: RESEND_API_KEY or BOOKING_FROM is not set');return;}
       const payload={from:process.env.BOOKING_FROM,to:[m.to],subject:m.subject,text:m.text};
       if(m.html)payload.html=m.html;if(m.replyTo)payload.reply_to=m.replyTo;
       if(m.ics)payload.attachments=[{filename:'booking.ics',content:Buffer.from(m.ics).toString('base64')}];
       let response;
       try{response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'hb-mail-'+id},body:JSON.stringify(payload),signal:AbortSignal.timeout(Math.min(8000,Math.max(1,deadline-Date.now())))});}catch{/* Persist retry backoff even when the provider connection times out. */}
       if(response?.ok){await s.del(key);return;}
+      // The provider refused the message itself (a malformed or rejected
+      // address): trying again for 30 days cannot fix that. Give it a few
+      // tries in case the rejection was a mistake, then drop it. Auth and
+      // rate-limit answers (401/403/429) and outages keep retrying.
+      const permanent=response&&(response.status===400||response.status===422);
+      // Status and attempt count only. No address, subject, or body.
+      console.error('[hb] mail send failed',response?('status '+response.status):'no response','attempt',(m.attempts||0)+1,permanent?'(will be dropped after 3)':'');
+      if(permanent&&(m.attempts||0)+1>=3){await s.del(key);return;}
       m.lastAttemptAt=Date.now();m.attempts++;m.nextAttemptAt=Date.now()+Math.min(3600000,30000*2**Math.min(m.attempts,7));await s.put(key,JSON.stringify(m));
     },{keys:['mail:'+id]});}catch{/* Durable queue is retried by cron. No delivery payloads or secrets in logs. */}
   }

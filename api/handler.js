@@ -37,5 +37,9 @@ export default async function handler(req, res) {
     if (value != null && value !== "") res.setHeader(key, value);
   }
   res.end(result.body || "");
-  }catch(error){unavailable(res,error.status||503);}
+  }catch(error){
+    // Name and code only; never a message or a path that could hold a private link.
+    try{console.error('[hb] handler failed',error&&error.name||'Error',error&&(error.status||error.code)||'');}catch{}
+    unavailable(res,error.status||503);
+  }
 }

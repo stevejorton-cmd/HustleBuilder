@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
-import { feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs } from "./calendar.mjs";
+import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
 import { cardPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone } from "./preview.mjs";
@@ -11,7 +11,7 @@ export const PLANS = {
   season: { id: "season", amount: 999, label: "$9.99" },
   year: { id: "year", amount: 1999, label: "$19.99" }
 };
-export const CONSENT_VERSION = "2026-10-31";
+export const CONSENT_VERSION = "2026-11-10";
 export const FREE_JOBS = 3;
 export const GRACE_DAYS = 7;
 export const TRIAL_DAYS = 14;
@@ -32,25 +32,35 @@ export function niceDate(iso) {
   return MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear();
 }
 
+// A season is sold by its end date. Someone who buys (or renews) in the last
+// weeks of a season would pay full price for a few days, so once fewer than
+// SEASON_MIN_DAYS remain the offer is the NEXT season: the page is covered
+// from today through that later end date for the same price.
+export const SEASON_MIN_DAYS = 30;
 export function seasonOffer(now = new Date()) {
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth();
   const end = (yy, month, day) => new Date(Date.UTC(yy, month, day, 23, 59, 59)).toISOString();
-  if (m >= 3 && m <= 7) {
-    return {
-      id: "summer",
-      name: "Summer season, May–Aug",
-      end: end(y, 7, 31),
-      includes: "The page stays online, neighbors can book, and booking emails go to you through August 31, " + y + "."
-    };
-  }
-  const endYear = m >= 8 ? y + 1 : y;
-  return {
+  const summer = (yy) => ({
+    id: "summer",
+    name: "Summer season, May–Aug",
+    end: end(yy, 7, 31),
+    includes: "The page stays online, neighbors can book, and booking emails go to you through August 31, " + yy + "."
+  });
+  const winter = (endYear) => ({
     id: "winter",
     name: "Winter season, Nov–Mar",
     end: end(endYear, 2, 31),
     includes: "The page stays online, neighbors can book, and booking emails go to you through March 31, " + endYear + "."
-  };
+  });
+  const tooShort = (offer) => Date.parse(offer.end) - now.getTime() < SEASON_MIN_DAYS * 864e5;
+  if (m >= 3 && m <= 7) {
+    const offer = summer(y);
+    return tooShort(offer) ? winter(y + 1) : offer;
+  }
+  const endYear = m >= 8 ? y + 1 : y;
+  const offer = winter(endYear);
+  return tooShort(offer) ? summer(endYear) : offer;
 }
 
 export function yearOffer(now = new Date()) {
@@ -65,6 +75,16 @@ export function yearOffer(now = new Date()) {
 
 export function planOffer(planId, now = new Date()) {
   return planId === "year" ? yearOffer(now) : seasonOffer(now);
+}
+
+function reminderBucket(days, withEarly) {
+  if (days === 0) return 0;
+  if (days >= 1 && days <= 3) return 3;
+  if (withEarly && days >= 4 && days <= 14) return 14;
+  return null;
+}
+function daysWords(days) {
+  return days === 0 ? "today" : days === 1 ? "tomorrow" : "in " + days + " days";
 }
 
 function utcDay(ms) {
@@ -101,9 +121,36 @@ function json(status, body, extra = {}) {
   return { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control":"no-store", "x-content-type-options":"nosniff", ...extra }, body: JSON.stringify(body) };
 }
 
+// Every host-made HTML page: never framed by another site (the job, cancel
+// and admin pages carry buttons), and never leaks its own address — several
+// of those addresses are private links — to a site the visitor clicks out to.
 function html(status, markup) {
-  return { status, headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff", "cache-control": "no-store" }, body: markup };
+  return { status, headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff", "cache-control": "no-store", "x-frame-options": "DENY", "referrer-policy": "no-referrer" }, body: markup };
 }
+
+// One look for the small pages the host writes itself (taking a break, cancel
+// a request, a receipt, the privacy notice ...). Inline styles only: these are
+// also served under the published-page sandbox, which allows nothing else.
+const SHELL_CSS = "body{margin:0;background:#f4f1ec;color:#1d2226;font:18px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}"
+  + ".hb-top{background:#14181d;border-bottom:3px solid #ff5b14;padding:12px 16px}"
+  + ".hb-top a{color:#fff;text-decoration:none;font-weight:800;letter-spacing:.02em}"
+  + "main{max-width:38rem;margin:1.5rem auto;padding:1.5rem 1.25rem 2rem;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.12)}"
+  + "main.wide{max-width:46rem}"
+  + "h1{font-size:1.6rem;line-height:1.2;margin:0 0 .75rem}h2{font-size:1.15rem;margin:1.6rem 0 .4rem}"
+  + "a{color:#b43c00}p{margin:.6rem 0}"
+  + "button,.hb-btn{font:700 18px system-ui,sans-serif;padding:13px 18px;border-radius:10px;border:2px solid #14181d;background:#14181d;color:#fff;cursor:pointer;margin:6px 8px 6px 0;text-decoration:none;display:inline-block}"
+  + "button.alt{background:#fff;color:#14181d}"
+  + "textarea,input[type=text]{display:block;width:100%;box-sizing:border-box;margin-top:6px;font:18px system-ui,sans-serif;padding:10px;border:1px solid #8a949e;border-radius:8px}"
+  + ".hb-foot{max-width:38rem;margin:0 auto 2rem;padding:0 1.25rem;font-size:14px;color:#5a6672}.hb-foot a{color:#5a6672}"
+  + "@media (max-width:480px){main{margin:0;border-radius:0;box-shadow:none}}";
+function shell(status, title, inner, opts = {}) {
+    return html(status, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${mailEscape(title)}</title><style>${SHELL_CSS}</style></head><body>
+<div class="hb-top"><a href="/">Hustle Builder</a></div>
+<main${opts.wide ? ' class="wide"' : ""}>${inner}</main>
+<p class="hb-foot"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
+</body></html>`);
+}
+const SUPPORT_EMAIL = "support@hustlebuilder.org";
 
 function redirect(location) {
   return { status: 302, headers: { location, "cache-control": "no-store" }, body: "" };
@@ -213,6 +260,23 @@ function comped(account) {
 function paid(account, now = Date.now()) {
   if (comped(account)) return true;
   return !!(account && account.paidUntil && Date.parse(account.paidUntil) > now);
+}
+
+// A plan can be bought when nothing is paid, and renewed early once it is
+// inside its last RENEW_WINDOW_DAYS (the reminder emails go out in that
+// window). An early renewal is added on to the current end date, so no paid
+// time is lost. A plan with more time left than that has nothing to buy yet.
+export const RENEW_WINDOW_DAYS = 30;
+// The promise on the Terms page: a full refund when asked within this many
+// days of a payment. The operator issues it from the admin view.
+export const REFUND_DAYS = 14;
+function renewable(account, now = Date.now()) {
+  if (!account || comped(account)) return false;
+  if (!paid(account, now)) return true;
+  return Date.parse(account.paidUntil) - now <= RENEW_WINDOW_DAYS * 864e5;
+}
+function planBase(account, now = Date.now()) {
+  return paid(account, now) && !comped(account) ? new Date(account.paidUntil) : new Date(now);
 }
 
 // Family plan: one account can hold several kid pages under its single
@@ -366,7 +430,69 @@ function payLinks(origin, account) {
   return { season: base + "?plan=season", year: base + "?plan=year" };
 }
 
-async function addReceipt(account, origin, { id, plan, planName, amountLabel, end, stripeUrl }) {
+// Apply a plan and report what it changed: the plan state from just before
+// (so a refund can put it back) and how much time this payment added.
+function grantPlan(account, planId) {
+  const prev = { paidUntil: account.paidUntil || null, plan: account.plan || null, planName: account.planName || null };
+  const base = planBase(account);
+  applyPlan(account, planId, base);
+  return { prev, addedMs: Math.max(0, Date.parse(account.paidUntil) - base.getTime()) };
+}
+
+// Undo one payment: used when it is refunded or disputed. If it was the most
+// recent payment the account goes back to exactly how it was before it (a
+// trial that still had time resumes; a lapsed plan is lapsed again). If a
+// later payment sits on top of it, only the time it added is taken off.
+// Returns false when there is nothing to undo (unknown or already undone).
+async function revokeReceipt(account, receiptId, reason, origin) {
+  const list = Array.isArray(account.receipts) ? account.receipts : [];
+  const item = list.find((r) => r && r.id === receiptId);
+  if (!item || item.refundedAt) return false;
+  const live = list.filter((r) => r && !r.refundedAt);
+  if (live[live.length - 1] === item) {
+    const prev = item.prev || {};
+    account.paidUntil = prev.paidUntil || null;
+    account.plan = prev.plan || null;
+    account.planName = prev.planName || null;
+  } else if (Number(item.addedMs) > 0 && account.paidUntil) {
+    account.paidUntil = new Date(Date.parse(account.paidUntil) - Number(item.addedMs)).toISOString();
+  }
+  item.refundedAt = new Date().toISOString();
+  item.refundReason = reason === "dispute" ? "dispute" : "refund";
+  const stored = await readJson("receipts/" + item.id + ".json");
+  if (stored) await writeJson("receipts/" + item.id + ".json", { ...stored, refundedAt: item.refundedAt, refundReason: item.refundReason });
+  await saveAccount(account);
+  const link = accountUrl(origin);
+  const state = paid(account) ? "Your page stays on through " + niceDate(account.paidUntil) + "." : "The page now shows a taking-a-break note unless your free trial still has time. Nothing is deleted, and you can pick a plan again any time.";
+  const lead = reason === "dispute"
+    ? "A payment for your Hustle Builder plan was disputed with the card company, so the plan it paid for has ended."
+    : "We refunded " + (item.amountLabel || "your payment") + " for " + (item.planName || "your plan") + ". It can take 5 to 10 business days to show on your card. The plan it paid for has ended.";
+  await sendOnce("sentmail/refund-" + item.id, {
+    to: account.email,
+    replyTo: supportReply() || SUPPORT_EMAIL,
+    subject: reason === "dispute" ? "Your Hustle Builder plan has ended" : "Your Hustle Builder refund",
+    text: lead + "\n\n" + state + "\n\nYour account:\n" + link + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p>" + mailEscape(lead) + "</p><p>" + mailEscape(state) + "</p><p><a href=\"" + mailEscape(link) + "\">Your account</a></p></div>"
+  });
+  return true;
+}
+
+// The Stripe payment behind a receipt. New receipts carry it; for a payment
+// taken before receipts did, the most recent one can still be found through
+// the checkout session the account remembers.
+async function receiptPaymentIntent(account, item) {
+  if (/^pi_[A-Za-z0-9_]+$/.test(String(item.paymentIntent || ""))) return item.paymentIntent;
+  const sessionId = item.sessionId || (item.id === "stripe-" + String(account.lastPaidSessionId || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 60) ? account.lastPaidSessionId : "");
+  if (!/^cs_[A-Za-z0-9_]+$/.test(String(sessionId || "")) || !process.env.STRIPE_SECRET_KEY) return "";
+  try {
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sessionId), { headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return "";
+    const pi = String((await r.json()).payment_intent || "");
+    return /^pi_[A-Za-z0-9_]+$/.test(pi) ? pi : "";
+  } catch { return ""; }
+}
+
+async function addReceipt(account, origin, { id, plan, planName, amountLabel, end, stripeUrl, extra }) {
   id = String(id || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
   if (!id) return;
   account.receipts = Array.isArray(account.receipts) ? account.receipts : [];
@@ -376,10 +502,74 @@ async function addReceipt(account, origin, { id, plan, planName, amountLabel, en
     id, plan, planName: planName || plan, amountLabel,
     at: new Date().toISOString(),
     endLabel: end ? niceDate(end) : "",
-    url
+    url,
+    ...(extra || {})
   };
   account.receipts.push(rec);
   await writeJson("receipts/" + id + ".json", { ...rec, accountId: account.id });
+}
+
+// Turn one paid Stripe Checkout session into plan time. Used by the signed
+// webhook and by the parent's own return from Stripe (the session is then
+// fetched from Stripe with the secret key, so it is just as trustworthy) —
+// whichever arrives first does the work and the payments ledger makes the
+// other a no-op. Returns "" when applied, or the reason it was refused.
+const receiptIdFor = (sessionId) => "stripe-" + String(sessionId).toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 60);
+async function fulfillPaidSession(account, session, origin, eventId) {
+  const meta = session.metadata || {};
+  const plan = Object.hasOwn(PLANS, meta.plan) ? PLANS[meta.plan] : null;
+  if (session.payment_status !== "paid") return "unpaid";
+  if (!plan || session.amount_total !== plan.amount || session.currency !== "usd") return "payment";
+  if (!account.checkoutSessionId || account.checkoutSessionId !== session.id) return "session";
+  if (meta.accountId !== account.id || meta.attempt !== sha("checkout:" + account.id + ":" + (account.checkoutGeneration || 0)) || account.checkoutPlan !== plan.id) return "session";
+  const change = grantPlan(account, plan.id);
+  const paymentIntent = /^pi_[A-Za-z0-9_]+$/.test(String(session.payment_intent || "")) ? session.payment_intent : "";
+  account.payMode = "stripe";
+  account.checkoutPendingAt = "";
+  // Keep payment deduplication in its own ledger; leave the next renewal available.
+  account.lastPaidSessionId = session.id;
+  account.checkoutSessionId = ""; account.checkoutUrl = ""; account.checkoutPlan = "";
+  account.checkoutGeneration = (account.checkoutGeneration || 0) + 1;
+  await addReceipt(account, origin, { id: receiptIdFor(session.id), plan: plan.id, planName: account.planName, amountLabel: plan.label, end: account.paidUntil, stripeUrl: "", extra: { ...change, sessionId: session.id, ...(paymentIntent ? { paymentIntent } : {}) } });
+  if (paymentIntent) await writeJson("payintents/" + paymentIntent + ".json", { accountId: account.id, receiptId: receiptIdFor(session.id) });
+  await sendReceiptNote(account, origin, session.id);
+  await saveAccount(account); await trackPlan(account); await releaseHeld(account, origin);
+  await writeJson("payments/" + sha(session.id) + ".json", { eventId: eventId || "", sessionId: session.id, processedAt: new Date().toISOString() });
+  return "";
+}
+
+// Ask Stripe about the account's open checkout session, and finish it here
+// if it has been paid. "paid" | "pending" (paid for but not settled yet) |
+// "open" (with the session) | "expired" | "none" | "error".
+async function checkOpenCheckout(account, origin) {
+  if (!account.checkoutSessionId) return { state: "none" };
+  if (!process.env.STRIPE_SECRET_KEY) return { state: "error" };
+  let session;
+  try {
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(account.checkoutSessionId), { headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return { state: "error" };
+    session = await r.json();
+  } catch { return { state: "error" }; }
+  if (session.status === "complete") {
+    if (await readJson("payments/" + sha(session.id) + ".json")) return { state: "paid" };
+    const refused = await fulfillPaidSession(account, session, origin, "return");
+    return { state: refused ? "pending" : "paid" };
+  }
+  if (session.status === "open" && session.url) return { state: "open", session };
+  if (session.status === "expired") return { state: "expired" };
+  return { state: "error" };
+}
+
+async function paymentFromStripe(paymentIntent) {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  try {
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions?limit=1&payment_intent=" + encodeURIComponent(paymentIntent), { headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const session = ((await r.json()).data || [])[0];
+    const accountId = session && session.metadata && session.metadata.accountId;
+    if (!session || !/^cs_[A-Za-z0-9_]+$/.test(String(session.id || "")) || !/^[a-f0-9]{16}$/.test(String(accountId || ""))) return null;
+    return { accountId, receiptId: receiptIdFor(session.id) };
+  } catch { return null; }
 }
 
 async function ensureRenew(account) {
@@ -518,8 +708,8 @@ async function sendReceiptNote(account, origin, eventId) {
     to: account.email,
     replyTo: supportReply(),
     subject: "Your Hustle Builder receipt",
-    text: "Thanks. We got your payment.\n\n" + (account.planName || "Plan") + "\n" + plan.label + "\nThrough " + end + ".\n\nYour account:\n" + link + "\n",
-    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p>Thanks. We got your payment.</p><p><b>" + mailEscape(account.planName || "Plan") + "</b><br>" + mailEscape(plan.label) + "<br>Through " + mailEscape(end) + ".</p><p><a href=\"" + mailEscape(link) + "\">Your account</a></p></div>"
+    text: "Thanks. We got your payment.\n\n" + (account.planName || "Plan") + "\n" + plan.label + "\nThrough " + end + ".\n\nThis is a one-time payment. It does not renew on its own. Not happy? Email " + SUPPORT_EMAIL + " within " + REFUND_DAYS + " days for a full refund.\n\nYour account:\n" + link + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p>Thanks. We got your payment.</p><p><b>" + mailEscape(account.planName || "Plan") + "</b><br>" + mailEscape(plan.label) + "<br>Through " + mailEscape(end) + ".</p><p>This is a one-time payment. It does not renew on its own. Not happy? Email " + SUPPORT_EMAIL + " within " + REFUND_DAYS + " days for a full refund.</p><p><a href=\"" + mailEscape(link) + "\">Your account</a></p></div>"
   });
 }
 
@@ -539,43 +729,114 @@ async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forPa
   return queueMail({to,subject:sub,text:clean,html:markup,ics:icsText,replyTo:reply,ownerId:ownerId||'',expiresAt:expiresAt||null});
 }
 
+export const LEGAL_UPDATED = "November 10, 2026";
 function privacyPage() {
-  return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Privacy</title></head><body>
-<main style="max-width:40rem;margin:2rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem">
-<h1>Privacy</h1>
-<p>Hustle Builder hosting is for a parent and their child. The parent’s email is stored so we can verify it and send booking emails. The public page they approve is stored so neighbors can open the link.</p>
-<p>When a neighbor books, we store that job for the parent’s family calendar: the service, the customer name they typed, the address, the date and time, and a short note. We delete it about 30 days after the job, or sooner if the parent deletes the account. The phone number from a booking stays in the parent’s email only.</p>
-<p>A kid can save a draft on our server so the same page opens on another device. The draft code is the key. We delete it about 90 days after the last save, or when the parent deletes the account. A parent can also get an email with a link that expires in 7 days, so they can finish publishing on their own phone.</p>
-<p>If a neighbor leaves an email, we send them a note that we got the request and a link to cancel it. That note does not include the parent’s email or phone, and it does not include a gate code or key note. Those stay in the parent’s email and the private family calendar. The phone number from a booking stays in the parent’s email only.</p>
-<p>The rest of the Boss mode job log stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Those jobs use the same calendar and the same 30-day delete.</p>
-<p>The public page shows a first name and a town. A parent’s phone is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
-<p>Booking emails reply to the customer when they leave an email. If they leave only a phone number, the email says replies are not read and links to text or call them. A code email replies to the address in REPLY_TO when that is set.</p>
-<p>A family can publish with no payment. The page stays up for 14 days from the first publish, or until 3 real booking requests are delivered, whichever comes first. The length is the TRIAL_DAYS setting. One trial belongs to the parent’s email and does not start over with a new link. We email the parent 3 days before that time ends and on the day it ends. When the trial ends, the public link shows a taking-a-break page. The page and the kid’s draft stay saved. New booking requests are saved and held until a parent pays, and paying brings the page back and sends those requests. A paid plan is ${PLANS.season.label} for the current season (summer, May–August, or winter, November–March) or ${PLANS.year.label} for 365 days. We email the parent 14 days before, 3 days before, and on the day a paid plan ends. The page stays up for 7 more days, then it shows a taking-a-break page and bookings pause.</p>
-<p>The kid’s My jobs list shows the service, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on. Even then it shows the street name, not the house number.</p>
-<p>A parent can take the page offline or delete the account from the builder. Taking a page down does not delete calendar jobs. Deleting the account removes the email, the consent record, the page, the calendar jobs, and the calendar link. The free-trial count for that email stays, so a new account cannot start the 3 free jobs again.</p>
-<p>This notice is a plain summary. Have a lawyer read it before real families use hosting.</p>
-</main></body></html>`);
+  const days = trialLengthDays();
+  return shell(200, "Privacy", `<h1>Privacy</h1>
+<p>Last updated ${LEGAL_UPDATED}.</p>
+<p>Hustle Builder helps a kid build a page for a small neighborhood business, and lets a parent or guardian put that page online. This page says what we keep, why, and for how long.</p>
+
+<h2>The builder, before anything is published</h2>
+<p>What a kid types in the builder is saved in the browser on that phone or computer. It is not sent to us unless one of these happens: the kid saves a draft to open on another device, the kid asks a parent to publish, or a parent publishes the page.</p>
+
+<h2>What we keep for a parent account</h2>
+<p>The account belongs to the parent or guardian, not the child. We keep the parent’s email address, the date they agreed to publish, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
+<p>A kid does not make an account and does not give us an email address.</p>
+
+<h2>What the public page shows</h2>
+<p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add. A parent’s phone number is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
+<p>Each page has a “Report this page” link. If a few people report a page, it is hidden until we check it.</p>
+
+<h2>Booking requests from neighbors</h2>
+<p>When a neighbor asks for a job, we keep what they typed: their name, how to reach them, the address, the job, the day and time, and a short note. It goes to the parent by email, to the parent’s private family calendar link, and to the parent’s account. We delete the request about 30 days after it arrives and the calendar entry about 30 days after the job date, or sooner if the parent deletes the account. It is not a customer list and we do not use it for anything else.</p>
+<p>If the neighbor leaves an email address, we send one note saying the request arrived, with a link to cancel it. That note does not include the parent’s email or phone, and it does not include a gate code or key note.</p>
+<p>The kid’s “My jobs” list shows the job, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on, and even then it shows the street name without the house number.</p>
+
+<h2>Drafts and “ask my parent” links</h2>
+<p>A kid can save a draft on our server so the same page opens on another device. The draft code is the key, so keep it private. We delete a draft about 90 days after its last save, or when the parent deletes the account. An “ask my parent” email link holds a copy of the draft and expires after 7 days.</p>
+
+<h2>Job log and calendar sync</h2>
+<p>The job log in Boss mode stays on the phone or computer, unless a parent is signed in there and “Sync to family calendar” is on. Synced jobs go to the same private calendar link and follow the same 30-day delete.</p>
+
+<h2>Payments</h2>
+<p>Payments are handled by Stripe. We never see or store a card number. We keep a record that a plan was paid, the amount, and the date it runs through.</p>
+
+<h2>Page views and abuse limits</h2>
+<p>We count how many times a page is opened, as a daily total only. We do not keep who opened it. To stop spam we keep short-lived counters tied to a scrambled form of a visitor’s network address; they cannot be turned back into the address, and the counters are cleared within a few days. A report on a page keeps one such scrambled marker so the same visitor is only counted once. We do not use advertising or tracking cookies. A signed-in parent gets one cookie that keeps them signed in.</p>
+
+<h2>Who helps us run this</h2>
+<p>We use service providers to host the site and database, send email, and take payments. They handle the information above only to provide those services to us.</p>
+
+<h2>Free trial and plans</h2>
+<p>A family can publish with no payment. The page stays up for ${days} days from the first publish, or until 3 booking requests are delivered, whichever comes first. One trial belongs to the parent’s email and does not start over with a new link. When the trial ends, the public link shows a taking-a-break page; the page and the kid’s draft stay saved, and new requests wait until a parent picks a plan. Plans and prices are on the <a href="/terms">Terms</a> page.</p>
+
+<h2>Taking a page down, or deleting everything</h2>
+<p>A parent can pause the page, take it offline, or delete the account from the account screen at any time. Taking a page offline does not delete calendar jobs. Deleting the account removes the email, the consent record, every page on the account, the booking requests, the calendar jobs, and the calendar link. One thing stays: a scrambled marker that this email already used its free trial, so the trial cannot be restarted.</p>
+
+<h2>Questions</h2>
+<p>Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. A parent can ask us what we hold for their account or ask us to delete it.</p>`, { wide: true });
+}
+
+function termsPage() {
+  const days = trialLengthDays();
+  return shell(200, "Terms", `<h1>Terms of use</h1>
+<p>Last updated ${LEGAL_UPDATED}.</p>
+<p>These terms cover the Hustle Builder app and the pages it hosts at hustlebuilder.org. By publishing a page or buying a plan you agree to them.</p>
+
+<h2>Who can use it</h2>
+<p>Kids can use the builder with a parent or guardian’s permission. Only a parent or guardian who is an adult can open an account, publish a page, or buy a plan. The parent is responsible for the page, for every job the child takes, and for the child’s safety on those jobs.</p>
+
+<h2>What Hustle Builder does, and does not do</h2>
+<p>We host the page and pass booking requests to the parent. A booking request is only a request: nothing is booked until the parent replies to the neighbor. We are not part of any job, we do not check who neighbors are, we do not supervise work, and we do not handle money between a family and a neighbor.</p>
+
+<h2>Free trial</h2>
+<p>A family can publish without paying. The page stays up for ${days} days from the first publish, or until 3 booking requests are delivered, whichever comes first. There is one trial per parent email.</p>
+
+<h2>Plans and payment</h2>
+<p>A season plan is ${PLANS.season.label}. It covers the page through the end of the current season: August 31 for summer, March 31 for winter. If fewer than ${SEASON_MIN_DAYS} days are left in a season, the plan runs through the end of the next one instead. A year plan is ${PLANS.year.label} and covers 365 days. The end date is shown before you pay.</p>
+<p>Each plan is a one-time payment handled by Stripe. <b>Plans do not renew on their own and we do not keep a card on file.</b> We email the parent before a plan ends. After the end date the page stays up for ${GRACE_DAYS} more days, then shows a taking-a-break page until a new plan is bought. One plan covers every page on the family’s account.</p>
+<h2>Refunds</h2>
+<p>If you are not happy, email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> within ${REFUND_DAYS} days of a payment and we will refund it in full to the card you paid with. You do not need to give a reason. A refund ends the plan that payment bought: the page goes back to how it was before the payment, and nothing is deleted. After ${REFUND_DAYS} days, payments are not refunded except where the law requires it.</p>
+
+<h2>What can go on a page</h2>
+<p>Keep pages about the kid’s business. Use a first name only. Do not post a last name, school, home address, or anyone else’s personal information, and only post photos and reviews you have permission to share. No rude, hateful, or unsafe content. We may hide or remove a page, or close an account, that breaks these rules or is reported.</p>
+
+<h2>Your content</h2>
+<p>The words and photos a family adds stay theirs. Publishing gives us permission to store and show them on the page until it is taken offline or the account is deleted.</p>
+
+<h2>Ending</h2>
+<p>A parent can take a page offline or delete the account at any time from the account screen. Deleting the account removes the data described in the <a href="/privacy">Privacy</a> notice.</p>
+
+<h2>No guarantees</h2>
+<p>We work to keep pages and booking emails running, but the service is provided as it is. Email can be delayed or land in spam, and a page can be briefly unavailable, so do not rely on Hustle Builder alone for anything urgent. Hustle Builder does not give legal, tax, or safety advice; local rules about kids working, permits, and taxes are the family’s to check.</p>
+
+<h2>Changes</h2>
+<p>If these terms change, we will update the date above. Using the service after a change means you accept the new terms.</p>
+
+<h2>Contact</h2>
+<p><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>`, { wide: true });
 }
 
 function missingPage(slug, down) {
   const title = down ? "This page was taken down" : "This page is not up";
-  return html(404, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem"><h1>${title}</h1><p>${down ? "The host removed this page." : "Check the link, or ask them to publish again."}</p></body></html>`);
+  return shell(404, title, `<h1>${title}</h1><p>${down ? "The host removed this page." : "Check the link, or ask them to publish again."}</p>`);
 }
 
 function pausePage() {
-  return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Paused</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">
-<h1>Paused for now</h1>
+  return shell(200, "Paused", `<h1>Paused for now</h1>
 <p>This page is paused. Nothing new is being scheduled.</p>
-<p>If you know the family, ask them when they are working again.</p>
-</body></html>`);
+<p>If you know the family, ask them when they are working again.</p>`);
 }
 
 function breakPage() {
-  return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Taking a break</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">
-<h1>Taking a break</h1>
+  return shell(200, "Taking a break", `<h1>Taking a break</h1>
 <p>This page is resting for now. Bookings are paused, so nothing new is being scheduled.</p>
 <p>If you know the family, ask them when they are working again.</p>
-</body></html>`);
+<p style="font-size:15px;color:#5a6672">Is this your page? <a href="/?account=1">Open your account</a> to bring it back.</p>`);
+}
+
+function finishedPage(message) {
+  return shell(404, "This link is finished", `<h1>This link is finished</h1><p>${mailEscape(message)}</p>`);
 }
 
 function adminLoginPage(status, note) {
@@ -610,25 +871,39 @@ function adminSetupPage() {
 // fail — the operator needs to spot those pages and reach the family.
 // Nothing is stripped server-side, so the marker is read, never rewritten.
 const LEGACY_INBOX_MARK = '"inbox":{"url":"https://script.google.com/';
-async function siteNames(slug, meta) {
+function namesFromHtml(raw) {
   let first = "";
   let biz = "";
-  let legacyInbox = false;
-  const raw = await (await store()).get("pages/" + slug + ".html");
-  if (raw) {
-    legacyInbox = raw.includes(LEGACY_INBOX_MARK);
-    const m = raw.match(/window\.__C=(\{.*?\});<\/script>/s);
-    if (m) {
-      try {
-        const cfg = JSON.parse(m[1]);
-        first = String(cfg.first || "").slice(0, 40);
-        biz = String(cfg.biz || "").slice(0, 80);
-      } catch { /* fall through to the card title */ }
-    }
+  const text = String(raw || "");
+  const m = text.match(/window\.__C=(\{.*?\});<\/script>/s);
+  if (m) {
+    try {
+      const cfg = JSON.parse(m[1]);
+      first = String(cfg.first || "").slice(0, 40);
+      biz = String(cfg.biz || "").slice(0, 80);
+    } catch { /* fall through to the card title */ }
   }
-  if (!biz && meta && meta.card) biz = String(meta.card.title || "").slice(0, 80);
-  return { first, biz, legacyInbox };
+  return { first, biz, legacyInbox: text.includes(LEGACY_INBOX_MARK) };
 }
+// Publishing now saves these three facts on the small page record, so the
+// admin view never has to open a page's HTML (up to 2 MB each). Pages
+// published before that are read once, when they are shown.
+async function siteNames(slug, meta) {
+  const known = meta && meta.names && typeof meta.names === "object";
+  const found = known
+    ? { first: String(meta.names.first || ""), biz: String(meta.names.biz || ""), legacyInbox: !!meta.legacyInbox }
+    : namesFromHtml(await (await store()).get("pages/" + slug + ".html"));
+  if (!found.biz && meta && meta.card) found.biz = String(meta.card.title || "").slice(0, 80);
+  return found;
+}
+async function entries(prefix, suffix = "") {
+  const s = await store();
+  if (typeof s.entries === "function") return s.entries(prefix, suffix);
+  const out = [];
+  for (const key of await s.list(prefix)) if (!suffix || key.endsWith(suffix)) out.push([key, await s.get(key)]);
+  return out;
+}
+const parseOr = (raw, fallback) => { try { const v = JSON.parse(raw); return v == null ? fallback : v; } catch { return fallback; } };
 
 function adminStatus(account, meta, used) {
   if (account && !account.emailVerifiedAt) {
@@ -675,28 +950,44 @@ function adminStatus(account, meta, used) {
   };
 }
 
-async function adminDashboardPage(origin) {
-  const s = await store();
-  const canList = typeof s.list === "function";
-  const accountKeys = canList ? await s.list("accounts/") : [];
-  const pageKeys = canList ? await s.list("pages/") : [];
+export const ADMIN_PAGE_SIZE = 50;
+async function adminDashboardPage(origin, query) {
+  // Three bulk reads (accounts, page records, trial counters) build every
+  // row's status. The heavier per-row details — booking counts, names for
+  // pages published before names were saved — are read only for the rows
+  // actually shown, so the view costs the same at 50 families or 50,000.
   const metas = new Map();
-  for (const key of pageKeys) {
-    if (!key.endsWith(".json")) continue;
-    const meta = await readJson(key);
+  for (const [, raw] of await entries("pages/", ".json")) {
+    const meta = parseOr(raw, null);
     if (meta && meta.slug && meta.status !== "redirect") metas.set(meta.slug, meta);
+  }
+  const accounts = [];
+  for (const [, raw] of await entries("accounts/", ".json")) {
+    const account = parseOr(raw, null);
+    if (account && account.id) accounts.push(account);
+  }
+  const trialUsed = new Map();
+  for (const [key, raw] of await entries("trials/", ".json")) {
+    const n = Number(parseOr(raw, {}).used);
+    trialUsed.set(key.slice(7, -5), Number.isFinite(n) && n > 0 ? n : 0);
+  }
+  const usedBy = (account) => trialUsed.get(sha(account.email)) || 0;
+  const byAccount = new Map();
+  for (const meta of metas.values()) {
+    if (!meta.accountId) continue;
+    if (!byAccount.has(meta.accountId)) byAccount.set(meta.accountId, []);
+    byAccount.get(meta.accountId).push(meta);
   }
   const counts = { accounts: 0, live: 0, trial: 0, paid: 0, free: 0, grace: 0, break: 0, hidden: 0, bookings: 0, legacy: 0 };
   for (const meta of metas.values()) {
     if (meta.status === "live") counts.live += 1;
     if (meta.status === "review") counts.hidden += 1;
+    if (meta.legacyInbox) counts.legacy += 1;
   }
   const rows = [];
   const seen = new Set();
-  for (const key of accountKeys) {
-    if (!key.endsWith(".json")) continue;
-    const account = await readJson(key);
-    if (!account || !account.id) continue;
+  const cardBiz = (meta) => String((meta && meta.names && meta.names.biz) || (meta && meta.card && meta.card.title) || "");
+  for (const account of accounts) {
     counts.accounts += 1;
     if (comped(account)) counts.free += 1;
     // Family plan: one row per page the account owns, all sharing the
@@ -704,83 +995,73 @@ async function adminDashboardPage(origin) {
     // free frees every page at once). Page records that name this account
     // are adopted even if the account's slug set somehow missed them.
     const ownedMetas = [];
-    for (const s of slugsOf(account)) {
-      const meta = metas.get(s);
+    for (const slug of slugsOf(account)) {
+      const meta = metas.get(slug);
       if (meta && !ownedMetas.includes(meta)) ownedMetas.push(meta);
     }
-    for (const meta of metas.values()) {
-      if (meta.accountId === account.id && !ownedMetas.includes(meta)) ownedMetas.push(meta);
-    }
+    for (const meta of byAccount.get(account.id) || []) if (!ownedMetas.includes(meta)) ownedMetas.push(meta);
     for (const meta of ownedMetas) seen.add(meta.slug);
-    const used = await trialCount(account.email);
-    const requests = await loadRequests(account.id);
-    counts.bookings += requests.length;
-    if (!ownedMetas.length) {
-      const status = adminStatus(account, null, used);
-      if (status.key === "trial") counts.trial += 1;
-      if (status.key === "paid") counts.paid += 1;
-      if (status.key === "grace") counts.grace += 1;
-      if (status.key === "break") counts.break += 1;
-      rows.push({
-        id: account.id,
-        comp: comped(account),
-        legacyInbox: false,
-        biz: "",
-        first: "",
-        slug: account.slug || "",
-        email: account.email || "",
-        status,
-        bookings: requests.length,
-        reports: 0,
-        sortAt: account.createdAt || ""
-      });
-      continue;
-    }
+    const used = usedBy(account);
     // The summary tiles count each account once, by its primary page's
     // status; the rows below carry each page's own status.
-    const headStatus = adminStatus(account, ownedMetas[0], used);
+    const headStatus = adminStatus(account, ownedMetas[0] || null, used);
     if (headStatus.key === "trial") counts.trial += 1;
     if (headStatus.key === "paid") counts.paid += 1;
     if (headStatus.key === "grace") counts.grace += 1;
     if (headStatus.key === "break") counts.break += 1;
+    if (!ownedMetas.length) {
+      rows.push({ account, meta: null, index: 0, id: account.id, comp: comped(account), slug: account.slug || "", email: account.email || "", status: headStatus, reports: 0, pageStatus: "", search: (account.slug || "") + " " + (account.email || ""), sortAt: account.createdAt || "" });
+      continue;
+    }
     for (const [index, meta] of ownedMetas.entries()) {
-      const names = await siteNames(meta.slug, meta);
-      if (names.legacyInbox) counts.legacy += 1;
-      rows.push({
-        id: account.id,
-        comp: comped(account),
-        legacyInbox: names.legacyInbox,
-        biz: names.biz,
-        first: names.first,
-        slug: meta.slug,
-        email: account.email || "",
-        status: adminStatus(account, meta, used),
-        bookings: requests.filter((row) => (row.slug ? row.slug === meta.slug : index === 0)).length,
-        reports: Array.isArray(meta.reports) ? meta.reports.length : 0,
-        sortAt: meta.updatedAt || account.createdAt || ""
-      });
+      rows.push({ account, meta, index, id: account.id, comp: comped(account), slug: meta.slug, email: account.email || "", status: adminStatus(account, meta, used), reports: Array.isArray(meta.reports) ? meta.reports.length : 0, pageStatus: meta.status || "", search: meta.slug + " " + (account.email || "") + " " + cardBiz(meta), sortAt: meta.updatedAt || account.createdAt || "" });
     }
   }
   for (const meta of metas.values()) {
     if (seen.has(meta.slug)) continue;
-    const status = adminStatus(null, meta, 0);
-    const names = await siteNames(meta.slug, meta);
-    if (names.legacyInbox) counts.legacy += 1;
-    rows.push({
-      id: "",
-      comp: false,
-      legacyInbox: names.legacyInbox,
-      biz: names.biz,
-      first: names.first,
-      slug: meta.slug,
-      email: "",
-      status,
-      bookings: 0,
-      reports: Array.isArray(meta.reports) ? meta.reports.length : 0,
-      sortAt: meta.updatedAt || ""
-    });
+    rows.push({ account: null, meta, index: 0, id: "", comp: false, slug: meta.slug, email: "", status: adminStatus(null, meta, 0), reports: Array.isArray(meta.reports) ? meta.reports.length : 0, pageStatus: meta.status || "", search: meta.slug + " " + cardBiz(meta), sortAt: meta.updatedAt || "" });
   }
   rows.sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
+  const q = String((query && query.get && query.get("q")) || "").trim().toLowerCase().slice(0, 80);
+  const only = String((query && query.get && query.get("show")) || "");
+  let matched = q ? rows.filter((row) => row.search.toLowerCase().includes(q)) : rows;
+  if (only === "reported") matched = matched.filter((row) => row.reports > 0 || row.pageStatus === "review" || row.pageStatus === "down");
+  const pages = Math.max(1, Math.ceil(matched.length / ADMIN_PAGE_SIZE));
+  const pageNo = Math.min(pages, Math.max(1, Math.floor(Number(query && query.get && query.get("page")) || 1)));
+  const shown = matched.slice((pageNo - 1) * ADMIN_PAGE_SIZE, pageNo * ADMIN_PAGE_SIZE);
+  // Details for the rows on screen only.
+  const requestsFor = new Map();
+  for (const row of shown) {
+    row.legacyInbox = false; row.biz = ""; row.first = ""; row.bookings = 0;
+    if (row.account && !requestsFor.has(row.account.id)) requestsFor.set(row.account.id, await loadRequests(row.account.id));
+    const requests = row.account ? requestsFor.get(row.account.id) : [];
+    if (!row.meta) { row.bookings = requests.length; continue; }
+    const names = await siteNames(row.meta.slug, row.meta);
+    if (names.legacyInbox && !row.meta.legacyInbox) counts.legacy += 1;
+    row.legacyInbox = names.legacyInbox; row.biz = names.biz; row.first = names.first;
+    row.bookings = requests.filter((item) => (item.slug ? item.slug === row.meta.slug : row.index === 0)).length;
+  }
+  const backing = await store();
+  if (typeof backing.sumArrayLengths === "function") counts.bookings = await backing.sumArrayLengths("requests/");
+  else for (const [, raw] of await entries("requests/", ".json")) { const list = parseOr(raw, []); counts.bookings += Array.isArray(list) ? list.length : 0; }
+  const linkTo = (n) => "/admin?page=" + n + (q ? "&q=" + encodeURIComponent(q) : "") + (only ? "&show=" + encodeURIComponent(only) : "");
+  const pager = `<p style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:10px 0">${pageNo > 1 ? `<a href="${mailEscape(linkTo(pageNo - 1))}">← Newer</a>` : ""}<span>${matched.length === rows.length ? rows.length + " rows" : matched.length + " of " + rows.length + " rows"}${pages > 1 ? " · page " + pageNo + " of " + pages : ""}</span>${pageNo < pages ? `<a href="${mailEscape(linkTo(pageNo + 1))}">Older →</a>` : ""}</p>`;
+  const searchForm = `<form method="get" action="/admin" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><input type="search" name="q" value="${mailEscape(q)}" placeholder="Search link name, email, or business" style="flex:1;min-width:14rem;font:16px system-ui;padding:8px"><select name="show" style="font:16px system-ui;padding:8px"><option value="">All pages</option><option value="reported"${only === "reported" ? " selected" : ""}>Reported or taken down</option></select><button type="submit" style="font:16px system-ui;padding:8px 14px">Search</button>${q || only ? `<a href="/admin" style="align-self:center">Clear</a>` : ""}</form>`;
+  // The latest payment that has not been refunded, on the family's first row.
+  const refundLink = (row) => {
+    if (!row.account || row.index !== 0) return "";
+    const item = (Array.isArray(row.account.receipts) ? row.account.receipts : []).filter((r) => r && r.id && !r.refundedAt).pop();
+    if (!item || !paid(row.account) || comped(row.account)) return "";
+    const age = Math.floor((Date.now() - Date.parse(item.at || "")) / 864e5);
+    return `<a href="/admin/refund?id=${mailEscape(row.id)}&amp;receipt=${mailEscape(item.id)}" style="display:inline-block;margin-top:6px;font-size:14px">Refund ${mailEscape(item.amountLabel || "")}</a><br><span style="font-size:13px;color:#5a6672">${age <= REFUND_DAYS ? "day " + Math.max(0, age) + " of " + REFUND_DAYS : "past " + REFUND_DAYS + " days"}</span>`;
+  };
+  const noteText = { "refund-done": "Refunded. The plan has ended and the family was emailed.", "refund-failed": "The refund did not go through. Nothing was changed. Check Stripe, then try again.", "refund-none": "That payment was already refunded." }[String((query && query.get && query.get("note")) || "")] || "";
+  const actionForm = (path, slug, label) => `<form method="post" action="/admin/${path}" style="margin:0 0 4px"><input type="hidden" name="slug" value="${mailEscape(slug)}"><button type="submit" style="font:14px system-ui;padding:6px 10px">${label}</button></form>`;
+  const pageActions = (row) => {
+    if (!row.slug || !row.pageStatus) return "—";
+    if (row.pageStatus === "down") return actionForm("restore", row.slug, "Put back");
+    return (row.pageStatus === "review" || row.reports > 0 ? actionForm("restore", row.slug, row.pageStatus === "review" ? "Restore" : "Clear reports") : "") + actionForm("takedown", row.slug, "Take down");
+  };
   const tile = (n, label) => `<div style="border:1px solid #ccd2d8;border-radius:10px;padding:10px 14px;min-width:6.5rem"><div style="font-size:28px;font-weight:800">${n}</div><div>${label}</div></div>`;
   const tiles = [
     tile(counts.accounts, "Accounts"),
@@ -794,14 +1075,15 @@ async function adminDashboardPage(origin) {
     tile(counts.legacy, "Legacy inbox"),
     tile(counts.bookings, "Bookings stored")
   ].join("");
-  const body = rows.map((row) => `<tr>
+  const body = shown.map((row) => `<tr>
 <td style="padding:8px;vertical-align:top">${row.biz ? `<b>${mailEscape(row.biz)}</b>` : ""}${row.first ? `<br>${mailEscape(row.first)}` : ""}${!row.biz && !row.first ? "—" : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.slug ? `<a href="${mailEscape((origin || "") + "/" + row.slug)}">/${mailEscape(row.slug)}</a>` : "—"}</td>
 <td style="padding:8px;vertical-align:top">${row.email ? mailEscape(row.email) : "—"}</td>
 <td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}${row.legacyInbox ? `<br><span style="display:inline-block;margin-top:4px;padding:1px 8px;border-radius:999px;background:#fde68a;border:1px solid #d97706;color:#7c2d12;font-size:13px;font-weight:700">Legacy inbox</span>` : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.bookings}</td>
 <td style="padding:8px;vertical-align:top">${row.reports}</td>
-<td style="padding:8px;vertical-align:top">${row.id ? `<form method="post" action="/admin/comp"><input type="hidden" name="id" value="${mailEscape(row.id)}"><input type="hidden" name="on" value="${row.comp ? "0" : "1"}"><button type="submit" style="font:14px system-ui;padding:6px 10px">${row.comp ? "Remove free" : "Make free"}</button></form>` : "—"}</td>
+<td style="padding:8px;vertical-align:top">${row.id ? `<form method="post" action="/admin/comp"><input type="hidden" name="id" value="${mailEscape(row.id)}"><input type="hidden" name="on" value="${row.comp ? "0" : "1"}"><button type="submit" style="font:14px system-ui;padding:6px 10px">${row.comp ? "Remove free" : "Make free"}</button></form>${refundLink(row)}` : "—"}</td>
+<td style="padding:8px;vertical-align:top">${pageActions(row)}</td>
 </tr>`).join("");
   return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Hustle Builder admin</title></head><body>
 <main style="max-width:64rem;margin:2rem auto;font:16px/1.5 system-ui,sans-serif;padding:0 1rem">
@@ -810,13 +1092,16 @@ async function adminDashboardPage(origin) {
 <form method="post" action="/admin/logout"><button type="submit" style="font:16px system-ui;padding:8px 14px">Sign out</button></form>
 </div>
 <div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0">${tiles}</div>
+${noteText ? `<p style="padding:10px 14px;border:1px solid #ccd2d8;border-radius:10px;background:#f4f6f8"><b>${mailEscape(noteText)}</b></p>` : ""}
+${searchForm}${pager}
 <table style="border-collapse:collapse;width:100%">
 <thead><tr style="text-align:left;border-bottom:2px solid #1d2226">
-<th style="padding:8px">Business · kid</th><th style="padding:8px">Page</th><th style="padding:8px">Parent email</th><th style="padding:8px">Status</th><th style="padding:8px">Bookings</th><th style="padding:8px">Reports</th><th style="padding:8px">Free</th>
+<th style="padding:8px">Business · kid</th><th style="padding:8px">Page</th><th style="padding:8px">Parent email</th><th style="padding:8px">Status</th><th style="padding:8px">Bookings</th><th style="padding:8px">Reports</th><th style="padding:8px">Plan</th><th style="padding:8px">Page</th>
 </tr></thead>
-<tbody>${body || `<tr><td colspan="7" style="padding:8px">No accounts yet.</td></tr>`}</tbody>
+<tbody>${body || `<tr><td colspan="8" style="padding:8px">${rows.length ? "Nothing matches that search." : "No accounts yet."}</td></tr>`}</tbody>
 </table>
-<p style="color:#5a6672">Bookings are the requests still stored per family (newest 80 kept). Reports are the reports on a page right now; restoring a page clears them. “Make free” puts a family on the friends &amp; family plan: no payment, no trial clock, no renewal emails. “Remove free” hands the account back to whatever its trial or paid dates say.</p>
+${pages > 1 ? pager : ""}
+<p style="color:#5a6672">Bookings are the requests still stored per family (each is deleted after about 30 days). Reports are the reports on a page right now; three hide a page automatically. “Restore” or “Clear reports” puts it back and clears them. “Take down” removes a page from public view and stops the family republishing it until you “Put back”. “Make free” puts a family on the friends &amp; family plan: no payment, no trial clock, no renewal emails. “Remove free” hands the account back to whatever its trial or paid dates say. “Refund” shows on a paid family’s latest payment: it asks you to confirm, sends the money back through Stripe, and ends the plan that payment bought. The terms promise a full refund within ${REFUND_DAYS} days.</p>
 </main></body></html>`);
 }
 
@@ -909,12 +1194,13 @@ async function serveSlug(slug, view) {
 
 async function serveSlugInner(slug, view) {
   if (slug === "privacy") return privacyPage();
+  if (slug === "terms") return termsPage();
   const why = checkSlug(slug);
   if (why) return missingPage(slug, false);
   const meta = await readJson("pages/" + slug + ".json");
   if (!meta) return missingPage(slug, false);
   if (meta.status === "down") return missingPage(slug, true);
-  if (meta.status === "review") return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hidden for review</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem"><h1>Hidden for now</h1><p>This page is hidden while it is being checked. Nothing new is being scheduled.</p></body></html>`);
+  if (meta.status === "review") return shell(200, "Hidden for review", `<h1>Hidden for now</h1><p>This page is hidden while it is being checked. Nothing new is being scheduled.</p>`);
   if (meta.status === "redirect" && meta.to) {
     if (Date.parse(meta.until || "") > Date.now()) return redirect("/" + meta.to);
     return missingPage(slug, false);
@@ -972,6 +1258,8 @@ export function petOgImage(origin) {
   return base + "/assets/pets/pet-og.jpg";
 }
 
+// The family's time zone, saved from the parent's browser at publish.
+function tzOf(account) { return validTz(account && account.tz) || DEFAULT_TZ; }
 function jobsKey(accountId) { return "caljobs/" + accountId + ".json"; }
 
 async function loadJobs(accountId) {
@@ -1010,6 +1298,7 @@ async function accountByCalToken(token) {
   return account;
 }
 
+function checkSlugShape(slug) { return /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug || "")); }
 function clipField(v, n) { return String(v || "").replace(/[\r\n]+/g, " ").trim().slice(0, n); }
 
 function cleanDeviceJob(input) {
@@ -1049,7 +1338,7 @@ async function serveCalendar(token) {
   const account = await accountByCalToken(token);
   if (!account) return json(404, { ok: false, error: "missing" });
   const jobs = await loadJobs(account.id);
-  return calendarResponse(200, jobsToIcs(jobs));
+  return calendarResponse(200, jobsToIcs(jobs, Date.now(), tzOf(account)));
 }
 
 function clientIp(req) {
@@ -1057,14 +1346,23 @@ function clientIp(req) {
   const fwd = h["x-forwarded-for"] || h["X-Forwarded-For"] || "";
   return String(fwd).split(",")[0].trim().slice(0, 80) || String(h["x-real-ip"] || "local").slice(0, 80);
 }
+// Abuse counters. Each lives under counters/<UTC day or hour>/..., so the daily
+// sweep can delete every bucket older than yesterday without reading them.
+// Only a hash of the address is ever stored.
+function counterKey(kind, who, bucket = new Date().toISOString().slice(0, 10)) {
+  return "counters/" + bucket + "/" + kind + "-" + sha(who + "|" + bucket);
+}
 async function bumpIp(ip) {
-  const day = new Date().toISOString().slice(0, 10);
-  const key = "iplimit/" + sha(ip + "|" + day);
+  const key = counterKey("book", ip);
   const n = Number((await (await store()).get(key)) || 0) + 1;
   await (await store()).put(key, String(n));
   return n;
 }
 const IP_LIMIT = 12;
+const CODE_MISS_LIMIT = 60;
+// Family plan ceiling: far above any real family, low enough that one free
+// account cannot be used to park hundreds of 2 MB pages.
+export const MAX_PAGES_PER_ACCOUNT = 20;
 const MIN_FORM_MS = 2500;
 
 function contactEmail(value) {
@@ -1077,7 +1375,7 @@ function contactPhone(value) {
   return digits.length === 10 ? "1" + digits : digits;
 }
 function mailEscape(value) {
-  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function pngResponse(buf) {
@@ -1136,8 +1434,8 @@ function cancelPage(token, done, missing) {
     ? "<p>This cancel link is no longer active.</p>"
     : done
       ? "<p>Cancelled. The family got a note.</p>"
-      : "<p>Nothing is booked until the family confirms. Tap below if you do not want this request.</p><form method=\"post\" action=\"/api/cancel/" + token + "\"><button type=\"submit\" style=\"font:700 18px system-ui;padding:14px 18px\">Cancel this request</button></form>";
-  return html(missing ? 404 : 200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body><main style="max-width:36rem;margin:2rem auto;font:18px/1.5 system-ui,sans-serif;padding:0 1rem"><h1>${title}</h1>${inner}</main></body></html>`);
+      : "<p>Nothing is booked until the family confirms. Tap below if you do not want this request.</p><form method=\"post\" action=\"/api/cancel/" + token + "\"><button type=\"submit\">Cancel this request</button></form>";
+  return shell(missing ? 404 : 200, title, `<h1>${title}</h1>${inner}`);
 }
 
 function clipDraft(value) {
@@ -1211,6 +1509,9 @@ async function routeRequest(req) {
     const rec = await readJson("drafts/" + draftGet[1] + ".json");
     if (!rec || Date.now() - Date.parse(rec.updatedAt || 0) > DRAFT_MS) {
       if (rec) await (await store()).del("drafts/" + draftGet[1] + ".json");
+      // A draft code is the only key to a kid's draft. Wrong codes are
+      // counted per address so nobody can sit and guess them.
+      if (await countKey(counterKey("codemiss", clientIp(req)), CODE_MISS_LIMIT)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
       return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     }
     return withCors(json(200, { ok: true, code: draftGet[1], draft: rec.draft, updatedAt: rec.updatedAt }), req.headers && req.headers.origin);
@@ -1281,8 +1582,8 @@ async function routeRequest(req) {
     const email = emailOk(body.email);
     if (!email) return withCors(json(400, { ok: false, error: "email" }), req.headers && req.headers.origin);
     const day = new Date().toISOString().slice(0, 10);
-    if (await countKey("authem/" + sha(email + "|" + day), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
-    if (await countKey("authip/" + sha(clientIp(req) + "|" + day), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (await countKey(counterKey("authem", email), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (await countKey(counterKey("authip", clientIp(req)), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     let account = await accountByEmail(email);
     const code = String(randomInt(100000, 1000000));
     if (!account) account = { id: rand(8), email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null, slugs: [] };
@@ -1348,7 +1649,7 @@ async function routeRequest(req) {
     return withCors(json(200, {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
       plan: account.plan || "", planName: comped(account) ? "Friends & family" : account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account), comp: comped(account),
-      grace: inGrace(account), graceDays: graceLeftDays(account),
+      grace: inGrace(account), graceDays: graceLeftDays(account), renewable: renewable(account),
       trialUsed: used, trialLeft: Math.max(0, FREE_JOBS - used),
       trialDays: trialLengthDays(), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "",
       trialOver: trialOver(account, used),
@@ -1376,11 +1677,11 @@ async function routeRequest(req) {
     const plan = Object.hasOwn(PLANS,body.plan)?PLANS[body.plan]:null;
     if (!plan) return withCors(json(400, { ok: false, error: "plan" }), req.headers && req.headers.origin);
     const mode = paywallMode();
-    if (paid(account)) {
+    if (!renewable(account)) {
       return withCors(json(200, { ok: true, alreadyPaid: true, mode, plan: account.plan || plan.id, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
     }
     if (mode === "test" || mode === "off") {
-      applyPlan(account, plan.id);
+      const change = grantPlan(account, plan.id);
       if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
       const receiptId = "pay-" + account.id + "-" + rand(4);
       await addReceipt(account, origin, {
@@ -1388,7 +1689,8 @@ async function routeRequest(req) {
         plan: plan.id,
         planName: account.planName,
         amountLabel: plan.label,
-        end: account.paidUntil
+        end: account.paidUntil,
+        extra: change
       });
       await sendReceiptNote(account, origin, receiptId);
       await saveAccount(account);
@@ -1400,15 +1702,25 @@ async function routeRequest(req) {
       if(!process.env.STRIPE_SECRET_KEY)return json(503,{ok:false,error:'stripe-key'});
       const providerHeaders={Authorization:'Bearer '+process.env.STRIPE_SECRET_KEY};
       if(account.checkoutSessionId){
-        let session;
-        try{const r=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(account.checkoutSessionId),{headers:providerHeaders,signal:AbortSignal.timeout(8000)});if(!r.ok)return json(502,{ok:false,error:'stripe'});session=await r.json();}catch{return json(502,{ok:false,error:'stripe'});}
-        if(session.status==='complete')return json(200,{ok:true,pending:true,mode:'stripe'});
-        if(session.status==='open'&&session.url)return json(200,{ok:true,mode:'stripe',url:session.url,reused:true});
-        if(session.status!=='expired')return json(502,{ok:false,error:'stripe'});
+        const open=await checkOpenCheckout(account,origin),session=open.session||{};
+        if(open.state==='error')return json(502,{ok:false,error:'stripe'});
+        if(open.state==='paid')return json(200,{ok:true,alreadyPaid:true,mode,plan:account.plan||plan.id,paidUntil:account.paidUntil});
+        if(open.state==='pending')return json(200,{ok:true,pending:true,mode:'stripe'});
+        if(open.state==='open'){
+          if(account.checkoutPlan===plan.id)return json(200,{ok:true,mode:'stripe',url:session.url,reused:true});
+          // The parent went back and picked the other plan. Close the open
+          // session first so the old price can never be paid by mistake; if
+          // it cannot be closed (it was paid a moment ago), stop here.
+          try{const r=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(account.checkoutSessionId)+'/expire',{method:'POST',headers:providerHeaders,signal:AbortSignal.timeout(8000)});if(!r.ok)return json(200,{ok:true,pending:true,mode:'stripe'});}catch{return json(502,{ok:false,error:'stripe'});}
+        }
         account.checkoutGeneration=(account.checkoutGeneration||0)+1;
         account.checkoutSessionId='';account.checkoutUrl='';account.checkoutPlan='';
       }
-      const checkoutPlan=PLANS[account.checkoutPlan]||plan;
+      // A try that never produced a session (the provider call failed) keeps
+      // its plan so a retry is idempotent. Asking for the other plan is a new
+      // attempt with its own idempotency key.
+      if(account.checkoutPlan&&account.checkoutPlan!==plan.id)account.checkoutGeneration=(account.checkoutGeneration||0)+1;
+      const checkoutPlan=plan;
       account.checkoutPlan=checkoutPlan.id;
       const attempt=sha('checkout:'+account.id+':'+(account.checkoutGeneration||0));
       const params=new URLSearchParams();
@@ -1416,7 +1728,7 @@ async function routeRequest(req) {
       params.set('success_url',origin+'/?hosting=paid');params.set('cancel_url',origin+'/?hosting=cancel');
       params.set('line_items[0][quantity]','1');params.set('line_items[0][price_data][currency]','usd');
       params.set('line_items[0][price_data][unit_amount]',String(checkoutPlan.amount));
-      params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id).name);
+      params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id,planBase(account)).name+', through '+niceDate(planOffer(checkoutPlan.id,planBase(account)).end));
       params.set('metadata[accountId]',account.id);params.set('metadata[plan]',checkoutPlan.id);params.set('metadata[attempt]',attempt);
       params.set('payment_intent_data[statement_descriptor_suffix]','HUSTLE BLDR');
       let response,data;
@@ -1429,6 +1741,16 @@ async function routeRequest(req) {
     return withCors(json(400, { ok: false, error: "paywall" }), req.headers && req.headers.origin);
   }
 
+  // The parent's browser lands back here after Stripe. Do not wait on the
+  // webhook alone: look the session up and apply it now if it was paid.
+  if (method === "POST" && route === "checkout/confirm") {
+    const account = await me();
+    if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    let state = "none";
+    if (paywallMode() === "stripe" && account.checkoutSessionId) state = (await checkOpenCheckout(account, origin)).state;
+    return withCors(json(200, { ok: true, state, paid: paid(account), paidUntil: account.paidUntil || "", planName: account.planName || "" }), req.headers && req.headers.origin);
+  }
+
   if (method === "POST" && route === "stripe/webhook") {
     const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
     const header = (req.headers && (req.headers["stripe-signature"] || req.headers["Stripe-Signature"])) || "";
@@ -1437,6 +1759,27 @@ async function routeRequest(req) {
     try { event = JSON.parse(req.body || "{}"); } catch { return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin); }
     const legacyEvent=String(event.id||'');
     if(/^[A-Za-z0-9_-]{1,80}$/.test(legacyEvent)&&await (await store()).get('stripe-events/'+legacyEvent))return json(200,{ok:true,duplicate:true});
+    if (event.type === 'charge.refunded' || event.type === 'charge.dispute.created') {
+      const obj = event.data?.object || {}, pi = String(obj.payment_intent || '');
+      if (!/^evt_[A-Za-z0-9_]+$/.test(event.id || '') || !/^pi_[A-Za-z0-9_]+$/.test(pi)) return json(200, { ok: true, ignored: true });
+      // A partial refund is a goodwill gesture, not the plan being undone.
+      if (event.type === 'charge.refunded' && !(obj.refunded === true || (Number(obj.amount) > 0 && Number(obj.amount_refunded) >= Number(obj.amount)))) return json(200, { ok: true, ignored: true, partial: true });
+      let pointer = await readJson('payintents/' + pi + '.json');
+      if (!pointer) {
+        // A payment from before receipts recorded their Stripe payment: ask
+        // Stripe which checkout it belonged to, remember the answer, and
+        // have Stripe deliver the event again so it runs under that
+        // account's lock.
+        const found = await paymentFromStripe(pi);
+        if (!found) return json(200, { ok: true, ignored: true });
+        await writeJson('payintents/' + pi + '.json', found);
+        return json(503, { ok: false, error: 'retry' }, { 'retry-after': '60' });
+      }
+      const account = /^[a-f0-9]{8,32}$/.test(String(pointer.accountId || '')) ? await readJson('accounts/' + pointer.accountId + '.json') : null;
+      if (!account) return json(200, { ok: true, ignored: true });
+      const changed = await revokeReceipt(account, pointer.receiptId, event.type === 'charge.refunded' ? 'refund' : 'dispute', origin);
+      return json(200, { ok: true, refunded: changed });
+    }
     if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const session=event.data?.object||{},meta=session.metadata||{},plan=Object.hasOwn(PLANS,meta.plan)?PLANS[meta.plan]:null;
       if(!/^evt_[A-Za-z0-9_]+$/.test(event.id||'')||!/^cs_[A-Za-z0-9_]+$/.test(session.id||''))return json(400,{ok:false,error:'event'});
@@ -1445,17 +1788,10 @@ async function routeRequest(req) {
       if(await readJson('payments/'+sha(session.id)+'.json'))return json(200,{ok:true,duplicate:true});
       const account=await readJson('accounts/'+meta.accountId+'.json');
       if(account){
-        if(!account.checkoutSessionId||account.checkoutSessionId!==session.id)return json(400,{ok:false,error:'session'});
-        if(meta.attempt!==sha('checkout:'+account.id+':'+(account.checkoutGeneration||0))||account.checkoutPlan!==plan.id)return json(400,{ok:false,error:'session'});
-        const base=paid(account)?new Date(account.paidUntil):new Date();
-        applyPlan(account,plan.id,base);account.payMode='stripe';account.checkoutPendingAt='';
-        // Keep payment deduplication in its own ledger; leave the next renewal available.
-        account.lastPaidSessionId=session.id;account.checkoutSessionId='';account.checkoutUrl='';account.checkoutPlan='';account.checkoutGeneration=(account.checkoutGeneration||0)+1;
-        await addReceipt(account,origin,{id:'stripe-'+session.id.toLowerCase().replace(/[^a-z0-9-]+/g,'-').slice(0,60),plan:plan.id,planName:account.planName,amountLabel:plan.label,end:account.paidUntil,stripeUrl:session.receipt_url||''});
-        await sendReceiptNote(account,origin,session.id);
-        await saveAccount(account);await trackPlan(account);await releaseHeld(account,origin);
+        const refused=await fulfillPaidSession(account,session,origin,event.id);
+        if(refused)return json(400,{ok:false,error:refused});
       }
-      await writeJson('payments/'+sha(session.id)+'.json',{eventId:event.id,sessionId:session.id,processedAt:new Date().toISOString()});
+      else await writeJson('payments/'+sha(session.id)+'.json',{eventId:event.id,sessionId:session.id,processedAt:new Date().toISOString()});
     }
     return withCors(json(200,{ok:true}),req.headers?.origin);
   }
@@ -1483,6 +1819,7 @@ async function routeRequest(req) {
     // page never restarts or extends the trial and never opens a checkout.
     const ownedBefore = slugsOf(account);
     const addedPage = !ownedBefore.includes(slug);
+    if (addedPage && ownedBefore.length >= MAX_PAGES_PER_ACCOUNT) return withCors(json(400, { ok: false, error: "pages", message: "This account already has " + MAX_PAGES_PER_ACCOUNT + " pages, which is the most one family plan covers." }), req.headers && req.headers.origin);
     const titleMatch = htmlIn.match(/<title>([^<]*)<\/title>/i);
     const cardTitle = clipField(body.cardTitle || (titleMatch && titleMatch[1]) || slug, 60);
     const cardLine = clipField(body.cardLine || "Book a day", 80);
@@ -1495,13 +1832,19 @@ async function routeRequest(req) {
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
     await (await store()).put("pages/" + slug + ".html", stored);
+    const pageNames = namesFromHtml(stored);
     const keptStatus = existing && ["paused","review"].includes(existing.status) ? existing.status : "live";
     await writeJson("pages/" + slug + ".json", {
       ...existing, slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
-      indexable, card: { title: cardTitle, line: cardLine, accent, pets }
+      indexable, card: { title: cardTitle, line: cardLine, accent, pets },
+      names: { first: pageNames.first, biz: pageNames.biz }, legacyInbox: pageNames.legacyInbox
     });
     addAccountSlug(account, slug);
     account.indexable = indexable;
+    // The publishing parent's browser names the family's time zone, so the
+    // calendar shows a 4:00 PM job at 4:00 PM wherever they live.
+    const tz = validTz(body.tz);
+    if (tz) account.tz = tz;
     if (!paid(account) && !account.trialStartedAt) {
       const now = Date.now();
       account.trialStartedAt = new Date(now).toISOString();
@@ -1553,6 +1896,7 @@ async function routeRequest(req) {
     if (account.calToken) await (await store()).del("caltokens/" + sha(account.calToken));
     await (await store()).del("caljobs/" + account.id + ".json");
     if (account.draftCode) await (await store()).del("drafts/" + account.draftCode + ".json");
+    if (account.draftCode) await (await store()).del("draftby/" + account.id + "/" + account.draftCode);
     await (await store()).del("draftacct/" + account.id);
     await (await store()).del("email/" + sha(account.email));
     await (await store()).del("outbox/" + sha(account.email) + ".json");
@@ -1567,11 +1911,13 @@ async function routeRequest(req) {
     if (!packed) return withCors(json(400, { ok: false, error: "draft" }), req.headers && req.headers.origin);
     if (packed.error) return withCors(json(413, { ok: false, error: "big" }), req.headers && req.headers.origin);
     const day = new Date().toISOString().slice(0, 10);
-    if (await countKey("askem/" + sha(email + "|" + day), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
-    if (await countKey("askip/" + sha(clientIp(req) + "|" + day), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (await countKey(counterKey("askem", email), 5)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (await countKey(counterKey("askip", clientIp(req)), 8)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     const token = rand(24);
     const expires = new Date(Date.now() + ASK_MS).toISOString();
     await writeJson("asks/" + token + ".json", { email, draft: packed.draft, createdAt: new Date().toISOString(), expires, status: "waiting", url: "" });
+    await ownerIndexSince();
+    await (await store()).put("askby/" + sha(email) + "/" + token, String(Date.now()));
     const link = (origin || "") + "/?ask=" + token;
     const mailed = await sendMail({
       to: email,
@@ -1619,7 +1965,7 @@ async function routeRequest(req) {
     if (code && !/^[a-z0-9]{8}$/.test(code)) return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin);
     const day = new Date().toISOString().slice(0, 10);
     const existing = code ? await readJson("drafts/" + code + ".json") : null;
-    if (!existing && await countKey("draftnew/" + sha(clientIp(req) + "|" + day), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    if (!existing && await countKey(counterKey("draftnew", clientIp(req)), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     const account = await me();
     let rec = existing;
     if (!code || !rec) {
@@ -1632,6 +1978,8 @@ async function routeRequest(req) {
       rec.accountId = account.id;
       account.draftCode = code;
       await saveAccount(account);
+      await ownerIndexSince();
+      await (await store()).put("draftby/" + account.id + "/" + code, String(Date.now()));
       await (await store()).put("draftacct/" + account.id, code);
     }
     await writeJson("drafts/" + code + ".json", rec);
@@ -1702,7 +2050,10 @@ async function routeRequest(req) {
         if (draft && draft.accountId) account = await readJson("accounts/" + draft.accountId + ".json");
       }
     }
-    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    if (!account) {
+      if (code && await countKey(counterKey("codemiss", clientIp(req)), CODE_MISS_LIMIT)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+      return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    }
     const rows = await loadRequests(account.id);
     const jobs = rows.map((row) => kidJob(row, account));
     const fresh = jobs.filter((row) => row.status === "new").length;
@@ -1716,7 +2067,7 @@ async function routeRequest(req) {
     const account = parts[0] ? await readJson("accounts/" + parts[0] + ".json") : null;
     const rows = account ? await loadRequests(account.id) : [];
     const row = rows.find((item) => item.id === parts[1]);
-    if (!account || !row) return html(404, "<!DOCTYPE html><html><body><p>This link is finished.</p></body></html>");
+    if (!account || !row) return finishedPage("This request is no longer stored. Requests are deleted about 30 days after they arrive.");
     if (method === "POST") {
       const next = String(body.status || "");
       if (next !== "confirmed" && next !== "done" && next !== "cancelled") return json(400, { ok: false, error: "status" });
@@ -1725,113 +2076,43 @@ async function routeRequest(req) {
       await saveRequests(account.id, rows);
     }
     const title = row.status === "new" ? "New request" : row.status[0].toUpperCase() + row.status.slice(1);
-    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem">
-<h1>${mailEscape(row.service || "A job")}</h1>
+    return shell(200, title, `<h1>${mailEscape(row.service || "A job")}</h1>
 <p>${mailEscape(row.firstName || "Neighbor")} · ${mailEscape(row.when || "")}</p>
 <p>Status: <b id="st">${mailEscape(row.status)}</b></p>
 <p>${mailEscape((row.fields && row.fields.contact) || "")}<br>${mailEscape((row.fields && row.fields.address) || "")}</p>
-<button type="button" id="yes" style="font:18px system-ui;padding:12px 16px;margin-right:8px">Confirmed</button>
-<button type="button" id="done" style="font:18px system-ui;padding:12px 16px">Done</button>
+<p>Nothing is booked until you reply to the customer. These buttons only update your own list and the kid’s My jobs.</p>
+<button type="button" id="yes">Confirmed</button>
+<button type="button" id="done">Done</button>
+<button type="button" id="no" class="alt">Cancelled</button>
+<p id="msg" role="status"></p>
 <script>
 async function mark(status){
-  const res=await fetch(location.pathname,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});
-  if(res.ok) document.getElementById("st").textContent=status;
+  const msg=document.getElementById("msg");
+  try{
+    const res=await fetch(location.pathname,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});
+    if(res.ok){document.getElementById("st").textContent=status;msg.textContent="Saved.";}
+    else msg.textContent="Could not save that. Try again.";
+  }catch(e){msg.textContent="Could not save that. Check your connection and try again.";}
 }
 document.getElementById("yes").onclick=()=>mark("confirmed");
 document.getElementById("done").onclick=()=>mark("done");
-</script>
-</body></html>`);
+document.getElementById("no").onclick=()=>mark("cancelled");
+</script>`);
   }
 
   const renewGet = route.match(/^renew\/([a-f0-9]{16,80})$/i);
   if (method === "GET" && renewGet) {
     const id = await (await store()).get("renew/" + renewGet[1]);
     const account = id ? await readJson("accounts/" + id.trim() + ".json") : null;
-    if (!account) return html(404, "<!DOCTYPE html><html><body><p>This renew link is finished.</p></body></html>");
+    if (!account) return finishedPage("This renew link is no longer active. Open your account to see your plan.");
     if (comped(account)) {
-      return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>You're covered</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>You're covered</h1><p>This page is on the friends &amp; family plan — free, with no payment due. There is nothing to renew.</p><p><a href="${mailEscape(accountUrl(origin))}">Your account</a></p></body></html>`);
+      return shell(200, "You're covered", `<h1>You're covered</h1><p>This page is on the friends &amp; family plan — free, with no payment due. There is nothing to renew.</p><p><a href="${mailEscape(accountUrl(origin))}">Your account</a></p>`);
     }
+    // Paying needs the signed-in parent, so the link never charges anything
+    // by itself. It opens the account screen with the plan already picked;
+    // the parent signs in if needed and taps Pay there.
     const planId = (req.query && req.query.get && req.query.get("plan")) === "year" ? "year" : "season";
-    return html(200,`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Renew your page</title></head><body><h1>Renew your page</h1><p>Sign in with your parent email, then choose a plan.</p><a href="${mailEscape(origin)}/?account=1">Open your account</a></body></html>`);
-  }
-
-  if(method==='GET' && route==='cron/mail'){
-    const secret=process.env.CRON_SECRET||process.env.ADMIN_SECRET||'';
-    const token=String(req.headers?.authorization||'').replace(/^Bearer\s+/i,'');
-    if(!secret||!safeEqual(secret,token))return json(401,{ok:false,error:'auth'});
-    return json(200,{ok:true});
-  }
-
-  if (method === "GET" && route === "cron/renewals") {
-    const secret = process.env.CRON_SECRET || process.env.ADMIN_SECRET || "";
-    const header = (req.headers && (req.headers.authorization || req.headers.Authorization || req.headers["x-cron-secret"])) || "";
-    const token = String(header).replace(/^Bearer\s+/i, "");
-    if (!secret || !safeEqual(token, secret)) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    const dry = !!(req.query && req.query.get && req.query.get("dry") === "1");
-    const ids = await trackedAccounts();
-    const due = [];
-    if(!dry)await cleanupExpired();
-    for (const id of ids) {
-      const account = await readJson("accounts/" + id + ".json");
-      if (!account || comped(account) || !account.paidUntil) continue;
-      const days = daysUntil(account.paidUntil);
-      if (days !== 14 && days !== 3 && days !== 0) continue;
-      const key = days + ":" + String(account.paidUntil).slice(0, 10);
-      account.sentReminders = account.sentReminders || {};
-      if (account.sentReminders[key]) continue;
-      if (!account.renewToken) account.renewToken = rand(16);
-      await (await store()).put("renew/" + account.renewToken, account.id);
-      const links = payLinks(origin, account);
-      const when = days === 0 ? "today" : "in " + days + " days";
-      const subject = days === 0 ? "Your Hustle Builder plan ends today" : "Your Hustle Builder plan ends in " + days + " days";
-      const text = "Your " + (account.planName || "plan") + " ends " + when + ", on " + niceDate(account.paidUntil) + ".\n\nRenew in one tap.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n\nAfter the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.";
-      due.push({ email: account.email, kind: String(days), days });
-      if (!dry) {
-        await sendMail({
-          to: account.email,
-          replyTo: supportReply(),
-          forParent: true,
-          origin,
-          subject,
-          text,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your <b>" + mailEscape(account.planName || "plan") + "</b> ends " + when + ", on " + mailEscape(niceDate(account.paidUntil)) + ".</p><p>Renew in one tap.</p><p><a href=\"" + mailEscape(links.season) + "\">Renew, " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Renew, " + PLANS.year.label + " for the year</a></p><p>After the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.</p></div>"
-        });
-        account.sentReminders[key] = new Date().toISOString();
-        await saveAccount(account);
-      }
-    }
-    for (const id of ids) {
-      const account = await readJson("accounts/" + id + ".json");
-      if (!account || comped(account) || !account.trialEndsAt || paid(account) || inGrace(account)) continue;
-      const used = await trialCount(account.email);
-      if (used >= FREE_JOBS) continue;
-      const days = daysUntil(account.trialEndsAt);
-      if (days !== 3 && days !== 0) continue;
-      const key = "trial-" + days + ":" + String(account.trialEndsAt).slice(0, 10);
-      account.sentReminders = account.sentReminders || {};
-      if (account.sentReminders[key]) continue;
-      if (!account.renewToken) account.renewToken = rand(16);
-      await (await store()).put("renew/" + account.renewToken, account.id);
-      const links = payLinks(origin, account);
-      const when = days === 0 ? "today" : "in 3 days";
-      const subject = days === 0 ? "Your free trial ends today" : "Your free trial ends in 3 days";
-      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe page then shows a taking-a-break page. Your draft and the site stay saved. Pay to bring it back.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n";
-      due.push({ email: account.email, kind: "trial-" + days, days });
-      if (!dry) {
-        await sendMail({
-          to: account.email,
-          replyTo: supportReply(),
-          forParent: true,
-          origin,
-          subject,
-          text,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pay in one tap to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
-        });
-        account.sentReminders[key] = new Date().toISOString();
-        await saveAccount(account);
-      }
-    }
-    return withCors(json(200, { ok: true, dry, due }), req.headers && req.headers.origin);
+    return redirect((origin || "") + "/?account=1&plan=" + planId);
   }
 
   if (method === "POST" && route === "book") {
@@ -1907,8 +2188,8 @@ document.getElementById("done").onclick=()=>mark("done");
       note: jobNote,
       createdAt: new Date().toISOString()
     } : null;
-    const gcal = job ? gcalTemplate(job) : "";
-    const ics = job ? jobsToIcs([job]) : "";
+    const gcal = job ? gcalTemplate(job, tzOf(account)) : "";
+    const ics = job ? jobsToIcs([job], Date.now(), tzOf(account)) : "";
     const reply = contactEmail(fields.contact);
     const phone = contactPhone(fields.contact);
     const tel = phone ? "tel:+" + phone : "";
@@ -2077,12 +2358,12 @@ document.getElementById("done").onclick=()=>mark("done");
   };
   function reportForm(slug, note) {
     const choices = Object.entries(reportReasons).map(([id, label]) => `<label style="display:block;margin:10px 0"><input type="radio" name="reason" value="${id}" required> ${label}</label>`).join("");
-    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report this page</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Report this page</h1><p>Tell us what is wrong. You do not need an account.</p>${note ? `<p><b>${mailEscape(note)}</b></p>` : ""}<form method="post" action="/api/report"><input type="hidden" name="slug" value="${mailEscape(slug)}">${choices}<label style="display:block;margin:14px 0">Anything else? (optional)<textarea name="details" maxlength="500" rows="4" style="display:block;width:100%;margin-top:6px;font:18px system-ui"></textarea></label><button type="submit" style="font:18px system-ui;padding:12px 16px">Send</button></form></body></html>`);
+    return shell(200, "Report this page", `<h1>Report this page</h1><p>Tell us what is wrong. You do not need an account.</p>${note ? `<p><b>${mailEscape(note)}</b></p>` : ""}<form method="post" action="/api/report"><input type="hidden" name="slug" value="${mailEscape(slug)}">${choices}<label style="display:block;margin:14px 0">Anything else? (optional)<textarea name="details" maxlength="500" rows="4"></textarea></label><button type="submit">Send</button></form>`);
   }
   const reportGet = route.match(/^report\/([a-z0-9][a-z0-9-]{1,40})$/);
   if (method === "GET" && reportGet) {
     const meta = await readJson("pages/" + reportGet[1] + ".json");
-    if (!meta) return html(404, "<!DOCTYPE html><html><body><p>That page is not here.</p></body></html>");
+    if (!meta) return finishedPage("That page is not here.");
     return reportForm(reportGet[1], "");
   }
   if (method === "POST" && route === "report") {
@@ -2096,15 +2377,15 @@ document.getElementById("done").onclick=()=>mark("done");
     if (!meta) return reply(404, { ok: false, error: "missing" }, "That page is not here.");
     const day = new Date().toISOString().slice(0, 10);
     const ip = clientIp(req) || "unknown";
-    if (await countKey("reportip/" + sha(ip + "|" + day), 8)) return reply(429, { ok: false, error: "limit" }, "That's enough reports for today.");
+    if (await countKey(counterKey("reportip", ip), 8)) return reply(429, { ok: false, error: "limit" }, "That's enough reports for today.");
     meta.reports = Array.isArray(meta.reports) ? meta.reports : [];
     const mark = sha(ip).slice(0, 16);
     const freshReport = !meta.reports.some((item) => item.ip === mark);
     if (freshReport) {
       meta.reports.push({ ip: mark, reason, at: new Date().toISOString() });
       await sendMail({
-        to: "support@hustlebuilder.org",
-        replyTo: supportReply() || "support@hustlebuilder.org",
+        to: SUPPORT_EMAIL,
+        replyTo: supportReply() || SUPPORT_EMAIL,
         subject: "Page report: " + slug,
         text: "Page: " + slug + "\nReason: " + reportReasons[reason] + "\nDetails: " + (details || "none") + "\n",
         html: "<p style=\"font:18px/1.5 system-ui,sans-serif\">Page: " + mailEscape(slug) + "<br>Reason: " + mailEscape(reportReasons[reason]) + "<br>Details: " + mailEscape(details || "none") + "</p>"
@@ -2128,13 +2409,13 @@ document.getElementById("done").onclick=()=>mark("done");
       await writeJson("pages/" + slug + ".json", meta);
     }
     if (asJson) return withCors(json(200, { ok: true, status: meta.status, reports: meta.reports.length }), req.headers && req.headers.origin);
-    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report sent</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Thanks</h1><p>We got your note. You can close this page.</p></body></html>`);
+    return shell(200, "Report sent", `<h1>Thanks</h1><p>We got your note. You can close this page.</p>`);
   }
 
   if (method === "GET" && adminRoute === "admin") {
     const secret = process.env.ADMIN_SECRET || "";
     if (!secret) return adminSetupPage();
-    if (await adminAuthed(req.headers)) return await adminDashboardPage(origin);
+    if (await adminAuthed(req.headers)) return await adminDashboardPage(origin, req.query);
     return adminLoginPage(200, "");
   }
 
@@ -2145,7 +2426,7 @@ document.getElementById("done").onclick=()=>mark("done");
     // for the operator and far too slow for guessing. Mirrors the countKey
     // limits on auth/start, with an hour bucket instead of a day.
     const hour = new Date().toISOString().slice(0, 13);
-    if (await countKey("adminip/" + sha(clientIp(req) + "|" + hour), 10)) return adminLoginPage(429, "Too many tries. Wait an hour, then try again.");
+    if (await countKey(counterKey("adminip", clientIp(req), hour), 10)) return adminLoginPage(429, "Too many tries. Wait an hour, then try again.");
     if (!safeEqual(String(body.secret || ""), secret)) return adminLoginPage(401, "That password did not work.");
     const token = await issueAdminSession();
     return { status: 302, headers: { location: "/admin", "cache-control": "no-store", "set-cookie": adminCookieHeader(token) }, body: "" };
@@ -2154,6 +2435,54 @@ document.getElementById("done").onclick=()=>mark("done");
   if (method === "POST" && adminRoute === "admin/logout") {
     await dropAdminSession(req.headers);
     return { status: 302, headers: { location: "/admin", "cache-control": "no-store", "set-cookie": clearAdminCookieHeader() }, body: "" };
+  }
+
+  // Refund a payment from the dashboard. GET shows what will happen and asks
+  // for a second click; POST sends the money back through Stripe (when the
+  // payment was a real one) and ends the plan that payment bought. A
+  // payment made in test mode has nothing to send back, so only the plan ends.
+  if ((method === "GET" || method === "POST") && adminRoute === "admin/refund") {
+    const secret = process.env.ADMIN_SECRET || "";
+    if (!secret) return adminSetupPage();
+    const back = (note) => ({ status: 302, headers: { location: "/admin" + (note ? "?note=" + note : ""), "cache-control": "no-store" }, body: "" });
+    if (!(await adminAuthed(req.headers))) return back("");
+    const src = method === "GET" ? { id: req.query && req.query.get && req.query.get("id"), receipt: req.query && req.query.get && req.query.get("receipt") } : body;
+    const id = String(src.id || ""), receiptId = String(src.receipt || "");
+    if (!/^[a-f0-9]{8,32}$/.test(id) || !/^[a-z0-9-]{1,80}$/.test(receiptId)) return back("");
+    const account = await readJson("accounts/" + id + ".json");
+    const item = account && (account.receipts || []).find((r) => r && r.id === receiptId);
+    if (!item || item.refundedAt) return back("refund-none");
+    const age = Math.floor((Date.now() - Date.parse(item.at || "")) / 864e5);
+    const earlier = (account.receipts || []).filter((r) => r && r.refundedAt).length;
+    const real = String(item.id).startsWith("stripe-");
+    if (method === "GET") {
+      return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Refund</title></head><body>
+<main style="max-width:34rem;margin:2rem auto;font:17px/1.5 system-ui,sans-serif;padding:0 1rem">
+<h1>Refund ${mailEscape(item.amountLabel || "")}?</h1>
+<p><b>${mailEscape(account.email || "")}</b><br>${mailEscape(item.planName || item.plan || "Plan")} · paid ${mailEscape(niceDate(item.at))} (${age <= 0 ? "today" : age + " day" + (age === 1 ? "" : "s") + " ago"})</p>
+<p>${age <= REFUND_DAYS ? "Inside the " + REFUND_DAYS + "-day money-back window." : "<b>Past the " + REFUND_DAYS + "-day window.</b> The terms do not require this refund; it is your call."}${earlier ? " This family has had " + earlier + " refund" + (earlier === 1 ? "" : "s") + " before." : ""}</p>
+<p>${real ? "The full amount goes back to the card through Stripe." : "This was a test-mode payment, so there is no money to send back."} The plan it bought ends now and the family gets an email. The page returns to how it was before the payment; nothing is deleted.</p>
+<form method="post" action="/admin/refund"><input type="hidden" name="id" value="${mailEscape(id)}"><input type="hidden" name="receipt" value="${mailEscape(receiptId)}">
+<button type="submit" style="font:17px system-ui;padding:10px 16px">${real ? "Refund and end the plan" : "End the plan"}</button> &nbsp; <a href="/admin">Cancel</a></form>
+</main></body></html>`);
+    }
+    if (real) {
+      if (!process.env.STRIPE_SECRET_KEY) return back("refund-failed");
+      const paymentIntent = await receiptPaymentIntent(account, item);
+      if (!paymentIntent) return back("refund-failed");
+      let ok = false;
+      try {
+        const params = new URLSearchParams({ payment_intent: paymentIntent, reason: "requested_by_customer" });
+        const r = await fetch("https://api.stripe.com/v1/refunds", { method: "POST", headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": "hb-refund-" + receiptId }, body: params, signal: AbortSignal.timeout(8000) });
+        const data = await r.json().catch(() => ({}));
+        // Already refunded in the Stripe dashboard counts as done.
+        ok = r.ok || (data && data.error && data.error.code === "charge_already_refunded");
+      } catch { ok = false; }
+      if (!ok) return back("refund-failed");
+      if (!item.paymentIntent) { item.paymentIntent = paymentIntent; await writeJson("payintents/" + paymentIntent + ".json", { accountId: account.id, receiptId }); }
+    }
+    await revokeReceipt(account, receiptId, "refund", origin);
+    return back("refund-done");
   }
 
   // The one place a friends & family comp is granted or taken back. It
@@ -2183,34 +2512,38 @@ document.getElementById("done").onclick=()=>mark("done");
     return back;
   }
 
-  if (method === "POST" && route === "admin/restore") {
+  // Restore and take-down work two ways: from the dashboard's buttons (an
+  // admin session cookie and a form post, answered with a redirect back),
+  // or scripted with the x-admin-secret header and a JSON body.
+  if (method === "POST" && (adminRoute === "admin/restore" || adminRoute === "admin/takedown")) {
     const secret = process.env.ADMIN_SECRET || "";
     const given = (req.headers && (req.headers["x-admin-secret"] || req.headers["X-Admin-Secret"])) || "";
-    if (!secret) return withCors(json(503, { ok: false, error: "admin" }), req.headers && req.headers.origin);
-    if (!safeEqual(given, secret)) return withCors(json(401, { ok: false, error: "admin" }), req.headers && req.headers.origin);
+    const viaForm = !given && !String(req.body || "").trim().startsWith("{");
+    const back = { status: 302, headers: { location: "/admin", "cache-control": "no-store" }, body: "" };
+    if (!secret) return viaForm ? adminSetupPage() : withCors(json(503, { ok: false, error: "admin" }), req.headers && req.headers.origin);
+    const allowed = given ? safeEqual(given, secret) : await adminAuthed(req.headers);
+    if (!allowed) return viaForm ? back : withCors(json(401, { ok: false, error: "admin" }), req.headers && req.headers.origin);
     const slug = String(body.slug || "").trim().toLowerCase();
-    const meta = await readJson("pages/" + slug + ".json");
-    if (!meta) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    const meta = checkSlugShape(slug) ? await readJson("pages/" + slug + ".json") : null;
+    if (!meta || meta.status === "redirect") return viaForm ? back : withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
+    if (adminRoute === "admin/takedown") {
+      meta.status = "down";
+      meta.downAt = new Date().toISOString();
+      await writeJson("pages/" + slug + ".json", meta);
+      return viaForm ? back : withCors(json(200, { ok: true, slug }), req.headers && req.headers.origin);
+    }
+    // Restore: a page hidden by reports goes live again; a page the operator
+    // took down goes back to live (or to offline if the family removed it).
     if (meta.status === "review") meta.status = "live";
+    else if (meta.status === "down") {
+      meta.status = (await (await store()).get("pages/" + slug + ".html")) ? "live" : "offline";
+      delete meta.downAt;
+    }
     meta.reports = [];
     meta.reviewMailed = false;
     meta.restoredAt = new Date().toISOString();
     await writeJson("pages/" + slug + ".json", meta);
-    return withCors(json(200, { ok: true, slug, status: meta.status }), req.headers && req.headers.origin);
-  }
-
-  if (method === "POST" && route === "admin/takedown") {
-    const secret = process.env.ADMIN_SECRET || "";
-    const given = (req.headers && (req.headers["x-admin-secret"] || req.headers["X-Admin-Secret"])) || "";
-    if (!secret) return withCors(json(503, { ok: false, error: "admin" }), req.headers && req.headers.origin);
-    if (!safeEqual(given, secret)) return withCors(json(401, { ok: false, error: "admin" }), req.headers && req.headers.origin);
-    const slug = String(body.slug || "").trim().toLowerCase();
-    const meta = await readJson("pages/" + slug + ".json");
-    if (!meta) return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
-    meta.status = "down";
-    meta.downAt = new Date().toISOString();
-    await writeJson("pages/" + slug + ".json", meta);
-    return withCors(json(200, { ok: true, slug }), req.headers && req.headers.origin);
+    return viaForm ? back : withCors(json(200, { ok: true, slug, status: meta.status }), req.headers && req.headers.origin);
   }
 
   if (method === "GET" && route === "account") {
@@ -2242,6 +2575,7 @@ document.getElementById("done").onclick=()=>mark("done");
         paidUntilLabel: account.paidUntil ? niceDate(account.paidUntil) : "",
         grace: inGrace(account),
         graceDays: graceLeftDays(account),
+        renewable: renewable(account),
         trialDaysLeft: trialDaysLeft(account),
         trialLeft: Math.max(0, FREE_JOBS - used),
         trialDays: trialLengthDays(),
@@ -2249,7 +2583,7 @@ document.getElementById("done").onclick=()=>mark("done");
         trialOver: trialOver(account, used),
         renew: payLinks(origin, account),
         receipts: index === 0 ? (account.receipts || []).slice(-12).map((item) => ({
-          id: item.id, plan: item.planName || item.plan || "", amount: item.amountLabel || "", at: item.at || "", end: item.endLabel || "", url: item.url || ""
+          id: item.id, plan: item.planName || item.plan || "", amount: item.amountLabel || "", at: item.at || "", end: item.endLabel || "", url: item.url || "", refunded: !!item.refundedAt
         })) : [],
         requests: rows.filter((row) => (row.slug ? row.slug === siteSlug : index === 0)).slice(-20).reverse().map((row) => ({
           service: row.service || "A job",
@@ -2296,8 +2630,8 @@ document.getElementById("done").onclick=()=>mark("done");
   const receiptGet = route.match(/^receipt\/([a-z0-9-]{6,80})$/i);
   if (method === "GET" && receiptGet) {
     const rec = await readJson("receipts/" + receiptGet[1].toLowerCase() + ".json");
-    if (!rec) return html(404, "<!DOCTYPE html><html><body><p>That receipt is not here.</p></body></html>");
-    return html(200, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Receipt</title></head><body style="font:18px/1.5 system-ui,sans-serif;margin:1.5rem;max-width:36rem"><h1>Receipt</h1><p>${mailEscape(rec.planName || "Hustle Builder")}</p><p><b>${mailEscape(rec.amountLabel || "")}</b></p><p>Through ${mailEscape(rec.endLabel || "")}.</p><p>Hustle Builder. This is not a card statement.</p></body></html>`);
+    if (!rec) return finishedPage("That receipt is not here.");
+    return shell(200, "Receipt", `<h1>Receipt</h1><p>Hustle Builder hosting</p><p>${mailEscape(rec.planName || "Hustle Builder")}</p><p><b>${mailEscape(rec.amountLabel || "")}</b>${rec.at ? " · paid " + mailEscape(niceDate(rec.at)) : ""}</p>${rec.refundedAt ? `<p><b>${rec.refundReason === "dispute" ? "Disputed" : "Refunded"} ${mailEscape(niceDate(rec.refundedAt))}.</b> The plan this payment bought has ended.</p>` : `<p>Through ${mailEscape(rec.endLabel || "")}.</p>`}<p>Receipt ${mailEscape(rec.id || "")}</p><p>One-time payment. This plan does not renew on its own. Full refund if you ask within ${REFUND_DAYS} days. This is not a card statement. Questions: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>`);
   }
 
   if (method === "GET" && route === "test/outbox") {
@@ -2311,10 +2645,151 @@ document.getElementById("done").onclick=()=>mark("done");
   return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
 }
 
+// One account's share of the daily job: prune its old requests and calendar
+// jobs, then queue any plan or trial reminder that is due. It runs in its
+// own short transaction that locks only this account, so the daily job never
+// pauses the rest of the site however many families there are.
+async function remindAccount(id, origin, dry, due) {
+  const account = await readJson("accounts/" + id + ".json");
+  if (!account) return;
+  if (!dry) { await loadRequests(id); await loadJobs(id); }
+  paidPlan: {
+      if (comped(account) || !account.paidUntil) break paidPlan;
+      // Reminders go by window (14 to 4 days out, 3 to 1, the last day), not
+      // by an exact day count, so one missed cron run cannot skip a reminder.
+      const days = daysUntil(account.paidUntil);
+      const bucket = reminderBucket(days, true);
+      if (bucket === null) break paidPlan;
+      const key = bucket + ":" + String(account.paidUntil).slice(0, 10);
+      account.sentReminders = account.sentReminders || {};
+      if (account.sentReminders[key]) break paidPlan;
+      if (!account.renewToken) account.renewToken = rand(16);
+      await (await store()).put("renew/" + account.renewToken, account.id);
+      const links = payLinks(origin, account);
+      const when = daysWords(days);
+      const subject = "Your Hustle Builder plan ends " + when;
+      const text = "Your " + (account.planName || "plan") + " ends " + when + ", on " + niceDate(account.paidUntil) + ".\n\nRenew from your account. Renewing early adds on to the end date, so you lose no time. Plans never renew on their own.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n\nAfter the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.";
+      due.push({ email: account.email, kind: String(bucket), days });
+      if (!dry) {
+        await sendMail({
+          to: account.email,
+          replyTo: supportReply(),
+          forParent: true,
+          origin,
+          subject,
+          text,
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your <b>" + mailEscape(account.planName || "plan") + "</b> ends " + when + ", on " + mailEscape(niceDate(account.paidUntil)) + ".</p><p>Renew from your account. Renewing early adds on to the end date, so you lose no time. Plans never renew on their own.</p><p><a href=\"" + mailEscape(links.season) + "\">Renew, " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Renew, " + PLANS.year.label + " for the year</a></p><p>After the end date the page stays up for 7 days, then it shows a taking-a-break page and bookings pause.</p></div>"
+        });
+        account.sentReminders[key] = new Date().toISOString();
+        await saveAccount(account);
+      }
+      }
+  trial: {
+      if (comped(account) || !account.trialEndsAt || paid(account) || inGrace(account)) break trial;
+      const used = await trialCount(account.email);
+      if (used >= FREE_JOBS) break trial;
+      const days = daysUntil(account.trialEndsAt);
+      const bucket = reminderBucket(days, false);
+      if (bucket === null) break trial;
+      const key = "trial-" + bucket + ":" + String(account.trialEndsAt).slice(0, 10);
+      account.sentReminders = account.sentReminders || {};
+      if (account.sentReminders[key]) break trial;
+      if (!account.renewToken) account.renewToken = rand(16);
+      await (await store()).put("renew/" + account.renewToken, account.id);
+      const links = payLinks(origin, account);
+      const when = daysWords(days);
+      const subject = "Your free trial ends " + when;
+      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe page then shows a taking-a-break page. Your draft and the site stay saved. Pay to bring it back.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n";
+      due.push({ email: account.email, kind: "trial-" + bucket, days });
+      if (!dry) {
+        await sendMail({
+          to: account.email,
+          replyTo: supportReply(),
+          forParent: true,
+          origin,
+          subject,
+          text,
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pick a plan to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
+        });
+        account.sentReminders[key] = new Date().toISOString();
+        await saveAccount(account);
+      }
+      }
+}
+
+// The daily job, resumable. It walks the tracked accounts in id order within
+// a time budget and records how far it got; if it runs out of time, the
+// five-minute mail cron picks it up from there until the day's pass is done.
+// Reminders are keyed per account and window, so repeating a step is harmless.
+const CRON_STATE = "cronstate/renewals.json";
+export async function runRenewals({ origin, dry, budgetMs, resume }) {
+  const base = await store();
+  const deadline = Date.now() + budgetMs;
+  const today = new Date().toISOString().slice(0, 10);
+  const due = [];
+  let state = null;
+  if (resume) {
+    try { state = JSON.parse((await base.get(CRON_STATE)) || "null"); } catch { state = null; }
+    if (!state || state.day !== today || state.done) return { due, done: true, processed: 0, skipped: true };
+  } else state = { day: today, after: "", done: false, swept: false };
+  const save = async () => { if (!dry) await base.put(CRON_STATE, JSON.stringify(state)); };
+  if (!dry && !state.swept) { await sweepExpired(); state.swept = true; await save(); }
+  const ids = (await trackedAccounts()).filter((id) => /^[a-f0-9]{8,32}$/.test(id)).sort();
+  let processed = 0, done = true;
+  for (const id of ids) {
+    if (state.after && id <= state.after) continue;
+    if (Date.now() >= deadline) { done = false; break; }
+    await withMailBatch(() => transaction(() => remindAccount(id, origin, dry, due), { keys: ["account:" + id] }));
+    processed += 1;
+    state.after = id;
+    if (processed % 25 === 0) await save();
+  }
+  state.done = done;
+  await save();
+  return { due, done, processed };
+}
+
+function cronAuthed(req) {
+  const secret = process.env.CRON_SECRET || process.env.ADMIN_SECRET || "";
+  const header = (req.headers && (req.headers.authorization || req.headers.Authorization || req.headers["x-cron-secret"])) || "";
+  const token = String(header).replace(/^Bearer\s+/i, "");
+  return !!secret && safeEqual(token, secret);
+}
+
+async function cronRequest(req, route) {
+  if (!cronAuthed(req)) return json(401, { ok: false, error: "auth" });
+  const origin = await publicOrigin(req.origin);
+  if (route === "cron/mail") {
+    // Finish today's renewal pass first if the daily run ran out of time.
+    await runRenewals({ origin, dry: false, budgetMs: 15000, resume: true });
+    await flushMail();
+    return json(200, { ok: true });
+  }
+  const dry = !!(req.query && req.query.get && req.query.get("dry") === "1");
+  const out = await runRenewals({ origin, dry, budgetMs: 30000, resume: false });
+  if (!dry) await flushMail();
+  return json(200, { ok: true, dry, due: out.due, done: out.done, processed: out.processed });
+}
+
 async function removeCalendarRequest(accountId,row) {
   const id=row.calendarJobId||row.calJob?.id||row.ics?.match(/UID:([^@\r\n]+)@/)?.[1];
   if(id)await saveJobs(accountId,(await loadJobs(accountId)).filter(j=>j.id!==id));
   row.calJob=null;
+}
+// Everything that belongs to one account, found by following what the
+// account itself points at — never by reading every stored row. Drafts and
+// "ask my parent" links are found through small owner-index pointers written
+// when they are saved (draftby/<account>/<code>, askby/<email hash>/<token>).
+// Records saved before that index existed are covered by a one-off scan of
+// just those two folders, which switches itself off once every such record
+// has aged out (90 days after the index began).
+const OWNER_INDEX = "meta/owner-index.json";
+async function ownerIndexSince() {
+  const rec = await readJson(OWNER_INDEX);
+  if (rec && Number(rec.since)) return Number(rec.since);
+  const since = Date.now();
+  await writeJson(OWNER_INDEX, { since });
+  return since;
 }
 async function eraseRelated(account) {
   const s=await store();
@@ -2324,25 +2799,52 @@ async function eraseRelated(account) {
   for(const slug of [...slugsOf(account),...(account.formerSlugs||[])]){await s.del('pages/'+slug+'.html');await s.del('pages/'+slug+'.json');await s.del('views/'+slug+'.json');}
   if(account.renewToken)await s.del('renew/'+account.renewToken);
   if(account.jobCode)await s.del('jobcode/'+account.jobCode);
-  for(const key of await s.list('')){
-    if(key==='accounts/'+account.id+'.json')continue;
-    const raw=await s.get(key);let rec;try{rec=JSON.parse(raw);}catch{}
-    const owned=rec&&typeof rec==='object'&&!Array.isArray(rec)&&(rec.accountId===account.id||rec.ownerId===account.id||rec.email===account.email||rec.parentEmail===account.email||rec.to===account.email);
-    const pointer=raw===account.id||String(raw).startsWith(account.id+':');
-    if(owned||pointer||key.startsWith('bookingids/'+account.id+'/')||key==='requests/'+account.id+'.json'||key==='planacct/'+account.id)await s.del(key);
+  for(const key of await s.list('bookingids/'+account.id+'/'))await s.del(key);
+  for(const item of Array.isArray(account.receipts)?account.receipts:[]){
+    if(item&&/^[a-z0-9-]{1,80}$/.test(String(item.id||'')))await s.del('receipts/'+item.id+'.json');
+    if(item&&/^pi_[A-Za-z0-9_]+$/.test(String(item.paymentIntent||'')))await s.del('payintents/'+item.paymentIntent+'.json');
+  }
+  for(const slug of slugsOf(account))await s.del('sentmail/live-'+account.id+'-'+slug);
+  const emailKey=sha(account.email);
+  for(const key of await s.list('draftby/'+account.id+'/')){await s.del('drafts/'+key.split('/').pop()+'.json');await s.del(key);}
+  for(const key of await s.list('askby/'+emailKey+'/')){await s.del('asks/'+key.split('/').pop()+'.json');await s.del(key);}
+  // Mail still waiting to go out to, or about, this family. The queue only
+  // ever holds a few minutes of mail, so reading it is cheap.
+  const owns=rec=>rec&&typeof rec==='object'&&!Array.isArray(rec)&&(rec.accountId===account.id||rec.ownerId===account.id||rec.email===account.email||rec.parentEmail===account.email||rec.to===account.email);
+  for(const key of await s.list('mailqueue/')){if(owns(await readJson(key)))await s.del(key);}
+  if(Date.now()-await ownerIndexSince()<DRAFT_MS+864e5){
+    for(const prefix of ['drafts/','asks/'])for(const key of await s.list(prefix)){if(owns(await readJson(key)))await s.del(key);}
   }
   const legacy=await readJson('plan-ids.json');
   if(legacy)await writeJson('plan-ids.json',legacy.filter(id=>id!==account.id));
 }
-async function cleanupExpired() {
-  const s=await store();
-  for(const id of await trackedAccounts()){await loadRequests(id);await loadJobs(id);}
-  for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
-    const rec=await readJson(key);if(!rec)continue;
-    const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;
-    if(!Number.isFinite(expiry)||expiry<Date.now())await s.del(key);
-  }
+// Housekeeping for records that simply expire. On PostgreSQL this is one
+// DELETE (see postgres-store.mjs sweep); the loop below is the dev/test file
+// store's version of the same rules.
+async function sweepExpired() {
+  const base=await store();
+  const keepFrom=new Date(Date.now()-864e5).toISOString().slice(0,10);
+  if(base.sweep)return base.sweep({keepFrom});
+  return transaction(async()=>{
+    const s=await store();
+    // Abuse counters: drop every bucket older than yesterday, plus the
+    // pre-bucket key shapes (which carried no date and so were never cleared).
+    for(const key of await s.list('counters/')){if(key.slice(9,19)<keepFrom)await s.del(key);}
+    for(const legacy of LEGACY_COUNTER_PREFIXES)for(const key of await s.list(legacy))await s.del(key);
+    // Admin sessions that simply ran out (nobody came back to trip the check).
+    for(const key of await s.list('adminsessions/')){const rec=await readJson(key);if(!rec||Number(rec.exp)<=Date.now())await s.del(key);}
+    for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
+      const rec=await readJson(key);if(!rec)continue;
+      const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;
+      if(!Number.isFinite(expiry)||expiry<Date.now())await s.del(key);
+    }
+    // Owner index pointers outlive nothing: each holds the time it was written.
+    for(const [prefix,keep] of [['draftby/',DRAFT_MS],['askby/',ASK_MS]])for(const key of await s.list(prefix)){
+      if(!(Number(await s.get(key))>Date.now()-keep))await s.del(key);
+    }
+  },{keys:['sweep']});
 }
+export const LEGACY_COUNTER_PREFIXES=['iplimit/','authem/','authip/','askem/','askip/','draftnew/','reportip/','adminip/'];
 
 async function requestLocks(req) {
   const s=await store(),keys=[];
@@ -2357,13 +2859,15 @@ async function requestLocks(req) {
   if(auth){const id=await s.get('tokens/'+sha(auth[1]));if(id)accountIds.add(id.trim());}
   const cookieToken=cookieValue(req.headers?.cookie||req.headers?.Cookie,SESSION_COOKIE);
   if(cookieToken){const id=await s.get('tokens/'+sha(cookieToken));if(id)accountIds.add(id.trim());}
-  if((route==='admin/comp'||req.path==='/admin/comp')&&/^[a-f0-9]{8,32}$/.test(body.id||''))accountIds.add(body.id);
+  if(/^\/?(api\/)?admin\/(comp|refund)$/.test(String(req.path||'').split('?')[0])&&/^[a-f0-9]{8,32}$/.test(body.id||''))accountIds.add(body.id);
   if(route.startsWith('admin')||String(req.path).startsWith('/admin'))keys.push('quota:admin:'+sha(clientIp(req)));
   const slug=String(body.slug||route.match(/^site\/(.*)$/)?.[1]||'').trim().toLowerCase();
   if(slug&&!checkSlug(slug)){keys.push('slug:'+slug);const page=await read('pages/'+slug+'.json');if(page?.accountId)accountIds.add(page.accountId);}
   if(route==='stripe/webhook'){
     const id=body.data?.object?.metadata?.accountId;
     if(/^[a-f0-9]{16}$/.test(id||''))accountIds.add(id);
+    const pi=String(body.data?.object?.payment_intent||'');
+    if(/^pi_[A-Za-z0-9_]+$/.test(pi)){keys.push('payintent:'+pi);const ptr=await read('payintents/'+pi+'.json');if(/^[a-f0-9]{8,32}$/.test(String(ptr?.accountId||'')))accountIds.add(ptr.accountId);}
   }
   const capability=route.match(/^(cancel|job|renew|cal)\/([a-f0-9]+)(?:\.ics)?$/);
   if(capability){const [,kind,token]=capability;
@@ -2381,7 +2885,10 @@ async function requestLocks(req) {
   if(route==='report')keys.push('quota:report:'+sha(clientIp(req)));
   keys.push(...[...accountIds].map(id=>'account:'+id));
   const readOnly=String(req.method).toUpperCase()==='GET'&&(/^(site\/|card\/|qr\/|slug$|plans$|test\/outbox$)/.test(route));
-  return {keys,maintenance:route==='cron/renewals'||route==='account'&&req.method==='DELETE'||req.path==='/admin'||route==='admin',readOnly};
+  // Each of these used to take the site-wide exclusive lock (pausing every
+  // other write while it ran). Deletion now locks only its own account and
+  // pages, the dashboard only reads, and the cron runs per account.
+  return {keys,maintenance:false,readOnly};
 }
 
 export async function handleRequest(req) {
@@ -2389,8 +2896,15 @@ export async function handleRequest(req) {
     if(process.env.HB_MAINTENANCE_MODE==='1')return json(503,{ok:false,error:'maintenance'},{'retry-after':'60'});
     const requestOrigin=req.headers?.origin||req.headers?.Origin;
     const hasCookie=!!cookieValue(req.headers?.cookie||req.headers?.Cookie,SESSION_COOKIE)||!!cookieValue(req.headers?.cookie||req.headers?.Cookie,ADMIN_COOKIE);
-    if(hasCookie&&!['GET','HEAD','OPTIONS'].includes(String(req.method).toUpperCase())&&requestOrigin&&requestOrigin!==await publicOrigin(req.origin))return json(403,{ok:false,error:'origin'});
+    // A same-site form on a no-referrer page sends Origin: null. The Lax
+    // admin and parent cookies are not attached to a cross-site POST, and
+    // Sec-Fetch-Site says whether this navigation stayed on our site.
+    const fetchSite = String(req.headers?.["sec-fetch-site"] || req.headers?.["Sec-Fetch-Site"] || "");
+    const strippedOrigin = requestOrigin === "null" && (fetchSite === "same-origin" || fetchSite === "same-site" || fetchSite === "none");
+    if(hasCookie&&!['GET','HEAD','OPTIONS'].includes(String(req.method).toUpperCase())&&requestOrigin&&requestOrigin!==await publicOrigin(req.origin)&&!strippedOrigin)return json(403,{ok:false,error:'origin'});
     if(Buffer.byteLength(String(req.body||''),'utf8')>2_200_000)return json(413,{ok:false,error:'big'});
+    const cronRoute=String(req.path||'').split('?')[0].replace(/^\/api\//,'');
+    if(String(req.method).toUpperCase()==='GET'&&(cronRoute==='cron/renewals'||cronRoute==='cron/mail'))return await cronRequest(req,cronRoute);
     let batch;
     for(let attempt=0;attempt<3;attempt++){
       const options=await requestLocks(req);
@@ -2413,13 +2927,15 @@ export async function handleRequest(req) {
     }
     // Mail is sent only after successful commit. Retryable failures remain durable.
     if(ids.length)await flushMail(ids);
-    if(['/api/cron/renewals','/api/cron/mail'].includes(String(req.path).split('?')[0]) && result.status===200 && req.query?.get?.('dry')!=='1')await flushMail();
     if(req.headers?.origin==='null'&&String(req.path).split('?')[0]==='/api/book'){
       result.headers={...result.headers,'access-control-allow-origin':'null','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','vary':'Origin'};
     }
     return result;
   }catch(error){
     if(error instanceof URIError)return json(400,{ok:false,error:'path'});
+    // Name and code only: never the message (it can quote a query or a host
+    // name) and never the full path (several paths are private links).
+    try{console.error('[hb] request failed',String(req.method||'').toUpperCase(),String(req.path||'').split('?')[0].replace(/[a-f0-9]{16,}/gi,':token'),error&&error.name||'Error',error&&error.code||'');}catch{}
     return json(503,{ok:false,error:'unavailable',message:'Temporarily busy. Your saved page is safe. Please try again.',},{'retry-after':'5'});
   }
 }

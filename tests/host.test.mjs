@@ -747,7 +747,7 @@ test("renewal reminders send once, then the page takes a break after grace", asy
   assert.equal(sent.body.due.length, 1);
   const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   const note = mail.body.messages.find((m) => /ends in 14 days/.test(m.subject));
-  assert.match(note.text, /Renew in one tap/);
+  assert.match(note.text, /Renew from your account/);
   assert.match(note.text, /\/api\/renew\//);
   const again = await json(await call("GET", "/api/cron/renewals", { headers: secret }));
   assert.equal(again.body.due.length, 0);
@@ -760,7 +760,8 @@ test("renewal reminders send once, then the page takes a break after grace", asy
   assert.equal(grace.body.grace, true);
   assert.ok(grace.body.graceDays >= 1 && grace.body.graceDays <= 7);
   const renewed = await call("GET", renewPath);
-  assert.match(renewed.body,/Sign in with your parent email/);
+  assert.equal(renewed.status, 302);
+  assert.equal(renewed.headers.location, "http://sites.test/?account=1&plan=season");
   assert.equal((await json(await call('GET','/api/me',{token}))).body.paid,false);
   await patchAccount((account) => { account.paidUntil = new Date(Date.now() - 8 * 864e5).toISOString(); });
   const resting = await call("GET", "/api/site/sam");
@@ -1156,7 +1157,7 @@ test("the home screen app can install and keep the builder offline", async () =>
   assert.ok(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512"));
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
-  assert.match(sw, /hustle-shell-1/);
+  assert.match(sw, /hustle-shell-2/);
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /rel="manifest"/);
   assert.match(html, /You're offline\. Your work is saved on this phone\./);

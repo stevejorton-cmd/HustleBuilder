@@ -1,7 +1,38 @@
-// Family calendar feed. Times are America/Chicago wall clocks (Lincoln),
-// matching the hour the neighbor picked. Duration is one real hour.
+// Family calendar feed. A job's start is a wall-clock time ("2026-12-02T16:00")
+// — the hour the neighbor picked, in the family's own time zone. That zone is
+// saved on the account when a parent publishes (from their browser); accounts
+// from before that, and anything without one, use America/Chicago, where the
+// product started. Duration is one real hour.
+//
+// The Chicago feed keeps its original shape (TZID + VTIMEZONE). Every other
+// zone is written as exact UTC instants, which every calendar app shows at
+// the right local hour without needing a time-zone table in the file.
 
 const TZID = "America/Chicago";
+export const DEFAULT_TZ = TZID;
+
+export function validTz(value) {
+  const tz = String(value || "").trim();
+  if (!tz || tz.length > 64 || !/^[A-Za-z0-9_+\-/]+$/.test(tz)) return "";
+  try { return new Intl.DateTimeFormat("en-US", { timeZone: tz }).resolvedOptions().timeZone || ""; }
+  catch { return ""; }
+}
+
+export function wallIn(ms, tz) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz || TZID,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  });
+  const p = {};
+  for (const part of fmt.formatToParts(new Date(ms))) p[part.type] = part.value;
+  const hour = p.hour === "24" ? "00" : p.hour;
+  return p.year + "-" + p.month + "-" + p.day + "T" + hour + ":" + p.minute;
+}
 export const JOB_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
 const VTIMEZONE = [
@@ -25,24 +56,26 @@ const VTIMEZONE = [
 ].join("\r\n");
 
 export function chicagoWall(ms) {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZID,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23"
-  });
-  const p = {};
-  for (const part of fmt.formatToParts(new Date(ms))) p[part.type] = part.value;
-  const hour = p.hour === "24" ? "00" : p.hour;
-  return p.year + "-" + p.month + "-" + p.day + "T" + hour + ":" + p.minute;
+  return wallIn(ms, TZID);
 }
 
-export function jobInstant(start) {
+export function jobInstant(start, tz = TZID) {
   const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(String(start || ""));
   if (!m) return null;
+  if (tz && tz !== TZID) {
+    // Find the instant whose wall clock in tz reads `start`. Two or three
+    // corrections settle it; a wall time skipped by a clock change lands on
+    // the nearest real instant.
+    const want = Date.parse(m[1] + "T" + m[2] + ":00Z");
+    if (Number.isNaN(want)) return null;
+    let ms = want;
+    for (let i = 0; i < 4; i++) {
+      const diff = want - Date.parse(wallIn(ms, tz) + ":00Z");
+      if (!diff) break;
+      ms += diff;
+    }
+    return ms;
+  }
   for (const off of ["-05:00", "-06:00"]) {
     const ms = Date.parse(m[1] + "T" + m[2] + ":00" + off);
     if (Number.isNaN(ms)) continue;
@@ -52,10 +85,10 @@ export function jobInstant(start) {
   return Number.isNaN(fallback) ? null : fallback;
 }
 
-export function addHourWall(start) {
-  const ms = jobInstant(start);
+export function addHourWall(start, tz = TZID) {
+  const ms = jobInstant(start, tz);
   if (ms == null) return "";
-  return chicagoWall(ms + 3600000);
+  return wallIn(ms + 3600000, tz);
 }
 
 export function pruneJobs(jobs, now = Date.now()) {
@@ -99,9 +132,15 @@ function dtstamp(now) {
   return new Date(now).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-function eventLines(job, now) {
-  const end = addHourWall(job.start);
+function utcStamp(ms) {
+  return new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function eventLines(job, now, tz) {
+  const local = !tz || tz === TZID;
+  const end = addHourWall(job.start, local ? TZID : tz);
   if (!end) return [];
+  const startMs = local ? 0 : jobInstant(job.start, tz);
   const summary = (job.service || "Job") + " - " + (job.customer || "Customer");
   const bits = [];
   if (job.note) bits.push(String(job.note));
@@ -110,8 +149,8 @@ function eventLines(job, now) {
     "BEGIN:VEVENT",
     "UID:" + job.id + "@hustlebuilder.org",
     "DTSTAMP:" + dtstamp(now),
-    "DTSTART;TZID=" + TZID + ":" + stamp(job.start),
-    "DTEND;TZID=" + TZID + ":" + stamp(end),
+    local ? "DTSTART;TZID=" + TZID + ":" + stamp(job.start) : "DTSTART:" + utcStamp(startMs),
+    local ? "DTEND;TZID=" + TZID + ":" + stamp(end) : "DTEND:" + utcStamp(startMs + 3600000),
     "SUMMARY:" + icsEscape(summary),
     "LOCATION:" + icsEscape(job.address || "")
   ];
@@ -120,11 +159,12 @@ function eventLines(job, now) {
   return lines;
 }
 
-export function jobsToIcs(jobs, now = Date.now()) {
+export function jobsToIcs(jobs, now = Date.now(), tz = TZID) {
+  const local = !tz || tz === TZID;
   const events = [];
   for (const job of pruneJobs(jobs, now)) {
     if (!job || !/^[A-Za-z0-9_-]{6,80}$/.test(String(job.id || ""))) continue;
-    events.push(...eventLines(job, now));
+    events.push(...eventLines(job, now, tz));
   }
   const lines = [
     "BEGIN:VCALENDAR",
@@ -133,15 +173,15 @@ export function jobsToIcs(jobs, now = Date.now()) {
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "X-WR-CALNAME:Hustle Jobs",
-    VTIMEZONE,
+    ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
     ...events,
     "END:VCALENDAR"
   ];
   return lines.map(fold).join("\r\n") + "\r\n";
 }
 
-export function gcalTemplate(job) {
-  const end = addHourWall(job && job.start);
+export function gcalTemplate(job, tz = TZID) {
+  const end = addHourWall(job && job.start, tz || TZID);
   if (!end) return "";
   const text = (job.service || "Job") + " - " + (job.customer || "");
   const details = [job.note || "", job.amount ? "Price: " + job.amount : ""].filter(Boolean).join("\n");
@@ -149,7 +189,8 @@ export function gcalTemplate(job) {
     + encodeURIComponent(text)
     + "&dates=" + stamp(job.start) + "/" + stamp(end)
     + "&details=" + encodeURIComponent(details)
-    + "&location=" + encodeURIComponent(job.address || "");
+    + "&location=" + encodeURIComponent(job.address || "")
+    + (tz && tz !== TZID ? "&ctz=" + encodeURIComponent(tz) : "");
 }
 
 export function feedLinks(origin, token) {

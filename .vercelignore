@@ -1,0 +1,11 @@
+# Not part of the running site. Vercel serves every uploaded file that is not
+# a function as a public static file, so anything listed here is simply never
+# uploaded. host/ and package.json must stay (api/handler.js needs them);
+# vercel.json redirects keep those from being read over the web.
+/tests
+/stress
+/scripts
+/.github
+*.md
+booking-inbox-script-template.gs.txt
+.env.example
