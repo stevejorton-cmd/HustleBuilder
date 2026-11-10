@@ -359,7 +359,11 @@ test("draft and job codes cannot be guessed without limit", async () => {
   assert.equal(last.status, 429);
   assert.equal((await json(await call("GET", "/api/my-jobs?code=zzzzzzzz", { headers }))).status, 429);
   assert.equal((await json(await call("GET", "/api/draft/aaaaaaaa", { headers: { "x-forwarded-for": "198.51.100.78" } }))).status, 404, "other visitors are unaffected");
-  const made = await json(await call("POST", "/api/draft", { body: { draft: { first: "Sam" } }, headers }));
+  const blocked = await json(await call("POST", "/api/draft", { body: { draft: { first: "Sam", phone: "4025550199" } }, headers }));
+  assert.equal(blocked.status, 403);
+  const p = await parent("draftlimit@example.com");
+  const made = await json(await call("POST", "/api/draft", { token: p.token, body: { draft: { first: "Sam" } }, headers }));
+  assert.equal(made.body.ok, true);
   assert.equal((await json(await call("GET", "/api/draft/" + made.body.code, { headers }))).body.ok, true, "a real code still opens for a limited address");
 });
 

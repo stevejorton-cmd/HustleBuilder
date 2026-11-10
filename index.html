@@ -815,7 +815,7 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
 
     <section class="step" data-step="7">
       <h2>Go live.</h2>
-      <p class="lead">Try free: your first 3 jobs are on us, for 14 days. You get one link, and it stays the same when you update the page.</p>
+      <p class="lead">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically. You get one link, and it stays the same when you update the page.</p>
       <button type="button" class="btn ghost" id="openAccount">Your account</button>
       <section id="accountScreen" hidden>
         <h3 class="h3">Your account</h3>
@@ -830,7 +830,8 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
       <p class="lead" style="margin-bottom:14px">A parent does this on this device. The first time, they verify their email and agree. After that, Update puts the new page on the same link.</p>
       <div id="pubBox">
         <button type="button" class="btn block" id="askParent">Ask my parent</button>
-        <p class="small2">The email says the first 3 jobs are free for 14 days. After that, a season is $9.99 and a year is $19.99. A parent still verifies their email and agrees before the page goes live.</p>
+        <p class="small2">Until a parent agrees, this page stays on this phone. Ask my parent sends only their email, your first name, and your business name.</p>
+        <p class="small2">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically. After that, a season is $9.99 and a year is $19.99. A parent still verifies their email and agrees before the page goes live. <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
         <p class="small2">They get a link on their phone. They say yes, and the page goes up.</p>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
@@ -850,7 +851,7 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
-            <p class="lead" id="trialPitch">Try free: your first 3 jobs are on us.</p>
+            <p class="lead" id="trialPitch">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically.</p>
             <p class="status" id="trialCount" hidden></p>
           </div>
           <p class="status" id="graceBanner" hidden></p>
@@ -4403,6 +4404,7 @@ async function pubSignOut(){
   try{await pubApi("/api/auth/logout",{body:{}});}catch(e){}
   pubMemToken="";
   pubSaveSession(null);
+  setConsentOn(false);
 }
 function calSyncOn(){return !!(publishOrigin()&&pubSession()&&localStorage.getItem("hb-cal-sync")!=="0");}
 function calJobBody(j){return {id:j.id,service:j.service||"",customer:j.customer||"",address:j.address||"",start:(j.date||"")+"T"+(j.time||"09:00"),note:j.note||"",amount:j.amount?String(j.amount):""};}
@@ -4441,16 +4443,20 @@ function trialLine(me){
   const jobs=me&&typeof me.trialLeft==="number"?me.trialLeft:3;
   return days+" days / "+jobs+" free jobs left.";
 }
+const TRIAL_WORDS="Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically.";
+function setConsentOn(on){try{if(on)localStorage.setItem("hb-consent","1");else localStorage.removeItem("hb-consent");}catch(e){}}
+function consentOn(){try{return localStorage.getItem("hb-consent")==="1";}catch(e){return false;}}
 function planHelp(me){
-  if(!me)return "Try free: your first 3 jobs are on us, for 14 days.";
+  if(!me)return TRIAL_WORDS;
   if(me.comp)return "Friends & family — free, no payment due.";
   if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
   if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
   if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
   if(typeof me.trialLeft==="number")return trialLine(me);
-  return "Try free: your first 3 jobs are on us, for 14 days.";
+  return TRIAL_WORDS;
 }
 function showHosting(me){
+  if(me&&me.ok){setConsentOn(!!me.consent); if(me.consent)scheduleDraft();}
   const help=$("#pubPlanHelp"); if(help&&me&&me.ok)help.textContent=planHelp(me);
   const count=$("#trialCount");
   if(count){
@@ -4635,7 +4641,7 @@ $("#pubVerify").onclick=async()=>{
     pubSaveSession({email:data.email, slug:data.slug||""});
     $("#pubReady").hidden=false;
     applyPublishState(data);
-    $("#pubOk").textContent="Email verified. A parent checks the box. The first 3 jobs are free, or they can pick a plan.";
+    $("#pubOk").textContent="Email verified. A parent checks the box. "+TRIAL_WORDS;
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
@@ -5004,14 +5010,14 @@ function draftPayload(){
   return d;
 }
 let draftTimer=0;
-function scheduleDraft(){if(!publishOrigin())return;clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,1200);}
+function scheduleDraft(){if(!publishOrigin()||!consentOn())return;clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,1200);}
 function showOffline(on){const note=$("#offlineNote"); if(note)note.hidden=!on;}
 window.addEventListener("offline", ()=>showOffline(true));
 window.addEventListener("online", ()=>{showOffline(false); scheduleDraft();});
 if(typeof navigator!=="undefined"&&navigator.onLine===false)showOffline(true);
 if(typeof navigator!=="undefined"&&navigator.serviceWorker)window.addEventListener("load", ()=>{navigator.serviceWorker.register("/sw.js").catch(function(){});});
 async function saveDraft(){
-  if(!publishOrigin())return;
+  if(!publishOrigin()||!consentOn())return;
   try{
     const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
     if(data.ok&&data.code)localStorage.setItem("hb-draft",data.code);
@@ -5091,8 +5097,18 @@ function restoreBoss(code){
   if(!B.missions)B.missions={}; if(!B.mdone)B.mdone={}; if(!B.mweeks)B.mweeks={};
   saveB(); renderBoss();
 }
+function localDrafts(){try{return JSON.parse(localStorage.getItem("hb-local-drafts")||"{}");}catch(e){return {};}}
+function rememberLocalBuild(){
+  let code=currentDraftCode();
+  if(!/^[a-z0-9]{8}$/.test(code)){code=Math.random().toString(36).slice(2,10).padEnd(8,"a").slice(0,8); try{localStorage.setItem("hb-draft",code);}catch(e){}}
+  const all=localDrafts(); all[code]=draftPayload();
+  try{localStorage.setItem("hb-local-drafts",JSON.stringify(all));}catch(e){}
+  noteCurrentBuild();
+  return code;
+}
 async function saveDraftChecked(){
   if(!publishOrigin())return false;
+  if(!consentOn()){rememberLocalBuild();return true;}
   clearTimeout(draftTimer);
   try{
     const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
@@ -5141,10 +5157,13 @@ async function openBuild(code){
   const msg=$("#accountMsg");
   if(code===currentDraftCode()){if(msg)msg.textContent="That build is already open."; return;}
   let target=null;
-  try{
-    const data=await pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"});
-    if(data.ok&&data.draft)target=data.draft;
-  }catch(e){}
+  if(consentOn()){
+    try{
+      const data=await pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"});
+      if(data.ok&&data.draft)target=data.draft;
+    }catch(e){}
+  }
+  if(!target){const saved=localDrafts()[code]; if(saved)target=saved;}
   if(!target){if(msg)msg.textContent="That saved build could not be opened. Its 90 days may be up. The build you have open was not changed."; return;}
   const ok=await stashCurrentBuild();
   if(!ok){if(msg)msg.textContent="Could not save the current build, so nothing was changed. Check your connection and try again."; return;}
@@ -5198,6 +5217,7 @@ const otherBtn=$("#otherDevice");
 if(otherBtn)otherBtn.onclick=async()=>{
   const st=$("#draftStatus");
   if(!publishOrigin()){if(st)st.textContent="Opening on another device works on the family website. This phone still keeps your page.";return;}
+  if(!consentOn()){if(st)st.textContent="This page stays on this phone until a parent agrees. Then you can open it on another device.";return;}
   if(st)st.textContent="Saving…";
   try{
     const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
@@ -5248,7 +5268,7 @@ if(askBtn)askBtn.onclick=async()=>{
   if(!email){if(st)st.textContent="Add your parent’s email first.";$("#pubEmail")&&$("#pubEmail").focus();return;}
   if(st)st.textContent="Sending…";
   try{
-    const data=await pubApi("/api/ask",{body:{email,draft:draftPayload()}});
+    const data=await pubApi("/api/ask",{body:{email,first:(S.first||"").trim(),biz:(S.bizName||"").trim()}});
     if(!data.ok){if(st)st.textContent=data.error==="limit"?"That’s enough emails for today. Try again tomorrow.":"Could not send. Check the email and try again.";return;}
     localStorage.setItem("hb-ask",data.token);
     localStorage.setItem("hb-ask-link",data.link);
@@ -5267,7 +5287,7 @@ async function openAsk(token){
       if($("#pubGo"))$("#pubGo").hidden=false;
       showPublished("");
     }
-    if(data.draft)applyDraft(data.draft);
+    if(data.draft&&data.draft.services)applyDraft(data.draft);
     if($("#pubEmail"))$("#pubEmail").value=data.email||"";
     go(7);
     if($("#pubReady"))$("#pubReady").hidden=!!data.requiresVerification;
