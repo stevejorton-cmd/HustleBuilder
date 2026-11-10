@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Hustle Builder v34. Copyright (c) 2026 Hustle Builder. All rights reserved. Third-party notices (Barlow fonts, SIL OFL 1.1; qrcode-generator, MIT) are included in this file and listed in the About and legal screen, together with heic2any (MIT; bundles libheif, LGPL-3.0), vendored at assets/heic2any.js and loaded only when a HEIC photo is added. -->
+<!-- Hustle Builder v35. Copyright (c) 2026 Hustle Builder. All rights reserved. Third-party notices (Barlow fonts, SIL OFL 1.1; qrcode-generator, MIT) are included in this file and listed in the About and legal screen, together with heic2any (MIT; bundles libheif, LGPL-3.0), vendored at assets/heic2any.js and loaded only when a HEIC photo is added. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -848,13 +848,14 @@ body.soft .intro-card{border-radius:22px 22px 0 0}
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
         <div id="pubReady" hidden>
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on. A booked job’s name, address, and time are saved for the family calendar for about 30 days.</span></label>
-          <p class="small2"><a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
+          <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
             <p class="lead" id="trialPitch">Try free: your first 3 jobs are on us.</p>
             <p class="status" id="trialCount" hidden></p>
           </div>
           <p class="status" id="graceBanner" hidden></p>
-          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Or pick a plan. No card is charged in test mode.</small></div>
+          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Or pick a plan. Plans are one-time payments and never renew on their own.</small></div>
+          <button type="button" class="btn block" id="pubPay" hidden>Pay for this plan</button>
           <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Your first name plus your business name works great, like josie-josies-pet-care. It is harder for strangers to guess than a first name alone.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
@@ -3894,29 +3895,32 @@ $("#surprise").onclick=()=>{
 };
 
 /* ============ About and legal ============ */
-const APP_VERSION="33";
+const APP_VERSION="35";
 const LIC_OFL="Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)\n\n-----------------------------------------------------------\nSIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\n-----------------------------------------------------------\n\nPREAMBLE\nThe goals of the Open Font License (OFL) are to stimulate worldwide\ndevelopment of collaborative font projects, to support the font creation\nefforts of academic and linguistic communities, and to provide a free and\nopen framework in which fonts may be shared and improved in partnership\nwith others.\n\nThe OFL allows the licensed fonts to be used, studied, modified and\nredistributed freely as long as they are not sold by themselves. The\nfonts, including any derivative works, can be bundled, embedded,\nredistributed and/or sold with any software provided that any reserved\nnames are not used by derivative works. The fonts and derivatives,\nhowever, cannot be released under any other type of license. The\nrequirement for fonts to remain under this license does not apply\nto any document created using the fonts or their derivatives.\n\nDEFINITIONS\n\"Font Software\" refers to the set of files released by the Copyright\nHolder(s) under this license and clearly marked as such. This may\ninclude source files, build scripts and documentation.\n\n\"Reserved Font Name\" refers to any names specified as such after the\ncopyright statement(s).\n\n\"Original Version\" refers to the collection of Font Software components as\ndistributed by the Copyright Holder(s).\n\n\"Modified Version\" refers to any derivative made by adding to, deleting,\nor substituting -- in part or in whole -- any of the components of the\nOriginal Version, by changing formats or by porting the Font Software to a\nnew environment.\n\n\"Author\" refers to any designer, engineer, programmer, technical\nwriter or other person who contributed to the Font Software.\n\nPERMISSION & CONDITIONS\nPermission is hereby granted, free of charge, to any person obtaining\na copy of the Font Software, to use, study, copy, merge, embed, modify,\nredistribute, and sell modified and unmodified copies of the Font\nSoftware, subject to the following conditions:\n\n1) Neither the Font Software nor any of its individual components,\nin Original or Modified Versions, may be sold by itself.\n\n2) Original or Modified Versions of the Font Software may be bundled,\nredistributed and/or sold with any software, provided that each copy\ncontains the above copyright notice and this license. These can be\nincluded either as stand-alone text files, human-readable headers or\nin the appropriate machine-readable metadata fields within text or\nbinary files as long as those fields can be easily viewed by the user.\n\n3) No Modified Version of the Font Software may use the Reserved Font\nName(s) unless explicit written permission is granted by the corresponding\nCopyright Holder. This restriction only applies to the primary font name as\npresented to the users.\n\n4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font\nSoftware shall not be used to promote, endorse or advertise any\nModified Version, except to acknowledge the contribution(s) of the\nCopyright Holder(s) and the Author(s) or with their explicit written\npermission.\n\n5) The Font Software, modified or unmodified, in part or in whole,\nmust be distributed entirely under this license, and must not be\ndistributed under any other license. The requirement for fonts to\nremain under this license does not apply to any document created\nusing the Font Software.\n\nTERMINATION\nThis license becomes null and void if any of the above conditions are\nnot met.\n\nDISCLAIMER\nTHE FONT SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT\nOF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE\nCOPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nINCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL\nDAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM\nOTHER DEALINGS IN THE FONT SOFTWARE.";
 const LIC_MIT="MIT License\n\nCopyright (c) 2009 Kazuhiko Arase\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.";
 function legalLink(){return '<p class="small2"><button type="button" class="link" data-about>About and legal</button> &nbsp;&nbsp; <button type="button" class="link" data-backup>Back up or load my business</button></p>';}
 function openAbout(){
   openModal('<h3>About and legal</h3>'
-   +'<details class="lg" open><summary>Hustle Builder</summary><p>Version '+APP_VERSION+'. Copyright &copy; 2026 Hustle Builder. All rights reserved.</p><p>This app runs in your browser and works offline.</p></details>'
+   +'<details class="lg" open><summary>Hustle Builder</summary><p>Version '+APP_VERSION+'. Copyright &copy; 2026 Hustle Builder. All rights reserved.</p><p>The builder runs in your browser and keeps working offline. Putting a page online is a hosted service a parent signs up for.</p><p><a class="link" href="/terms" target="_blank" rel="noopener">Terms</a> &nbsp; <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> &nbsp; <a class="link" href="mailto:support@hustlebuilder.org">support@hustlebuilder.org</a></p></details>'
    +'<details class="lg"><summary>How it looks</summary><p>Pick light or dark, sharp or soft shapes, and your own app color.</p><p><button type="button" class="link" data-look>Change how the app looks</button></p></details>'
    +'<details class="lg"><summary>Back up or load</summary><p>Move your business to another phone or computer, or give a copy to a parent.</p><p><button type="button" class="link" data-backup>Back up or load my business</button></p></details>'
    +'<details class="lg" open><summary>How your information is handled</summary><ul>'
-   +'<li><b>It stays on your device.</b> Everything you type is saved in your browser on this device. There are no accounts, no ads, and no tracking.</li>'
-   +'<li><b>Nothing is sent to a server.</b> The app shares information only when you choose to: opening a text or email, saving a file, copying a message, or tapping a link to Venmo or Maps.</li>'
-   +'<li><b>Your website file shows what you entered:</b> first name, town, parent contact, prices, photos, and reviews. It becomes public when you upload it to a website host.</li>'
+   +'<li><b>Building stays on your device.</b> What you type is saved in your browser on this device. There are no ads and no tracking, and a kid never makes an account.</li>'
+   +'<li><b>Three things send your page to our server,</b> and only when you choose them: saving a draft to open on another device, asking a parent to publish, and a parent publishing the page. Publishing needs a parent’s email.</li>'
+   +'<li><b>A published page is public.</b> It shows what you entered: first name, town, prices, photos, and reviews. A parent’s phone stays off the page unless they turn it on.</li>'
+   +'<li><b>Booking requests</b> from neighbors go to the parent by email and are kept for about 30 days.</li>'
+   +'<li>The full details are in the <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</li>'
    +'<li><b>Photos</b> are resized on your device and hidden location data is removed.</li>'
-   +'<li><b>Deleting:</b> clearing your browser data, or tapping Erase everything in Boss, removes your records. Export first if you want a copy.</li>'
+   +'<li><b>Deleting:</b> clearing your browser data, or tapping Erase everything in Boss, removes the records on this device. Export first if you want a copy. A parent can delete the online account and page from Go live.</li>'
    +'</ul></details>'
    +'<details class="lg"><summary>Important notes</summary><ul>'
    +'<li>Students under 18 should have a parent or guardian approve the business, the website, and every job.</li>'
    +'<li>Use equipment safely and take breaks in heat and cold.</li>'
    +'<li>You may need to follow local rules, like permits or taxes. Ask a parent. This app does not give legal, tax, or financial advice.</li>'
    +'<li>Check that no business near you already uses your business name.</li>'
-   +'<li>Hustle Builder does not process payments. Venmo has its own age rules and terms.</li>'
-   +'<li>A full Terms of Use and Privacy Policy will be added before this app is sold or shared more widely. This screen is general information, not legal advice.</li></ul></details>'
+   +'<li>Hustle Builder does not handle money between you and a customer. Venmo has its own age rules and terms.</li>'
+   +'<li>Hosting plans are paid by a parent through Stripe. They are one-time payments and never renew on their own.</li>'
+   +'<li>This screen is general information, not legal advice. The <a class="link" href="/terms" target="_blank" rel="noopener">Terms</a> and <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice are the full versions.</li></ul></details>'
    +'<details class="lg"><summary>Open-source licenses</summary><p><b>Barlow and Barlow Condensed</b> fonts, SIL Open Font License 1.1.</p><pre class="lic">'+esc(LIC_OFL)+'</pre><p><b>Other display fonts</b> (Bebas Neue, Anton, Bungee, Black Ops One, Bangers, Fredoka, Pacifico, Playfair Display, Gochi Hand). Each is under the SIL Open Font License 1.1, text above.</p><pre class="lic">'+esc(FONT_COPY)+'</pre><p><b>qrcode-generator</b> (QR codes), MIT License.</p><pre class="lic">'+esc(LIC_MIT)+'</pre><p><b>heic2any</b> 0.0.4 (iPhone HEIC photo conversion), MIT License. It bundles <b>libheif</b>, under the GNU Lesser General Public License 3.0. The converter loads only when someone adds a HEIC photo.</p></details>'
    +'<div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="ab-close">Close</button></div></div>');
   mbody.querySelector("#ab-close").onclick=closeModal;
@@ -4459,6 +4463,15 @@ function showHosting(me){
     else grace.hidden=true;
   }
   const share=$("#shareStreet"); if(share&&me&&me.ok)share.checked=!!me.shareStreet;
+  /* A page that already exists never passes through checkout on Update, so
+     this button is the way to pay once a trial is over, a plan has lapsed,
+     or a plan is close enough to its end to renew early. */
+  const pay=$("#pubPay");
+  if(pay){
+    const due=!!(me&&me.ok&&!me.comp&&me.renewable!==false&&ownedSlugs(me).length>0);
+    pay.hidden=!due;
+    pay.textContent=me&&me.paid?"Renew with this plan":(me&&(me.trialOver||me.grace)?"Pay and bring the page back":"Pay for this plan now");
+  }
 }
 function pendingPublish(){try{return JSON.parse(localStorage.getItem("hb-publish-pending")||"null");}catch(e){return null;}}
 function savePending(slug){localStorage.setItem("hb-publish-pending",JSON.stringify({slug,at:Date.now()}));}
@@ -4579,13 +4592,15 @@ function publishExtras(slug){
     cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Alex"),
     cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c,
-    pets:S.type==="pet"?petList():[]
+    pets:S.type==="pet"?petList():[],
+    tz:(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})()
   };
 }
 async function initPublish(){
   pubPlans();
   const origin=publishOrigin();
   const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
+  const terms=$("#pubTerms"); if(terms)terms.href=(origin||"")+"/terms";
   if(!origin){pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
   /* Signed-in state comes from the server now: the HttpOnly cookie (or a
      remembered token) answers /api/me, so a parent with no local cache is
@@ -4640,10 +4655,39 @@ async function pubCheckout(){
   const data=await pubApi("/api/checkout", {body:{plan:chosenPlan()}});
   if(data.alreadyPaid)return true;
   if(data.pending){pubErr("A payment is already in progress. Check your payment status before trying again."); return false;}
-  if(data.mode==="stripe"&&data.url){savePending(($("#pubSlug").value||"").trim().toLowerCase()); location.href=data.url; return false;}
+  if(data.mode==="stripe"&&data.url){setPayReturn("publish"); savePending(($("#pubSlug").value||"").trim().toLowerCase()); location.href=data.url; return false;}
   if(!data.ok){pubErr(data.error==="stripe-key"?"Payment is not set up yet.":"Pick a plan and try again."); return false;}
   return true;
 }
+/* Where to land after Stripe: "publish" finishes a first publish on this
+   device; "account" (paying or renewing for a page that already exists) only
+   confirms the payment — it must never republish from whatever draft happens
+   to be on the parent's phone. */
+function setPayReturn(v){try{localStorage.setItem("hb-pay-return",v);}catch(e){}}
+function takePayReturn(){let v="";try{v=localStorage.getItem("hb-pay-return")||"";localStorage.removeItem("hb-pay-return");}catch(e){}return v;}
+function planPrice(id){return id==="year"?"$19.99":"$9.99";}
+/* Pay for (or renew) hosting for pages that are already published. say(text)
+   reports progress; returns true when the plan is active right now. */
+async function payPlan(planId, say){
+  say=say||function(){};
+  say("Opening payment…");
+  let data;
+  try{data=await pubApi("/api/checkout",{body:{plan:planId==="year"?"year":"season"}});}
+  catch(e){say("Could not reach the host. Check your connection and try again."); return false;}
+  if(data.status===401){say("Sign in with the parent email first, then pay."); return false;}
+  if(data.alreadyPaid){say("You are already paid"+(data.paidUntil?" through "+niceDate(data.paidUntil):"")+". Nothing to pay yet."); return true;}
+  if(data.pending){say("A payment is already going through. Give it a minute, then open your account again."); return false;}
+  if(data.mode==="stripe"&&data.url){setPayReturn("account"); location.href=data.url; return false;}
+  if(!data.ok){say(data.error==="stripe-key"?"Payment is not set up yet.":"Payment could not start. Try again in a minute."); return false;}
+  say("Paid. "+(data.planName||"Your plan")+" runs through "+(niceDate(data.paidUntil)||"the end date")+". The page is on.");
+  return true;
+}
+const pubPayBtn=$("#pubPay");
+if(pubPayBtn)pubPayBtn.onclick=async()=>{
+  pubErr("");
+  const ok=await payPlan(chosenPlan(), t=>{const box=$("#pubOk"); if(box)box.textContent=t;});
+  if(ok){try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok)showHosting(me);}catch(e){}}
+};
 function confirmModal(html){
   return new Promise(res=>{
     openModal(html+'<div class="mbtns"><button type="button" class="btn" id="cfYes">Replace the live page</button><button type="button" class="btn outline" id="cfNo">Cancel</button></div>');
@@ -4748,7 +4792,7 @@ $("#pubGo").onclick=pubPush;
 function accountWords(site){
   if(site.comp)return "Friends & family — free, no payment due";
   if(site.paid)return (site.planName||"Paid plan")+(site.paidUntilLabel?" through "+site.paidUntilLabel:"")+(site.grace?" · "+site.graceDays+" grace days left":"");
-  if(site.trialOver)return "Free trial is over. Renew to bring the page back.";
+  if(site.trialOver)return "Free trial is over. Pick a plan below to bring the page back.";
   const days=site.trialEndsLabel?site.trialDaysLeft+" days left":"trial not started";
   return "Free trial · "+days+" · "+site.trialLeft+" free jobs left";
 }
@@ -4785,7 +4829,7 @@ async function showAccount(){
       site.receipts.forEach(item=>{
         const line=document.createElement("p");
         const link=document.createElement("a"); link.className="link"; link.href=item.url; link.target="_blank"; link.rel="noopener";
-        link.textContent=(item.amount||"Receipt")+(item.plan?" · "+item.plan:"")+(item.end?" · through "+item.end:"");
+        link.textContent=(item.amount||"Receipt")+(item.plan?" · "+item.plan:"")+(item.refunded?" · refunded":(item.end?" · through "+item.end:""));
         line.appendChild(link); card.appendChild(line);
       });
     }
@@ -4798,8 +4842,21 @@ async function showAccount(){
     });
     card.appendChild(reqs);
     const actions=document.createElement("div"); actions.className="mbtns";
-    const season=document.createElement("a"); season.className="btn"; season.href=site.renew.season; season.textContent="Renew, $9.99 season";
-    const year=document.createElement("a"); year.className="btn"; year.href=site.renew.year; year.textContent="Renew, $19.99 year";
+    const verb=site.paid?"Renew":"Pay";
+    const wantPlan=new URLSearchParams(location.search).get("plan");
+    const payBtn=(planId,label)=>{
+      const b=document.createElement("button"); b.type="button"; b.dataset.pay=planId;
+      b.className=wantPlan&&wantPlan!==planId?"btn outline":"btn"; b.textContent=verb+", "+planPrice(planId)+" "+label;
+      b.onclick=async()=>{
+        b.disabled=true;
+        const ok=await payPlan(planId, t=>{if(msg)msg.textContent=t;});
+        b.disabled=false;
+        if(ok){const keep=msg?msg.textContent:""; await showAccount(); if(msg)msg.textContent=keep;}
+      };
+      return b;
+    };
+    const season=payBtn("season","season");
+    const year=payBtn("year","year");
     const pause=document.createElement("button"); pause.type="button"; pause.className="btn outline"; pause.textContent=site.status==="paused"?"Turn the page back on":"Pause the page";
     pause.onclick=async()=>{
       const path=site.status==="paused"?"/api/account/resume":"/api/account/pause";
@@ -4814,7 +4871,15 @@ async function showAccount(){
       if(msg)msg.textContent=res.ok?"The page is offline. Update puts it back on the same link.":"Could not take it offline.";
       showAccount();
     };
-    if(!site.comp){actions.appendChild(season); actions.appendChild(year);}
+    /* One plan covers the whole family, so the pay buttons sit on the first
+       card only, and only when there is something to buy: no plan yet, a
+       lapsed one, or one inside its early-renewal window. */
+    if(!site.comp&&site.renewable!==false&&box.childElementCount===0){
+      actions.appendChild(season); actions.appendChild(year);
+      const note=document.createElement("p"); note.className="small2";
+      note.textContent=(site.paid?"Renewing early adds on to your end date.":"One plan covers every page on this account.")+" One-time payment, never renews on its own. Full refund if you ask within 14 days.";
+      card.appendChild(note);
+    }
     actions.appendChild(pause); actions.appendChild(down);
     card.appendChild(actions);
     box.appendChild(card);
@@ -5229,6 +5294,34 @@ async function resumeHosting(kind){
   try{history.replaceState({},"",location.pathname);}catch(e){}
   go(7);
   const box=$("#pubOk");
+  const back=takePayReturn();
+  /* Ask the host to look the payment up right now instead of only waiting
+     for the payment provider's own notice to arrive. */
+  try{await pubApi("/api/checkout/confirm",{body:{}});}catch(e){}
+  if(back==="account"){
+    if(kind==="cancel"){
+      const now=await pubApi("/api/me",{method:"GET"}).catch(()=>null);
+      await showAccount();
+      const m=$("#accountMsg"); if(m)m.textContent=now&&now.paid&&!now.renewable?"Payment received. The page is on.":"Payment was not finished. Nothing was charged. Pick a plan when you are ready.";
+      return;
+    }
+    if(box)box.textContent="Payment received. Checking…";
+    /* A renewal starts from an account that is already paid, so "paid" alone
+       proves nothing; the plan has landed once nothing is left to renew. */
+    let me=null;
+    for(const start=Date.now(); Date.now()-start<45000; ){
+      try{const now=await pubApi("/api/me",{method:"GET"}); if(now&&now.paid&&now.renewable===false){me=now;break;}}catch(e){}
+      await new Promise(r=>setTimeout(r,2000));
+      try{await pubApi("/api/checkout/confirm",{body:{}});}catch(e){}
+    }
+    await showAccount();
+    const m=$("#accountMsg");
+    if(m)m.textContent=me?"Payment received. "+(me.planName||"Your plan")+" runs through "+(niceDate(me.paidUntil)||"the end date")+". The page is on.":"The payment is still processing. Open your account again in a minute. You will not be charged twice.";
+    if(box)box.textContent="";
+    if(me)showHosting(me);
+    const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);
+    return;
+  }
   if(kind==="cancel"){
     if(box)box.textContent="Payment was not finished. If the card was charged, wait here. Check your payment status before trying again.";
   }else if(box)box.textContent="Payment received, publishing…";

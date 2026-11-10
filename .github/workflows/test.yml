@@ -1,0 +1,27 @@
+# Runs the same checks a release needs, on every push and pull request.
+# Nothing here deploys; Vercel's Git integration still does that from main.
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Unit, security and migration tests
+        run: npm test
+        env:
+          CHROME: /usr/bin/google-chrome
+      - name: Adversarial audit
+        run: npm run test:stress
+      - name: Browser checks
+        run: npm run test:browser
+        env:
+          CHROME: /usr/bin/google-chrome

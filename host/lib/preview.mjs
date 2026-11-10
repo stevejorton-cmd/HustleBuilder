@@ -24,13 +24,15 @@ export function decoratePage(html, { title, description, image, url, indexable }
     `<meta name="twitter:description" content="${escAttr(description)}">`,
     image ? `<meta name="twitter:image" content="${escAttr(image)}">` : ""
   ].filter(Boolean).join("");
-  if (out.includes("</head>")) out = out.replace("</head>", tags + "</head>");
+  // Function replacers: a title like "Lawns from $$" or one holding "$&"
+  // must land as typed, not be read as a replace() pattern.
+  if (out.includes("</head>")) out = out.replace("</head>", () => tags + "</head>");
   else out = tags + out;
   if (url && !out.includes("Report this page")) {
     const slug = String(url).split("/").filter(Boolean).pop();
     if (slug && /^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) {
       const link = `<p style="font:15px/1.4 system-ui,sans-serif;margin:2rem"><a href="/api/report/${escAttr(slug)}">Report this page</a></p>`;
-      out = out.includes("</body>") ? out.replace("</body>", link + "</body>") : out + link;
+      out = out.includes("</body>") ? out.replace("</body>", () => link + "</body>") : out + link;
     }
   }
   return out;

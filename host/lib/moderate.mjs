@@ -34,6 +34,17 @@ api admin www mail app hustle publish account login index static assets setup
 host book auth consent checkout unpublish test vercel blob stripe resend about
 privacy terms help support status health favicon robots sitemap builder boss
 print flyer flyers gateway site me delete page pages
+icons sw manifest tests stress scripts package legal contact pricing blog docs
+security billing official staff
+`.trim().split(/\s+/));
+
+// Words that must not appear as ANY part of a link name, because a page at
+// "hustle-support" or "admin-login" could pass itself off as the service.
+// Ordinary words on the reserved list (help, book, test, page ...) are only
+// refused as the whole name: "maya-yard-help" is a fine business address.
+const GUARDED = new Set(`
+api admin login account auth checkout stripe support hustle vercel resend
+billing official staff security
 `.trim().split(/\s+/));
 
 export function tokens(value) {
@@ -74,9 +85,12 @@ export function checkSlug(slug) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s)) return "Use letters, numbers, and dashes only.";
   if (s.length < 3 || s.length > 24) return "Use 3 to 24 characters.";
   const parts = s.split("-");
-  if (RESERVED.has(s) || parts.some((p) => RESERVED.has(p))) return "That link name is reserved. Pick another.";
+  if (RESERVED.has(s) || parts.some((p) => GUARDED.has(p))) return "That link name is reserved. Pick another.";
   if (parts.some((p) => BLOCKED.has(p))) return "That link name is not allowed.";
-  if (parts.length >= 2 && SURNAMES.has(parts[parts.length - 1])) {
+  // Exactly "first-last". Longer names such as "sam-dog-walker" or
+  // "mia-lawn-king" end in a word that is also a surname but are plainly a
+  // business name, so they pass.
+  if (parts.length === 2 && SURNAMES.has(parts[1])) {
     return "That looks like a first and last name. Use a first name or a nickname, like sam or sam-yard.";
   }
   return "";

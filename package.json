@@ -10,13 +10,14 @@
     "test": "node --test tests/*.test.mjs",
     "test:stress": "node stress/audit.mjs --strict",
     "test:http": "node stress/http-load.mjs",
-    "test:browser": "node tests/e2e.mjs && node tests/security-browser.mjs",
+    "test:browser": "node tests/e2e.mjs && node tests/security-browser.mjs && node tests/pay-browser.mjs",
     "test:postgres": "node tests/postgres-live.mjs",
     "db:migrate": "node scripts/migrate-storage.mjs",
     "preflight": "node scripts/preflight.mjs",
     "backup": "node scripts/backup.mjs backup",
     "backup:verify": "node scripts/backup.mjs verify",
-    "backup:restore": "node scripts/backup.mjs restore"
+    "backup:restore": "node scripts/backup.mjs restore",
+    "test:all": "npm test && npm run test:stress && npm run test:browser"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",
