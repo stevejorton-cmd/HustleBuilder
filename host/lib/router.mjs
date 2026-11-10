@@ -11,7 +11,10 @@ export const PLANS = {
   season: { id: "season", amount: 999, label: "$9.99" },
   year: { id: "year", amount: 1999, label: "$19.99" }
 };
-export const CONSENT_VERSION = "2026-11-10";
+export const CONSENT_VERSION = "2026-11-10-card";
+// A one-time parent check. Stripe emails the receipt, then we refund it in full.
+// Not a plan payment, and not a new environment variable.
+export const VERIFY_CENTS = 50;
 export const FREE_JOBS = 3;
 export const GRACE_DAYS = 7;
 export const TRIAL_DAYS = 14;
@@ -264,6 +267,25 @@ function comped(account) {
 function paid(account, now = Date.now()) {
   if (comped(account)) return true;
   return !!(account && account.paidUntil && Date.parse(account.paidUntil) > now);
+}
+
+// The page can go online only after a finished parent check: a refunded 50¢
+// card charge, or a real plan payment. A checkbox by itself is not enough.
+function consentReady(account) {
+  if (!account || !account.consentAt) return false;
+  if (account.consentMethod === "plan_payment") return true;
+  if (account.consentMethod === "card_charge") return !!account.consentRefundedAt;
+  return false;
+}
+
+function markPlanConsent(account, paymentIntent) {
+  if (!account) return;
+  if (account.consentMethod === "card_charge" && account.consentAt && account.consentRefundedAt) return;
+  if (!account.consentAt) account.consentAt = new Date().toISOString();
+  account.consentMethod = "plan_payment";
+  account.consentVersion = account.consentVersion || CONSENT_VERSION;
+  account.noticeAcceptedAt = account.noticeAcceptedAt || account.consentAt;
+  if (/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent || ""))) account.consentPaymentIntent = paymentIntent;
 }
 
 // A plan can be bought when nothing is paid, and renewed early once it is
@@ -528,6 +550,7 @@ async function fulfillPaidSession(account, session, origin, eventId) {
   if (meta.accountId !== account.id || meta.attempt !== sha("checkout:" + account.id + ":" + (account.checkoutGeneration || 0)) || account.checkoutPlan !== plan.id) return "session";
   const change = grantPlan(account, plan.id);
   const paymentIntent = /^pi_[A-Za-z0-9_]+$/.test(String(session.payment_intent || "")) ? session.payment_intent : "";
+  markPlanConsent(account, paymentIntent);
   account.payMode = "stripe";
   account.checkoutPendingAt = "";
   // Keep payment deduplication in its own ledger; leave the next renewal available.
@@ -572,8 +595,144 @@ async function paymentFromStripe(paymentIntent) {
     const session = ((await r.json()).data || [])[0];
     const accountId = session && session.metadata && session.metadata.accountId;
     if (!session || !/^cs_[A-Za-z0-9_]+$/.test(String(session.id || "")) || !/^[a-f0-9]{16}$/.test(String(accountId || ""))) return null;
+    if (session.metadata.purpose === "parent_verification") return { accountId, purpose: "parent_verification" };
     return { accountId, receiptId: receiptIdFor(session.id) };
   } catch { return null; }
+}
+
+function paymentIntentId(session) {
+  const raw = session && session.payment_intent;
+  const id = raw && typeof raw === "object" ? raw.id : raw;
+  return /^pi_[A-Za-z0-9_]+$/.test(String(id || "")) ? String(id) : "";
+}
+
+async function fetchCheckoutSession(id) {
+  if (!process.env.STRIPE_SECRET_KEY || !/^cs_[A-Za-z0-9_]+$/.test(String(id || ""))) return null;
+  try {
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(id), { headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// Refund the 50¢ parent check. The idempotency key makes the webhook and the
+// browser return issue one refund. Test mode never calls Stripe.
+async function refundVerificationCharge(paymentIntent) {
+  if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent || ""))) return false;
+  if (paywallMode() !== "stripe" || !process.env.STRIPE_SECRET_KEY) return true;
+  const params = new URLSearchParams();
+  params.set("payment_intent", paymentIntent);
+  params.set("reason", "requested_by_customer");
+  params.set("metadata[purpose]", "parent_verification");
+  try {
+    const r = await fetch("https://api.stripe.com/v1/refunds", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Idempotency-Key": "hb-verify-refund-" + paymentIntent
+      },
+      body: params,
+      signal: AbortSignal.timeout(8000)
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) return true;
+    return !!(data && data.error && data.error.code === "charge_already_refunded");
+  } catch { return false; }
+}
+
+// Mark the parent verified only after the 50¢ charge is refunded. Stores the
+// method, time, payment intent id, and notice version. No card data.
+async function completeVerification(account, session) {
+  const meta = session.metadata || {};
+  if (meta.purpose !== "parent_verification") return "purpose";
+  if (session.payment_status !== "paid") return "unpaid";
+  if (Number(session.amount_total) !== VERIFY_CENTS || session.currency !== "usd") return "payment";
+  if (meta.accountId !== account.id) return "account";
+  const pi = paymentIntentId(session);
+  if (!pi) return "payment";
+  const ledgerKey = "payments/" + sha("verify:" + session.id) + ".json";
+  if (await readJson(ledgerKey)) {
+    if (consentReady(account)) return "";
+  }
+  await writeJson("payintents/" + pi + ".json", { accountId: account.id, purpose: "parent_verification" });
+  const refunded = await refundVerificationCharge(pi);
+  if (!refunded) return "refund";
+  const now = new Date().toISOString();
+  if (!(account.consentMethod === "card_charge" && account.consentAt && account.consentRefundedAt) && account.consentMethod !== "plan_payment") {
+    account.consentAt = account.consentAt || now;
+    account.consentMethod = "card_charge";
+    account.consentVersion = String(meta.notice || CONSENT_VERSION);
+    account.consentPaymentIntent = pi;
+    account.consentRefundedAt = now;
+    account.noticeAcceptedAt = account.noticeAcceptedAt || now;
+  } else if (account.consentMethod === "card_charge" && !account.consentRefundedAt) {
+    account.consentRefundedAt = now;
+    account.consentPaymentIntent = account.consentPaymentIntent || pi;
+  }
+  account.verifySessionId = "";
+  account.verifyCheckoutUrl = "";
+  await saveAccount(account);
+  await writeJson(ledgerKey, { sessionId: session.id, purpose: "parent_verification", paymentIntent: pi, processedAt: now });
+  return "";
+}
+
+async function beginCardCheck(account, origin) {
+  if (!process.env.STRIPE_SECRET_KEY) return { error: "stripe-key" };
+  const providerHeaders = { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY };
+  if (account.verifySessionId) {
+    const existing = await fetchCheckoutSession(account.verifySessionId);
+    if (!existing) return { error: "stripe" };
+    if (existing.status === "complete" && existing.payment_status === "paid") {
+      const refused = await completeVerification(account, existing);
+      if (refused) return { error: refused };
+      return { consent: true };
+    }
+    if (existing.status === "open" && existing.url) return { url: existing.url, reused: true };
+    account.verifyGeneration = (account.verifyGeneration || 0) + 1;
+    account.verifySessionId = "";
+    account.verifyCheckoutUrl = "";
+  }
+  const attempt = sha("verify:" + account.id + ":" + (account.verifyGeneration || 0));
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("customer_email", account.email);
+  params.set("success_url", origin + "/?consent=paid");
+  params.set("cancel_url", origin + "/?consent=cancel");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", "usd");
+  params.set("line_items[0][price_data][unit_amount]", String(VERIFY_CENTS));
+  params.set("line_items[0][price_data][product_data][name]", "Hustle Builder parent check, 50¢, refunded right away");
+  params.set("metadata[accountId]", account.id);
+  params.set("metadata[purpose]", "parent_verification");
+  params.set("metadata[notice]", CONSENT_VERSION);
+  params.set("payment_intent_data[receipt_email]", account.email);
+  params.set("payment_intent_data[description]", "Hustle Builder parent check, 50¢, refunded right away");
+  params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
+  params.set("payment_intent_data[metadata][purpose]", "parent_verification");
+  params.set("payment_intent_data[metadata][accountId]", account.id);
+  params.set("payment_intent_data[metadata][notice]", CONSENT_VERSION);
+  let response, data;
+  try {
+    response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: { ...providerHeaders, "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": "hb-verify-" + attempt },
+      body: params,
+      signal: AbortSignal.timeout(8000)
+    });
+    data = await response.json();
+  } catch {
+    await saveAccount(account);
+    return { error: "stripe" };
+  }
+  if (!response.ok || !data.url || !data.id) {
+    await saveAccount(account);
+    return { error: "stripe" };
+  }
+  account.verifySessionId = data.id;
+  account.verifyCheckoutUrl = data.url;
+  await saveAccount(account);
+  return { url: data.url };
 }
 
 async function ensureRenew(account) {
@@ -743,8 +902,12 @@ function privacyPage() {
 <p>Until a parent completes verification and consent, your draft stays only in this browser. “Ask my parent” sends only the contact information and names needed to request consent, not the business draft. If consent is not completed within seven days, we delete that request information. Cloud drafts become available only after parental consent.</p>
 
 <h2>What we keep for a parent account</h2>
-<p>The account belongs to the parent or guardian, not the child. We keep the parent’s email address, the date they agreed to publish, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
+<p>The account belongs to the parent or guardian, not the child. We keep the parent’s email address, the parent check described below, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
 <p>A kid does not make an account and does not give us an email address.</p>
+
+<h2>How a parent agrees</h2>
+<p>Before the first page goes online, a parent reads this notice and pays 50¢ with a card through Stripe. Stripe emails a receipt to the parent’s email. We refund that 50¢ in full right away. The free trial stays free. You are never charged automatically.</p>
+<p>We store that the check happened: the method (a card check, or a later plan payment), the time, Stripe’s payment id, and this notice’s version. We do not store the card number, the expiration date, or the security code. A parent who already passed the check does not do it again for another kid’s page or for an update. Buying a real plan also counts, so that parent skips the 50¢. Refunding the 50¢ does not take the page down.</p>
 
 <h2>What the public page shows</h2>
 <p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add. A parent’s phone number is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
@@ -793,6 +956,9 @@ function termsPage() {
 
 <h2>Free trial</h2>
 <p>${trialBlurb()} There is one trial per parent email, shared by every page on that account.</p>
+
+<h2>Parent check</h2>
+<p>Before the first page goes online, a parent pays 50¢ by card. Stripe emails a receipt to that parent, and we refund the 50¢ in full right away. The trial stays free. You are never charged automatically. We keep the method, the time, Stripe’s payment id, and the notice version. We do not keep the card number. A parent who already passed this check, or who later buys a plan, does not pay the 50¢ again. Refunding the 50¢ does not take the page down. A refund of a plan is different and is described under Refunds.</p>
 
 <h2>Plans and payment</h2>
 <p>A season plan is ${PLANS.season.label}. It covers the page through the end of the current season: August 31 for summer, March 31 for winter. If fewer than ${SEASON_MIN_DAYS} days are left in a season, the plan runs through the end of the next one instead. A year plan is ${PLANS.year.label} and covers 365 days. The end date is shown before you pay.</p>
@@ -1064,6 +1230,14 @@ async function adminDashboardPage(origin, query) {
     if (row.pageStatus === "down") return actionForm("restore", row.slug, "Put back");
     return (row.pageStatus === "review" || row.reports > 0 ? actionForm("restore", row.slug, row.pageStatus === "review" ? "Restore" : "Clear reports") : "") + actionForm("takedown", row.slug, "Take down");
   };
+  const consentAdminLabel = (account) => {
+    if (!account) return "";
+    if (account.consentMethod === "card_charge" && account.consentRefundedAt) return "Consent: card check, refunded";
+    if (account.consentMethod === "card_charge") return "Consent: card check, refund pending";
+    if (account.consentMethod === "plan_payment" && account.consentAt) return "Consent: plan payment";
+    if (account.consentAt) return "Consent: recorded";
+    return "Consent: not verified";
+  };
   const tile = (n, label) => `<div style="border:1px solid #ccd2d8;border-radius:10px;padding:10px 14px;min-width:6.5rem"><div style="font-size:28px;font-weight:800">${n}</div><div>${label}</div></div>`;
   const tiles = [
     tile(counts.accounts, "Accounts"),
@@ -1081,7 +1255,7 @@ async function adminDashboardPage(origin, query) {
 <td style="padding:8px;vertical-align:top">${row.biz ? `<b>${mailEscape(row.biz)}</b>` : ""}${row.first ? `<br>${mailEscape(row.first)}` : ""}${!row.biz && !row.first ? "—" : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.slug ? `<a href="${mailEscape((origin || "") + "/" + row.slug)}">/${mailEscape(row.slug)}</a>` : "—"}</td>
 <td style="padding:8px;vertical-align:top">${row.email ? mailEscape(row.email) : "—"}</td>
-<td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}${row.legacyInbox ? `<br><span style="display:inline-block;margin-top:4px;padding:1px 8px;border-radius:999px;background:#fde68a;border:1px solid #d97706;color:#7c2d12;font-size:13px;font-weight:700">Legacy inbox</span>` : ""}</td>
+<td style="padding:8px;vertical-align:top">${mailEscape(row.status.label)}${row.status.date ? `<br><span style="color:#5a6672">${mailEscape(row.status.date)}</span>` : ""}${row.index === 0 && row.account ? `<br><span style="color:#5a6672">${mailEscape(consentAdminLabel(row.account))}</span>` : ""}${row.legacyInbox ? `<br><span style="display:inline-block;margin-top:4px;padding:1px 8px;border-radius:999px;background:#fde68a;border:1px solid #d97706;color:#7c2d12;font-size:13px;font-weight:700">Legacy inbox</span>` : ""}</td>
 <td style="padding:8px;vertical-align:top">${row.bookings}</td>
 <td style="padding:8px;vertical-align:top">${row.reports}</td>
 <td style="padding:8px;vertical-align:top">${row.id ? `<form method="post" action="/admin/comp"><input type="hidden" name="id" value="${mailEscape(row.id)}"><input type="hidden" name="on" value="${row.comp ? "0" : "1"}"><button type="submit" style="font:14px system-ui;padding:6px 10px">${row.comp ? "Remove free" : "Make free"}</button></form>${refundLink(row)}` : "—"}</td>
@@ -1645,7 +1819,7 @@ async function routeRequest(req) {
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
     account.tokenHash = sha(token);
     await saveAccount(account);
-    return withCors(json(200, { ok: true, token, email, consent: !!account.consentAt, slug: account.slug || "", slugs: slugsOf(account), plan: account.plan || "", paid: paid(account) }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, token, email, consent: consentReady(account), slug: account.slug || "", slugs: slugsOf(account), plan: account.plan || "", paid: paid(account) }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "auth/logout") {
@@ -1667,7 +1841,7 @@ async function routeRequest(req) {
     const season = seasonOffer();
     const year = yearOffer();
     return withCors(json(200, {
-      ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: !!account.consentAt,
+      ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: consentReady(account), consentMethod: consentReady(account) ? (account.consentMethod || "") : "",
       plan: account.plan || "", planName: comped(account) ? "Friends & family" : account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account), comp: comped(account),
       grace: inGrace(account), graceDays: graceLeftDays(account), renewable: renewable(account),
       trialUsed: used, trialLeft: Math.max(0, FREE_JOBS - used),
@@ -1685,10 +1859,47 @@ async function routeRequest(req) {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     if (body.consent !== true) return withCors(json(400, { ok: false, error: "consent" }), req.headers && req.headers.origin);
-    account.consentAt = new Date().toISOString();
+    if (consentReady(account)) return withCors(json(200, { ok: true, consent: true, already: true, method: account.consentMethod }), req.headers && req.headers.origin);
+    account.noticeAcceptedAt = new Date().toISOString();
     account.consentVersion = CONSENT_VERSION;
+    if (account.plan && paid(account) && !comped(account)) {
+      markPlanConsent(account, account.consentPaymentIntent || "");
+      await saveAccount(account);
+      return withCors(json(200, { ok: true, consent: true, method: "plan_payment", alreadyPaid: true }), req.headers && req.headers.origin);
+    }
+    const mode = paywallMode();
+    if (mode === "stripe") {
+      const started = await beginCardCheck(account, origin);
+      if (started.consent) return withCors(json(200, { ok: true, consent: true, method: "card_charge", refunded: true }), req.headers && req.headers.origin);
+      if (started.error === "stripe-key") return withCors(json(503, { ok: false, error: "stripe-key" }), req.headers && req.headers.origin);
+      if (started.error || !started.url) return withCors(json(502, { ok: false, error: started.error || "stripe" }), req.headers && req.headers.origin);
+      return withCors(json(200, { ok: true, needsCard: true, url: started.url, mode: "stripe", reused: !!started.reused }), req.headers && req.headers.origin);
+    }
+    const now = new Date().toISOString();
+    const pi = "pi_test_" + account.id;
+    await writeJson("payintents/" + pi + ".json", { accountId: account.id, purpose: "parent_verification" });
+    account.consentAt = now;
+    account.consentMethod = "card_charge";
+    account.consentVersion = CONSENT_VERSION;
+    account.consentPaymentIntent = pi;
+    account.consentRefundedAt = now;
     await saveAccount(account);
-    return withCors(json(200, { ok: true, consentAt: account.consentAt }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, consent: true, refunded: true, mode, method: "card_charge", consentAt: account.consentAt }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "consent/confirm") {
+    const account = await me();
+    if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    if (consentReady(account)) return withCors(json(200, { ok: true, consent: true, method: account.consentMethod || "" }), req.headers && req.headers.origin);
+    if (paywallMode() !== "stripe" || !account.verifySessionId) return withCors(json(200, { ok: true, consent: false, state: "none" }), req.headers && req.headers.origin);
+    const session = await fetchCheckoutSession(account.verifySessionId);
+    if (!session) return withCors(json(200, { ok: true, consent: false, state: "error" }), req.headers && req.headers.origin);
+    if (session.status === "complete" && session.payment_status === "paid") {
+      const refused = await completeVerification(account, session);
+      return withCors(json(200, { ok: !refused, consent: consentReady(account), state: refused ? "pending" : "paid", method: account.consentMethod || "", error: refused || "" }), req.headers && req.headers.origin);
+    }
+    if (session.status === "open") return withCors(json(200, { ok: true, consent: false, state: "open" }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, consent: false, state: session.status || "none" }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "checkout") {
@@ -1702,6 +1913,7 @@ async function routeRequest(req) {
     }
     if (mode === "test" || mode === "off") {
       const change = grantPlan(account, plan.id);
+      markPlanConsent(account, "");
       if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
       const receiptId = "pay-" + account.id + "-" + rand(4);
       await addReceipt(account, origin, {
@@ -1784,6 +1996,8 @@ async function routeRequest(req) {
       if (!/^evt_[A-Za-z0-9_]+$/.test(event.id || '') || !/^pi_[A-Za-z0-9_]+$/.test(pi)) return json(200, { ok: true, ignored: true });
       // A partial refund is a goodwill gesture, not the plan being undone.
       if (event.type === 'charge.refunded' && !(obj.refunded === true || (Number(obj.amount) > 0 && Number(obj.amount_refunded) >= Number(obj.amount)))) return json(200, { ok: true, ignored: true, partial: true });
+      // The refunded 50¢ parent check is not a plan. It must not end a plan or take a page down.
+      if (obj.metadata && obj.metadata.purpose === 'parent_verification') return json(200, { ok: true, ignored: true, verification: true });
       let pointer = await readJson('payintents/' + pi + '.json');
       if (!pointer) {
         // A payment from before receipts recorded their Stripe payment: ask
@@ -1792,9 +2006,14 @@ async function routeRequest(req) {
         // account's lock.
         const found = await paymentFromStripe(pi);
         if (!found) return json(200, { ok: true, ignored: true });
+        if (found.purpose === 'parent_verification') {
+          await writeJson('payintents/' + pi + '.json', found);
+          return json(200, { ok: true, ignored: true, verification: true });
+        }
         await writeJson('payintents/' + pi + '.json', found);
         return json(503, { ok: false, error: 'retry' }, { 'retry-after': '60' });
       }
+      if (pointer.purpose === 'parent_verification') return json(200, { ok: true, ignored: true, verification: true });
       const account = /^[a-f0-9]{8,32}$/.test(String(pointer.accountId || '')) ? await readJson('accounts/' + pointer.accountId + '.json') : null;
       if (!account) return json(200, { ok: true, ignored: true });
       const changed = await revokeReceipt(account, pointer.receiptId, event.type === 'charge.refunded' ? 'refund' : 'dispute', origin);
@@ -1804,6 +2023,14 @@ async function routeRequest(req) {
       const session=event.data?.object||{},meta=session.metadata||{},plan=Object.hasOwn(PLANS,meta.plan)?PLANS[meta.plan]:null;
       if(!/^evt_[A-Za-z0-9_]+$/.test(event.id||'')||!/^cs_[A-Za-z0-9_]+$/.test(session.id||''))return json(400,{ok:false,error:'event'});
       if(session.payment_status!=='paid')return json(200,{ok:true,ignored:true});
+      if(meta.purpose==='parent_verification'){
+        if(Number(session.amount_total)!==VERIFY_CENTS||session.currency!=='usd'||!/^([a-f0-9]{16})$/.test(meta.accountId||''))return json(400,{ok:false,error:'payment'});
+        const account=await readJson('accounts/'+meta.accountId+'.json');
+        if(!account)return json(200,{ok:true,ignored:true});
+        const refused=await completeVerification(account,session);
+        if(refused)return json(400,{ok:false,error:refused});
+        return json(200,{ok:true,verification:true});
+      }
       if(!plan||session.amount_total!==plan.amount||session.currency!=='usd'||!/^([a-f0-9]{16})$/.test(meta.accountId||''))return json(400,{ok:false,error:'payment'});
       if(await readJson('payments/'+sha(session.id)+'.json'))return json(200,{ok:true,duplicate:true});
       const account=await readJson('accounts/'+meta.accountId+'.json');
@@ -1819,7 +2046,7 @@ async function routeRequest(req) {
   if (method === "POST" && route === "publish") {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    if (!account.consentAt) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
+    if (!consentReady(account)) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
     if (onBreak(account)) return withCors(json(402, { ok: false, error: "break", message: "This plan is taking a break. Renew it, then publish again." }), req.headers && req.headers.origin);
     const slug = String(body.slug || account.slug || "").trim().toLowerCase();
     const slugErr = checkSlug(slug);
@@ -1959,7 +2186,7 @@ async function routeRequest(req) {
     const account=await me();
     const names={first:rec.first||"",biz:rec.biz||""};
     if(!account || account.email!==rec.email)return withCors(json(200,{ok:true,requiresVerification:true,email:rec.email,...names}),req.headers?.origin);
-    return withCors(json(200,{ok:true,email:rec.email,...names,consent:!!account.consentAt,paid:paid(account),slug:account.slug||'',slugs:slugsOf(account),status:rec.status||'waiting',url:rec.url||''}),req.headers?.origin);
+    return withCors(json(200,{ok:true,email:rec.email,...names,consent:consentReady(account),paid:paid(account),slug:account.slug||'',slugs:slugsOf(account),status:rec.status||'waiting',url:rec.url||''}),req.headers?.origin);
   }
 
   const askDone = route.match(/^ask\/([a-f0-9]{32,128})\/done$/i);
@@ -1980,7 +2207,7 @@ async function routeRequest(req) {
 
   if (method === "POST" && route === "draft") {
     const account = await me();
-    if (!account || !account.consentAt) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
+    if (!account || !consentReady(account)) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
     const packed = clipDraft(body.draft);
     if (!packed) return withCors(json(400, { ok: false, error: "draft" }), req.headers && req.headers.origin);
     if (packed.error) return withCors(json(413, { ok: false, error: "big" }), req.headers && req.headers.origin);
@@ -2826,6 +3053,7 @@ async function eraseRelated(account) {
     if(item&&/^[a-z0-9-]{1,80}$/.test(String(item.id||'')))await s.del('receipts/'+item.id+'.json');
     if(item&&/^pi_[A-Za-z0-9_]+$/.test(String(item.paymentIntent||'')))await s.del('payintents/'+item.paymentIntent+'.json');
   }
+  if(/^pi_[A-Za-z0-9_]+$/.test(String(account.consentPaymentIntent||'')))await s.del('payintents/'+account.consentPaymentIntent+'.json');
   for(const slug of slugsOf(account))await s.del('sentmail/live-'+account.id+'-'+slug);
   const emailKey=sha(account.email);
   for(const key of await s.list('draftby/'+account.id+'/')){await s.del('drafts/'+key.split('/').pop()+'.json');await s.del(key);}

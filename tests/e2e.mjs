@@ -65,6 +65,9 @@ try {
   await page.type("#pubCode", code);
   await page.click("#pubVerify");
   await page.waitForSelector("#pubReady:not([hidden])");
+  const cardNote = await page.$eval("#cardCheckNote", (el) => el.textContent);
+  check("publish explains the refunded 50 cent check", /50¢/.test(cardNote) && /refund/i.test(cardNote) && /trial stays free/i.test(cardNote), cardNote);
+  check("publish button is the card check", /50¢/.test(await page.$eval("#pubGo", (el) => el.textContent)));
   await page.$eval("#pubConsent", (el) => { el.checked = true; });
   await page.click("#pubSlug", { clickCount: 3 });
   await page.type("#pubSlug", "sam-yard");
