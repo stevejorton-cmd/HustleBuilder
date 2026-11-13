@@ -95,7 +95,7 @@ test("consent gate blocks publish until the parent verifies and agrees", async (
   assert.equal(noPay.body.ok, true);
   const meFree = await json(await call("GET", "/api/me", { token }));
   assert.equal(meFree.body.paid, false);
-  assert.equal(meFree.body.trialLeft, 3);
+  assert.equal(meFree.body.trialLeft, null);
 
   const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
   assert.equal(pay.body.mode, "test");
@@ -702,7 +702,7 @@ test("plans offer a named season or a year, and not a month", async () => {
   assert.deepEqual(plans.body.plans.map((p) => p.price), ["$9.99", "$19.99"]);
   assert.deepEqual(plans.body.plans.map((p) => p.amount), [999, 1999]);
   assert.equal(JSON.stringify(plans.body).includes("$6"), false);
-  assert.match(plans.body.free, /14 days after first publish or 3 booking requests are delivered/);
+  assert.match(plans.body.free, /14 days after first publish/);
   assert.match(plans.body.free, /never charged automatically/);
   const summer = seasonOffer(new Date("2026-06-15T12:00:00Z"));
   assert.equal(summer.name, "Summer season, May–Aug");
@@ -720,7 +720,7 @@ test("plans offer a named season or a year, and not a month", async () => {
   assert.equal(season.body.paidUntil, current.end);
 });
 
-test("three free jobs are delivered, then requests are held until the parent pays", async () => {
+test("booking volume does not end the trial; expired requests wait until payment", async () => {
   const { token, email } = await parent("trial@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
   const published = await json(await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam"), draftCode: "samdraft" } }));
@@ -731,10 +731,14 @@ test("three free jobs are delivered, then requests are held until the parent pay
     assert.equal(res.body.held, undefined);
   }
   const me = await json(await call("GET", "/api/me", { token }));
-  assert.equal(me.body.trialLeft, 0);
+  assert.equal(me.body.trialLeft, null);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
-  assert.equal(box.body.messages.filter((m) => /used up/.test(m.subject)).length, 1);
-  assert.match(box.body.messages.map((m) => m.text).join("\n"), /\$9\.99 season/);
+  assert.equal(box.body.messages.filter((m) => /used up/.test(m.subject)).length, 0);
+  assert.equal(me.body.trialOver, false);
+  const fourth=await json(await call("POST", "/api/book", { body: bookAt(9), headers: { "x-forwarded-for": "203.0.113.99" } }));
+  assert.equal(fourth.body.held, undefined);
+  await patchAccount(account=>{account.trialEndsAt=new Date(Date.now()-1000).toISOString();});
+
   const held = await json(await call("POST", "/api/book", { body: bookAt(4), headers: { "x-forwarded-for": "203.0.113.40" } }));
   assert.equal(held.body.held, true);
   const after = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -743,12 +747,12 @@ test("three free jobs are delivered, then requests are held until the parent pay
   assert.equal(waiting.text.includes("riley4@example.com"), false);
   assert.equal(waiting.text.includes("4 Oak"), false);
   const kid = await json(await call("GET", "/api/my-jobs?code=samdraft"));
-  assert.equal(kid.body.jobs.length, 4);
+  assert.equal(kid.body.jobs.length, 5);
   assert.equal(JSON.stringify(kid.body).includes("riley"), false);
   assert.equal(JSON.stringify(kid.body).includes("Oak"), false);
   assert.equal(kid.body.jobs[0].place, "In your neighborhood");
-  assert.equal(kid.body.jobs[3].status, "held");
-  assert.equal(kid.body.fresh, 3);
+  assert.equal(kid.body.jobs[4].status, "held");
+  assert.equal(kid.body.fresh, 4);
   const closed = await json(await call("GET", "/api/my-jobs?code=notacode"));
   assert.equal(closed.status, 401);
   await call("POST", "/api/share", { token, body: { on: true } });
@@ -760,7 +764,7 @@ test("three free jobs are delivered, then requests are held until the parent pay
   assert.match(marked.body, /confirmed/);
   const seen = await json(await call("GET", "/api/my-jobs?code=samdraft"));
   assert.equal(seen.body.jobs.some((job) => job.status === "confirmed"), true);
-  assert.equal(seen.body.fresh, 2);
+  assert.equal(seen.body.fresh, 3);
   const resting = await call("GET", "/api/site/sam");
   assert.equal(resting.status, 200);
   assert.match(resting.body, /Taking a break/);
@@ -775,7 +779,7 @@ test("three free jobs are delivered, then requests are held until the parent pay
   await call("DELETE", "/api/account", { token });
   const again = await parent("trial@example.com");
   const me2 = await json(await call("GET", "/api/me", { token: again.token }));
-  assert.equal(me2.body.trialLeft, 0);
+  assert.equal(me2.body.trialLeft, null);
 });
 
 test("renewal reminders send once, then the page takes a break after grace", async () => {
@@ -824,7 +828,7 @@ test("renewal reminders send once, then the page takes a break after grace", asy
   assert.match(paused.body.message, /paused/);
 });
 
-test("a free trial lasts TRIAL_DAYS or 3 jobs, then the page takes a break and bookings are held", async () => {
+test("a free trial lasts TRIAL_DAYS, then the page takes a break and bookings are held", async () => {
   assert.equal(TRIAL_DAYS, 14);
   assert.equal(trialLengthDays(), 14);
   process.env.TRIAL_DAYS = "10";
@@ -836,9 +840,9 @@ test("a free trial lasts TRIAL_DAYS or 3 jobs, then the page takes a break and b
     const span = Date.parse(published.body.trialEndsAt) - Date.now();
     assert.ok(span > 9 * 864e5 && span < 11 * 864e5);
     const me = await json(await call("GET", "/api/me", { token }));
-    assert.equal(me.body.trialLeft, 3);
+    assert.equal(me.body.trialLeft, null);
     assert.ok(me.body.trialDaysLeft >= 9 && me.body.trialDaysLeft <= 10);
-    assert.match(trialLineStandin(me.body), /days \/ 3 free jobs left/);
+    assert.match(trialLineStandin(me.body), /days left/);
     const saved = await json(await call("POST", "/api/draft", { token, body: { draft: { first: "Sam", type: "lawn" } } }));
     assert.equal(saved.body.ok, true);
     const secret = { authorization: "Bearer test-admin-secret" };
@@ -885,7 +889,7 @@ test("a free trial lasts TRIAL_DAYS or 3 jobs, then the page takes a break and b
 });
 
 function trialLineStandin(me) {
-  return me.trialDaysLeft + " days / " + me.trialLeft + " free jobs left.";
+  return me.trialDaysLeft + " days left.";
 }
 
 test("pet words and a pet booking stay allowed, and the key note stays with the parent", async () => {
@@ -2189,7 +2193,7 @@ test("family plan: both pages take the break together and one payment revives al
   await call("POST", "/api/publish", { token, body: { slug: "break-one", html: page("Break One") } });
   await call("POST", "/api/publish", { token, body: { slug: "break-two", html: page("Break Two") } });
 
-  // Three bookings across the two pages use up the ONE shared trial.
+  // Bookings do not end the shared trial; both pages use its end date.
   const b1 = await json(await call("POST", "/api/book", { body: bookOn("break-one", 1), headers: { "x-forwarded-for": "203.0.113.201" } }));
   assert.equal(b1.body.ok, true);
   const b2 = await json(await call("POST", "/api/book", { body: bookOn("break-two", 2), headers: { "x-forwarded-for": "203.0.113.202" } }));
@@ -2197,6 +2201,7 @@ test("family plan: both pages take the break together and one payment revives al
   const b3 = await json(await call("POST", "/api/book", { body: bookOn("break-one", 3), headers: { "x-forwarded-for": "203.0.113.203" } }));
   assert.equal(b3.body.ok, true);
 
+  await patchAccount(account=>{account.trialEndsAt=new Date(Date.now()-1000).toISOString();});
   // (d) the account is on break, so BOTH pages serve the break page
   for (const slug of ["break-one", "break-two"]) {
     const res = await call("GET", "/api/site/" + slug);
@@ -2425,4 +2430,49 @@ test("old capped pet prices recover once without changing custom prices", async 
   assert.equal(repairPetPriceCaps(parked), 1);
   assert.equal(parked.svcSets.pet.services[0].p, "5");
   assert.equal(parked.services[0].p, "500");
+});
+
+test("website and exports share expiry, renewal, and retained account deadline", async () => {
+  const {token}=await parent("unified-clock@example.test");
+  await call("POST","/api/consent",{token,body:{consent:true}});
+  await call("POST","/api/publish",{token,body:{slug:"unified-clock",html:page("Clock")}});
+  assert.equal((await json(await call("GET","/api/me",{token}))).body.exportAllowed,true);
+  await patchAccount(account=>{account.trialEndsAt=new Date(Date.now()-1000).toISOString();});
+  const expired=(await json(await call("GET","/api/me",{token}))).body;
+  assert.equal(expired.exportAllowed,false);
+  assert.equal(expired.trialOver,true);
+  assert.equal((await call("POST","/api/publish",{token,body:{slug:"new-clock",html:page("Clock")}})).status,402);
+  await call("POST","/api/checkout",{token,body:{plan:"year"}});
+  assert.equal((await json(await call("GET","/api/me",{token}))).body.exportAllowed,true);
+  await call("DELETE","/api/account",{token});
+  const again=await parent("unified-clock@example.test");
+  const recreated=(await json(await call("GET","/api/me",{token:again.token}))).body;
+  assert.equal(recreated.trialEndsAt,expired.trialEndsAt);
+  assert.equal(recreated.exportAllowed,false);
+});
+
+test("all flyer and poster export paths check account access and fail closed", async () => {
+  const {readFile}=await import("fs/promises");
+  const {runInNewContext}=await import("vm");
+  const src=await readFile(new URL("../index.html",import.meta.url),"utf8");
+  const code=src.slice(src.indexOf("function rememberExportDeadline"),src.indexOf("async function saveFlyer"));
+  let response={ok:true,exportAllowed:false,trialEndsAt:"2026-01-01T00:00:00Z"};
+  const local=new Map();
+  const ctx={localStorage:{getItem:k=>local.get(k),setItem:(k,v)=>local.set(k,v)},pubSession:()=>({}),pubToken:()=>"",pubApi:async()=>response};
+  const api=runInNewContext(code+";({allowBusinessExport})",ctx);
+  const status={textContent:""};
+  assert.equal(await api.allowBusinessExport(status),false);
+  assert.match(status.textContent,/trial has ended/);
+  response={ok:true,exportAllowed:true,comp:true};
+  assert.equal(await api.allowBusinessExport(status),true);
+  response={ok:false,status:401};
+  assert.equal(await api.allowBusinessExport(status),false);
+  assert.match(status.textContent,/sign in/);
+  ctx.pubApi=async()=>{throw new Error("offline");};
+  assert.equal(await api.allowBusinessExport(status),false);
+  assert.match(status.textContent,/internet/);
+  for(const name of ["saveFlyer(kind)","printFlyer()","saveStudio(kind)","printStudio()"]){
+    const start=src.indexOf("async function "+name+"{");
+    assert.ok(src.slice(start,start+130).includes("await allowBusinessExport("),name);
+  }
 });
