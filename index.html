@@ -771,6 +771,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
         <div class="chips" id="petArt"></div>
         <p class="small2">These show on your page, your flyers, and the picture people see when you share the link.</p>
       </div>
+      <p class="small2" id="priceRepairNote" role="status" hidden></p>
       <div id="svcList"></div>
       <p class="small2" style="margin:0 0 16px">Use the arrows to change the order. Your website and flyers list them top to bottom, and posters show the first four.</p>
       <div class="mbtns"><button type="button" class="btn" id="moreJobs">Add more jobs</button><button type="button" class="btn ghost" id="addSvc">Add your own</button></div>
@@ -2204,6 +2205,22 @@ function starterServices(picked, level){
   });
   return out;
 }
+// Repair the old numeric-ceiling artifact once, only for named pet starter jobs.
+// Keep custom services and ordinary hand-entered prices intact.
+function repairPetPriceCaps(state){
+  if(state.petPriceCapRepair===1)return 0;
+  const prices=new Map(starterServices("pet",1).map(row=>[row.n,row.p]));
+  let changed=0;
+  const repair=rows=>(rows||[]).forEach(row=>{
+    if(prices.has(row.n)&&String(row.p).trim()==="500"){
+      row.p=prices.get(row.n);delete row.t;changed++;
+    }
+  });
+  if(state.type==="pet")repair(state.services);
+  if(state.svcSets&&state.svcSets.pet)repair(state.svcSets.pet.services);
+  state.petPriceCapRepair=1;
+  return changed;
+}
 /* Price rows belong to the job they were made under. S.services is always
    the ACTIVE job's rows; every other job's rows wait in S.svcSets
    ({type:{services,edited}}) so switching what you do can never show one
@@ -2314,6 +2331,8 @@ if(!RIGS[S.palette])S.palette="ember";
 if(!PRESETS[S.type])S.type="lawn";
 fixSvcRows();
 if(!S.svcEdited)S.services=starterServices(undefined, S.lvlApplied||1);
+const repairedPetPrices=repairPetPriceCaps(S);
+if(repairedPetPrices){const note=document.getElementById("priceRepairNote");note.hidden=false;note.textContent="We corrected saved $500 pet-service prices to the starter amounts. Review each price before sharing.";}
 if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
   const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
   S.sched=[0,1,2,3,4,5,6].map(i=>Object.assign({on:untouched?false:!!(S.days&&S.days[i])},defHours(i)));
@@ -2512,8 +2531,10 @@ function renderServices(f){
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
     n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
     n.onblur=()=>queue();
+    let previousPrice=s.p;
+    p.onfocus=()=>{previousPrice=s.p;p.select();};
     p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
-    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;}queue();};
+    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=previousPrice;p.value=s.p;S.svcEdited=true;toast("Enter a price from $0 to $500. Your previous price was kept.");}queue();};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
     const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";

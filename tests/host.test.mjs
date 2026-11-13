@@ -2402,3 +2402,27 @@ test("start a new page: the replace warning guards another build's page — neve
   assert.match(push, /Replace the live page\?/, "the warning says plainly what would happen");
   assert.match(push, /hustlebuilder\.org\/'\+esc\(slug\)/, "the warning names the page at risk");
 });
+
+test("old capped pet prices recover once without changing custom prices", async () => {
+  const { readFile } = await import("fs/promises");
+  const { runInNewContext } = await import("vm");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const start = src.indexOf("const PRESETS=");
+  const end = src.indexOf("const TAGS=", start);
+  const { repairPetPriceCaps } = runInNewContext(src.slice(start, end) + "({repairPetPriceCaps})");
+  const state = { type: "pet", services: [
+    { n: "Dog walk, 15 minutes", p: "500", t: 1 },
+    { n: "Dog walk, 30 minutes", p: "500", t: 1 },
+    { n: "Pet feeding drop-in", p: "12.50", t: 1 },
+    { n: "Custom package", p: "500", t: 1 }
+  ], svcSets: {} };
+  assert.equal(repairPetPriceCaps(state), 2);
+  assert.deepEqual(state.services.map(s => s.p), ["5", "8", "12.50", "500"]);
+  state.services[0].p = "20";
+  assert.equal(repairPetPriceCaps(state), 0);
+  assert.equal(state.services[0].p, "20");
+  const parked = { type: "lawn", services: [{ n: "Custom package", p: "500" }], svcSets: { pet: { services: [{ n: "Dog walk, 15 minutes", p: "500", t: 1 }] } } };
+  assert.equal(repairPetPriceCaps(parked), 1);
+  assert.equal(parked.svcSets.pet.services[0].p, "5");
+  assert.equal(parked.services[0].p, "500");
+});
