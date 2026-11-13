@@ -35,6 +35,17 @@ function check(name, ok, detail) {
   console.log((ok ? "PASS" : "FAIL") + " " + name + (detail ? " " + detail : ""));
   if (!ok) fails.push(name + " " + detail);
 }
+// The builder has fixed navigation above and below its scrolling content.
+// Puppeteer's basic click only checks viewport bounds, not those overlays.
+async function clickControl(page, selector) {
+  await page.waitForSelector(selector, { visible: true });
+  await page.$eval(selector, el => el.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForFunction(selector => {
+    const el = document.querySelector(selector), r = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+  }, {}, selector);
+  await page.click(selector);
+}
 
 try {
   const page = await browser.newPage();
@@ -59,11 +70,21 @@ try {
   await page.evaluate(() => document.getElementById("pubEmail").scrollIntoView({ block: "center", behavior: "instant" }));
   await page.screenshot({ path: path.join(out, "publish_desktop.png") });
   await page.type("#pubEmail", "parent@example.com");
-  await page.click("#pubSend");
-  await page.waitForFunction(() => /code is \d{6}/.test(document.getElementById("pubCodeMsg").textContent));
+  await clickControl(page, "#parentHere > summary");
+  await clickControl(page, "#pubSend");
+  try {
+    await page.waitForFunction(() => /code is \d{6}/.test(document.getElementById("pubCodeMsg").textContent));
+  } catch (error) {
+    console.log("sign-in diagnostic", await page.evaluate(() => ({
+      message: document.getElementById("pubCodeMsg").textContent.replace(/\d{6}/g, "[code]"),
+      emailEntered: !!document.getElementById("pubEmail").value,
+      parentPanelOpen: document.getElementById("parentHere").open
+    })), logs);
+    throw error;
+  }
   const code = (await page.$eval("#pubCodeMsg", (e) => e.textContent)).match(/(\d{6})/)[1];
   await page.type("#pubCode", code);
-  await page.click("#pubVerify");
+  await clickControl(page, "#pubVerify");
   await page.waitForSelector("#pubReady:not([hidden])");
   const cardNote = await page.$eval("#cardCheckNote", (el) => el.textContent);
   check("publish explains the refunded 50 cent check", /50¢/.test(cardNote) && /refund/i.test(cardNote) && /trial stays free/i.test(cardNote), cardNote);
@@ -71,7 +92,7 @@ try {
   await page.$eval("#pubConsent", (el) => { el.checked = true; });
   await page.click("#pubSlug", { clickCount: 3 });
   await page.type("#pubSlug", "sam-yard");
-  await page.click("#pubGo");
+  await clickControl(page, "#pubGo");
   try {
     await page.waitForFunction(() => /Published/.test(document.getElementById("pubOk").textContent), { timeout: 20000 });
   } catch (err) {

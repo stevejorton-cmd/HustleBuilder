@@ -19,24 +19,24 @@ try{
  const probe=await site.evaluate(()=>({blocked:window.blocked,denial:window.denial,stolen:window.stolen||null}));assert.equal(probe.blocked,true);assert.equal(probe.denial,'SecurityError');assert.equal(probe.stolen,null);results.push({name:'published script cannot read builder localStorage',pass:true,...probe});
  const apiBlocked=await site.evaluate(async base=>{try{await fetch(base+'/api/account',{credentials:'include'});return false;}catch{return true;}},base);assert.equal(apiBlocked,true);results.push({name:'published script cannot read parent account API with ambient cookies',pass:true});
  const booking=await site.evaluate(async base=>{const r=await fetch(base+'/api/book',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({requestId:'browser-probe-request',slug:'isolated-yard',name:'Neighbor',contact:'4025550199',service:'Mow',when:'Tomorrow',address:'123 Test Lane',t:5000})});return {status:r.status,body:await r.json()};},base);assert.equal(booking.status,200);assert.equal(booking.body.ok,true);results.push({name:'opaque-origin page successfully books through restricted CORS',pass:true});
- const ask=await post('/api/ask',{email:'other@example.com',draft:{type:'lawn',first:'Sam'}});const parent=await browser.newPage();await parent.goto(base+'/?ask='+ask.token);await parent.waitForFunction(()=>document.querySelector('#pubEmail')?.value==='other@example.com');
- const state=await parent.evaluate(()=>({session:localStorage.getItem('hb-parent-session'),ready:!document.querySelector('#pubReady').hidden,message:document.querySelector('#askStatus').textContent}));assert.equal(state.session,null);assert.equal(state.ready,false);assert.match(state.message,/Verify your parent email/);results.push({name:'parent invitation UI asks for independent email verification',pass:true});
+ const ask=await post('/api/ask',{email:'other@example.com',first:'Sam',biz:'Sam’s Yard'});const parent=await browser.newPage();await parent.goto(base+'/?ask='+ask.token);await parent.waitForSelector('#askInviteNotice:not([hidden])');
+ const state=await parent.evaluate(()=>({notice:document.querySelector('#askInviteNotice').textContent,hidden:document.querySelector('#pubBox').hidden}));assert.equal(state.hidden,true);assert.match(state.notice,/device where they built it/);results.push({name:'invitation on another device explains how to review the original draft',pass:true});
  // Each type is walked at phone width through every builder step. This is a functionality sweep, not a full design audit.
  const types=['lawn','snow','both','pet','odd','wash','help','tutor','other'];
  for(const type of types){
   const p=await browser.newPage();await p.setViewport({width:390,height:844});const errors=[];p.on('pageerror',e=>errors.push(String(e)));
   await p.goto(base);await dismissIntro(p);const selector='button.tile[data-type="'+type+'"]';assert.ok(await p.$(selector),'missing type: '+type);
-  await p.click(selector);for(let step=0;step<7;step++){await p.click('#next');}
+  await p.select('#stepJump','0');await p.click(selector);for(let step=0;step<7;step++){await p.click('#next');}
   await p.waitForSelector('#pubEmail');assert.equal(errors.length,0,errors.join('\n'));const width=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));assert.ok(width.scroll<=width.client+2,type+' overflow');results.push({name:'phone builder step sweep: '+type,pass:true});await p.close();
  }
  const offline=await browser.newPage();await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
  await offline.evaluate(()=>navigator.serviceWorker.ready);
- await offline.click('#next');await offline.type('input[data-k="first"]','OfflineSam');
+ await offline.select('#stepJump','1');await offline.type('input[data-k="first"]','OfflineSam');
  await offline.waitForFunction(()=>Object.keys(localStorage).some(k=>String(localStorage.getItem(k)).includes('OfflineSam')));
  await offline.waitForFunction(async()=>!!(await caches.match('/')));
  const cached=await offline.evaluate(async()=>{const urls=[];for(const name of await caches.keys())for(const request of await (await caches.open(name)).keys())urls.push(request.url);return urls;});
  assert.ok(cached.every(url=>!new URL(url).pathname.startsWith('/api/')));results.push({name:'service worker never caches private API responses',pass:true});
- await offline.setOfflineMode(true);await offline.reload({waitUntil:'domcontentloaded'});await offline.click('#next');
+ await offline.setOfflineMode(true);await offline.reload({waitUntil:'domcontentloaded'});
  assert.match(await offline.$eval('input[data-k="first"]',el=>el.value),/OfflineSam/);results.push({name:'v4 builder reopens saved progress offline',pass:true});
  await offline.setOfflineMode(false);await offline.close();
  console.log(JSON.stringify(results,null,2));

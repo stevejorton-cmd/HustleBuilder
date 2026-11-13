@@ -1,94 +1,14 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { readFile, mkdtemp, rm } from "fs/promises";
-import { spawn } from "child_process";
-import { tmpdir } from "os";
-import path from "path";
-import puppeteer from "puppeteer-core";
-
-test("intro points at one local video and keeps a text fallback", async () => {
-  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  const start = src.indexOf("const INTRO_VIDEO");
-  const end = src.indexOf("initPublish();", start);
-  const block = src.slice(start, end);
-  assert.match(block, /const INTRO_VIDEO="\/assets\/intro\.mp4"/);
-  assert.match(block, /const INTRO_CAPTIONS="\/assets\/intro\.vtt"/);
-  assert.match(block, /const INTRO_KEY="hb_intro_seen"/);
-  assert.match(block, /if\(!introSeen\(\)\)openIntro\(\)/);
-  assert.match(block, /introSkip\.onclick=closeIntro/);
-  assert.match(src, /<video id="introVideo" playsinline controls preload="metadata"><\/video>/);
-  assert.doesNotMatch(src, /<video id="introVideo"[^>]*autoplay/);
-  assert.match(src, /<b>Build<\/b>/);
-  assert.match(src, /<b>Print<\/b>/);
-  assert.match(src, /<b>Publish<\/b>/);
-  assert.match(src, /data-intro>Watch intro/);
-  assert.doesNotMatch(block, /youtube|vimeo|googletagmanager|google-analytics/i);
-});
-
-test("first visit shows the intro, skip is remembered, and Watch intro replays it", async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "hb-intro-"));
-  const port = 9100 + Math.floor(Math.random() * 80);
-  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-  const child = spawn(process.execPath, ["host/dev-server.mjs"], {
-    cwd: root,
-    env: { ...process.env, PORT: String(port), HB_STORE_DIR: dir, PUBLISH_TEST_MODE: "1", PAYWALL_MODE: "test" },
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  let browser;
-  try {
-    await new Promise((res, rej) => {
-      const t = setTimeout(() => rej(new Error("timeout")), 8000);
-      child.stdout.on("data", (d) => { if (String(d).includes("listening")) { clearTimeout(t); res(); } });
-    });
-    const missing = await fetch(`http://127.0.0.1:${port}/assets/intro.mp4`);
-    assert.equal(missing.status, 404);
-    browser = await puppeteer.launch({
-      executablePath: process.env.CHROME || "/usr/local/bin/google-chrome",
-      headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"]
-    });
-    const page = await browser.newPage();
-    await page.setViewport({ width: 390, height: 844 });
-    await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#intro:not([hidden])");
-    await page.waitForSelector("#introSteps:not([hidden])");
-    const first = await page.evaluate(() => {
-      const video = document.getElementById("introVideo");
-      return {
-        steps: document.getElementById("introSteps").textContent,
-        autoplay: video.autoplay,
-        muted: video.muted,
-        playsInline: video.playsInline,
-        controls: video.controls,
-        tiles: !!document.getElementById("tiles"),
-        videoHidden: video.hidden
-      };
-    });
-    assert.match(first.steps, /Build/);
-    assert.match(first.steps, /Print/);
-    assert.match(first.steps, /Publish/);
-    assert.equal(first.autoplay, false);
-    assert.equal(first.muted, false);
-    assert.equal(first.playsInline, true);
-    assert.equal(first.controls, true);
-    assert.equal(first.tiles, true);
-    assert.equal(first.videoHidden, true);
-    await page.click("#introSkip");
-    await page.waitForSelector("#intro[hidden]");
-    assert.equal(await page.evaluate(() => localStorage.getItem("hb_intro_seen")), "1");
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#intro[hidden]");
-    assert.equal(await page.$eval("#intro", (el) => el.hidden), true);
-    await page.click("#watchIntro");
-    await page.waitForSelector("#intro:not([hidden])");
-    await page.click("#introStart");
-    await page.waitForSelector("#intro[hidden]");
-    assert.equal(await page.evaluate(() => localStorage.getItem("hb_intro_seen")), "1");
-    await page.reload({ waitUntil: "domcontentloaded" });
-    assert.equal(await page.$eval("#intro", (el) => el.hidden), true);
-  } finally {
-    if (browser) await browser.close();
-    child.kill();
-    await rm(dir, { recursive: true, force: true });
-  }
-});
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+const src=await readFile(new URL('../index.html',import.meta.url),'utf8');
+function part(start,end){const a=src.indexOf(start);assert.ok(a>=0);const b=src.indexOf(end,a+start.length);assert.ok(b>a);return src.slice(a,b);}
+function storage(){const m=new Map();return {getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)};}
+function intro(){const ctx=vm.createContext({URLSearchParams,localStorage:storage(),sessionStorage:storage(),INTRO_KEY:'hb_examples_v1'});vm.runInContext(part('function introSeen(){','function selectExample(')+part('function shouldOpenIntro(','if(shouldOpenIntro'),ctx);return ctx;}
+test('new visitors see examples; refresh does not interrupt the same visit',()=>{const c=intro();assert.equal(c.shouldOpenIntro(new URLSearchParams()),true);c.sessionStorage.setItem(c.INTRO_KEY,'seen');assert.equal(c.shouldOpenIntro(new URLSearchParams()),false);c.sessionStorage=storage();assert.equal(c.shouldOpenIntro(new URLSearchParams()),true);});
+test('skip next time persists across visits and legacy video preference does not hide new examples',()=>{const c=intro();c.localStorage.setItem('hb_intro_seen','1');assert.equal(c.shouldOpenIntro(new URLSearchParams()),true);c.localStorage.setItem(c.INTRO_KEY,'skip');assert.equal(c.shouldOpenIntro(new URLSearchParams()),false);c.sessionStorage=storage();assert.equal(c.shouldOpenIntro(new URLSearchParams()),false);});
+test('parent approval, draft, account and payment return links are never blocked by the welcome dialog',()=>{for(const key of ['ask','draft','account','hosting','consent']){const c=intro();assert.equal(c.shouldOpenIntro(new URLSearchParams(key+'=test')),false,key);}assert.equal(intro().shouldOpenIntro(new URLSearchParams('campaign=flyer')),true);});
+test('examples still open when browser storage is unavailable',()=>{const c=intro();c.localStorage={getItem(){throw Error('blocked');}};assert.equal(c.shouldOpenIntro(new URLSearchParams()),true);});
+test('sample flyer is drawn without changing a real draft or connecting to a payment service',async()=>{const real={first:'Real child',phone:'private',services:[{n:'Real job',p:'8'}]};const before=JSON.stringify(real),draws=[];const nodes={'#exampleArt':{childNodes:[],innerHTML:''},'#exampleFlyer':{getContext:()=>({})}};const c=vm.createContext({S:real,$:id=>nodes[id],sceneArt:()=>'<svg></svg>',drawFlyer:(_,cfg)=>draws.push(cfg),ensureFonts:()=>Promise.resolve()});vm.runInContext(part('function drawExamples(){','function openIntro(){'),c);c.drawExamples();await Promise.resolve();assert.equal(JSON.stringify(real),before);assert.equal(draws[0].biz,'Alex’s Yard Crew');assert.equal(draws[0].showPhone,false);assert.equal(draws[0].qrText,'https://example.com');assert.equal(draws[0].services[0].p,'20');});
+test('closing the dialog restores background interaction and focus, even if persistence fails',()=>{let focused=false;const box={hidden:false};const remember={checked:true};const background=[{inert:true},{inert:true}];const target={isConnected:true,focus(){focused=true;}};const c=vm.createContext({introReturnFocus:target,introBackground:background,INTRO_KEY:'key',localStorage:{setItem(){throw Error('full');}},sessionStorage:storage(),document:{body:{classList:{remove(){}}}},$:id=>id==='#intro'?box:remember});vm.runInContext(part('function closeIntro(){','const introStart='),c);c.closeIntro();assert.equal(box.hidden,true);assert.equal(focused,true);assert.ok(background.every(el=>!el.inert));});
