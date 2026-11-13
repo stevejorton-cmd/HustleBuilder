@@ -721,7 +721,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
       <p class="lead">First name only. Never your last name or street address.</p>
       <button type="button" class="btn ghost" id="surprise" style="margin-bottom:22px">Surprise me</button>
       <div class="two">
-        <label class="field"><span>Your first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Alex"></label>
+        <label class="field"><span>Your first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor"></label>
         <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
       </div>
       <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
@@ -1040,12 +1040,12 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
     <div class="example-grid">
       <section class="example-card" id="examplePanel0" role="tabpanel" aria-labelledby="exampleTab0">
         <div class="example-label"><b>Your website</b><span>Made by you</span></div>
-        <div class="example-site"><div class="example-url">hustlebuilder.org / your-business</div><div class="example-art" id="exampleArt" aria-hidden="true"></div><div class="example-site-body"><span class="example-kicker">NEIGHBORHOOD LAWN CARE</span><h3>Alex’s<br>Yard Crew</h3><p>Fresh cuts. Happy neighbors.</p><span class="example-cta">Request a job</span><div class="example-rate"><span>Mow a small yard</span><b>$20</b></div><div class="example-rate"><span>Leaf cleanup</span><b>$15</b></div></div></div>
+        <div class="example-site"><div class="example-url">hustlebuilder.org / your-business</div><div class="example-art" id="exampleArt" aria-hidden="true"></div><div class="example-site-body"><span class="example-kicker">NEIGHBORHOOD LAWN CARE</span><h3>Taylor’s<br>Yard Crew</h3><p>Fresh cuts. Happy neighbors.</p><span class="example-cta">Request a job</span><div class="example-rate"><span>Mow a small yard</span><b>$20</b></div><div class="example-rate"><span>Leaf cleanup</span><b>$15</b></div></div></div>
         <p class="example-caption">Pick your jobs, set your prices, and let a parent approve your page.</p>
       </section>
       <section class="example-card" id="examplePanel1" role="tabpanel" aria-labelledby="exampleTab1">
         <div class="example-label"><b>Your flyer</b><span>Ready to print</span></div>
-        <div class="example-paper"><canvas id="exampleFlyer" width="850" height="1100" role="img" aria-label="Example flyer for Alex’s Yard Crew: mowing $20, leaf cleanup $15, with a sample QR code"></canvas><span class="example-stamp">SAMPLE FLYER</span></div>
+        <div class="example-paper"><canvas id="exampleFlyer" width="850" height="1100" role="img" aria-label="Example flyer for Taylor’s Yard Crew: mowing $20, leaf cleanup $15, with a sample QR code"></canvas><span class="example-stamp">SAMPLE FLYER</span></div>
         <p class="example-caption">Hand out your flyer with a parent. Neighbors scan your code to reach you.</p>
       </section>
       <section class="example-card" id="examplePanel2" role="tabpanel" aria-labelledby="exampleTab2">
@@ -2031,11 +2031,11 @@ ${th?themeCss(th,rig.c):(day?dayCss(rig.c):"")}
 ${siteFontCss(c.font)}
 ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
-.hero.pethead .hero-in{grid-area:1/1;align-self:start;position:relative;z-index:2;width:auto;max-width:none;margin:0;padding:12px 16px 0}
-.hero.pethead h1{color:#16352c;text-shadow:0 1px 0 rgba(255,255,255,.85);font-size:clamp(30px,8.4vw,64px);line-height:.95}
-.hero.pethead .tag{color:#1d3b32;text-shadow:0 1px 0 rgba(255,255,255,.8);margin:8px 0 0;font-size:clamp(16px,4vw,22px)}
+.hero.pethead .hero-in{grid-area:2/1;position:relative;z-index:2;width:100%;max-width:none;margin:0;padding:24px 24px 12px;background:#e7f6ea}
+.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(34px,8.4vw,64px);line-height:1.02;overflow-wrap:anywhere}
+.hero.pethead .tag{color:#1d3b32;text-shadow:none;margin:14px 0 0;font-size:clamp(16px,4vw,22px)}
 .hero.pethead .cta,.hero.pethead .meta{display:none}
-.petbar{background:#e7f6ea;padding:4px 16px 16px}
+.petbar{background:#e7f6ea;padding:8px 24px 24px}
 .petbar .btn{display:inline-flex}
 .petbar .meta{color:#1d3b32;margin:10px 0 0}
 .petrow{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 8px}
@@ -2256,7 +2256,7 @@ function fixSvcRows(){
   }
 }
 const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
-function autoBiz(type,first){const f=first||"Alex";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
+function autoBiz(type,first){const f=first||"Taylor";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
 /* Where did the business name come from? A name the app supplied (a name-idea
    pick, or exactly the built-in default for the job picked) is only a
    placeholder: when the kid switches what they do, it clears so the new job's
@@ -2267,7 +2267,7 @@ function nameIsPlaceholder(name,auto,type,first){
   const n=String(name||"").trim();
   if(!n)return false;
   if(auto&&n===String(auto).trim())return true;
-  return n===autoBiz(type,first||"Alex");
+  return n===autoBiz(type,first||"Taylor");
 }
 function switchedBizName(name,auto,oldType,first){
   return nameIsPlaceholder(name,auto,oldType,first)?"":String(name||"");
@@ -2301,14 +2301,14 @@ function save(){
 
 function resolve(preview, opt){
   opt=opt||{};
-  const first=S.first.trim().slice(0,40)||(preview?"Alex":"");
+  const first=S.first.trim().slice(0,40)||(preview?"Taylor":"");
   const town=S.town.trim().slice(0,60)||(preview?"your neighborhood":"");
-  const biz=S.bizName.trim().slice(0,80)||autoBiz(S.type,first||"Alex");
+  const biz=S.bizName.trim().slice(0,80)||autoBiz(S.type,first||"Taylor");
   const tagline=S.tagline.trim().slice(0,120)||TAGS[S.type];
   const parentName=S.parentName.trim(), phone=S.phone.trim(), phoneDigits=phone.replace(/[^\d+]/g,""), email=S.email.trim();
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=typeInfo(S.type).target;
-  const about=`I’m ${first||"Alex"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
+  const about=`I’m ${first||"Taylor"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
   return {type:S.type,look:S.look==="day"?"day":"night",theme:siteTheme(S.theme),sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:cleanPrice(S.seasonPrice),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:cleanPrice(s.p)})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()).map(r=>({...r,n:r.n.trim().slice(0,40)})),publish:opt.publish||null};
@@ -2340,11 +2340,12 @@ function presetServices(id){
   return starterServices(id, (S&&S.lvlApplied)||1);
 }
 function pickType(id){
-  const keptName=switchedBizName(S.bizName,S.bizNameAuto,S.type,S.first.trim()||"Alex");
+  const keptName=switchedBizName(S.bizName,S.bizNameAuto,S.type,S.first.trim()||"Taylor");
   if(keptName!==S.bizName){S.bizName=keptName;S.bizNameAuto="";const nameEl=$("#bizName");if(nameEl)nameEl.value=keptName;}
   const oldType=S.type;
   S.type=id;
   if(oldType!==id){
+    if(S.tagline===TAGS[oldType]||(TAG_IDEAS[oldType]||[]).includes(S.tagline)){S.tagline="";$("#tagline").value="";}
     const sw=svcSwitch(S.svcSets,oldType,{services:S.services,edited:S.svcEdited},id,S.lvlApplied||1);
     S.svcSets=sw.sets;S.services=sw.services;S.svcEdited=sw.edited;
     renderServices();
@@ -2457,7 +2458,7 @@ document.querySelectorAll("[data-k]").forEach(el=>{
 const showPhoneEl=$("#showPhone");
 if(showPhoneEl){showPhoneEl.checked=!!S.showPhone;showPhoneEl.addEventListener("change",()=>{S.showPhone=showPhoneEl.checked;queue();});}
 function syncPlaceholders(){
-  $("#bizName").placeholder=autoBiz(S.type,S.first.trim()||"Alex");
+  $("#bizName").placeholder=autoBiz(S.type,S.first.trim()||"Taylor");
   $("#tagline").placeholder=TAGS[S.type];
   if(typeof renderIdeas==="function")renderIdeas();
   if(typeof renderSnowPlan==="function")renderSnowPlan();
@@ -3851,6 +3852,9 @@ const TAG_IDEAS={
   other:["Tell me the job. I’ll show up.","You name it. I’ll do it carefully.","A parent confirms every job.","Small help. On time.","Ask. I’ll show up.","Neighborhood help, parent-backed."]
 };
 const TAG_ANY=["Show up. Do it right. Leave it better.","Student-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a student. Backed by a parent.","Work first. Brag later."];
+// Replace only a built-in suggestion from a different business type.
+if(S.tagline && Object.keys(TAG_IDEAS).some(t=>t!==S.type&&(S.tagline===TAGS[t]||TAG_IDEAS[t].includes(S.tagline))) && !tagList(S.type).includes(S.tagline)){S.tagline="";$("#tagline").value="";save();}
+
 
 const FUNNY={
  lawn:{"Keep it simple":["Mow Problemo","Lawn Ranger","Mow Money","Turf Luck"],
@@ -4644,7 +4648,7 @@ function publishExtras(slug){
     showPhone:!!S.showPhone,
     phone:S.phone||"",
     draftCode:localStorage.getItem("hb-draft-code")||localStorage.getItem("hb-job-code")||"",
-    cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Alex"),
+    cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Taylor"),
     cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c,
     pets:S.type==="pet"?petList():[],
@@ -5441,7 +5445,7 @@ function selectExample(n,focus){
 function drawExamples(){
   const art=$("#exampleArt");if(!art.childNodes.length)art.innerHTML=sceneArt("lawn","classic");
   const cv=$("#exampleFlyer");
-  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Alex’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Alex",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#FF5B14",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
+  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#FF5B14",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
 }
 function openIntro(){
