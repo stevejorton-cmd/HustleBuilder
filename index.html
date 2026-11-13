@@ -289,7 +289,6 @@ body.soft .hours-quick button{border-radius:999px}
 .stage .bar .btn{color:#F1EFEA;border-color:#3A4046}
 .phone{flex:1;min-height:0;position:relative}
 .phone iframe{display:block;width:100%;height:100%;border:0;background:#101214}
-.notch{display:none}
 .caption{display:none}
 
 @media (min-width:960px){
@@ -301,7 +300,6 @@ body.soft .hours-quick button{border-radius:999px}
     background:radial-gradient(ellipse at 50% 28%,color-mix(in srgb,var(--accent) 28%,transparent),transparent 62%),repeating-linear-gradient(-45deg,#0B0C0D 0 22px,#0E1012 22px 44px)}
   .stage .bar{display:none}
   .phone{flex:none;width:372px;height:min(760px,calc(100vh - 170px));border:11px solid #1B1E21;border-radius:46px;overflow:hidden;box-shadow:0 0 0 2px #2D3238,0 40px 80px rgba(0,0,0,.6)}
-  .notch{display:block;position:absolute;left:50%;top:0;width:110px;height:24px;margin-left:-55px;background:#1B1E21;border-radius:0 0 16px 16px;z-index:2}
   .caption{display:block;margin:0;font-weight:600;font-size:14.5px;color:#C9CDD1}
 }
 
@@ -977,7 +975,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
 
   <aside class="stage" id="stage" aria-label="Live preview">
     <div class="bar"><strong>Your site</strong><button type="button" class="btn outline" id="closeSheet" style="min-height:44px;font-size:18px">Back to editing</button></div>
-    <div class="phone"><div class="notch"></div><iframe id="frame" title="Preview of your website" sandbox="allow-scripts"></iframe></div>
+    <div class="phone"><iframe id="frame" title="Preview of your website" sandbox="allow-scripts"></iframe></div>
     <p class="caption">Your website preview. Go live lets a parent publish it. Preview requests are not sent.</p>
   </aside>
 
@@ -1479,12 +1477,16 @@ function siteMain(){
   var rt=$("sendRvText"), re=$("sendRvMail");
   if(rt){rt.onclick=function(){var m=rvBuild(); if(m){window.location.href="sms:"+C.phoneDigits+"?&body="+encodeURIComponent(m);}};}
   if(re){re.onclick=function(){var m=rvBuild(); if(m){window.location.href="mailto:"+C.email+"?subject="+encodeURIComponent("Review for "+C.biz)+"&body="+encodeURIComponent(m);}};}
-  var dock=$("dock"), vis={heroCta:true,book:false};
-  function upd(){dock.classList.toggle("show",!vis.heroCta&&!vis.book);}
-  if("IntersectionObserver" in window){
-    var io=new IntersectionObserver(function(es){es.forEach(function(en){vis[en.target.id]=en.isIntersecting;});upd();});
-    io.observe($("heroCta")); io.observe($("book"));
+  var dock=$("dock"), heroCta=$("heroCta"), booking=$("book");
+  function upd(){
+    var heroRect=heroCta.getBoundingClientRect(), bookRect=booking.getBoundingClientRect();
+    // Measure this page's viewport, including inside the sandboxed phone preview.
+    // Never duplicate the hero button, or cover the booking form itself.
+    dock.classList.toggle("show",heroRect.bottom<=0 && !(bookRect.top<window.innerHeight && bookRect.bottom>0));
   }
+  window.addEventListener("scroll",upd,{passive:true});
+  window.addEventListener("resize",upd);
+  upd();
 }
 
 /* ============ Helpers + palettes ============ */
@@ -2076,11 +2078,11 @@ ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr)
   <div class="hero-in">
     <h1>${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
-    <div class="cta"><a class="btn" id="heroCta" href="#book">Book a day</a></div>
+    ${c.type==="pet"?"":`<div class="cta"><a class="btn" id="heroCta" href="#book">Book a day</a></div>`}
     <p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p>
   </div>
 </header>
-${c.type==="pet"?`<div class="petbar"><a class="btn" href="#book">Book a day</a><p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p></div>`:""}
+${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">Book a day</a><p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p></div>`:""}
 <div class="hazard"></div>
 
 <section id="standard">
