@@ -854,7 +854,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
         <p><button type="button" class="btn ghost" id="acctSignOut" hidden>Sign out on this device</button></p>
       </section>
       <div class="missing" id="missing" hidden></div>
-      <div class="launch-price"><b>Build &amp; make flyers for free.</b><p>Your website trial ends after 14 days or 3 delivered booking requests, whichever comes first. After that: $9.99 per season or $19.99 per year. Plans never renew automatically.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
+      <div class="launch-price"><b>One 14-day trial for your business.</b><p>Your website, booking requests, and flyer downloads are included for 14 days from first publication. After that, choose a plan to continue. Your saved work stays available. After that: $9.99 per season or $19.99 per year. Plans never renew automatically.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
       <div id="askInviteNotice" class="launch-price" role="status" hidden></div>
       <div id="pubBox">
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
@@ -880,7 +880,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
           <p class="small2" id="cardCheckNote">To show this is a parent, we charge 50¢ on a card. Stripe emails a receipt, and we refund the 50¢ right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
-            <p class="lead" id="trialPitch">Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically.</p>
+            <p class="lead" id="trialPitch">Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.</p>
             <p class="status" id="trialCount" hidden></p>
           </div>
           <p class="status" id="graceBanner" hidden></p>
@@ -1081,7 +1081,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
       </section>
     </div>
     <p class="example-disclaimer">All examples are fictional. No payment was sent, and earnings aren’t guaranteed. Venmo Teen Accounts cannot receive payments for goods or services.</p>
-    <div class="intro-footer"><div><button type="button" class="btn" id="introStart">Build my business →</button><p>Building and flyers are free. A parent approves going live.</p></div><label class="intro-remember"><input type="checkbox" id="introRemember">Skip this next time</label></div>
+    <div class="intro-footer"><div><button type="button" class="btn" id="introStart">Build my business →</button><p>Build your draft free. A parent starts your 14-day website and flyer trial by publishing.</p></div><label class="intro-remember"><input type="checkbox" id="introRemember">Skip this next time</label></div>
   </div>
 </div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">
@@ -2813,6 +2813,7 @@ function updateLaunch(){
 }
 $("#download").onclick=async()=>{
   const st=$("#dlStatus");st.textContent="";
+  if(!await allowBusinessExport(st))return;
   const r=await saveFile("index.html",genSite(resolve(false)),"text/html");
   st.textContent=r.ok?(r.how==="browser"?"Saved. Look for index.html in your downloads. Neighbors should use your hustlebuilder.org link.":"Saved. Neighbors should use your hustlebuilder.org link."):(r.declined?"No problem. Tap the button when you’re ready.":r.copied?"Downloads aren’t available here, so the site code was copied. Paste it into a file named index.html.":"Downloads aren’t available in this view. Open Hustle Builder in a browser to save your file.");
 };
@@ -3745,7 +3746,24 @@ function makePDF(jpeg,w,h){
   return new Blob(parts,{type:"application/pdf"});
 }
 function canvasBlob(cv,type,q){return new Promise(res=>cv.toBlob(res,type,q));}
+function rememberExportDeadline(me){
+  if(me&&me.ok&&me.trialEndsAt){try{localStorage.setItem("hb-export-deadline",me.trialEndsAt);}catch(e){}}
+}
+async function allowBusinessExport(status){
+  // Before first publication, creation remains a free draft experience.
+  // After publication, use the same account deadline as the live website.
+  let deadline="";try{deadline=localStorage.getItem("hb-export-deadline")||"";}catch(e){}
+  if(!pubSession()&&!pubToken()&&!deadline)return true;
+  status.textContent="Checking your trial or plan…";
+  try{
+    const me=await pubApi("/api/me",{method:"GET"});
+    if(me.ok){rememberExportDeadline(me);if(me.exportAllowed===true){status.textContent="";return true;}}
+    status.textContent=me.ok?"Your 14-day trial has ended. Ask a parent to choose a plan in Website → Go live to download or print. Your work is saved.":"Ask a parent to sign in at Website → Go live so we can check your trial or plan.";
+  }catch(e){status.textContent="We couldn’t check your plan. Connect to the internet and try again. Your work is saved.";}
+  return false;
+}
 async function saveFlyer(kind){
+  if(!await allowBusinessExport($("#fStatus")))return;
   const st=$("#fStatus");st.textContent="";
   const c=flyerCfg();if(!c.ok){st.textContent=c.why;return;}
   await ensureFonts();
@@ -3763,6 +3781,7 @@ async function saveFlyer(kind){
   else st.textContent=r.declined?"No problem. Tap the button when you’re ready.":"Saving isn’t available in this view. Open Hustle Builder in the Claude app, on claude.ai, or as a web page to save your file.";
 }
 async function printFlyer(){
+  if(!await allowBusinessExport($("#fStatus")))return;
   const st=$("#fStatus");st.textContent="";
   const c=flyerCfg();if(!c.ok){st.textContent=c.why;return;}
   await ensureFonts();
@@ -4312,6 +4331,7 @@ function renderPanel(){
 function openStudio(){stOpen=true;$("#studio").hidden=false;document.body.classList.add("studio-open");$("#studio").scrollTop=0;renderPanel();drawStudio();$("#stUndo").disabled=!stHist.length;ensureFonts().then(()=>{if(stOpen){drawStudio();renderPanel();}});setTimeout(()=>{const c=$("#stClose");if(c)c.focus();},50);}
 function closeStudio(){stOpen=false;$("#studio").hidden=true;document.body.classList.remove("studio-open");const b=$("#openStudio");if(b)b.focus();}
 async function saveStudio(kind){
+  if(!await allowBusinessExport($("#pStatus")))return;
   const st=$("#pStatus");st.textContent="";const p=pcfg();if(!p.ok){st.textContent=p.why;return;}
   await ensureFonts();await loadFont(pcfg().font);let blob,file,asPdf=false;
   try{const cv=renderPoster(3),nm="poster-"+LAYOUT_NAMES[S.studio.layout].toLowerCase();
@@ -4323,6 +4343,7 @@ async function saveStudio(kind){
   else st.textContent=r.declined?"No problem. Tap the button when you’re ready.":"Saving isn’t available in this view. Open Hustle Builder in the Claude app, on claude.ai, or as a web page to save your file.";
 }
 async function printStudio(){
+  if(!await allowBusinessExport($("#pStatus")))return;
   const st=$("#pStatus");st.textContent="";const p=pcfg();if(!p.ok){st.textContent=p.why;return;}
   await ensureFonts();await loadFont(pcfg().font);const url=renderPoster(2).toDataURL("image/png"),pa=$("#printArea");pa.innerHTML='<img alt="Poster" src="'+url+'">';
   document.body.classList.add("printing");const done=()=>{document.body.classList.remove("printing");pa.innerHTML="";window.removeEventListener("afterprint",done);};
@@ -4540,10 +4561,9 @@ function niceDate(iso){
 }
 function trialLine(me){
   const days=me&&typeof me.trialDaysLeft==="number"?me.trialDaysLeft:14;
-  const jobs=me&&typeof me.trialLeft==="number"?me.trialLeft:3;
-  return days+" days / "+jobs+" free jobs left.";
+  return days+" days left for your website, bookings, and flyer downloads.";
 }
-const TRIAL_WORDS="Free until 14 days after first publish or 3 booking requests are delivered, whichever comes first. You are never charged automatically.";
+const TRIAL_WORDS="Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.";
 function setConsentOn(on){try{if(on)localStorage.setItem("hb-consent","1");else localStorage.removeItem("hb-consent");}catch(e){}}
 function consentOn(){try{return localStorage.getItem("hb-consent")==="1";}catch(e){return false;}}
 function planHelp(me){
@@ -4552,10 +4572,11 @@ function planHelp(me){
   if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
   if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
   if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
-  if(typeof me.trialLeft==="number")return trialLine(me);
+  if(me.trialEndsAt)return trialLine(me);
   return TRIAL_WORDS;
 }
 function showHosting(me){
+  rememberExportDeadline(me);
   if(me&&me.ok){setConsentOn(!!me.consent); if(me.consent)scheduleDraft();}
   const help=$("#pubPlanHelp"); if(help&&me&&me.ok)help.textContent=planHelp(me);
   const count=$("#trialCount");
@@ -4890,10 +4911,11 @@ async function pubPush(){
     // Family plan: updating a page the account owns, and adding a page
     // while the shared trial still has room, never detour to checkout.
     // A new page on an account whose trial is used up pays first, as before.
-    const needsPay=!me.paid && !me.grace && !(me.trialLeft>0) && !ownedSlugs(me).includes(slug);
+    const needsPay=!me.paid && !me.grace && me.trialOver && !ownedSlugs(me).includes(slug);
     if(needsPay){const paid=await pubCheckout(); if(!paid)return;}
     const data=await pubApi("/api/publish", {body:publishExtras(slug)});
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
+    rememberExportDeadline(data);
     session.slug=data.slug; pubSaveSession(session); clearPending();
     recordSiteDraft(data.slug);
     if(data.jobCode)localStorage.setItem("hb-job-code", data.jobCode);
@@ -4910,7 +4932,7 @@ function accountWords(site){
   if(site.paid)return (site.planName||"Paid plan")+(site.paidUntilLabel?" through "+site.paidUntilLabel:"")+(site.grace?" · "+site.graceDays+" grace days left":"");
   if(site.trialOver)return "Free trial is over. Pick a plan below to bring the page back.";
   const days=site.trialEndsLabel?site.trialDaysLeft+" days left":"trial not started";
-  return "Free trial · "+days+" · "+site.trialLeft+" free jobs left";
+  return "Free trial · "+days+" · website, bookings, and flyers";
 }
 function statusWord(status){return {live:"Live",paused:"Paused",offline:"Offline",down:"Taken down"}[status]||"Not up";}
 async function showAccount(){

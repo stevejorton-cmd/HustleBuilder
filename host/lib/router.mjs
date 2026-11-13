@@ -15,7 +15,7 @@ export const CONSENT_VERSION = "2026-11-10-card";
 // A one-time parent check. Stripe emails the receipt, then we refund it in full.
 // Not a plan payment, and not a new environment variable.
 export const VERIFY_CENTS = 50;
-export const FREE_JOBS = 3;
+// Booking counts are analytics only; trial access is based on its end date.
 export const GRACE_DAYS = 7;
 export const TRIAL_DAYS = 14;
 
@@ -28,7 +28,7 @@ export function trialLengthDays() {
 }
 
 export function trialBlurb() {
-  return "Free until " + trialLengthDays() + " days after first publish or " + FREE_JOBS + " booking requests are delivered, whichever comes first. You are never charged automatically.";
+  return "Your website, booking requests, and flyer downloads are included for " + trialLengthDays() + " days after first publish. After that, a parent chooses a plan to continue. You are never charged automatically.";
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -249,6 +249,7 @@ async function dropAdminSession(headers) {
   if (/^[a-f0-9]{64}$/.test(token)) await (await store()).del("adminsessions/" + sha(token) + ".json");
 }
 async function saveAccount(account) {
+  if(account.trialEndsAt){const key="trials/"+sha(account.email)+".json";const old=await readJson(key)||{};await writeJson(key,{...old,trialStartedAt:account.trialStartedAt,trialEndsAt:account.trialEndsAt});}
   await writeJson("accounts/" + account.id + ".json", account);
   await (await store()).put("email/" + sha(account.email), account.id);
   if (account.tokenHash) await (await store()).put("tokens/" + account.tokenHash, account.id);
@@ -376,7 +377,6 @@ function trialDaysLeft(account, now = Date.now()) {
 function trialOver(account, used, now = Date.now()) {
   if (!account || paid(account, now) || inGrace(account, now)) return false;
   if (!account.trialEndsAt && slugsOf(account).length === 0) return false;
-  if (used >= FREE_JOBS) return true;
   return !trialClockOpen(account, now);
 }
 
@@ -405,7 +405,7 @@ async function trialCount(email) {
 }
 
 async function setTrialCount(email, used) {
-  await writeJson("trials/" + sha(email) + ".json", { used, at: new Date().toISOString() });
+  await writeJson("trials/" + sha(email) + ".json", { ...(await readJson("trials/"+sha(email)+".json")||{}), used, at: new Date().toISOString() });
 }
 
 async function rememberAccount(account) {
@@ -1115,7 +1115,7 @@ function adminStatus(account, meta, used) {
   return {
     key: "trial",
     label: "Free trial",
-    date: (account.trialEndsAt ? "Ends " + niceDate(account.trialEndsAt) : "") + " · " + used + " of " + FREE_JOBS + " free jobs used"
+    date: (account.trialEndsAt ? "Ends " + niceDate(account.trialEndsAt) : "Not started")
   };
 }
 
@@ -1782,6 +1782,7 @@ async function routeRequest(req) {
     let account = await accountByEmail(email);
     const code = String(randomInt(100000, 1000000));
     if (!account) account = { id: rand(8), email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null, slugs: [] };
+    if(!account.trialEndsAt){const clock=await readJson("trials/"+sha(email)+".json");if(clock&&clock.trialEndsAt){account.trialStartedAt=clock.trialStartedAt;account.trialEndsAt=clock.trialEndsAt;}}
     account.verifyHash = sha(code + ":" + email);
     account.verifyExpires = Date.now() + 20 * 60 * 1000;
     account.verifyTries = 0;
@@ -1845,9 +1846,10 @@ async function routeRequest(req) {
       ok: true, email: account.email, verified: !!account.emailVerifiedAt, consent: consentReady(account), consentMethod: consentReady(account) ? (account.consentMethod || "") : "",
       plan: account.plan || "", planName: comped(account) ? "Friends & family" : account.planName || "", paidUntil: account.paidUntil || "", paid: paid(account), comp: comped(account),
       grace: inGrace(account), graceDays: graceLeftDays(account), renewable: renewable(account),
-      trialUsed: used, trialLeft: Math.max(0, FREE_JOBS - used),
+      trialUsed: used, trialLeft: null,
       trialDays: trialLengthDays(), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "",
       trialOver: trialOver(account, used),
+      exportAllowed: !onBreak(account) && !trialOver(account, used),
       seasonName: season.name, seasonEnd: season.end, yearEnd: year.end,
       shareStreet: !!account.shareStreet, jobCode: account.jobCode || account.draftCode || "",
       slug: account.slug || "", slugs: slugsOf(account), url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
@@ -2048,7 +2050,7 @@ async function routeRequest(req) {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     if (!consentReady(account)) return withCors(json(403, { ok: false, error: "consent" }), req.headers && req.headers.origin);
-    if (onBreak(account)) return withCors(json(402, { ok: false, error: "break", message: "This plan is taking a break. Renew it, then publish again." }), req.headers && req.headers.origin);
+    if (onBreak(account) || trialOver(account, 0)) return withCors(json(402, { ok: false, error: "break", message: "This plan is taking a break. Renew it, then publish again." }), req.headers && req.headers.origin);
     const slug = String(body.slug || account.slug || "").trim().toLowerCase();
     const slugErr = checkSlug(slug);
     if (slugErr) return withCors(json(400, { ok: false, error: "slug", message: slugErr }), req.headers && req.headers.origin);
@@ -2113,7 +2115,7 @@ async function routeRequest(req) {
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
     const used = await trialCount(account.email);
-    return withCors(json(200, { ok: true, slug, url, updated: !!existing, added: addedPage, slugs: slugsOf(account), jobCode: account.jobCode, trialLeft: Math.max(0, FREE_JOBS - used), trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "" }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, slug, url, updated: !!existing, added: addedPage, slugs: slugsOf(account), jobCode: account.jobCode, trialLeft: null, trialDaysLeft: trialDaysLeft(account), trialEndsAt: account.trialEndsAt || "" }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "unpublish") {
@@ -2482,7 +2484,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     await (await store()).put("renew/" + account.renewToken, account.id);
     const links = payLinks(origin, account);
     const used = await trialCount(account.email);
-    const mode = (paid(account) || inGrace(account)) ? "paid" : (used < FREE_JOBS && trialClockOpen(account) ? "trial" : "hold");
+    const mode = (paid(account) || inGrace(account)) ? "paid" : (trialClockOpen(account) ? "trial" : "hold");
     const requestId = "r" + rand(8);
     const actionToken = rand(12);
     const row = {
@@ -2543,20 +2545,11 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     if (mode === "trial") {
       const next = used + 1;
       await setTrialCount(account.email, next);
-      if (next >= FREE_JOBS) {
-        const trialText = "Your 3 free jobs are used up.\n\nNew requests will wait until you pick a plan.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
-        await sendMail({
-          to: account.email,
-          replyTo: supportReply(),
-          subject: "Your 3 free jobs are used up",
-          text: trialText,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>Your 3 free jobs are used up.</b></p><p>New requests will wait until you pick a plan.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
-        });
-      }
+
     }
 
     if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId });
-    return withCors(json(200, { ok: true, trialLeft: mode === "trial" ? Math.max(0, FREE_JOBS - used - 1) : undefined }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, trialLeft: undefined }), req.headers && req.headers.origin);
   }
 
   if ((method === "POST" || method === "DELETE") && route === "jobs") {
@@ -2827,7 +2820,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
         graceDays: graceLeftDays(account),
         renewable: renewable(account),
         trialDaysLeft: trialDaysLeft(account),
-        trialLeft: Math.max(0, FREE_JOBS - used),
+        trialLeft: null,
         trialDays: trialLengthDays(),
         trialEndsLabel: account.trialEndsAt ? niceDate(account.trialEndsAt) : "",
         trialOver: trialOver(account, used),
@@ -2937,7 +2930,6 @@ async function remindAccount(id, origin, dry, due) {
   trial: {
       if (comped(account) || !account.trialEndsAt || paid(account) || inGrace(account)) break trial;
       const used = await trialCount(account.email);
-      if (used >= FREE_JOBS) break trial;
       const days = daysUntil(account.trialEndsAt);
       const bucket = reminderBucket(days, false);
       if (bucket === null) break trial;
@@ -2949,7 +2941,7 @@ async function remindAccount(id, origin, dry, due) {
       const links = payLinks(origin, account);
       const when = daysWords(days);
       const subject = "Your free trial ends " + when;
-      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe page then shows a taking-a-break page. Your draft and the site stay saved. Pay to bring it back.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n";
+      const text = "Your free trial ends " + when + ", on " + niceDate(account.trialEndsAt) + ".\n\nThe website and booking requests pause, and new flyer downloads and printing require a plan. Your saved work stays available. Pay to bring it back.\n\n" + PLANS.season.label + " for the season:\n" + links.season + "\n\n" + PLANS.year.label + " for the year:\n" + links.year + "\n";
       due.push({ email: account.email, kind: "trial-" + bucket, days });
       if (!dry) {
         await sendMail({
@@ -2959,7 +2951,7 @@ async function remindAccount(id, origin, dry, due) {
           origin,
           subject,
           text,
-          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The page then shows a taking-a-break page. Your draft and the site stay saved. Pick a plan to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
+          html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The website and booking requests pause, and new flyer downloads and printing require a plan. Your saved work stays available. Pick a plan to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
         });
         account.sentReminders[key] = new Date().toISOString();
         await saveAccount(account);
