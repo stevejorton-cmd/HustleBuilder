@@ -218,6 +218,13 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .icon svg{display:block;margin:0 auto}
 .icon[disabled]{opacity:.3;cursor:default}
 @media (min-width:560px){.svcrow{grid-template-columns:minmax(0,1fr) 104px 48px 48px 48px;margin-bottom:10px}.svcrow>input{grid-column:auto}}
+.svcrow.pet-service{grid-template-columns:56px minmax(0,1fr) 104px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px}
+.svcrow.pet-service>input{grid-column:2/4;grid-row:1}
+.svcrow.pet-service>.offer{grid-column:1;grid-row:1}
+.svcrow.pet-service>.price{grid-column:2/4;grid-row:2}
+.svcrow.pet-service>.mv-up,.svcrow.pet-service>.mv-down,.svcrow.pet-service>.rm{grid-row:3;width:48px;justify-self:start}
+.svcrow.pet-service>.price input{width:100%;min-width:0;padding-right:12px}
+@media(min-width:560px){.svcrow.pet-service{grid-template-columns:56px minmax(0,1fr) 112px}.svcrow.pet-service>input{grid-column:2}.svcrow.pet-service>.price{grid-column:3;grid-row:1}.svcrow.pet-service>.mv-up,.svcrow.pet-service>.mv-down,.svcrow.pet-service>.rm{grid-row:2}.svcrow.pet-service>.mv-down{grid-column:2}.svcrow.pet-service>.rm{grid-column:3;justify-self:end}}
 .price{position:relative}
 .price em{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--muted);font-weight:700}
 .price input{padding-left:28px}
@@ -2448,7 +2455,7 @@ $("#peek").onclick=()=>{refresh();shell.classList.add("sheet");};
 $("#closeSheet").onclick=()=>shell.classList.remove("sheet");
 
 let timer;
-function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{refresh();updateLaunch();scheduleDraft();},250);}
+function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{if(document.activeElement&&document.activeElement.matches("#svcList input"))return;refresh();updateLaunch();scheduleDraft();},250);}
 function refresh(){frame.srcdoc=genSite(resolve(true));}
 
 document.querySelectorAll("[data-k]").forEach(el=>{
@@ -2470,7 +2477,7 @@ function renderServices(f){
   if(typeof renderSeason==="function")renderSeason();
   const chev=d=>'<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(d==="up"?"M4 11.5L9 6.5l5 5":"M4 6.5l5 5 5-5")+'"/></svg>';
   S.services.forEach((s,i)=>{
-    const row=document.createElement("div"); row.className="svcrow"; row.dataset.i=i;
+    const row=document.createElement("div"); row.className="svcrow"+(S.type==="pet"?" pet-service":""); row.dataset.i=i;
     const n=document.createElement("input"); n.type="text"; n.value=s.n; n.setAttribute("aria-label","Service name"); n.autocomplete="off"; n.placeholder="Service";
     const pw=document.createElement("div"); pw.className="price";
     const em=document.createElement("em"); em.textContent="$";
@@ -2482,8 +2489,9 @@ function renderServices(f){
     up.disabled=i===0; dn.disabled=i===S.services.length-1;
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
     n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
+    n.onblur=()=>queue();
     p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
-    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;queue();}};
+    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;}queue();};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
     const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";
