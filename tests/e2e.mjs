@@ -59,6 +59,7 @@ try {
   await page.evaluate(() => document.getElementById("pubEmail").scrollIntoView({ block: "center", behavior: "instant" }));
   await page.screenshot({ path: path.join(out, "publish_desktop.png") });
   await page.type("#pubEmail", "parent@example.com");
+  await page.click("#parentHere > summary");
   await page.click("#pubSend");
   await page.waitForFunction(() => /code is \d{6}/.test(document.getElementById("pubCodeMsg").textContent));
   const code = (await page.$eval("#pubCodeMsg", (e) => e.textContent)).match(/(\d{6})/)[1];

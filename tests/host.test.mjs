@@ -529,7 +529,9 @@ test("ask my parent requires verification and reports only the verified family p
   assert.equal(sent.body.ok, true);
   assert.match(sent.body.link, /\/\?ask=/);
   const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("mom@example.com")));
-  assert.match(mail.body.messages[0].text, /Open this link/);
+  assert.match(mail.body.messages[0].text, /device where your child built it/);
+  assert.match(mail.body.messages[0].text, /50¢ card check that is refunded/);
+  assert.doesNotMatch(mail.body.messages[0].text, /No payment is needed/);
   assert.match(mail.body.messages[0].text, /ask=/);
   const waiting = await json(await call("GET", "/api/ask/" + sent.body.token));
   assert.equal(waiting.body.status, "waiting");
@@ -1209,7 +1211,7 @@ test("the home screen app can install and keep the builder offline", async () =>
   assert.match(sw, /hustle-shell-2/);
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /rel="manifest"/);
-  assert.match(html, /You're offline\. Your work is saved on this phone\./);
+  assert.match(html, /You’re offline\. You can keep editing here\./);
   assert.match(html, /serviceWorker\.register\("\/sw\.js"\)/);
   const icon = await readFile(new URL("../icons/icon-192.png", import.meta.url));
   assert.equal(icon[0], 137);

@@ -13,12 +13,21 @@ process.env.ADMIN_SECRET = process.env.ADMIN_SECRET || "dev-admin-secret";
 
 const indexUrl = new URL("../index.html", import.meta.url);
 const rootDir = new URL("..", import.meta.url);
-const port = Number(process.env.PORT || 8787);
+const portArg = process.argv.indexOf("--port");
+const port = Number(portArg >= 0 ? process.argv[portArg + 1] : process.env.PORT || 8787);
+process.env.PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || "http://127.0.0.1:" + port;
 const assetTypes = { ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png" };
 
 const server = createServer(async (req, res) => {
   try {
   const url = new URL(req.url || "/", "http://127.0.0.1");
+  // A fixed CSS viewport for manual phone QA. This route is dev-server only;
+  // it is not part of the Vercel handler or the published app.
+  if (req.method === "GET" && url.pathname === "/__qa/phone") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+    res.end('<!doctype html><html lang="en"><meta charset="utf-8"><title>Hustle Builder · 390px QA</title><style>body{margin:0;background:#e8e9e4;font:14px system-ui;display:grid;justify-content:center}p{text-align:center;margin:12px}iframe{border:1px solid #aaa;width:390px;height:844px;background:white}</style><p>Phone check · 390 × 844 CSS pixels · local test mode</p><iframe title="Phone preview" src="/"></iframe></html>');
+    return;
+  }
   if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     const file = await readFile(indexUrl);
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
