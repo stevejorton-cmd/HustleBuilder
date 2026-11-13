@@ -218,6 +218,13 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .icon svg{display:block;margin:0 auto}
 .icon[disabled]{opacity:.3;cursor:default}
 @media (min-width:560px){.svcrow{grid-template-columns:minmax(0,1fr) 104px 48px 48px 48px;margin-bottom:10px}.svcrow>input{grid-column:auto}}
+.svcrow.pet-service{grid-template-columns:56px minmax(0,1fr) 104px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px}
+.svcrow.pet-service>input{grid-column:2/4;grid-row:1}
+.svcrow.pet-service>.offer{grid-column:1;grid-row:1}
+.svcrow.pet-service>.price{grid-column:2/4;grid-row:2}
+.svcrow.pet-service>.mv-up,.svcrow.pet-service>.mv-down,.svcrow.pet-service>.rm{grid-row:3;width:48px;justify-self:start}
+.svcrow.pet-service>.price input{width:100%;min-width:0;padding-right:12px}
+@media(min-width:560px){.svcrow.pet-service{grid-template-columns:56px minmax(0,1fr) 112px}.svcrow.pet-service>input{grid-column:2}.svcrow.pet-service>.price{grid-column:3;grid-row:1}.svcrow.pet-service>.mv-up,.svcrow.pet-service>.mv-down,.svcrow.pet-service>.rm{grid-row:2}.svcrow.pet-service>.mv-down{grid-column:2}.svcrow.pet-service>.rm{grid-column:3;justify-self:end}}
 .price{position:relative}
 .price em{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--muted);font-weight:700}
 .price input{padding-left:28px}
@@ -664,13 +671,30 @@ details.help li{margin-bottom:10px}
 body.soft .intro-card{border-radius:22px 22px 0 0}
 @media (min-width:700px){body.soft .intro-card{border-radius:22px}}
 
+/* Consistent scale and spacing across editing screens. */
+.step h2,#flyers h2{font-size:clamp(40px,5vw,60px);line-height:1.02;letter-spacing:-.015em;text-wrap:balance;margin-bottom:16px}
+.step .lead{font-size:17px;line-height:1.55;margin-bottom:24px}
+.callout,details.help,.bcard{border-radius:12px}
+details.help summary{font-size:24px;line-height:1.15}
+details.help[open] summary{margin-bottom:16px}
+.rigs{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.rig .slab{height:54px}.rig .nm{font-size:22px;padding:10px}
+.days button{opacity:.7}.days button[aria-pressed=true]{opacity:1}
+#boss{max-width:1100px}#bossBody{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#bossBody>.bcard{margin:0;min-width:0}#boss .booking-inbox{margin:0 0 16px}#myJobs{padding:4px}#boss .bcard{padding:22px}
+.kidjob{background:var(--surface);color:var(--ink)}
+#flyers>.lead{max-width:65ch}
+#flyers .mf{margin-top:22px}
+#flyers .fprev{background:var(--raised);border:1px solid var(--line);border-radius:16px;padding:20px}
+#flyers{max-width:1140px}.flyer-workbench{display:grid;gap:28px}.flyer-controls,.flyer-output{min-width:0}
+@media(min-width:1000px){.flyer-workbench{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}.flyer-output{position:sticky;top:90px}.flyer-output .fprev{margin-top:0}}
+@media(max-width:640px){#bossBody{grid-template-columns:1fr}.rigs{grid-template-columns:repeat(2,minmax(0,1fr))}.step h2,#flyers h2{font-size:42px}.edit{padding-left:18px;padding-right:18px}}
+
 /* Kid-facing navigation and examples. */
 .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.tile .cap{left:12px;right:8px}.tile .cap strong{font-size:36px}.tile .cap span{font-size:13px;line-height:1.2;display:block;margin-top:5px}.petfront summary{font-weight:700;cursor:pointer;min-height:44px}.moretiles .tile.emoji .cap strong{font-size:21px}.moretiles .tile.emoji .cap span{font-size:12px}.moretiles .tile.emoji .emo{width:42px;height:42px;left:10px;top:20px}.moretiles .tile.emoji .cap{left:60px;right:6px}.petfront .callout{margin-bottom:0}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .step-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 24px}.step-tools .plabel{margin:0;white-space:nowrap}.step-jump select{max-width:220px;min-height:44px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:600 14px Barlow,system-ui}
 .save-state{padding:12px;background:var(--surface);border:2px solid var(--danger);border-radius:8px;color:var(--danger)}
 .builder-tools{margin-top:24px}.price-level .lvl{margin-top:14px;margin-bottom:0}.launch-price{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:16px;margin:20px 0}.launch-price p{font-size:15px;line-height:1.5;margin:8px 0 0}.booking-inbox{margin:24px 20px 0}.booking-inbox .h3{margin-top:0}
-body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-filter:blur(8px)}.intro-card{position:relative;width:100%;max-width:1040px;max-height:calc(100dvh - 48px);background:#f6f4ed;color:#18221e;padding:24px 28px 20px;border:1px solid #deddd4;border-top:5px solid #FF5B14;border-radius:22px;box-shadow:0 24px 100px #0005;overscroll-behavior:contain}.intro-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.intro-eyebrow{font-size:12px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin:0;color:#586259}.intro-close{width:44px;height:44px;flex:none;border:1px solid #d0d4ca;border-radius:50%;background:transparent;color:#18221e;font:28px/1 system-ui;cursor:pointer}.intro-card #introTitle{font-family:Barlow,system-ui;font-style:normal;text-transform:none;font-size:clamp(30px,4.2vw,46px);font-weight:800;line-height:1.06;letter-spacing:-.03em;margin:8px 0 12px}.intro #introSubtitle{font-size:17px;line-height:1.45;margin:0 0 20px;color:#526055;max-width:620px}.example-tabs{display:none}.example-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.example-card{min-width:0}.example-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:10px;font-size:17px}.example-label>span{font-size:11px;font-weight:600;color:#586259}.example-site,.example-paper,.example-payment{height:326px;overflow:hidden;border:1px solid #d1d6cc;border-radius:12px;background:#fff}.example-url{background:#e8ece3;padding:8px 10px;color:#4b584d;font-size:11px;text-align:center}.example-art{height:82px;background:#c9dfc5;overflow:hidden}.example-art svg{width:100%;height:100%;display:block}.example-site-body{padding:10px 18px;background:#142e24;color:#fcfbef}.example-kicker{font-size:9px;font-weight:700;letter-spacing:.1em;color:#d6edb9}.example-site h3{font-family:Barlow,system-ui;font-weight:800;font-style:normal;text-transform:none;font-size:28px;line-height:.96;margin:6px 0}.example-site p{font-size:11px;margin:7px 0 8px}.example-cta{display:inline-block;background:#d7ef9a;color:#18221e;padding:6px 10px;border-radius:5px;font-weight:700;font-size:11px;margin-bottom:7px}.example-rate{display:flex;justify-content:space-between;border-top:1px solid #ffffff30;padding:5px 0;font-size:10px}.example-paper{position:relative;background:#e6e7dc;display:flex;justify-content:center;align-items:center;padding:14px}.example-paper canvas{height:100%;max-width:100%;object-fit:contain;box-shadow:2px 5px 16px #0002;background:white}.example-stamp{position:absolute;bottom:7px;right:8px;background:#18221e;color:#fff;padding:4px 8px;font-size:9px;letter-spacing:.08em;border-radius:3px}.example-payment{padding:20px 18px;text-align:center;display:flex;align-items:center;flex-direction:column}.example-pay-brand{width:100%;display:flex;justify-content:space-between;color:#0074c8;font-size:22px;font-weight:800;font-style:italic}.example-pay-brand span{font:700 9px Barlow,system-ui;align-self:center;letter-spacing:.08em;border-radius:4px;color:#526055;background:#eef0ec;padding:4px 6px}.example-pay-check{margin:20px 0 4px;width:40px;height:40px;border-radius:50%;background:#e0f5e8;color:#167441;line-height:40px;font-size:25px}.example-payment p{font-size:13px;line-height:1.4;margin:8px 0}.example-amount{font:800 42px/1.2 Barlow,system-ui;letter-spacing:-.04em;color:#146c44}.example-payment .example-pay-note{color:#526055;margin:7px 0 16px}.example-pay-rule{border-top:1px solid #e1e5de;width:100%;padding-top:12px;font-size:11px;color:#526055}.example-caption{font-size:14px;line-height:1.4;color:#526055;margin:12px 0 0}.example-disclaimer{font-size:11px;line-height:1.4;color:#596259;margin:16px 0 14px;max-width:780px}.intro-footer{border-top:1px solid #d6d9d0;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}.intro-footer .btn{background:#FF5B14;color:#141a15;clip-path:none;border-radius:10px;min-height:50px;font-family:Barlow,system-ui;font-size:17px;font-style:normal;text-transform:none;font-weight:800}.intro-footer p{font-size:11px;margin:6px 0 0;color:#526055}.intro-remember{font-size:12px;display:flex;align-items:center;gap:8px;min-height:44px}.intro-remember input{width:18px;height:18px;accent-color:#183e2d}
+body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-filter:blur(8px)}.intro-card{position:relative;width:100%;max-width:1040px;max-height:calc(100dvh - 48px);background:#f6f4ed;color:#18221e;padding:24px 28px 20px;border:1px solid #deddd4;border-top:5px solid #FF5B14;border-radius:22px;box-shadow:0 24px 100px #0005;overscroll-behavior:contain}.intro-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.intro-eyebrow{font-size:12px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin:0;color:#586259}.intro-close{width:44px;height:44px;flex:none;border:1px solid #d0d4ca;border-radius:50%;background:transparent;color:#18221e;font:28px/1 system-ui;cursor:pointer}.intro-card #introTitle{font-family:Barlow,system-ui;font-style:normal;text-transform:none;font-size:clamp(30px,4.2vw,46px);font-weight:800;line-height:1.06;letter-spacing:-.03em;margin:8px 0 12px}.intro #introSubtitle{font-size:17px;line-height:1.45;margin:0 0 20px;color:#526055;max-width:620px}.example-tabs{display:none}.example-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.example-card{min-width:0}.example-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:10px;font-size:17px}.example-label>span{font-size:11px;font-weight:600;color:#586259}.example-site,.example-paper,.example-payment{height:414px;overflow:hidden;border:1px solid #d1d6cc;border-radius:12px;background:#fff}.example-url{background:#e8ece3;padding:8px 10px;color:#4b584d;font-size:11px;text-align:center}.example-art{height:132px;position:relative;background:#c9dfc5;overflow:hidden}.example-art img{position:static;display:block;width:100%;height:100%;object-fit:cover;object-position:center 55%;mask-image:none;-webkit-mask-image:none}.example-art svg{width:100%;height:100%;display:block}.example-site-body{padding:14px 18px;background:#101512;color:#fcfbef}.example-kicker{font-size:9px;font-weight:700;letter-spacing:.1em;color:#d6edb9}.example-site h3{font-family:var(--display);font-weight:900;font-style:italic;text-transform:uppercase;font-size:34px;line-height:.96;margin:6px 0}.example-site p{font-size:11px;margin:7px 0 8px}.example-cta{display:inline-block;background:#FF5B14;color:#101512;padding:8px 12px;border-radius:5px;font-weight:700;font-size:11px;margin-bottom:7px}.example-rate{display:flex;justify-content:space-between;border-top:1px solid #ffffff30;padding:5px 0;font-size:10px}.example-paper{position:relative;background:radial-gradient(ellipse at top,#d6d9cd,#aeb8a7);display:flex;justify-content:center;align-items:center;padding:14px}.example-paper canvas{height:100%;max-width:100%;object-fit:contain;box-shadow:2px 5px 16px #0002;background:white}.example-stamp{position:absolute;bottom:7px;right:8px;background:#18221e;color:#fff;padding:4px 8px;font-size:9px;letter-spacing:.08em;border-radius:3px}.example-payment{padding:20px 18px;text-align:center;display:flex;align-items:center;flex-direction:column}.example-pay-brand{width:100%;display:flex;justify-content:space-between;color:#0074c8;font-size:22px;font-weight:800;font-style:italic}.example-pay-brand span{font:700 9px Barlow,system-ui;align-self:center;letter-spacing:.08em;border-radius:4px;color:#526055;background:#eef0ec;padding:4px 6px}.example-pay-check{margin:20px 0 4px;width:40px;height:40px;border-radius:50%;background:#e0f5e8;color:#167441;line-height:40px;font-size:25px}.example-payment p{font-size:13px;line-height:1.4;margin:8px 0}.example-amount{font:800 42px/1.2 Barlow,system-ui;letter-spacing:-.04em;color:#146c44}.example-payment .example-pay-note{color:#526055;margin:7px 0 16px}.example-pay-rule{border-top:1px solid #e1e5de;width:100%;padding-top:12px;font-size:11px;color:#526055}.example-caption{font-size:14px;line-height:1.4;color:#526055;margin:12px 0 0}.example-disclaimer{font-size:11px;line-height:1.4;color:#596259;margin:16px 0 14px;max-width:780px}.intro-footer{border-top:1px solid #d6d9d0;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}.intro-footer .btn{background:#FF5B14;color:#141a15;clip-path:none;border-radius:10px;min-height:50px;font-family:Barlow,system-ui;font-size:17px;font-style:normal;text-transform:none;font-weight:800}.intro-footer p{font-size:11px;margin:6px 0 0;color:#526055}.intro-remember{font-size:12px;display:flex;align-items:center;gap:8px;min-height:44px}.intro-remember input{width:18px;height:18px;accent-color:#183e2d}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
 </style>
 </head>
@@ -734,7 +758,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
     <section class="step" data-step="2">
       <h2>Set your rates.</h2>
       <p class="lead" id="rateLead">Starter prices to work from. Change them for the jobs you offer.</p>
-      <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Pick a fair starting price.</b><br>Ask a parent to help you count your time and supplies. These prices are examples. Change them to fit the job, and agree on the price before you start.</div></div>
+      <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Pick a fair starting price.</b><br>These are example prices. Ask a parent to help you cover your time and supplies, then agree on the price before each job.</div></div>
       <details class="help price-level"><summary>Help me choose starter prices</summary><div class="lvl" id="lvlBox">
         <label class="lvl-q" for="lvl">How good are you at this job?</label>
         <div class="lvl-name" id="lvlName"></div>
@@ -742,8 +766,8 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
         <div class="lvl-ticks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
         <p class="lvl-say" id="lvlSay" aria-live="polite"></p>
       </div>
-      </details>
       <div class="callout" id="extrasTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div id="extrasTipText">Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer.</div></div>
+      </details>
       <div id="petArtBox" hidden style="margin:0 0 16px">
         <label class="lvl-q" id="petArtLabel">Pets on your pictures</label>
         <div class="chips" id="petArt"></div>
@@ -975,6 +999,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
   <h2>Print and post.</h2>
   <p class="lead">Pick a format, connect your website or a parent’s text number, then save or print. Your QR code helps neighbors reach you.</p>
 
+  <div class="flyer-workbench"><div class="flyer-controls">
   <details class="help"><summary>Want more poster designs?</summary>
   <button type="button" class="studio-card" id="openStudio"><span class="sc-top"><b>Poster Studio</b><span class="sc-tag">New</span></span><span class="sc-sub">Pick from 10 poster layouts for lawn, snow, or both, then make it yours. Change the colors, words, stickers, and more.</span></button>
   </details>
@@ -989,6 +1014,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
   <p class="small2" id="fSmsHelp" hidden>This QR code shares your parent’s phone number with anyone who scans it. It does not turn on the phone number on your website.</p>
   <label class="check"><input type="checkbox" id="fPhone"><span>Show my parent’s phone number on the flyer</span></label>
 
+  </div><div class="flyer-output">
   <div class="fprev" id="fPrev"><canvas id="fCanvas" width="850" height="1100" aria-label="Flyer preview"></canvas></div>
   <p class="status" id="fHint" role="status"></p>
 
@@ -997,6 +1023,7 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
     <div class="row" id="fRow"><button type="button" class="btn ghost" id="fPng" disabled>Save as image</button><button type="button" class="btn ghost" id="fPrint" disabled>Print from here</button></div>
   </div>
   <p class="status" id="fStatus" role="status"></p>
+  </div></div>
 
   <details class="help" id="fHelpBox">
     <summary>Connect your family printer</summary>
@@ -2448,7 +2475,7 @@ $("#peek").onclick=()=>{refresh();shell.classList.add("sheet");};
 $("#closeSheet").onclick=()=>shell.classList.remove("sheet");
 
 let timer;
-function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{refresh();updateLaunch();scheduleDraft();},250);}
+function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{if(document.activeElement&&document.activeElement.matches("#svcList input"))return;refresh();updateLaunch();scheduleDraft();},250);}
 function refresh(){frame.srcdoc=genSite(resolve(true));}
 
 document.querySelectorAll("[data-k]").forEach(el=>{
@@ -2470,7 +2497,7 @@ function renderServices(f){
   if(typeof renderSeason==="function")renderSeason();
   const chev=d=>'<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(d==="up"?"M4 11.5L9 6.5l5 5":"M4 6.5l5 5 5-5")+'"/></svg>';
   S.services.forEach((s,i)=>{
-    const row=document.createElement("div"); row.className="svcrow"; row.dataset.i=i;
+    const row=document.createElement("div"); row.className="svcrow"+(S.type==="pet"?" pet-service":""); row.dataset.i=i;
     const n=document.createElement("input"); n.type="text"; n.value=s.n; n.setAttribute("aria-label","Service name"); n.autocomplete="off"; n.placeholder="Service";
     const pw=document.createElement("div"); pw.className="price";
     const em=document.createElement("em"); em.textContent="$";
@@ -2482,8 +2509,9 @@ function renderServices(f){
     up.disabled=i===0; dn.disabled=i===S.services.length-1;
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
     n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
+    n.onblur=()=>queue();
     p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
-    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;queue();}};
+    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=cleanPrice(p.value);p.value=s.p;S.svcEdited=true;}queue();};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
     const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";
@@ -5443,9 +5471,9 @@ function selectExample(n,focus){
   document.querySelectorAll(".example-card").forEach((p,i)=>p.classList.toggle("example-active",i===n));
 }
 function drawExamples(){
-  const art=$("#exampleArt");if(!art.childNodes.length)art.innerHTML=sceneArt("lawn","classic");
+  const art=$("#exampleArt");if(!art.childNodes.length)art.innerHTML=sceneArt("lawn","cine-dusk");
   const cv=$("#exampleFlyer");
-  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#FF5B14",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
+  const example={fmt:"full",style:"bold",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#FF5B14",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
 }
 function openIntro(){
