@@ -61,7 +61,16 @@ try {
   await page.type("#pubEmail", "parent@example.com");
   await page.click("#parentHere > summary");
   await page.click("#pubSend");
-  await page.waitForFunction(() => /code is \d{6}/.test(document.getElementById("pubCodeMsg").textContent));
+  try {
+    await page.waitForFunction(() => /code is \d{6}/.test(document.getElementById("pubCodeMsg").textContent));
+  } catch (error) {
+    console.log("sign-in diagnostic", await page.evaluate(() => ({
+      message: document.getElementById("pubCodeMsg").textContent.replace(/\d{6}/g, "[code]"),
+      emailEntered: !!document.getElementById("pubEmail").value,
+      parentPanelOpen: document.getElementById("parentHere").open
+    })), logs);
+    throw error;
+  }
   const code = (await page.$eval("#pubCodeMsg", (e) => e.textContent)).match(/(\d{6})/)[1];
   await page.type("#pubCode", code);
   await page.click("#pubVerify");
