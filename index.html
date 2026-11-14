@@ -5,16 +5,48 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FF5B14">
+<script>
+window.hbCloseParents=function(asKid){
+  try{localStorage.setItem("hb-parents-seen","1");if(!asKid)localStorage.setItem("hb_intro_seen","1");}catch(e){}
+  document.documentElement.classList.add("hb-skip-parents");
+  var box=document.getElementById("forParents");if(box)box.hidden=true;
+  if(!asKid){var intro=document.getElementById("intro");if(intro)intro.hidden=true;}
+};
+(function(){
+  try{
+    var q=new URLSearchParams(location.search);
+    var force=location.pathname==="/parents"||q.get("for")==="parents";
+    var utility=q.get("account")||q.get("ask")||q.get("hosting")||q.get("draft")||q.get("consent");
+    if(!force&&(utility||localStorage.getItem("hb-parents-seen")==="1"))document.documentElement.classList.add("hb-skip-parents");
+  }catch(e){}
+})();
+</script>
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/icons/icon-192.png">
-<title>Hustle Builder — Your first neighborhood business</title>
-<meta name="description" content="Build a website, make flyers, and keep track of neighborhood jobs. Made for kids, with a parent helping every step of the way.">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+<link rel="canonical" href="https://hustlebuilder.org/">
+<title>Hustle Builder — Your kid's first neighborhood business</title>
+<meta name="description" content="A parent puts a kid's neighborhood business online. $9.99 for the whole winter, or $19.99 for a year. It never auto-renews.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hustle Builder">
+<meta property="og:title" content="Your kid's first neighborhood business">
+<meta property="og:description" content="$9.99 for the whole winter. Never auto-renews.">
+<meta property="og:url" content="https://hustlebuilder.org/">
+<meta property="og:image" content="https://hustlebuilder.org/assets/og-home.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your kid's first neighborhood business">
+<meta name="twitter:description" content="$9.99 for the whole winter. Never auto-renews.">
+<meta name="twitter:image" content="https://hustlebuilder.org/assets/og-home.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Hustle Builder","url":"https://hustlebuilder.org/"},{"@type":"SoftwareApplication","name":"Hustle Builder","applicationCategory":"BusinessApplication","operatingSystem":"Web","offers":[{"@type":"Offer","price":"9.99","priceCurrency":"USD","description":"Winter season, one-time, never auto-renews"},{"@type":"Offer","price":"19.99","priceCurrency":"USD","description":"Full year, one-time, never auto-renews"}]}]}
+</script>
 <script>window.HB_PUBLISH_ORIGIN="";</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Hustle Builder">
-<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,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">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230D0F11'/%3E%3Cpath d='M26 12h26L38 52H12z' fill='%23FF5B14'/%3E%3C/svg%3E">
 <style id="fontcss">
 /* Fonts: Barlow and Barlow Condensed. Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow).
 These fonts are licensed under the SIL Open Font License, Version 1.1, reproduced below. They may not be sold by themselves.
@@ -693,10 +725,83 @@ details.help[open] summary{margin-bottom:16px}
 .save-state{padding:12px;background:var(--surface);border:2px solid var(--danger);border-radius:8px;color:var(--danger)}
 .builder-tools{margin-top:24px}.price-level .lvl{margin-top:14px;margin-bottom:0}.launch-price{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:16px;margin:20px 0}.launch-price p{font-size:15px;line-height:1.5;margin:8px 0 0}.booking-inbox{margin:24px 20px 0}.booking-inbox .h3{margin-top:0}
 body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-filter:blur(8px)}.intro-card{position:relative;width:100%;max-width:1040px;max-height:calc(100dvh - 48px);background:#f6f4ed;color:#18221e;padding:24px 28px 20px;border:1px solid #deddd4;border-top:5px solid #FF5B14;border-radius:22px;box-shadow:0 24px 100px #0005;overscroll-behavior:contain}.intro-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.intro-eyebrow{font-size:12px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin:0;color:#586259}.intro-close{width:44px;height:44px;flex:none;border:1px solid #d0d4ca;border-radius:50%;background:transparent;color:#18221e;font:28px/1 system-ui;cursor:pointer}.intro-card #introTitle{font-family:Barlow,system-ui;font-style:normal;text-transform:none;font-size:clamp(30px,4.2vw,46px);font-weight:800;line-height:1.06;letter-spacing:-.03em;margin:8px 0 12px}.intro #introSubtitle{font-size:17px;line-height:1.45;margin:0 0 20px;color:#526055;max-width:620px}.example-tabs{display:none}.example-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.example-card{min-width:0}.example-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:10px;font-size:17px}.example-label>span{font-size:11px;font-weight:600;color:#586259}.example-site,.example-paper,.example-payment{height:414px;overflow:hidden;border:1px solid #d1d6cc;border-radius:12px;background:#fff}.example-url{background:#e8ece3;padding:8px 10px;color:#4b584d;font-size:11px;text-align:center}.example-art{height:132px;position:relative;background:#c9dfc5;overflow:hidden}.example-art img{position:static;display:block;width:100%;height:100%;object-fit:cover;object-position:center 55%;mask-image:none;-webkit-mask-image:none}.example-art svg{width:100%;height:100%;display:block}.example-site-body{padding:14px 18px;background:#101512;color:#fcfbef}.example-kicker{font-size:9px;font-weight:700;letter-spacing:.1em;color:#d6edb9}.example-site h3{font-family:var(--display);font-weight:900;font-style:italic;text-transform:uppercase;font-size:34px;line-height:.96;margin:6px 0}.example-site p{font-size:11px;margin:7px 0 8px}.example-cta{display:inline-block;background:#FF5B14;color:#101512;padding:8px 12px;border-radius:5px;font-weight:700;font-size:11px;margin-bottom:7px}.example-rate{display:flex;justify-content:space-between;border-top:1px solid #ffffff30;padding:5px 0;font-size:10px}.example-paper{position:relative;background:radial-gradient(ellipse at top,#d6d9cd,#aeb8a7);display:flex;justify-content:center;align-items:center;padding:14px}.example-paper canvas{height:100%;max-width:100%;object-fit:contain;box-shadow:2px 5px 16px #0002;background:white}.example-stamp{position:absolute;bottom:7px;right:8px;background:#18221e;color:#fff;padding:4px 8px;font-size:9px;letter-spacing:.08em;border-radius:3px}.example-payment{padding:20px 18px;text-align:center;display:flex;align-items:center;flex-direction:column}.example-pay-brand{width:100%;display:flex;justify-content:space-between;color:#0074c8;font-size:22px;font-weight:800;font-style:italic}.example-pay-brand span{font:700 9px Barlow,system-ui;align-self:center;letter-spacing:.08em;border-radius:4px;color:#526055;background:#eef0ec;padding:4px 6px}.example-pay-check{margin:20px 0 4px;width:40px;height:40px;border-radius:50%;background:#e0f5e8;color:#167441;line-height:40px;font-size:25px}.example-payment p{font-size:13px;line-height:1.4;margin:8px 0}.example-amount{font:800 42px/1.2 Barlow,system-ui;letter-spacing:-.04em;color:#146c44}.example-payment .example-pay-note{color:#526055;margin:7px 0 16px}.example-pay-rule{border-top:1px solid #e1e5de;width:100%;padding-top:12px;font-size:11px;color:#526055}.example-caption{font-size:14px;line-height:1.4;color:#526055;margin:12px 0 0}.example-disclaimer{font-size:11px;line-height:1.4;color:#596259;margin:16px 0 14px;max-width:780px}.intro-footer{border-top:1px solid #d6d9d0;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}.intro-footer .btn{background:#FF5B14;color:#141a15;clip-path:none;border-radius:10px;min-height:50px;font-family:Barlow,system-ui;font-size:17px;font-style:normal;text-transform:none;font-weight:800}.intro-footer p{font-size:11px;margin:6px 0 0;color:#526055}.intro-remember{font-size:12px;display:flex;align-items:center;gap:8px;min-height:44px}.intro-remember input{width:18px;height:18px;accent-color:#183e2d}
+#forParents{position:fixed;inset:0;z-index:90;overflow:auto;background:#f6f4ed;color:#18221e;padding:28px 20px 48px}
+html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
+.parents-wrap{max-width:40rem;margin:0 auto}
+#forParents h1{font-family:Barlow,system-ui;font-weight:800;font-size:clamp(36px,10vw,52px);line-height:1.02;letter-spacing:-.03em;margin:8px 0 12px}
+.parents-kicker{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:0;color:#586259}
+.parents-price{font-size:22px;font-weight:800;margin:0 0 6px}
+.parents-year{margin:0 0 16px;color:#314334}
+.parents-note{color:#526055;font-size:15px;margin:10px 0 0}
+#forParents h2{font-size:22px;margin:26px 0 8px}
+#forParents li{margin:0 0 8px}
+#forParents p,#forParents li{font-size:17px;line-height:1.45}
+#forParents details{border-top:1px solid #d6d9d0;padding:10px 0}
+#forParents summary{font-weight:800;cursor:pointer}
+.parents-example{background:#101512;color:#fcfbef;border-radius:16px;padding:16px 18px;margin-top:8px}
+.parents-example b{display:block;font-size:28px;line-height:1.05;margin-bottom:6px}
+.parents-example p{color:#d7e0d4;margin:4px 0}
+#parentsKid{margin-top:18px}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
 </style>
 </head>
 <body>
+<section id="forParents" aria-label="For parents">
+  <div class="parents-wrap">
+    <p class="parents-kicker">For parents</p>
+    <h1>Your kid's first business, live this weekend.</h1>
+    <p class="parents-price">$9.99 for the whole winter, never auto-renews.</p>
+    <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
+    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
+    <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
+    <h2>Three steps</h2>
+    <ol>
+      <li><b>Your kid builds.</b> They pick the work, the prices, and the page.</li>
+      <li><b>You approve.</b> You check your email and say yes before it goes online.</li>
+      <li><b>Neighbors book.</b> A request comes to you first. Nothing is booked until you reply.</li>
+    </ol>
+    <h2>Kept small on purpose</h2>
+    <ul>
+      <li>The public page shows a first name and a town.</li>
+      <li>Your phone stays off the page unless you turn that on.</li>
+      <li>Every booking request comes to you.</li>
+    </ul>
+    <h2>A made-up example</h2>
+    <article class="parents-example">
+      <b>Sam's Lawn Co.</b>
+      <p>Elkhorn</p>
+      <p>Mow a small yard · $15</p>
+      <p>Edge the sidewalk · $10</p>
+    </article>
+    <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
+    <h2>Questions</h2>
+    <details>
+      <summary>Is it safe?</summary>
+      <p>The public page shows a first name and a town. A phone number stays hidden unless a parent turns it on. Every booking request goes to the parent.</p>
+    </details>
+    <details>
+      <summary>What does it cost?</summary>
+      <p>$9.99 for the whole winter, or $19.99 for a year. The first 14 days after publish are free.</p>
+    </details>
+    <details>
+      <summary>Does it auto-renew?</summary>
+      <p>No. A plan is a one-time payment. You are never charged automatically.</p>
+    </details>
+    <details>
+      <summary>What is the 50¢?</summary>
+      <p>A parent who starts the free trial checks a card for 50¢. Stripe emails a receipt, and we refund it right away. Buying a plan skips that check.</p>
+    </details>
+    <details>
+      <summary>Who gets paid for a job?</summary>
+      <p>Neighbors pay the family directly. Hustle Builder does not collect, hold, or guarantee job payments.</p>
+    </details>
+    <details>
+      <summary>Can we stop or get a refund?</summary>
+      <p>A parent can take the page down at any time. A plan can be refunded within 14 days of the payment.</p>
+    </details>
+    <button type="button" class="btn ghost block" id="parentsKid" onclick="hbCloseParents(true)">I'm a kid, let me build</button>
+  </div>
+</section>
 <header class="top">
   <div class="brand"><span class="slash" aria-hidden="true"></span><span class="word">Hustle Builder</span></div>
   <div class="modes" role="group" aria-label="Mode">

@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
-import { cardPng } from "./card.mjs";
+import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
@@ -1561,6 +1561,51 @@ function pngResponse(buf) {
   return { status: 200, headers: { "content-type": "image/png", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body: buf };
 }
 
+// A PNG wrapped as a .ico so browsers that request /favicon.ico get a real icon.
+function icoFromPng(png) {
+  const header = Buffer.alloc(22);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  header[6] = 32;
+  header[7] = 32;
+  header.writeUInt16LE(1, 10);
+  header.writeUInt16LE(32, 12);
+  header.writeUInt32LE(png.length, 14);
+  header.writeUInt32LE(22, 18);
+  return Buffer.concat([header, png]);
+}
+
+const HOME_ORIGIN = "https://hustlebuilder.org";
+function siteOrigin(origin) {
+  return String(origin || HOME_ORIGIN).replace(/\/$/, "") || HOME_ORIGIN;
+}
+function robotsTxt(origin) {
+  const base = siteOrigin(origin);
+  return "User-agent: *\nAllow: /\n\nSitemap: " + base + "/sitemap.xml\n";
+}
+async function sitemapXml(origin) {
+  const base = siteOrigin(origin);
+  const urls = [base + "/", base + "/terms", base + "/privacy"];
+  try {
+    const keys = await (await store()).list("pages/");
+    for (const key of keys) {
+      if (!String(key).endsWith(".json")) continue;
+      const meta = await readJson(key);
+      const slug = meta && meta.slug;
+      if (!meta || meta.indexable !== true) continue;
+      if (meta.status === "down" || meta.status === "review") continue;
+      if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug || ""))) continue;
+      urls.push(base + "/" + slug);
+    }
+  } catch { /* an empty sitemap still lists the public pages */ }
+  const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` + urls.map((loc) => `  <url><loc>${mailEscape(loc)}</loc></url>`).join("\n") + "\n</urlset>\n";
+  return body;
+}
+function textFile(body, type) {
+  return { status: 200, headers: { "content-type": type, "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body };
+}
+
 const ASK_MS = 7 * 24 * 60 * 60 * 1000;
 const DRAFT_MS = 90 * 24 * 60 * 60 * 1000;
 const DRAFT_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -1654,7 +1699,13 @@ async function routeRequest(req) {
   if (qMark >= 0) path = path.slice(0, qMark);
   const origin = await publicOrigin(req.origin);
   if (method === "OPTIONS") return withCors({ status: 204, headers: {}, body: "" }, req.headers && req.headers.origin);
-  if (method === "GET" && path === "/favicon.ico") return { status: 204, headers: { "cache-control": "public, max-age=86400" }, body: "" };
+  if (method === "GET") {
+    const bare = path.replace(/^\/api\/site\//, "/");
+    if (bare === "/robots.txt") return textFile(robotsTxt(origin), "text/plain; charset=utf-8");
+    if (bare === "/sitemap.xml") return textFile(await sitemapXml(origin), "application/xml; charset=utf-8");
+    if (bare === "/favicon.ico") return { status: 200, headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" }, body: icoFromPng(iconPng(32, false)) };
+    if (bare === "/apple-touch-icon.png") return pngResponse(iconPng(180, false));
+  }
   const route = path.startsWith("/api/") ? path.slice(5) : "";
   // /admin is a small operator site, not an API route. Vercel rewrites /admin
   // and /admin/* to /api/handler?hbpath=admin... (so they arrive as route
