@@ -1,3 +1,5 @@
+import { heroFitBoot } from "./hero.mjs";
+
 function escAttr(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -81,7 +83,26 @@ export function stripParentContact(html) {
     const boot = `<script id="hb-other-note">(function(){var s=document.getElementById("svc"),n=document.getElementById("note");if(!s||!n)return;function sync(){if(s.value==="Something else")n.placeholder="What job do you need?";}s.addEventListener("change",sync);sync();})();</script>`;
     out = out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
   }
+  out = kidOwned(out);
+  if (out.includes('class="hero') && !out.includes("function fitHero(") && !out.includes('id="hb-hero-fit"')) {
+    const boot = heroFitBoot();
+    out = out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
+  }
   return out;
+}
+
+// "student-owned" and "student owned" become "kid-owned". Capitalization
+// follows the original word, and a phrase that starts a line is "Kid-owned".
+export function kidOwned(html) {
+  return String(html || "").replace(/student([ -])owned/gi, (full, _sep, offset, whole) => {
+    const student = full.slice(0, 7);
+    const owned = full.slice(full.length - 5);
+    const prev = offset === 0 ? "\n" : whole[offset - 1];
+    const lineStart = prev === "\n" || prev === "\r";
+    const kid = student === "STUDENT" ? "KID" : (lineStart || student[0] === "S" ? "Kid" : "kid");
+    const own = owned === "OWNED" ? "OWNED" : (owned[0] === "O" ? "Owned" : "owned");
+    return kid + "-" + own;
+  });
 }
 
 export function hidePhone(html,phone) {

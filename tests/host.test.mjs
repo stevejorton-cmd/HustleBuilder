@@ -8,7 +8,8 @@ import { fileStore, setStore } from "../host/lib/store.mjs";
 import { bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
-import { setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
+import { kidOwned, setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
+import { heroFitPx } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
@@ -1275,6 +1276,47 @@ test("an already published page gains privacy links, copy-job validation, and th
   assert.equal(again.match(/href="\/privacy"/g).length, 1);
 });
 
+test("kid-owned replaces student-owned on the builder and on pages already saved", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.equal(/student[ -]owned/i.test(src), false);
+  assert.match(src, /Kid-owned\. Parent-backed\./);
+  assert.match(src, /"Kid-owned\. Serious work\."/);
+  assert.match(src, /KID-OWNED/);
+  const saved = [
+    "<p>Student-owned. Parent-backed.</p>",
+    "a student-owned shop",
+    "STUDENT-OWNED",
+    "a student owned yard",
+    "\nstudent-owned at the start"
+  ].join("\n");
+  const out = kidOwned(saved);
+  assert.equal(/student[ -]owned/i.test(out), false);
+  assert.match(out, /<p>Kid-owned\. Parent-backed\.<\/p>/);
+  assert.match(out, /a kid-owned shop/);
+  assert.match(out, /KID-OWNED/);
+  assert.match(out, /a kid-owned yard/);
+  assert.match(out, /\nKid-owned at the start/);
+  const served = stripParentContact(`<header class="hero"><h1>NEIGHBORHOOD</h1></header><p>Student-owned. Parent-backed.</p>`);
+  assert.equal(/student[ -]owned/i.test(served), false);
+  assert.match(served, /Kid-owned\. Parent-backed/);
+  assert.match(served, /id="hb-hero-fit"/);
+  assert.equal(stripParentContact(served).match(/id="hb-hero-fit"/g).length, 1);
+});
+
+test("a long hero word scales down so it fits a phone, and hyphenation is only the floor", async () => {
+  const neighborhood = heroFitPx("Willowbrook NEIGHBORHOOD Lawn", 346);
+  assert.ok(neighborhood < 40, "expected a size under the old 40px floor, got " + neighborhood);
+  assert.ok(neighborhood > 15);
+  assert.ok(neighborhood * 12 * 0.75 <= 346);
+  assert.equal(heroFitPx("Sam's Lawn Co.", 346), 84);
+  assert.equal(heroFitPx("N".repeat(80), 346), 15);
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /function heroFitPx\(name, boxPx\)/);
+  assert.match(src, /function fitHero\(\)/);
+  assert.match(src, /\.hero h1\{[^}]*overflow-wrap:normal;word-break:normal;hyphens:manual/);
+  assert.match(src, /hyphens","auto"/);
+});
+
 test("an unpaid checkout does not start the trial clock", async () => {
   const { token } = await parent("unpaid-clock@example.com");
   process.env.PAYWALL_MODE = "stripe";
@@ -2247,8 +2289,8 @@ test("live pages are served with one Built with Hustle Builder belt, added at se
   assert.ok(first.body.includes('<a href="https://hustlebuilder.org/?for=parents&amp;ref=belt-kid" target="_top"') || first.body.includes('<a href="https://hustlebuilder.org/?for=parents&ref=belt-kid" target="_top"'));
   assert.ok(first.body.indexOf('id="hb-belt"') > first.body.indexOf("<h1>Belt Kid</h1>"));
   assert.ok(first.body.indexOf('id="hb-belt"') < first.body.toLowerCase().indexOf("</body>"));
-  // The family's own words are untouched.
-  assert.ok(first.body.includes("<p>Student-owned. Parent-backed.</p>"));
+  assert.ok(first.body.includes("<p>Kid-owned. Parent-backed.</p>"));
+  assert.equal(/student[ -]owned/i.test(first.body), false);
 
   // Serving again does not stack a second belt...
   const second = await call("GET", "/api/site/belt-kid");
@@ -2362,7 +2404,7 @@ function extractBuilderParts(src, fontData) {
     return null;
   };
   const consts = ["RIGS", "TAGS", "PET_ART", "FONT_META", "FONT_ORDER", "SITE_THEMES", "SPAL", "SVGH"];
-  const fns = ["genSite", "bannerArt", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
+  const fns = ["heroFitPx", "genSite", "bannerArt", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
   let code = "";
   for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
   for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }

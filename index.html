@@ -1260,7 +1260,7 @@ function siteFontCss(id){
   if(typeof FONT_DATA==="undefined"||!id||id==="workwear"||!FONT_DATA[id])return "";
   const m=FONT_META[id],sel='h1,h2,h3,.btn,.venmo,.q b,.q span,.mono,.rates .p,.cal-head strong,.rwho,.how b,.season .p,.ba .tg,.std h3,.hero h1';
   let css='@font-face{font-family:"HB-'+id+'";font-weight:'+m.w+';font-style:normal;font-display:swap;src:url(data:font/woff2;base64,'+FONT_DATA[id]+') format("woff2")}\n/* Display font: '+m.copy+'. Licensed under the SIL Open Font License 1.1 (full text above). */\n:root{--display:'+m.fb+'}\n'+sel+'{font-family:var(--display)!important;font-style:normal!important;font-weight:'+m.w+'!important;'+(m.caps?'':'text-transform:none!important;')+'}\n';
-  if(m.wide)css+='.hero h1{font-size:clamp(28px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:break-word;word-break:normal}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
+  if(m.wide)css+='.hero h1{font-size:clamp(15px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:normal;word-break:normal;hyphens:manual}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
   return css;
 }
 function fontChips(wrap,cur,fn,opts){
@@ -1623,6 +1623,32 @@ function siteMain(){
   window.addEventListener("scroll",upd,{passive:true});
   window.addEventListener("resize",upd);
   upd();
+  function fitHero(){
+    var h1=document.querySelector(".hero h1");
+    if(!h1)return;
+    var box=h1.parentElement;
+    var boxCss=box?getComputedStyle(box):null;
+    var width=box?box.clientWidth-parseFloat(boxCss.paddingLeft||0)-parseFloat(boxCss.paddingRight||0):0;
+    if(!width)return;
+    var words=String(h1.textContent||"").toUpperCase().split(/[^A-Z0-9&']+/).filter(Boolean);
+    var longest=words.reduce(function(a,b){return a.length>=b.length?a:b;},"")||"X";
+    var probe=document.getElementById("hb-hero-probe");
+    if(!probe){probe=document.createElement("span");probe.id="hb-hero-probe";probe.setAttribute("aria-hidden","true");probe.style.cssText="position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;pointer-events:none;";document.body.appendChild(probe);}
+    var cs=getComputedStyle(h1);
+    probe.style.fontFamily=cs.fontFamily;probe.style.fontStyle=cs.fontStyle;probe.style.fontWeight=cs.fontWeight;probe.style.letterSpacing=cs.letterSpacing;probe.style.textTransform="uppercase";
+    probe.textContent=longest;
+    var min=15,max=84,lo=min,hi=max,best=min,mid;
+    while(lo<=hi){mid=(lo+hi)>>1;probe.style.fontSize=mid+"px";if(probe.getBoundingClientRect().width<=width){best=mid;lo=mid+1;}else hi=mid-1;}
+    h1.style.setProperty("font-size",best+"px","important");
+    h1.style.setProperty("overflow-wrap","normal","important");
+    h1.style.setProperty("word-break","normal","important");
+    h1.style.setProperty("hyphens","manual","important");
+    probe.style.fontSize=best+"px";
+    if(probe.getBoundingClientRect().width>width+0.5){if(!h1.getAttribute("lang"))h1.setAttribute("lang","en");h1.style.setProperty("hyphens","auto","important");h1.style.setProperty("overflow-wrap","break-word","important");}
+  }
+  fitHero();
+  window.addEventListener("resize",fitHero);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitHero);
 }
 
 /* ============ Helpers + palettes ============ */
@@ -2009,6 +2035,15 @@ function bannerArt(type, art, pets, publicUrl){
   const info=typeInfo(type);
   return `<svg class="scene" viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="800" height="460" fill="${info.color}"/><text x="70" y="270" font-size="150">${info.emoji}</text></svg>`;
 }
+function heroFitPx(name, boxPx){
+  var words=String(name||"").toUpperCase().split(/[^A-Z0-9&']+/).filter(Boolean);
+  var longest=words.reduce(function(n,w){return Math.max(n,w.length);},1);
+  var box=Math.max(120, Number(boxPx)||346);
+  var size=Math.floor(box/(longest*0.75));
+  if(size<15)return 15;
+  if(size>84)return 84;
+  return size;
+}
 function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
@@ -2101,7 +2136,7 @@ img.scene{object-fit:cover;object-position:63% 56%;display:block;height:62%;-web
 .flake{fill:#fff;opacity:.9;animation:fall linear infinite}
 @keyframes fall{from{transform:translate(0,-30px)}to{transform:translate(26px,420px)}}
 .hero-in{position:relative;z-index:2;width:100%;max-width:820px;margin:0 auto;padding:0 22px 66px}
-  .hero h1{font-weight:900;font-size:clamp(40px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:break-word;word-break:normal}
+  .hero h1{font-weight:900;font-size:clamp(15px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:normal;word-break:normal;hyphens:manual}
 .hero .tag{margin:20px 0 28px;font-size:clamp(19px,4.6vw,24px);font-weight:500;max-width:30ch;color:#E4E1DB;border-left:5px solid var(--accent);padding-left:14px;overflow-wrap:anywhere}
 .cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .btn{display:inline-flex;align-items:center;justify-content:center;border:0;background:var(--accent);color:var(--on);font-family:var(--display);font-style:italic;font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.02em;padding:0 34px;min-height:60px;cursor:pointer;text-decoration:none;clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);transition:filter .15s,transform .08s}
@@ -2201,7 +2236,7 @@ ${siteFontCss(c.font)}
 ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
 .hero.pethead .hero-in{grid-area:2/1;position:relative;z-index:2;width:100%;max-width:none;margin:0;padding:24px 24px 12px;background:#e7f6ea}
-.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(34px,8.4vw,64px);line-height:1.02;overflow-wrap:break-word;word-break:normal}
+.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(15px,8.4vw,64px);line-height:1.02;overflow-wrap:normal;word-break:normal;hyphens:manual}
 .hero.pethead .tag{color:#1d3b32;text-shadow:none;margin:14px 0 0;font-size:clamp(16px,4vw,22px)}
 .hero.pethead .cta,.hero.pethead .meta{display:none}
 .petbar{background:#e7f6ea;padding:8px 24px 24px}
@@ -2216,7 +2251,7 @@ ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr)
 <header class="hero${c.type==="pet"?" pethead":""}">
   ${bannerArt(c.type,c.art,c.pets,(c.publish&&c.publish.url)||c.publicUrl||"")}
   <div class="hero-in">
-    <h1>${esc(c.biz)}</h1>
+    <h1 style="font-size:${heroFitPx(c.biz,346)}px">${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
     ${c.type==="pet"?"":`<div class="cta"><a class="btn" id="heroCta" href="#book">Book a day</a></div>`}
     <p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p>
@@ -2296,7 +2331,7 @@ ${promiseHTML}
   ${contactHTML}
 </div>
 
-<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Student-owned. Parent-backed.</p><p class="small"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
+<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Kid-owned. Parent-backed.</p><p class="small"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
 
 <div class="dock" id="dock"><a class="btn" href="#book">Book a day</a></div>
 <script>window.__C=${cfgJson};<\/script>
@@ -3684,7 +3719,7 @@ function flyerFull(ctx,c,t){
   const u=c.urlText||"your link here";const us=fitSize(ctx,u,tw,32,14,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillStyle=t.ink;ctx.fillText(u,tx,sy+us*.8);sy+=us+20;
   ["Pay after the job’s done.","Parent-backed. Every job confirmed."].forEach(l=>{const z=fitSize(ctx,l,tw,24,13,500,FFB,false);fnt(ctx,500,z,FFB,false);ctx.fillStyle=t.mute;ctx.fillText(l,tx,sy+16);sy+=z+10;});
   if(c.showPhone){const l="Call or text "+(c.parentName||"my parent")+": "+c.phone;const z=fitSize(ctx,l,tw,26,13,700,FFB,false);fnt(ctx,700,z,FFB,false);ctx.fillStyle=t.ink;ctx.fillText(l,tx,sy+22);}
-  const f=c.biz+(c.town?", "+c.town:"")+". Student-owned. Parent-backed.";const fs=fitSize(ctx,f,iw,25,13,600,FFB,false);fnt(ctx,600,fs,FFB,false);ctx.fillStyle=t.mute;ctx.textAlign="center";
+  const f=c.biz+(c.town?", "+c.town:"")+". Kid-owned. Parent-backed.";const fs=fitSize(ctx,f,iw,25,13,600,FFB,false);fnt(ctx,600,fs,FFB,false);ctx.fillStyle=t.mute;ctx.textAlign="center";
   ctx.fillText(f,W/2,1046);ctx.textAlign="left";
   hazard(ctx,0,1100-(t.bold?30:14),W,t.bold?30:14,t.acc,t.hz2);
 }
@@ -3715,7 +3750,7 @@ function hangerOne(ctx,c,t){
   const label=c.qrMode==="sms"?"SCAN TO TEXT":"SCAN TO BOOK";
   const ls=fitSize(ctx,label,iw,46,22,900,FFD,true);fnt(ctx,900,ls,FFD,true);ctx.fillStyle=t.ink;ctx.textAlign="center";ctx.fillText(label,W/2,labelBase);
   const u=c.urlText||"your link here";const us=fitSize(ctx,u,iw,24,12,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillText(u,W/2,urlBase);
-  fnt(ctx,500,17,FFB,false);ctx.fillStyle=t.mute;ctx.fillText("Student-owned. Parent-backed.",W/2,H-30);ctx.textAlign="left";
+  fnt(ctx,500,17,FFB,false);ctx.fillStyle=t.mute;ctx.fillText("Kid-owned. Parent-backed.",W/2,H-30);ctx.textAlign="left";
   hazard(ctx,0,H-14,W,14,t.acc,t.hz2);
 }
 
@@ -3767,7 +3802,7 @@ function cardOne(ctx,c,t){
   wrapText(ctx,refer?("Liked my work? Pass this to a neighbor. - "+c.first):c.tagline,192).slice(0,2).forEach((l,i)=>ctx.fillText(l,20,y+14+i*15));
   const u=c.urlText||"your link here";const us=fitSize(ctx,u,192,15,9,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillStyle=t.ink;ctx.fillText(u,20,H-32);
   if(c.showPhone){const l=(c.parentName||"Parent")+": "+c.phone;const z=fitSize(ctx,l,192,13,9,700,FFB,false);fnt(ctx,700,z,FFB,false);ctx.fillStyle=t.ink;ctx.fillText(l,20,H-48);}
-  fnt(ctx,600,10.5,FFB,false);ctx.fillStyle=t.mute;ctx.fillText("Student-owned. Parent-backed.",20,H-16);
+  fnt(ctx,600,10.5,FFB,false);ctx.fillStyle=t.mute;ctx.fillText("Kid-owned. Parent-backed.",20,H-16);
   const qs=112;drawQR(ctx,W-18-qs,26,qs,c.qrText);
   const lab=c.qrMode==="sms"?"SCAN TO TEXT":"SCAN TO BOOK";const ls=fitSize(ctx,lab,qs,22,11,900,FFD,true);fnt(ctx,900,ls,FFD,true);ctx.fillStyle=t.ink;ctx.textAlign="center";ctx.fillText(lab,W-18-qs/2,26+qs+ls+4);ctx.textAlign="left";
 }
@@ -3820,7 +3855,7 @@ function flyerSocial(ctx,c,t,W,H,story){
     drawQR(ctx,qx,qy,qs,c.qrText);
     const ls=fitSize(ctx,label,qs,48,22,900,FFD,true);fnt(ctx,900,ls,FFD,true);ctx.fillStyle=t.ink;ctx.textAlign="center";ctx.fillText(label,qx+qs/2,qy+qs+ls+6);ctx.textAlign="left";
     const us=fitSize(ctx,u,colW,40,16,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillStyle=t.ink;ctx.fillText(u,M,H-M-34);
-    fnt(ctx,600,24,FFB,false);ctx.fillStyle=t.mute;ctx.fillText("Student-owned. Parent-backed.",M,H-M);
+    fnt(ctx,600,24,FFB,false);ctx.fillStyle=t.mute;ctx.fillText("Kid-owned. Parent-backed.",M,H-M);
   }
 }
 
@@ -4071,7 +4106,7 @@ const TAG_IDEAS={
   tutor:["Let’s read. A parent is nearby.","Pages turned. A parent close by.","We read together.","Stories, out loud.","One chapter at a time.","Reading buddy. Parent nearby."],
   other:["Tell me the job. I’ll show up.","You name it. I’ll do it carefully.","A parent confirms every job.","Small help. On time.","Ask. I’ll show up.","Neighborhood help, parent-backed."]
 };
-const TAG_ANY=["Show up. Do it right. Leave it better.","Student-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a student. Backed by a parent.","Work first. Brag later."];
+const TAG_ANY=["Show up. Do it right. Leave it better.","Kid-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a student. Backed by a parent.","Work first. Brag later."];
 // Replace only a built-in suggestion from a different business type.
 if(S.tagline && Object.keys(TAG_IDEAS).some(t=>t!==S.type&&(S.tagline===TAGS[t]||TAG_IDEAS[t].includes(S.tagline))) && !tagList(S.type).includes(S.tagline)){S.tagline="";$("#tagline").value="";save();}
 
@@ -4201,7 +4236,7 @@ document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[da
 const PW=850,PH=1100,PM=56;
 const LAYOUT_NAMES=["Billboard","Worksite","Skyline","Split","Notice","Scoreboard","Sideline","Blueprint","Tape","Clean"];
 const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Clear by sunrise.","Snow day? We’re on it.","Book your driveway.","Shoveled before you wake.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."]};
-const BADGES=[["none","No sticker"],["owned","Student-owned"],["quote","Free quotes"],["parent","Parent-backed"],["early","Book early"],["local","Local"],["fast","Fast and reliable"],["pay","Pay after the job"]];
+const BADGES=[["none","No sticker"],["owned","Kid-owned"],["quote","Free quotes"],["parent","Parent-backed"],["early","Book early"],["local","Local"],["fast","Fast and reliable"],["pay","Pay after the job"]];
 const BG_OPTS=[["ink","Ink saver"],["dark","Dark"],["light","Light"],["concrete","Concrete"],["accent","Color"]];
 const NS_OPTS=[["heavy","Heavy"],["bold","Bold"],["plain","Plain"]];
 const SKY_OPTS=[["dusk","Dusk"],["sunny","Sunny"],["night","Night"],["dawn","Dawn"]];
@@ -4247,9 +4282,9 @@ function pTag(ctx,p,x,y,maxW,col,size,align){if(!p.tag)return y;ctx.save();ctx.f
 function pRates(ctx,p,t,x,y,w,rowH,ns,ps,n,col){if(!p.rates)return y;const list=rateRowsFor(p);list.forEach((r,i)=>rateRow(ctx,x,y+ns+i*rowH,w,r.n,r.p,ns,ps,col||t.ink,t.price,t.line));return y+list.length*rowH;}
 function pQR(ctx,p,t,x,y,size){drawQR(ctx,x,y,size,p.ok?p.qrText:"");ctx.save();ctx.strokeStyle=t.inkSaver?"#111111":(t.dark?t.acc:t.ink);ctx.lineWidth=t.inkSaver?2:6;const pad=t.inkSaver?2:3;ctx.strokeRect(x-pad,y-pad,size+pad*2,size+pad*2);ctx.restore();}
 function pCaption(ctx,p,t,x,y,w,align,col,size){const txt=pU(p.qrMode==="sms"?"SCAN TO TEXT":"SCAN TO BOOK A DAY");const s=fitSize(ctx,txt,w,size||44,18,900,FFD,true);fnt(ctx,900,s,FFD,true);ctx.fillStyle=col||t.ink;ctx.textAlign=align||"left";ctx.fillText(txt,x,y);const u=p.urlText||"your link here",us=fitSize(ctx,u,w,s*.62,13,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillStyle=col||t.ink;ctx.fillText(u,x,y+us*1.5);ctx.textAlign="left";return y+us*1.5+8;}
-function pFooter(ctx,p,col,x,y,w,align){const f=p.biz+(p.town?", "+p.town:"")+". Student-owned. Parent-backed.";const s=fitSize(ctx,f,w,24,12,600,FFB,false);fnt(ctx,600,s,FFB,false);ctx.fillStyle=col;ctx.textAlign=align||"left";ctx.fillText(f,x,y);ctx.textAlign="left";}
+function pFooter(ctx,p,col,x,y,w,align){const f=p.biz+(p.town?", "+p.town:"")+". Kid-owned. Parent-backed.";const s=fitSize(ctx,f,w,24,12,600,FFB,false);fnt(ctx,600,s,FFB,false);ctx.fillStyle=col;ctx.textAlign=align||"left";ctx.fillText(f,x,y);ctx.textAlign="left";}
 function pPhone(ctx,p,col,x,y,w,align){if(!p.showPhone)return y;const l="Call or text "+(p.parentName||"my parent")+": "+p.phone;const s=fitSize(ctx,l,w,26,13,700,FFB,false);fnt(ctx,700,s,FFB,false);ctx.fillStyle=col;ctx.textAlign=align||"left";ctx.fillText(l,x,y+s);ctx.textAlign="left";return y+s+10;}
-function pBadge(ctx,p,t,x,y,rot){if(p.badge==="none")return;const txt=pU({owned:"STUDENT-OWNED",quote:"FREE QUOTES",parent:"PARENT-BACKED",early:"BOOK EARLY",local:p.town?("LOCAL: "+p.town.toUpperCase()):"LOCAL AND PROUD",fast:"FAST AND RELIABLE",pay:"PAY AFTER THE JOB"}[p.badge]||"");
+function pBadge(ctx,p,t,x,y,rot){if(p.badge==="none")return;const txt=pU({owned:"KID-OWNED",quote:"FREE QUOTES",parent:"PARENT-BACKED",early:"BOOK EARLY",local:p.town?("LOCAL: "+p.town.toUpperCase()):"LOCAL AND PROUD",fast:"FAST AND RELIABLE",pay:"PAY AFTER THE JOB"}[p.badge]||"");
   ctx.save();ctx.translate(x,y);ctx.rotate(rot*Math.PI/180);fnt(ctx,900,32,FFD,true);const w=ctx.measureText(txt).width+52,h=56,sk=14;
   if(t.inkSaver){ctx.fillStyle="#FFFFFF";ctx.strokeStyle="#111111";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-w/2+sk,-h/2);ctx.lineTo(w/2,-h/2);ctx.lineTo(w/2-sk,h/2);ctx.lineTo(-w/2,h/2);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#111111";}
   else{ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.moveTo(-w/2+sk+5,-h/2+7);ctx.lineTo(w/2+5,-h/2+7);ctx.lineTo(w/2-sk+5,h/2+7);ctx.lineTo(-w/2+5,h/2+7);ctx.closePath();ctx.fill();const fillc=t.bg===p.accent?"#0B0C0D":(p.bg==="accent"?"#0B0C0D":p.accent);ctx.fillStyle=fillc;ctx.beginPath();ctx.moveTo(-w/2+sk,-h/2);ctx.lineTo(w/2,-h/2);ctx.lineTo(w/2-sk,h/2);ctx.lineTo(-w/2,h/2);ctx.closePath();ctx.fill();ctx.fillStyle=p.bg==="accent"?p.accent:"#0B0C0D";}
