@@ -1351,13 +1351,18 @@ async function viewCounts(slug) {
 // page whose stored HTML somehow already carries the marker is served
 // exactly as stored, never double-belted.
 const BELT_MARKER = 'id="hb-belt"';
-const BELT_HTML = `<div id="hb-belt" style="margin:28px 0 0;padding:14px 12px;background:#14181d;border-top:3px solid #ff5b14;text-align:center;font:13px/1.4 system-ui,sans-serif;color:#aeb8c2"><a href="https://hustlebuilder.org" target="_top" style="color:#e8ecf0;text-decoration:none;font-weight:600"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="vertical-align:-1px;margin-right:5px"><polygon points="9,1 3,9 7,9 6,15 13,7 9,7" fill="#ff5b14"/></svg>Built with Hustle Builder</a></div>`;
-function withBelt(pageHtml) {
+function beltHtml(slug) {
+  const ref = /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug || "")) ? encodeURIComponent(slug) : "";
+  const href = "https://hustlebuilder.org/?for=parents" + (ref ? "&ref=" + ref : "");
+  return `<div id="hb-belt" style="margin:28px 0 0;padding:14px 12px;background:#14181d;border-top:3px solid #ff5b14;text-align:center;font:13px/1.4 system-ui,sans-serif;color:#aeb8c2"><a href="${href}" target="_top" style="color:#e8ecf0;text-decoration:none;font-weight:600">Make one for your kid, free for 14 days</a></div>`;
+}
+function withBelt(pageHtml, slug) {
   if (typeof pageHtml !== "string" || pageHtml.includes(BELT_MARKER)) return pageHtml;
   const at = pageHtml.toLowerCase().lastIndexOf("</body>");
+  const belt = beltHtml(slug);
   return at >= 0
-    ? pageHtml.slice(0, at) + BELT_HTML + "\n" + pageHtml.slice(at)
-    : pageHtml + BELT_HTML;
+    ? pageHtml.slice(0, at) + belt + "\n" + pageHtml.slice(at)
+    : pageHtml + belt;
 }
 
 async function serveSlug(slug, view) {
@@ -1392,7 +1397,7 @@ async function serveSlugInner(slug, view) {
   // The real page is the only response that gets the "Built with" belt,
   // added here at serve time so the stored page stays exactly as the
   // family published it.
-  const res = html(200, withBelt(page));
+  const res = html(200, withBelt(page, slug));
   // The response is settled; only now does the view count. noteView swallows
   // its own errors, and every other return above (break, pause, review,
   // missing, down, redirect) leaves the counter untouched.
@@ -1567,7 +1572,7 @@ function draftCode() {
   const bytes = randomBytes(8);
   return Array.from(bytes, (b) => DRAFT_ALPHABET[b % DRAFT_ALPHABET.length]).join("");
 }
-async function notifyNeighbor({ origin, reply, fields, account, requestId }) {
+async function notifyNeighbor({ origin, reply, fields, account, requestId, slug }) {
   const cancel = rand(18);
   await writeJson("cancels/" + cancel + ".json", {
     accountId: account.id,
@@ -1592,6 +1597,8 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId }) {
     "Changed your mind? Cancel here:",
     url,
     "",
+    "Make one for your kid, free for 14 days: https://hustlebuilder.org/?for=parents" + (slug ? "&ref=" + slug : ""),
+    "",
     unread
   ].filter(Boolean).join("\n");
   const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\">"
@@ -1600,6 +1607,7 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId }) {
     + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p>"
     + "<p>Nothing is booked yet. The family will confirm with you.</p>"
     + "<p><a href=\"" + mailEscape(url) + "\">Cancel this request</a></p>"
+    + "<p><a href=\"https://hustlebuilder.org/?for=parents" + (slug ? "&amp;ref=" + mailEscape(slug) : "") + "\">Make one for your kid, free for 14 days</a></p>"
     + (unread ? "<p>" + mailEscape(unread) + "</p>" : "")
     + "</div>";
   await sendMail({ to: reply, ownerId:account.id, replyTo: support, subject: "We got your request", text, html: htmlMail });
@@ -2548,7 +2556,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
 
     }
 
-    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId });
+    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId, slug });
     return withCors(json(200, { ok: true, trialLeft: undefined }), req.headers && req.headers.origin);
   }
 
