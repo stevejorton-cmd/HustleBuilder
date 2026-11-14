@@ -9,6 +9,7 @@ import { bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } fro
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { kidOwned, setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
+import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
 import { heroFitPx } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
@@ -329,6 +330,50 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.match(confirmedParent.ics, /SEQUENCE:1/);
   assert.match(confirmedParent.ics, new RegExp("UID:" + requestUid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(confirmedParent.ics.includes(email), false);
+});
+
+test("a priced booking opens Venmo with the parent handle, amount, and note", async () => {
+  assert.equal(cleanVenmo("  @Will-Yard_1 "), "Will-Yard_1");
+  assert.equal(cleanVenmo("parent@example.com"), "");
+  assert.equal(cleanVenmo("402-555-0100"), "");
+  const priced = venmoPayUrl("@Will-Yard", { amount: "$25", note: "Will: Mow a small yard Nov 21" });
+  assert.equal(priced, "https://venmo.com/Will-Yard?txn=pay&amount=25&note=" + encodeURIComponent("Will: Mow a small yard Nov 21"));
+  assert.equal(venmoPayUrl("Will-Yard", { note: "Will: Mow" }).includes("amount="), false);
+  const { token, email } = await parent("venmo-parent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const bad = await json(await call("POST", "/api/venmo", { token, body: { venmo: "mom@email.com" } }));
+  assert.equal(bad.status, 400);
+  const saved = await json(await call("POST", "/api/venmo", { token, body: { venmo: "@Will-Yard" } }));
+  assert.equal(saved.body.venmo, "Will-Yard");
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.venmo, "Will-Yard");
+  const html = page("Will") + "<script>window.__C={\"first\":\"Will\",\"biz\":\"Will Yard\",\"email\":\"\",\"phoneDigits\":\"\"};</script>";
+  await call("POST", "/api/publish", { token, body: { slug: "will-venmo", html, venmo: "@Will-Yard" } });
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "will-venmo", name: "Riley", contact: "riley.pay@example.com", service: "Mow a small yard",
+    price: "$25", when: "Nov 21", address: "12 Oak", note: "Front", start: "2026-11-21T16:00", t: 4000
+  } }));
+  assert.equal(booked.body.ok, true);
+  const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.pay@example.com")));
+  const request = neighbor.body.messages[0];
+  assert.match(request.html, /Pay with Venmo/);
+  assert.match(request.text, /Pay after the job with Venmo/);
+  assert.match(request.text, /https:\/\/venmo\.com\/Will-Yard\?txn=pay&amount=25&note=/);
+  assert.match(decodeURIComponent(request.text), /Will: Mow a small yard Nov 21/);
+  assert.equal(request.text.includes(email), false);
+  const jobs = await json(await call("GET", "/api/my-jobs", { token }));
+  assert.match(jobs.body.jobs[0].venmoUrl, /venmo\.com\/Will-Yard\?txn=pay&amount=25/);
+  await call("POST", "/api/job/" + jobs.body.jobs[0].action, { body: { status: "confirmed", json: true } });
+  const after = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.pay@example.com")));
+  const confirmed = after.body.messages.find((m) => m.subject === "Your booking is confirmed");
+  assert.match(confirmed.html, /Pay with Venmo/);
+  assert.match(confirmed.text, /amount=25/);
+  assert.equal(confirmed.text.includes(email), false);
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /Neighbors will see this Venmo name/);
+  assert.match(src, /id="acctVenmo"/);
+  assert.equal(src.includes("id=\"skipLive\""), false);
 });
 
 test("a booking invite names the kid and the neighbor, and a cancel removes that same event", async () => {

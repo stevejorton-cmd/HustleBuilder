@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { DEFAULT_TZ, addEventIcs, bookingInviteIcs, eventTitle, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, publicText, validTz } from "./calendar.mjs";
+import { cleanVenmo, venmoNote, venmoPayUrl } from "./venmo.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
@@ -549,13 +550,36 @@ async function saveRequests(accountId, rows) {
 
 function kidJob(row, account) {
   const place = account && account.shareStreet ? (streetOnly(row.address) || "In your neighborhood") : "In your neighborhood";
+  const price = row.fields && row.fields.price || "";
+  const venmoUrl = venmoPayUrl(account && account.venmo, {
+    amount: price,
+    note: venmoNote({ kid: row.kid || (row.calJob && row.calJob.kid) || "", service: row.service, when: row.when })
+  });
   return {
     id: row.id,
     service: row.service || "A job",
     when: row.when || "",
     firstName: row.firstName || "Neighbor",
     status: row.status || "new",
-    place
+    place,
+    price,
+    venmoUrl
+  };
+}
+function venmoBits(account, row, { afterJob } = {}) {
+  const url = venmoPayUrl(account && account.venmo, {
+    amount: row && row.fields && row.fields.price,
+    note: venmoNote({
+      kid: (row && (row.kid || (row.calJob && row.calJob.kid))) || "",
+      service: row && row.service,
+      when: row && row.when
+    })
+  });
+  if (!url) return { text: "", html: "" };
+  const line = afterJob ? "Pay after the job with Venmo." : "Pay with Venmo.";
+  return {
+    text: line + "\n" + url + "\n",
+    html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">" + mailEscape(line) + "</p>" + mailButton(url, "Pay with Venmo")
   };
 }
 
@@ -1824,7 +1848,7 @@ function draftCode() {
   const bytes = randomBytes(8);
   return Array.from(bytes, (b) => DRAFT_ALPHABET[b % DRAFT_ALPHABET.length]).join("");
 }
-async function notifyNeighbor({ origin, reply, fields, account, requestId, slug, event }) {
+async function notifyNeighbor({ origin, reply, fields, account, requestId, slug, event, venmo }) {
   const cancel = rand(18);
   await writeJson("cancels/" + cancel + ".json", {
     accountId: account.id,
@@ -1846,6 +1870,7 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
     "We got your request for " + (fields.service || "a job") + (fields.when ? " on " + fields.when : "") + ".",
     "Nothing is booked yet. The family will confirm with you.",
     "",
+    venmo && venmo.text,
     eventMailBits(origin, event).text,
     "Changed your mind? Cancel here:",
     url,
@@ -1859,6 +1884,7 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
     + "<p>We got your request for <b>" + mailEscape(fields.service || "a job") + "</b>"
     + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p>"
     + "<p>Nothing is booked yet. The family will confirm with you.</p>"
+    + (venmo && venmo.html || "")
     + eventMailBits(origin, event).html
     + "<p><a href=\"" + mailEscape(url) + "\">Cancel this request</a></p>"
     + "<p><a href=\"https://hustlebuilder.org/?for=parents" + (slug ? "&amp;ref=" + mailEscape(slug) : "") + "\">Make one for your kid, free for 14 days</a></p>"
@@ -2191,7 +2217,7 @@ async function routeRequest(req) {
       exportAllowed: !onBreak(account) && !trialOver(account, used),
       seasonName: season.name, seasonEnd: season.end, yearEnd: year.end,
       shareStreet: !!account.shareStreet, jobCode: account.jobCode || account.draftCode || "",
-      slug: account.slug || "", slugs: slugsOf(account), url: account.slug && base ? base + "/" + account.slug : "", testMode: testMode(),
+      slug: account.slug || "", slugs: slugsOf(account), url: account.slug && base ? base + "/" + account.slug : "", venmo: account.venmo || "", testMode: testMode(),
       payMode: paywallMode(), indexable: !!account.indexable, draftCode: account.draftCode || "",
       ...feedLinks(base, account.calToken)
     }), req.headers && req.headers.origin);
@@ -2452,6 +2478,7 @@ async function routeRequest(req) {
     // calendar shows a 4:00 PM job at 4:00 PM wherever they live.
     const tz = validTz(body.tz);
     if (tz) account.tz = tz;
+    if (Object.prototype.hasOwnProperty.call(body, "venmo")) account.venmo = cleanVenmo(body.venmo);
     // A checkout, including one that is abandoned or never paid, does not
     // start this clock. Consent does, and so does the first publish when
     // consent did not. A clock already on the account (same Gmail inbox,
@@ -2647,6 +2674,17 @@ async function routeRequest(req) {
     }), req.headers && req.headers.origin);
   }
 
+  if (method === "POST" && route === "venmo") {
+    const account = await me();
+    if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    const typed = String(body.venmo || "").trim();
+    const name = cleanVenmo(typed);
+    if (typed && !name) return withCors(json(400, { ok: false, error: "venmo", message: "Use letters, numbers, - and _ only." }), req.headers && req.headers.origin);
+    account.venmo = name;
+    await saveAccount(account);
+    return withCors(json(200, { ok: true, venmo: name }), req.headers && req.headers.origin);
+  }
+
   if (method === "POST" && route === "share") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
@@ -2706,6 +2744,7 @@ async function routeRequest(req) {
           await writeJson("events/" + row.eventToken + ".json", rec);
           row.publicEvent = rec;
           const add = eventMailBits(origin, rec);
+          const pay = venmoBits(account, row, { afterJob: false });
           const confirmedIcs = addEventIcs(rec);
           const who = row.firstName || "A neighbor";
           const jobName = row.service || "a job";
@@ -2725,8 +2764,8 @@ async function routeRequest(req) {
               to: neighbor,
               replyTo: supportReply(),
               subject: "Your booking is confirmed",
-              text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + add.text,
-              html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>",
+              text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + pay.text + add.text,
+              html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + pay.html + add.html + "</div>",
               ics: confirmedIcs
             });
           }
@@ -2833,6 +2872,9 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       awayTo: clip(body.awayTo, 20),
       access: clip(body.access, 200)
     };
+    const priceRaw = String(body.price || "").replace(/[^0-9.]/g, "");
+    const priceNum = Number(priceRaw);
+    if (priceRaw && Number.isFinite(priceNum) && priceNum > 0 && priceNum <= 999) fields.price = String(Math.round(priceNum * 100) / 100);
     const start = String(body.start || "").trim();
     if (!fields.name || !fields.address || !fields.contact || !fields.service || !(fields.when || start)) return withCors(json(400, { ok: false, error: "fields" }), req.headers && req.headers.origin);
     const startOk = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start) && jobInstant(start) != null;
@@ -2917,6 +2959,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       parentEmail: account.email,
       replyTo: reply || supportReply(),
       firstName: firstName(fields.name),
+      kid: job ? job.kid : "",
       service: titled,
       when: fields.when || start,
       address: fields.address,
@@ -2979,7 +3022,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
 
     }
 
-    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId, slug, event: row.publicEvent });
+    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId, slug, event: row.publicEvent, venmo: venmoBits(account, row, { afterJob: true }) });
     return withCors(json(200, { ok: true, trialLeft: undefined }), req.headers && req.headers.origin);
   }
 

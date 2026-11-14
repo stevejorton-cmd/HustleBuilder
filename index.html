@@ -916,7 +916,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
           <p class="small2">Booking emails go to the parent who publishes. This backup contact does not receive automatic alerts.</p>
         </div>
       </details>
-      <label class="field"><span>Parent’s Venmo username (optional)</span><input type="text" data-k="venmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@parent-business"><small>A parent must use an account eligible to receive payments for goods and services. Venmo Teen Accounts cannot accept job payments. You can also arrange cash with a parent. <a class="link" href="https://help.venmo.com/cs/articles/can-i-use-venmo-to-buy-or-sell-merchandise-goods-or-services-vhel227" target="_blank" rel="noopener">Venmo’s payment rules</a></small></label>
+      <label class="field" for="venmo"><span>Parent’s Venmo username (optional)</span><input type="text" data-k="venmo" id="venmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small id="venmoHelp">Neighbors will see this Venmo name. They use it to pay after the job. A parent needs an account that can take payments for a job. Venmo Teen Accounts cannot. Cash still works. <a class="link" href="https://help.venmo.com/cs/articles/can-i-use-venmo-to-buy-or-sell-merchandise-goods-or-services-vhel227" target="_blank" rel="noopener">Venmo’s payment rules</a></small></label>
       <label class="field"><span>My promise to customers</span><input type="text" data-k="promise" maxlength="120" autocomplete="off"><small>Customers trust a promise. Keep it short, and only promise what you can really do.</small></label>
     </section>
 
@@ -956,6 +956,8 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <section id="accountScreen" hidden>
         <h3 class="h3">Your account</h3>
         <p class="lead" id="accountLead">Sign in with the email code below. Then each kid page shows here.</p>
+        <label class="field" for="acctVenmo"><span>Family Venmo</span><input type="text" id="acctVenmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small>Neighbors will see this Venmo name. Enter it once. Pay links use it on every job.</small></label>
+        <p class="status" id="venmoMsg" role="status"></p>
         <div id="accountSites"></div>
         <div id="buildsBox"></div>
         <p class="status" id="accountMsg" role="status"></p>
@@ -1583,7 +1585,8 @@ function siteMain(){
     var m=build(true); if(!m)return;
     var ct=$("ct")?$("ct").value.trim():"";
     var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
-    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:val("awayFrom"),awayTo:val("awayTo"),access:val("access")};
+    var price="";(C.services||[]).forEach(function(s){if(s&&s.n===sel.value)price=String(s.p||"").replace(/[^0-9.]/g,"");});
+    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,price:price,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:val("awayFrom"),awayTo:val("awayTo"),access:val("access")};
     var fingerprint=JSON.stringify(Object.assign({},payload,{t:0}));
     if(fingerprint!==bookingFingerprint){bookingFingerprint=fingerprint;bookingKey=Array.from(crypto.getRandomValues(new Uint8Array(16)),function(b){return b.toString(16).padStart(2,"0");}).join("");}
     payload.requestId=bookingKey;
@@ -1598,6 +1601,21 @@ function siteMain(){
     }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Try again in a minute, or use another contact option if one is shown."; $("outWrap").hidden=false;});
   };}
   if($("freq")&&$("awayWrap")){$("freq").onchange=function(){$("awayWrap").hidden=$("freq").value!=="While I'm away";};}
+  function venmoHref(){
+    var user=String(C.venmo||"").replace(/^@+/,"");
+    if(!/^[A-Za-z0-9_-]{1,30}$/.test(user)||!/[A-Za-z]/.test(user))return "";
+    var name=sel?sel.value:"";
+    var price="";
+    (C.services||[]).forEach(function(s){if(s&&s.n===name)price=String(s.p||"").replace(/[^0-9.]/g,"");});
+    var note=(C.first?C.first+": ":"")+name;
+    var q="txn=pay";
+    if(price&&Number(price)>0)q+="&amount="+encodeURIComponent(price);
+    if(note.trim())q+="&note="+encodeURIComponent(note.trim());
+    return "https://venmo.com/"+encodeURIComponent(user)+"?"+q;
+  }
+  function syncVenmoPay(){var a=document.getElementById("venmoPay");var href=venmoHref();if(a&&href)a.href=href;}
+  if(sel)sel.addEventListener("change",syncVenmoPay);
+  syncVenmoPay();
   render(); showPicked();
   if(C.inbox){jsonp({action:"busy"},function(r){if(r&&r.busy){busy=[];for(var i=0;i<r.busy.length;i++){var a=parseLocal(r.busy[i][0]),b=parseLocal(r.busy[i][1]);if(a&&b)busy.push([a,b]);}render();showPicked();}},8000);}
   var sh=$("shareSite");
@@ -2056,7 +2074,7 @@ function genSite(c){
   const th=siteTheme(c.theme);
   const metaBg=({clean:"#FFFFFF",paper:"#F7F1E3",friendly:"#FFFBF5",retro:"#F6EDD8",midnight:"#060809"})[th]||(day?"#FBF8F2":"#0E1012");
   const sched=(Array.isArray(c.sched)&&c.sched.length===7)?c.sched:c.days.map((on,i)=>Object.assign({on:!!on},defHours(i)));
-  const cfg={first:c.first,biz:c.biz,phoneDigits:"",email:"",days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",theme:th,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
+  const cfg={first:c.first,biz:c.biz,venmo:c.venmo||"",phoneDigits:"",email:"",days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",theme:th,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
   const hasContact=!!(c.phoneDigits||c.email);
   const rows=c.services.map(s=>`<li><span class="n">${esc(s.n)}</span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
@@ -2095,7 +2113,7 @@ function genSite(c){
   <div class="btns">${canEmail?`<a class="btn alt" href="#book">Email</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
 </section>`;
   const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Season plan</strong><p>I clear your driveway every time it snows this winter. Pick “Every snowfall this winter” below.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
-  const pay=c.venmo?`<a class="venmo" href="https://venmo.com/u/${encodeURIComponent(c.venmo)}" target="_blank" rel="noopener">Pay our parent on Venmo</a><p class="small">Parent’s Venmo: @${esc(c.venmo)}. Confirm the recipient and mark the payment as a purchase when available.</p>`:`<p>My parent will confirm how to pay after the job.</p>`;
+  const pay=c.venmo?`<a class="venmo" id="venmoPay" href="https://venmo.com/${encodeURIComponent(c.venmo)}?txn=pay&amp;note=${encodeURIComponent((c.first?c.first+": ":"")+c.biz)}" target="_blank" rel="noopener">Pay with Venmo</a><p class="small">Pay @${esc(c.venmo)} after the job. Neighbors see this Venmo name. Confirm it in the Venmo app.</p>`:`<p>My parent will confirm how to pay after the job.</p>`;
   const buttons=canEmail?`<button type="button" class="btn" id="sendMail">Email my request</button>`:"";
   const info=typeInfo(c.type);
   const type=info.label;
@@ -2502,7 +2520,7 @@ const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
 function defaults(){
   return {type:"lawn",first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,svcSets:{},
-    palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,false,false,false,false,false,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:false},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
+    palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
 let savedRaw=null;
@@ -2670,6 +2688,10 @@ function go(n){
   window.scrollTo(0,0);
 }
 $("#stepJump").onchange=()=>go(Number($("#stepJump").value));
+const acctVenmo=$("#acctVenmo");
+if(acctVenmo)acctVenmo.addEventListener("change",()=>saveFamilyVenmo(acctVenmo.value));
+const venmoField=$("#venmo");
+if(venmoField)venmoField.addEventListener("change",()=>{if(pubToken()||(pubSession()&&pubSession().email))saveFamilyVenmo(venmoField.value);});
 $("#next").onclick=()=>{
   if(step===3&&!S.sched.some(x=>x.on)){
     const hint=$("#daysHint");
@@ -2685,6 +2707,24 @@ $("#peek").onclick=()=>{refresh();shell.classList.add("sheet");};
 $("#closeSheet").onclick=()=>shell.classList.remove("sheet");
 
 let timer;
+function applySavedVenmo(name){
+  const clean=String(name||"").trim().replace(/^@+/,"");
+  const acct=$("#acctVenmo"); if(acct&&document.activeElement!==acct)acct.value=clean;
+  if(!clean)return;
+  if(!(S.venmo||"").trim()){S.venmo=clean;const el=$("#venmo");if(el&&document.activeElement!==el)el.value=clean;save();}
+}
+async function saveFamilyVenmo(raw){
+  const msg=$("#venmoMsg");
+  try{
+    const data=await pubApi("/api/venmo",{body:{venmo:raw}});
+    if(!data.ok){if(msg)msg.textContent=data.message||"Use letters, numbers, - and _ only.";return;}
+    S.venmo=data.venmo||"";
+    const el=$("#venmo"); if(el)el.value=S.venmo;
+    const acct=$("#acctVenmo"); if(acct)acct.value=S.venmo;
+    if(msg)msg.textContent=S.venmo?"Saved. Neighbors will see @"+S.venmo+".":"Venmo name cleared.";
+    save(); queue();
+  }catch(e){if(msg)msg.textContent="Could not save that Venmo name.";}
+}
 function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{if(document.activeElement&&document.activeElement.matches("#svcList input"))return;refresh();updateLaunch();scheduleDraft();},250);}
 function refresh(){frame.srcdoc=genSite(resolve(true));}
 
@@ -3322,7 +3362,8 @@ function dayLabel(iso){const diff=Math.round((parseISO(iso)-parseISO(todayISO())
 function sortSched(a,b){return a.date<b.date?-1:a.date>b.date?1:((a.time||"99:99")<(b.time||"99:99")?-1:1);}
 function reviewMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", thanks again for choosing "+bz+"! If you were happy with the "+(j.service?j.service.toLowerCase():"job")+", would you reply with a quick review? I might share it on my website with your first name. - "+c.first;}
 function omwMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", it’s "+c.first+" from "+bz+". I’m on my way for "+(j.service||"your job")+". See you soon!";}
-function doneMsg(j,total,paid,photo){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", all finished! "+(j.service||"The job")+" comes to "+money(total)+"."+(paid?" Paid, thank you!":(c.venmo?" You can pay on Venmo: @"+c.venmo+".":""))+(photo?" I’ll send a photo of the finished job too.":"")+" Thanks for choosing "+bz+". If you liked it, tell a neighbor!";}
+function venmoPayHref(user,amount,note){const name=String(user||"").trim().replace(/^@+/,"");if(!/^[A-Za-z0-9_-]{1,30}$/.test(name)||!/[A-Za-z]/.test(name))return "";const parts=["txn=pay"];const raw=String(amount==null?"":amount).replace(/[^0-9.]/g,"");const num=Number(raw);if(raw&&isFinite(num)&&num>0&&num<=999)parts.push("amount="+encodeURIComponent(String(Math.round(num*100)/100)));const text=String(note||"").replace(/\s+/g," ").trim().slice(0,120);if(text)parts.push("note="+encodeURIComponent(text));return "https://venmo.com/"+encodeURIComponent(name)+"?"+parts.join("&");}
+function doneMsg(j,total,paid,photo){const c=resolve(true),bz=c.biz.replace(/\.$/,"");const link=!paid&&c.venmo?venmoPayHref(c.venmo,total,(c.first?c.first+": ":"")+(j.service||"Job")):"";return "Hi "+j.customer+", all finished! "+(j.service||"The job")+" comes to "+money(total)+"."+(paid?" Paid, thank you!":(link?" Pay with Venmo: "+link:"."))+(photo?" I’ll send a photo of the finished job too.":"")+" Thanks for choosing "+bz+". If you liked it, tell a neighbor!";}
 function icsEsc(t){return String(t||"").replace(/\\/g,"\\\\").replace(/\r?\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");}
 function icsLocal(d){const p=n=>String(n).padStart(2,"0");return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"T"+p(d.getHours())+p(d.getMinutes())+"00";}
 function jobWhen(j){const d=String(j.date).split("-").map(Number),t=String(j.time||"09:00").split(":").map(Number),s=new Date(d[0],d[1]-1,d[2],t[0]||0,t[1]||0);return [s,new Date(s.getTime()+3600000)];}
@@ -4974,6 +5015,7 @@ function publishExtras(slug){
     cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c,
     pets:S.type==="pet"?petList():[],
+    venmo:(S.venmo||"").trim().replace(/^@+/,""),
     tz:(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})()
   };
 }
@@ -5000,6 +5042,7 @@ async function initPublish(){
   if(help)help.textContent=planHelp(me);
   if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;
   showCalendar(me); syncCalUpcoming();
+  applySavedVenmo(me.venmo);
 }
 $("#pubSend").onclick=async()=>{
   pubErr(""); $("#pubCode").value=""; $("#pubCodeMsg").textContent="Sending...";
@@ -5339,7 +5382,8 @@ async function loadMyJobs(){
     const list=$("#jobList"); if(!list)return;
     const jobs=data.jobs||[];
     list.innerHTML=jobs.map(j=>{
-      const acts=j.action?'<div class="mbtns"><button type="button" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button><button type="button" data-job="'+esc(j.action)+'" data-st="done">Done</button><button type="button" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel</button></div>':'';
+      const pay=j.venmoUrl?'<a class="btn" href="'+esc(j.venmoUrl)+'" target="_blank" rel="noopener">Pay with Venmo</a>'+(j.status==="done"?'<p class="small2">The job is done. This opens Venmo with the amount filled in.</p>':'<p class="small2">Pay after the job.</p>'):'';
+      const acts=j.action?'<div class="mbtns"><button type="button" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button><button type="button" data-job="'+esc(j.action)+'" data-st="done">Done</button><button type="button" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel</button></div>'+pay:'';
       return '<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+'</div>';
     }).join("");
     if(!list.dataset.bound){
