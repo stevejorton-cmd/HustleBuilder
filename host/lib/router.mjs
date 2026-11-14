@@ -15,6 +15,8 @@ export const CONSENT_VERSION = "2026-11-10-card";
 // A one-time parent check. Stripe emails the receipt, then we refund it in full.
 // Not a plan payment, and not a new environment variable.
 export const VERIFY_CENTS = 50;
+// Stripe joins the account prefix, "* ", and this suffix. KEYSTONE* HUSTLE BLDR is 21 characters, under the 22-character card line.
+export const STATEMENT_SUFFIX = "HUSTLE BLDR";
 // Booking counts are analytics only; trial access is based on its end date.
 export const GRACE_DAYS = 7;
 export const TRIAL_DAYS = 14;
@@ -708,7 +710,7 @@ async function beginCardCheck(account, origin) {
   params.set("metadata[notice]", CONSENT_VERSION);
   params.set("payment_intent_data[receipt_email]", account.email);
   params.set("payment_intent_data[description]", "Hustle Builder parent check, 50¢, refunded right away");
-  params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
+  params.set("payment_intent_data[statement_descriptor_suffix]", STATEMENT_SUFFIX);
   params.set("payment_intent_data[metadata][purpose]", "parent_verification");
   params.set("payment_intent_data[metadata][accountId]", account.id);
   params.set("payment_intent_data[metadata][notice]", CONSENT_VERSION);
@@ -2016,7 +2018,7 @@ async function routeRequest(req) {
       params.set('line_items[0][price_data][unit_amount]',String(checkoutPlan.amount));
       params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id,planBase(account)).name+', through '+niceDate(planOffer(checkoutPlan.id,planBase(account)).end));
       params.set('metadata[accountId]',account.id);params.set('metadata[plan]',checkoutPlan.id);params.set('metadata[attempt]',attempt);
-      params.set('payment_intent_data[statement_descriptor_suffix]','HUSTLE BLDR');
+      params.set('payment_intent_data[statement_descriptor_suffix]',STATEMENT_SUFFIX);
       let response,data;
       try{response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...providerHeaders,'Content-Type':'application/x-www-form-urlencoded','Idempotency-Key':'hb-checkout-'+attempt},body:params,signal:AbortSignal.timeout(8000)});data=await response.json();}catch{await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
       if(!response.ok||!data.url||!data.id){await saveAccount(account);return json(502,{ok:false,error:'stripe'});}

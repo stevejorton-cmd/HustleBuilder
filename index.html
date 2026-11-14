@@ -982,20 +982,25 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
         <div id="pubReady" hidden>
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on.</span></label>
-          <p class="small2" id="cardCheckNote">To show this is a parent, we charge 50¢ on a card. Stripe emails a receipt, and we refund the 50¢ right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
+          <div id="planFirst">
+            <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
+            <button type="button" class="btn block" id="buySeason">Buy the winter season, $9.99</button>
+            <button type="button" class="btn ghost block" id="buyYear">Or a full year, $19.99</button>
+          </div>
+          <p class="small2" id="cardCheckNote">Or start the free 14-day trial. We charge 50¢ on a card, Stripe emails a receipt, and we refund it right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
             <p class="lead" id="trialPitch">Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.</p>
             <p class="status" id="trialCount" hidden></p>
           </div>
           <p class="status" id="graceBanner" hidden></p>
-          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Or pick a plan. Plans are one-time payments and never renew on their own.</small></div>
+          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Plans are one-time payments and never renew on their own.</small></div>
           <button type="button" class="btn block" id="pubPay" hidden>Pay for this plan</button>
           <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Your first name plus your business name works great, like josie-josies-pet-care. It is harder for strangers to guess than a first name alone.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
-          <button type="button" class="btn block" id="pubGo" disabled>Publish my website</button>
+          <button type="button" class="btn ghost block" id="pubGo" disabled>Start the free 14-day trial with a 50¢ refunded check</button>
           <p class="small2" id="familyNote" hidden></p>
         </div>
         </details>
@@ -4802,16 +4807,18 @@ function applyPublishState(me){
     return;
   }
   if(slugEl)slugEl.readOnly=false;
+  const planFirst=$("#planFirst");
+  if(planFirst) planFirst.hidden=!!(me&&me.consent);
   if(!(me&&me.consent)){
-    if(go){go.hidden=false; go.textContent="Check my card, 50¢";}
+    if(go){go.hidden=false; go.className="btn ghost block"; go.textContent="Start the free 14-day trial with a 50¢ refunded check";}
     if(note)note.hidden=true;
     if(slugEl&&!slugEl.value)suggestSlug();
   }else if(owned.length){
-    if(go){go.hidden=false; go.textContent="Put this page online too";}
+    if(go){go.hidden=false; go.className="btn block"; go.textContent="Put this page online too";}
     if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial. The parent check is already done.";}
     if(slugEl&&!slugEl.value)suggestSlug();
   }else{
-    if(go)go.textContent="Publish my website";
+    if(go){go.className="btn block"; go.textContent="Publish my website";}
     if(note)note.hidden=true;
     if(slugEl&&!slugEl.value)suggestSlug();
   }
@@ -5031,6 +5038,21 @@ async function pubPush(){
     $("#pubOk").textContent=data.added?"Published. This page is covered by your family plan.":data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
   }catch(e){pubErr("Could not publish. Try again.");}
 }
+async function buyPlanFirst(plan){
+  pubErr("");
+  if($("#pubConsent")&&!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
+  const slug=($("#pubSlug").value||"").trim().toLowerCase();
+  try{
+    const data=await pubApi("/api/checkout",{body:{plan}});
+    if(data&&data.url){savePending(slug); setPayReturn("publish"); location.href=data.url; return;}
+    if(data&&data.pending){pubErr("A payment is already in progress. Check it before trying again."); return;}
+    if(!data||(!data.ok&&!data.alreadyPaid)){pubErr(data&&data.error==="stripe-key"?"Payment is not set up yet.":"The plan was not started."); return;}
+    await pubPush();
+  }catch(e){pubErr("The plan was not started. Try again.");}
+}
+const buySeason=$("#buySeason"), buyYear=$("#buyYear");
+if(buySeason) buySeason.onclick=()=>buyPlanFirst("season");
+if(buyYear) buyYear.onclick=()=>buyPlanFirst("year");
 $("#pubGo").onclick=pubPush;
 function accountWords(site){
   if(site.comp)return "Friends & family — free, no payment due";
