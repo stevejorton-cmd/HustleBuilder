@@ -126,6 +126,24 @@ function emailOk(email) {
   return e;
 }
 
+// Gmail ignores dots and +tags, and googlemail.com is the same inbox.
+// The trial follows that inbox, not the spelling used at sign-in.
+export function canonicalEmail(email) {
+  const e = emailOk(email);
+  if (!e) return "";
+  const at = e.lastIndexOf("@");
+  let local = e.slice(0, at);
+  let domain = e.slice(at + 1);
+  if (domain === "googlemail.com") domain = "gmail.com";
+  if (domain === "gmail.com") local = local.split("+")[0].replace(/\./g, "");
+  return local + "@" + domain;
+}
+
+function trialKey(email) {
+  const canon = canonicalEmail(email);
+  return canon ? "trials/" + sha(canon) + ".json" : "";
+}
+
 function json(status, body, extra = {}) {
   return { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control":"no-store", "x-content-type-options":"nosniff", ...extra }, body: JSON.stringify(body) };
 }
@@ -252,7 +270,20 @@ async function dropAdminSession(headers) {
   if (/^[a-f0-9]{64}$/.test(token)) await (await store()).del("adminsessions/" + sha(token) + ".json");
 }
 async function saveAccount(account) {
-  if(account.trialEndsAt){const key="trials/"+sha(account.email)+".json";const old=await readJson(key)||{};await writeJson(key,{...old,trialStartedAt:account.trialStartedAt,trialEndsAt:account.trialEndsAt});}
+  // Keep the later end. A denied card on a second login must not shorten
+  // a trial that the same Gmail inbox already has.
+  if(account.trialEndsAt){
+    const key=trialKey(account.email);
+    if(key){
+      const old=await readJson(key)||{};
+      const oldEnd=Date.parse(old.trialEndsAt||"");
+      const newEnd=Date.parse(account.trialEndsAt);
+      const deniedShorten=account.trialDenied&&Number.isFinite(oldEnd)&&Number.isFinite(newEnd)&&oldEnd>newEnd;
+      if(!deniedShorten){
+        await writeJson(key,{...old,trialStartedAt:account.trialStartedAt,trialEndsAt:account.trialEndsAt});
+      }
+    }
+  }
   await writeJson("accounts/" + account.id + ".json", account);
   await (await store()).put("email/" + sha(account.email), account.id);
   if (account.tokenHash) await (await store()).put("tokens/" + account.tokenHash, account.id);
@@ -305,6 +336,79 @@ function renewable(account, now = Date.now()) {
   if (!paid(account, now)) return true;
   return Date.parse(account.paidUntil) - now <= RENEW_WINDOW_DAYS * 864e5;
 }
+// The 14 days start at parent consent or at first publish, whichever
+// happens first. Opening a checkout, paid or not, does not start them.
+function beginTrial(account, now = Date.now()) {
+  if (!account || account.trialDenied || account.trialEndsAt) return false;
+  account.trialStartedAt = new Date(now).toISOString();
+  account.trialEndsAt = new Date(now + trialLengthDays() * 864e5).toISOString();
+  return true;
+}
+
+// A card that already started a trial cannot start another one, even under
+// a new email. The parent goes straight to a paid plan.
+function denyTrial(account, now = Date.now()) {
+  if (!account || account.trialEndsAt) return;
+  account.trialDenied = "card";
+  const past = new Date(now - 1000).toISOString();
+  account.trialStartedAt = past;
+  account.trialEndsAt = past;
+}
+
+function fingerprintOk(value) {
+  return /^[A-Za-z0-9]{8,40}$/.test(String(value || "")) ? String(value) : "";
+}
+
+async function cardTrialUsed(fingerprint) {
+  const fp = fingerprintOk(fingerprint);
+  if (!fp) return false;
+  return !!(await readJson("cardtrials/" + fp + ".json"));
+}
+
+async function noteCardTrial(account) {
+  const fp = fingerprintOk(account && account.cardFingerprint);
+  if (!fp || !account.trialEndsAt || account.trialDenied) return;
+  const key = "cardtrials/" + fp + ".json";
+  if (await readJson(key)) return;
+  await writeJson(key, { at: new Date().toISOString(), trialEndsAt: account.trialEndsAt });
+}
+
+async function applyConsentTrial(account, fingerprint) {
+  const fp = fingerprintOk(fingerprint);
+  if (fp) account.cardFingerprint = fp;
+  if (account.trialEndsAt || account.trialDenied) {
+    await noteCardTrial(account);
+    return;
+  }
+  if (fp && await cardTrialUsed(fp)) {
+    denyTrial(account);
+    return;
+  }
+  beginTrial(account);
+  await noteCardTrial(account);
+}
+
+async function cardFingerprintFromSession(session) {
+  const pi = session && session.payment_intent;
+  const inline = pi && typeof pi === "object" && pi.payment_method && typeof pi.payment_method === "object"
+    ? pi.payment_method.card && pi.payment_method.card.fingerprint : "";
+  const ready = fingerprintOk(inline);
+  if (ready) return ready;
+  const id = paymentIntentId(session);
+  if (!id || paywallMode() !== "stripe" || !process.env.STRIPE_SECRET_KEY) return "";
+  try {
+    const r = await fetch("https://api.stripe.com/v1/payment_intents/" + encodeURIComponent(id) + "?expand[]=payment_method", {
+      headers: { Authorization: "Bearer " + process.env.STRIPE_SECRET_KEY },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!r.ok) return "";
+    const data = await r.json();
+    const method = data && data.payment_method;
+    const fp = method && typeof method === "object" ? method.card && method.card.fingerprint : "";
+    return fingerprintOk(fp);
+  } catch { return ""; }
+}
+
 function planBase(account, now = Date.now()) {
   return paid(account, now) && !comped(account) ? new Date(account.paidUntil) : new Date(now);
 }
@@ -702,6 +806,7 @@ async function completeVerification(account, session) {
   }
   account.verifySessionId = "";
   account.verifyCheckoutUrl = "";
+  if (firstPass) await applyConsentTrial(account, await cardFingerprintFromSession(session));
   await saveAccount(account);
   if (firstPass) await noteFunnel("check_passed");
   await writeJson(ledgerKey, { sessionId: session.id, purpose: "parent_verification", paymentIntent: pi, processedAt: now });
@@ -1910,7 +2015,7 @@ async function routeRequest(req) {
     let account = await accountByEmail(email);
     const code = String(randomInt(100000, 1000000));
     if (!account) account = { id: rand(8), email, createdAt: new Date().toISOString(), consentAt: null, plan: null, paidUntil: null, slug: null, slugs: [] };
-    if(!account.trialEndsAt){const clock=await readJson("trials/"+sha(email)+".json");if(clock&&clock.trialEndsAt){account.trialStartedAt=clock.trialStartedAt;account.trialEndsAt=clock.trialEndsAt;}}
+    if(!account.trialEndsAt){const clock=await readJson(trialKey(email));if(clock&&clock.trialEndsAt){account.trialStartedAt=clock.trialStartedAt;account.trialEndsAt=clock.trialEndsAt;}}
     account.verifyHash = sha(code + ":" + email);
     account.verifyExpires = Date.now() + 20 * 60 * 1000;
     account.verifyTries = 0;
@@ -2024,6 +2129,7 @@ async function routeRequest(req) {
     account.consentVersion = CONSENT_VERSION;
     account.consentPaymentIntent = pi;
     account.consentRefundedAt = now;
+    await applyConsentTrial(account, testMode() ? body.fingerprint : "");
     await saveAccount(account);
     await noteFunnel("check_passed");
     return withCors(json(200, { ok: true, consent: true, refunded: true, mode, method: "card_charge", consentAt: account.consentAt }), req.headers && req.headers.origin);
@@ -2242,19 +2348,11 @@ async function routeRequest(req) {
     // calendar shows a 4:00 PM job at 4:00 PM wherever they live.
     const tz = validTz(body.tz);
     if (tz) account.tz = tz;
-    if (!paid(account)) {
-      const started = Date.parse(account.trialStartedAt || "");
-      const created = Date.parse(account.createdAt || "");
-      // A clock copied at sign-in from an older deleted account is not this
-      // page's first publish. The 14 days start when this account publishes.
-      const inherited = Number.isFinite(started) && Number.isFinite(created) && started + 60000 < created;
-      const firstPage = !existing && addedPage && ownedBefore.length === 0;
-      if (!account.trialStartedAt || (firstPage && inherited)) {
-        const now = Date.now();
-        account.trialStartedAt = new Date(now).toISOString();
-        account.trialEndsAt = new Date(now + trialLengthDays() * 864e5).toISOString();
-      }
-    }
+    // A checkout, including one that is abandoned or never paid, does not
+    // start this clock. Consent does, and so does the first publish when
+    // consent did not. A clock already on the account (same Gmail inbox,
+    // or a card that already had a trial) is left as it is.
+    if (!paid(account)) beginTrial(account);
     await rememberAccount(account);
     const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
     account.jobCode = /^[a-z0-9]{8}$/.test(jobCode) ? jobCode : account.jobCode || rand(4).slice(0, 8);

@@ -538,8 +538,12 @@ test("a paid account cannot open another checkout", async () => {
   assert.equal(first.body.ok, true);
   const second = await json(await call("POST", "/api/checkout", { token, body: { plan: "year" } }));
   assert.equal(second.body.alreadyPaid, true);
+  assert.equal(second.body.url, undefined);
   assert.equal(second.body.plan, "season");
   assert.equal(second.body.paidUntil, first.body.paidUntil);
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.paid, true);
+  assert.equal(me.body.paidUntil, first.body.paidUntil);
 });
 
 test("a pending stripe checkout is not opened twice", async () => {
@@ -1052,13 +1056,14 @@ test("a free trial lasts TRIAL_DAYS, then the page takes a break and bookings ar
   }
 });
 
-test("a leftover trial clock does not shorten the first publish of a new account", async () => {
+test("a leftover trial clock stays on the first publish of a new account", async () => {
   const email = "inherited@example.com";
   const hash = createHash("sha256").update(email).digest("hex");
+  const ends = new Date(Date.now() + 864e5).toISOString();
   await mkdir(path.join(dir, "trials"), { recursive: true });
   await writeFile(path.join(dir, "trials", hash + ".json"), JSON.stringify({
     trialStartedAt: new Date(Date.now() - 13 * 864e5).toISOString(),
-    trialEndsAt: new Date(Date.now() + 864e5).toISOString()
+    trialEndsAt: ends
   }));
   const { token } = await parent(email);
   const before = await json(await call("GET", "/api/me", { token }));
@@ -1066,9 +1071,61 @@ test("a leftover trial clock does not shorten the first publish of a new account
   await call("POST", "/api/consent", { token, body: { consent: true } });
   const published = await json(await call("POST", "/api/publish", { token, body: { slug: "will-yard", html: page("Will") } }));
   assert.equal(published.body.ok, true);
-  assert.ok(published.body.trialDaysLeft >= 13 && published.body.trialDaysLeft <= 14);
-  const again = await json(await call("POST", "/api/publish", { token, body: { slug: "will-yard", html: page("Will again") } }));
+  assert.equal(published.body.trialEndsAt, ends);
+  assert.ok(published.body.trialDaysLeft <= 2);
+});
+
+test("a Gmail plus-address or dotted address does not get a second trial", async () => {
+  const first = await parent("steve.jorton@gmail.com");
+  await call("POST", "/api/consent", { token: first.token, body: { consent: true } });
+  const published = await json(await call("POST", "/api/publish", { token: first.token, body: { slug: "dot-yard", html: page("Dot") } }));
+  assert.ok(published.body.trialDaysLeft >= 13);
+  const alias = await parent("SteveJorton+2@gmail.com");
+  const me = await json(await call("GET", "/api/me", { token: alias.token }));
+  assert.equal(me.body.trialEndsAt, published.body.trialEndsAt);
+  await call("POST", "/api/consent", { token: alias.token, body: { consent: true } });
+  const again = await json(await call("POST", "/api/publish", { token: alias.token, body: { slug: "plus-yard", html: page("Plus") } }));
   assert.equal(again.body.trialEndsAt, published.body.trialEndsAt);
+  assert.ok(again.body.trialDaysLeft <= published.body.trialDaysLeft);
+});
+
+test("a card that already started a trial cannot start another", async () => {
+  const fingerprint = "Xt5EWLLDS7FJjR1c";
+  const first = await parent("card-one@example.com");
+  await call("POST", "/api/consent", { token: first.token, body: { consent: true, fingerprint } });
+  const published = await json(await call("POST", "/api/publish", { token: first.token, body: { slug: "card-one", html: page("One") } }));
+  assert.ok(published.body.trialDaysLeft >= 13);
+  const second = await parent("card-two@example.com");
+  await call("POST", "/api/consent", { token: second.token, body: { consent: true, fingerprint } });
+  const me = await json(await call("GET", "/api/me", { token: second.token }));
+  assert.equal(me.body.trialOver, true);
+  const blocked = await json(await call("POST", "/api/publish", { token: second.token, body: { slug: "card-two", html: page("Two") } }));
+  assert.equal(blocked.status, 402);
+  assert.equal(blocked.body.error, "break");
+  const pay = await json(await call("POST", "/api/checkout", { token: second.token, body: { plan: "season", slug: "card-two" } }));
+  assert.equal(pay.body.ok, true);
+  assert.equal(pay.body.alreadyPaid, undefined);
+  const live = await json(await call("POST", "/api/publish", { token: second.token, body: { slug: "card-two", html: page("Two") } }));
+  assert.equal(live.body.ok, true);
+});
+
+test("an unpaid checkout does not start the trial clock", async () => {
+  const { token } = await parent("unpaid-clock@example.com");
+  process.env.PAYWALL_MODE = "stripe";
+  process.env.STRIPE_SECRET_KEY = "sk_test_x";
+  const prev = global.fetch;
+  global.fetch = async () => ({ ok: true, json: async () => ({ id: "cs_unpaid", url: "https://checkout.stripe.test/unpaid" }) });
+  try {
+    const opened = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
+    assert.equal(opened.body.mode, "stripe");
+    const me = await json(await call("GET", "/api/me", { token }));
+    assert.equal(me.body.trialEndsAt, "");
+    assert.equal(me.body.paid, false);
+  } finally {
+    global.fetch = prev;
+    process.env.PAYWALL_MODE = "test";
+    delete process.env.STRIPE_SECRET_KEY;
+  }
 });
 
 test("a parent can confirm, finish, or cancel a booking from My jobs", async () => {
