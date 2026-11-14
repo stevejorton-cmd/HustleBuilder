@@ -5,7 +5,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
-import { bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
+import { addEventIcs, bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
+import ICAL from "ical.js";
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { familyVenmo, kidOwned, setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
@@ -606,6 +607,55 @@ test("stripe webhook marks the account paid only with a valid signature", async 
   const after = await json(await call("GET", "/api/me", { token }));
   assert.equal(after.body.paid, true);
   assert.equal(after.body.plan, "season");
+});
+
+function assertRfc5545(ics) {
+  assert.equal(ics.replace(/\r\n/g, "").includes("\n"), false);
+  assert.equal(ics.replace(/\r\n/g, "").includes("\r"), false);
+  assert.equal(ics.includes("\r\n\r\n"), false);
+  assert.ok(ics.endsWith("\r\n"));
+  const lines = ics.slice(0, -2).split("\r\n");
+  const logical = [];
+  for (const line of lines) {
+    assert.notEqual(line, "", "empty calendar line");
+    assert.ok(Buffer.byteLength(line) <= 75, line);
+    if (line.startsWith(" ")) {
+      assert.ok(logical.length > 0);
+      logical[logical.length - 1] += line.slice(1);
+    } else logical.push(line);
+  }
+  for (let i = 0; i < logical.length; i++) {
+    if (logical[i].startsWith("TZOFFSETFROM:")) assert.match(logical[i + 1], /^TZOFFSETTO:/);
+  }
+  const parsed = ICAL.parse(ics);
+  assert.equal(parsed[0], "vcalendar");
+  return logical;
+}
+
+test("event and calendar files fold without a blank line in the time zone", () => {
+  const broken = "BEGIN:VCALENDAR\r\nTZOFFSETFROM:-0600\r\n\r\n TZOFFSETTO:-0500\r\nEND:VCALENDAR\r\n";
+  assert.throws(() => assertRfc5545(broken));
+  const now = Date.parse("2026-11-10T12:00:00Z");
+  const event = addEventIcs({
+    id: "b12345678", start: "2026-12-02T16:00", now,
+    summary: "Mow a small yard", location: "123 Test St", description: "Front only"
+  });
+  const feed = jobsToIcs([{
+    id: "b12345678", start: "2026-12-02T16:00", service: "Mow a small yard",
+    customer: "Pat", kid: "Will", address: "123 Test St", note: "Front only"
+  }], now);
+  for (const ics of [event, feed]) {
+    const logical = assertRfc5545(ics);
+    assert.ok(logical.includes("BEGIN:VTIMEZONE"));
+    assert.ok(logical.includes("TZOFFSETFROM:-0600"));
+    assert.ok(logical.includes("TZOFFSETTO:-0500"));
+    assert.equal(logical.filter((line) => line === "").length, 0);
+  }
+  const long = "A".repeat(90);
+  const folded = addEventIcs({ id: "b12345678", start: "2026-12-02T16:00", now, summary: long });
+  const logical = assertRfc5545(folded);
+  assert.ok(logical.some((line) => line.startsWith("SUMMARY:") && line.endsWith(long)));
+  assert.ok(folded.split("\r\n").some((line) => line.startsWith(" ") && Buffer.byteLength(line) <= 75));
 });
 
 test("calendar feed escapes text, keeps a stable uid, and drops a reset token", async () => {

@@ -21,11 +21,12 @@
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",
-    "qrcode": "^1.5.4",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "puppeteer-core": "^23.11.1",
-    "@electric-sql/pglite": "^0.5.14"
+    "@electric-sql/pglite": "^0.5.14",
+    "ical.js": "^2.2.1",
+    "puppeteer-core": "^23.11.1"
   }
 }

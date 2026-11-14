@@ -53,7 +53,7 @@ const VTIMEZONE = [
   "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
   "END:STANDARD",
   "END:VTIMEZONE"
-].join("\r\n");
+];
 
 export function chicagoWall(ms) {
   return wallIn(ms, TZID);
@@ -122,6 +122,19 @@ function fold(line) {
     limit = 74;
   }
   return parts.join("\r\n ");
+}
+
+// Fold each property on its own. A block that already contains line breaks
+// (the Chicago time zone) must not be folded as one line: the 75-octet cut
+// can land on a break and leave a blank line, which Apple Calendar rejects.
+function renderIcs(lines) {
+  const flat = [];
+  for (const line of lines) {
+    for (const part of String(line).split(/\r\n|\n|\r/)) {
+      if (part !== "") flat.push(part);
+    }
+  }
+  return flat.map(fold).join("\r\n") + "\r\n";
 }
 
 function stamp(wall) {
@@ -224,7 +237,7 @@ export function bookingInviteIcs({
     "PRODID:-//Hustle Builder//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:" + kind,
-    ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
+    ...(local ? VTIMEZONE : ["X-WR-TIMEZONE:" + tz]),
     "BEGIN:VEVENT",
     "UID:" + id + "@hustlebuilder.org",
     "SEQUENCE:" + seq,
@@ -240,7 +253,7 @@ export function bookingInviteIcs({
     "END:VEVENT",
     "END:VCALENDAR"
   ];
-  return lines.map(fold).join("\r\n") + "\r\n";
+  return renderIcs(lines);
 }
 
 export function jobsToIcs(jobs, now = Date.now(), tz = TZID) {
@@ -257,11 +270,11 @@ export function jobsToIcs(jobs, now = Date.now(), tz = TZID) {
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "X-WR-CALNAME:Hustle Jobs",
-    ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
+    ...(local ? VTIMEZONE : ["X-WR-TIMEZONE:" + tz]),
     ...events,
     "END:VCALENDAR"
   ];
-  return lines.map(fold).join("\r\n") + "\r\n";
+  return renderIcs(lines);
 }
 
 // Drop a parent's email or phone if one was pasted into a note. Neighbors
@@ -317,7 +330,7 @@ export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, l
     "PRODID:-//Hustle Builder//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
+    ...(local ? VTIMEZONE : ["X-WR-TIMEZONE:" + tz]),
     "BEGIN:VEVENT",
     "UID:" + id + "@hustlebuilder.org",
     "SEQUENCE:" + seq,
@@ -330,7 +343,7 @@ export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, l
     "END:VEVENT",
     "END:VCALENDAR"
   ];
-  return lines.map(fold).join("\r\n") + "\r\n";
+  return renderIcs(lines);
 }
 
 export function feedLinks(origin, token) {
