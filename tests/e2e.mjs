@@ -53,7 +53,7 @@ try {
   page.on("pageerror", (e) => logs.push(String(e).slice(0, 180)));
   await page.setViewport({ width: 1366, height: 768 });
   await page.goto(base + "/", { waitUntil: "domcontentloaded" });
-  await page.evaluate(() => { const el = document.getElementById("intro"); const b = document.getElementById("introSkip"); if (el && !el.hidden && b) b.click(); });
+  await page.evaluate(() => { const el = document.getElementById("intro"); const b = document.getElementById("introSkip"); if (el && !el.hidden && b) b.click(); const kid = document.getElementById("parentsKid"); if (kid) kid.click(); });
   await page.click("#next");
   await page.type('input[data-k="first"]', "Sam");
   await page.type('input[data-k="town"]', "Elkhorn");

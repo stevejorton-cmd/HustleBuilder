@@ -56,6 +56,18 @@ async function pendingSession(accountId,plan,id) {
   return {id,payment_status:'paid',amount_total:plan==='year'?1999:999,currency:'usd',metadata:{accountId,plan,attempt}};
 }
 
+test("the parent landing names the winter price and uses a made-up example", async () => {
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const block = home.slice(home.indexOf('id="forParents"'), home.indexOf("</section>") + 10);
+  assert.match(block, /\$9\.99 for the whole winter, never auto-renews/);
+  assert.match(block, /id="parentsStart"/);
+  assert.match(block, />Start free</);
+  assert.match(block, /Sam's Lawn Co\./);
+  assert.match(block, /Elkhorn/);
+  assert.equal(/steve|lincoln|maryn|levi|402/i.test(block), false);
+  assert.match(checkSlug("parents"), /reserved/i);
+});
+
 test("slug rules block last names, reserved words, and bad shapes", () => {
   assert.equal(checkSlug("sam"), "");
   assert.equal(checkSlug("sam-yard"), "");

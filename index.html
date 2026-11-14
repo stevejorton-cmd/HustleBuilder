@@ -5,6 +5,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FF5B14">
+<script>
+window.hbCloseParents=function(asKid){
+  try{localStorage.setItem("hb-parents-seen","1");if(!asKid)localStorage.setItem("hb_intro_seen","1");}catch(e){}
+  document.documentElement.classList.add("hb-skip-parents");
+  var box=document.getElementById("forParents");if(box)box.hidden=true;
+  if(!asKid){var intro=document.getElementById("intro");if(intro)intro.hidden=true;}
+};
+(function(){
+  try{
+    var q=new URLSearchParams(location.search);
+    var force=location.pathname==="/parents"||q.get("for")==="parents";
+    var utility=q.get("account")||q.get("ask")||q.get("hosting")||q.get("draft")||q.get("consent");
+    if(!force&&(utility||localStorage.getItem("hb-parents-seen")==="1"))document.documentElement.classList.add("hb-skip-parents");
+  }catch(e){}
+})();
+</script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/icon-192.png">
 <title>Hustle Builder — Your first neighborhood business</title>
@@ -693,10 +709,83 @@ details.help[open] summary{margin-bottom:16px}
 .save-state{padding:12px;background:var(--surface);border:2px solid var(--danger);border-radius:8px;color:var(--danger)}
 .builder-tools{margin-top:24px}.price-level .lvl{margin-top:14px;margin-bottom:0}.launch-price{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:16px;margin:20px 0}.launch-price p{font-size:15px;line-height:1.5;margin:8px 0 0}.booking-inbox{margin:24px 20px 0}.booking-inbox .h3{margin-top:0}
 body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-filter:blur(8px)}.intro-card{position:relative;width:100%;max-width:1040px;max-height:calc(100dvh - 48px);background:#f6f4ed;color:#18221e;padding:24px 28px 20px;border:1px solid #deddd4;border-top:5px solid #FF5B14;border-radius:22px;box-shadow:0 24px 100px #0005;overscroll-behavior:contain}.intro-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.intro-eyebrow{font-size:12px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin:0;color:#586259}.intro-close{width:44px;height:44px;flex:none;border:1px solid #d0d4ca;border-radius:50%;background:transparent;color:#18221e;font:28px/1 system-ui;cursor:pointer}.intro-card #introTitle{font-family:Barlow,system-ui;font-style:normal;text-transform:none;font-size:clamp(30px,4.2vw,46px);font-weight:800;line-height:1.06;letter-spacing:-.03em;margin:8px 0 12px}.intro #introSubtitle{font-size:17px;line-height:1.45;margin:0 0 20px;color:#526055;max-width:620px}.example-tabs{display:none}.example-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.example-card{min-width:0}.example-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:10px;font-size:17px}.example-label>span{font-size:11px;font-weight:600;color:#586259}.example-site,.example-paper,.example-payment{height:414px;overflow:hidden;border:1px solid #d1d6cc;border-radius:12px;background:#fff}.example-url{background:#e8ece3;padding:8px 10px;color:#4b584d;font-size:11px;text-align:center}.example-art{height:132px;position:relative;background:#c9dfc5;overflow:hidden}.example-art img{position:static;display:block;width:100%;height:100%;object-fit:cover;object-position:center 55%;mask-image:none;-webkit-mask-image:none}.example-art svg{width:100%;height:100%;display:block}.example-site-body{padding:14px 18px;background:#101512;color:#fcfbef}.example-kicker{font-size:9px;font-weight:700;letter-spacing:.1em;color:#d6edb9}.example-site h3{font-family:var(--display);font-weight:900;font-style:italic;text-transform:uppercase;font-size:34px;line-height:.96;margin:6px 0}.example-site p{font-size:11px;margin:7px 0 8px}.example-cta{display:inline-block;background:#FF5B14;color:#101512;padding:8px 12px;border-radius:5px;font-weight:700;font-size:11px;margin-bottom:7px}.example-rate{display:flex;justify-content:space-between;border-top:1px solid #ffffff30;padding:5px 0;font-size:10px}.example-paper{position:relative;background:radial-gradient(ellipse at top,#d6d9cd,#aeb8a7);display:flex;justify-content:center;align-items:center;padding:14px}.example-paper canvas{height:100%;max-width:100%;object-fit:contain;box-shadow:2px 5px 16px #0002;background:white}.example-stamp{position:absolute;bottom:7px;right:8px;background:#18221e;color:#fff;padding:4px 8px;font-size:9px;letter-spacing:.08em;border-radius:3px}.example-payment{padding:20px 18px;text-align:center;display:flex;align-items:center;flex-direction:column}.example-pay-brand{width:100%;display:flex;justify-content:space-between;color:#0074c8;font-size:22px;font-weight:800;font-style:italic}.example-pay-brand span{font:700 9px Barlow,system-ui;align-self:center;letter-spacing:.08em;border-radius:4px;color:#526055;background:#eef0ec;padding:4px 6px}.example-pay-check{margin:20px 0 4px;width:40px;height:40px;border-radius:50%;background:#e0f5e8;color:#167441;line-height:40px;font-size:25px}.example-payment p{font-size:13px;line-height:1.4;margin:8px 0}.example-amount{font:800 42px/1.2 Barlow,system-ui;letter-spacing:-.04em;color:#146c44}.example-payment .example-pay-note{color:#526055;margin:7px 0 16px}.example-pay-rule{border-top:1px solid #e1e5de;width:100%;padding-top:12px;font-size:11px;color:#526055}.example-caption{font-size:14px;line-height:1.4;color:#526055;margin:12px 0 0}.example-disclaimer{font-size:11px;line-height:1.4;color:#596259;margin:16px 0 14px;max-width:780px}.intro-footer{border-top:1px solid #d6d9d0;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}.intro-footer .btn{background:#FF5B14;color:#141a15;clip-path:none;border-radius:10px;min-height:50px;font-family:Barlow,system-ui;font-size:17px;font-style:normal;text-transform:none;font-weight:800}.intro-footer p{font-size:11px;margin:6px 0 0;color:#526055}.intro-remember{font-size:12px;display:flex;align-items:center;gap:8px;min-height:44px}.intro-remember input{width:18px;height:18px;accent-color:#183e2d}
+#forParents{position:fixed;inset:0;z-index:90;overflow:auto;background:#f6f4ed;color:#18221e;padding:28px 20px 48px}
+html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
+.parents-wrap{max-width:40rem;margin:0 auto}
+#forParents h1{font-family:Barlow,system-ui;font-weight:800;font-size:clamp(36px,10vw,52px);line-height:1.02;letter-spacing:-.03em;margin:8px 0 12px}
+.parents-kicker{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:0;color:#586259}
+.parents-price{font-size:22px;font-weight:800;margin:0 0 6px}
+.parents-year{margin:0 0 16px;color:#314334}
+.parents-note{color:#526055;font-size:15px;margin:10px 0 0}
+#forParents h2{font-size:22px;margin:26px 0 8px}
+#forParents li{margin:0 0 8px}
+#forParents p,#forParents li{font-size:17px;line-height:1.45}
+#forParents details{border-top:1px solid #d6d9d0;padding:10px 0}
+#forParents summary{font-weight:800;cursor:pointer}
+.parents-example{background:#101512;color:#fcfbef;border-radius:16px;padding:16px 18px;margin-top:8px}
+.parents-example b{display:block;font-size:28px;line-height:1.05;margin-bottom:6px}
+.parents-example p{color:#d7e0d4;margin:4px 0}
+#parentsKid{margin-top:18px}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
 </style>
 </head>
 <body>
+<section id="forParents" aria-label="For parents">
+  <div class="parents-wrap">
+    <p class="parents-kicker">For parents</p>
+    <h1>Your kid's first business, live this weekend.</h1>
+    <p class="parents-price">$9.99 for the whole winter, never auto-renews.</p>
+    <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
+    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
+    <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
+    <h2>Three steps</h2>
+    <ol>
+      <li><b>Your kid builds.</b> They pick the work, the prices, and the page.</li>
+      <li><b>You approve.</b> You check your email and say yes before it goes online.</li>
+      <li><b>Neighbors book.</b> A request comes to you first. Nothing is booked until you reply.</li>
+    </ol>
+    <h2>Kept small on purpose</h2>
+    <ul>
+      <li>The public page shows a first name and a town.</li>
+      <li>Your phone stays off the page unless you turn that on.</li>
+      <li>Every booking request comes to you.</li>
+    </ul>
+    <h2>A made-up example</h2>
+    <article class="parents-example">
+      <b>Sam's Lawn Co.</b>
+      <p>Elkhorn</p>
+      <p>Mow a small yard · $15</p>
+      <p>Edge the sidewalk · $10</p>
+    </article>
+    <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
+    <h2>Questions</h2>
+    <details>
+      <summary>Is it safe?</summary>
+      <p>The public page shows a first name and a town. A phone number stays hidden unless a parent turns it on. Every booking request goes to the parent.</p>
+    </details>
+    <details>
+      <summary>What does it cost?</summary>
+      <p>$9.99 for the whole winter, or $19.99 for a year. The first 14 days after publish are free.</p>
+    </details>
+    <details>
+      <summary>Does it auto-renew?</summary>
+      <p>No. A plan is a one-time payment. You are never charged automatically.</p>
+    </details>
+    <details>
+      <summary>What is the 50¢?</summary>
+      <p>A parent who starts the free trial checks a card for 50¢. Stripe emails a receipt, and we refund it right away. Buying a plan skips that check.</p>
+    </details>
+    <details>
+      <summary>Who gets paid for a job?</summary>
+      <p>Neighbors pay the family directly. Hustle Builder does not collect, hold, or guarantee job payments.</p>
+    </details>
+    <details>
+      <summary>Can we stop or get a refund?</summary>
+      <p>A parent can take the page down at any time. A plan can be refunded within 14 days of the payment.</p>
+    </details>
+    <button type="button" class="btn ghost block" id="parentsKid" onclick="hbCloseParents(true)">I'm a kid, let me build</button>
+  </div>
+</section>
 <header class="top">
   <div class="brand"><span class="slash" aria-hidden="true"></span><span class="word">Hustle Builder</span></div>
   <div class="modes" role="group" aria-label="Mode">
