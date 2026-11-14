@@ -409,6 +409,66 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
   }
 });
 
+test("an existing page does not skip the parent check, and both plans can open checkout", async () => {
+  const { token } = await parent("family-check@example.com");
+  const files = await readdir(path.join(dir, "accounts"));
+  const file = path.join(dir, "accounts", files[0]);
+  const account = JSON.parse(await readFile(file, "utf8"));
+  account.slug = "old-yard";
+  account.slugs = ["old-yard"];
+  delete account.consentAt;
+  delete account.consentMethod;
+  delete account.consentRefundedAt;
+  await writeFile(file, JSON.stringify(account));
+  const blocked = await json(await call("POST", "/api/publish", { token, body: { slug: "new-yard", html: page("New") } }));
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.body.error, "consent");
+  process.env.PAYWALL_MODE = "stripe";
+  process.env.STRIPE_SECRET_KEY = "sk_test_x";
+  const prev = global.fetch;
+  const bodies = [];
+  global.fetch = async (_url, opt) => {
+    bodies.push(String(opt && opt.body || ""));
+    const n = bodies.length;
+    return { ok: true, json: async () => ({ id: "cs_family_" + n, url: "https://checkout.stripe.test/pay" + n, status: "open" }) };
+  };
+  try {
+    const check = await json(await call("POST", "/api/consent", { token, body: { consent: true } }));
+    assert.equal(check.body.ok, true);
+    assert.equal(check.body.needsCard, true);
+    assert.equal(check.body.url, "https://checkout.stripe.test/pay1");
+    assert.equal(new URLSearchParams(bodies[0]).get("line_items[0][price_data][unit_amount]"), "50");
+    const yearParent = await parent("family-year@example.com");
+    const yearFile = path.join(dir, "accounts", (await readdir(path.join(dir, "accounts"))).find((name) => name !== files[0]));
+    const yearAccount = JSON.parse(await readFile(yearFile, "utf8"));
+    yearAccount.slug = "year-yard";
+    yearAccount.slugs = ["year-yard"];
+    delete yearAccount.consentAt;
+    delete yearAccount.consentMethod;
+    await writeFile(yearFile, JSON.stringify(yearAccount));
+    const season = await json(await call("POST", "/api/checkout", { token: yearParent.token, body: { plan: "season" } }));
+    assert.equal(season.body.ok, true);
+    assert.equal(season.body.url, "https://checkout.stripe.test/pay2");
+    assert.equal(new URLSearchParams(bodies.at(-1)).get("line_items[0][price_data][unit_amount]"), "999");
+    const year = await json(await call("POST", "/api/checkout", { token: yearParent.token, body: { plan: "year" } }));
+    assert.equal(year.body.ok, true);
+    assert.match(year.body.url || "", /^https:\/\/checkout\.stripe\.test\/pay/);
+    assert.equal(new URLSearchParams(bodies.at(-1)).get("line_items[0][price_data][unit_amount]"), "1999");
+  } finally {
+    global.fetch = prev;
+    process.env.PAYWALL_MODE = "test";
+    delete process.env.STRIPE_SECRET_KEY;
+  }
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.equal(home.includes("if(!session.slug){"), false);
+  assert.match(home, /const prior=await pubApi\("\/api\/me"/);
+  assert.match(home, /day"\+\(days===1\?"":"s"\)\+" left/);
+  assert.match(home, /placeholder="Taylor's Lawn Co\."/);
+  assert.match(home, /Pick at least one day you can work, then tap Next\./);
+  assert.match(home, /\$\("#pubCode"\)\.value=""/);
+  assert.match(home, /verified\.scrollIntoView\(\{block:"center"\}\)/);
+});
+
 test("reply_to uses the customer email, and a name like Dick with yard phrases is delivered", async () => {
   const { token, email } = await parent("reply@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });

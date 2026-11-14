@@ -850,7 +850,7 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
         <label class="field"><span>Your first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor"></label>
         <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
       </div>
-      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
+      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor's Lawn Co."><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
       <details class="fold" id="foldNames"><summary>Name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleNames">Shuffle</button></div><div class="chips" id="nameChips"></div><p class="help2" id="nameHint"></p><p class="help2">Before you pick one, search it online to make sure no business near you already uses it.</p></div></details>
       <details class="fold" id="funnyIdeas"><summary>Funny name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleFunny">Shuffle</button></div><div id="funnyCats"></div></div></details>
       <label class="field"><span>Your short slogan (optional)</span><input type="text" data-k="tagline" id="tagline" maxlength="120" autocomplete="off"></label>
@@ -2597,7 +2597,16 @@ function go(n){
   window.scrollTo(0,0);
 }
 $("#stepJump").onchange=()=>go(Number($("#stepJump").value));
-$("#next").onclick=()=>go(step+1);
+$("#next").onclick=()=>{
+  if(step===3&&!S.sched.some(x=>x.on)){
+    const hint=$("#daysHint");
+    if(hint)hint.textContent="Pick at least one day you can work, then tap Next.";
+    const box=$("#days"); if(box)box.scrollIntoView({block:"center"});
+    return;
+  }
+  const hint=$("#daysHint"); if(hint)hint.textContent="";
+  go(step+1);
+};
 $("#back").onclick=()=>go(step-1);
 $("#peek").onclick=()=>{refresh();shell.classList.add("sheet");};
 $("#closeSheet").onclick=()=>shell.classList.remove("sheet");
@@ -4669,7 +4678,7 @@ function niceDate(iso){
 }
 function trialLine(me){
   const days=me&&typeof me.trialDaysLeft==="number"?me.trialDaysLeft:14;
-  return days+" days left for your website, bookings, and flyer downloads.";
+  return days+" day"+(days===1?"":"s")+" left for your website, bookings, and flyer downloads.";
 }
 const TRIAL_WORDS="Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.";
 function setConsentOn(on){try{if(on)localStorage.setItem("hb-consent","1");else localStorage.removeItem("hb-consent");}catch(e){}}
@@ -4861,7 +4870,7 @@ async function initPublish(){
   showCalendar(me); syncCalUpcoming();
 }
 $("#pubSend").onclick=async()=>{
-  pubErr(""); $("#pubCodeMsg").textContent="Sending...";
+  pubErr(""); $("#pubCode").value=""; $("#pubCodeMsg").textContent="Sending...";
   try{
     const data=await pubApi("/api/auth/start", {body:{email:$("#pubEmail").value.trim()}});
     if(!data.ok)$("#pubCodeMsg").textContent=data.error==="mail"?"Email is not set up yet.":"Enter a parent’s email.";
@@ -4878,6 +4887,7 @@ $("#pubVerify").onclick=async()=>{
     $("#pubReady").hidden=false;
     applyPublishState(data);
     $("#pubOk").textContent="Email verified. Review the parent notice below to continue.";
+    const verified=$("#pubOk"); if(verified)verified.scrollIntoView({block:"center"});
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
@@ -4987,22 +4997,20 @@ async function pubPush(){
     if(!probe||!probe.ok){pubErr("Verify the parent’s email first."); return;}
     session.email=probe.email||""; session.slug=probe.slug||session.slug||"";
   }
-  if(!session.slug && !$("#pubConsent").checked){
-    const prior=await pubApi("/api/me", {method:"GET"});
-    if(!prior.consent){pubErr("A parent has to check the box before the first publish."); return;}
-  }
   const slug=($("#pubSlug").value||session.slug||"").trim().toLowerCase();
   const familyNote=$("#familyNote");
   if(familyNote&&!familyNote.hidden&&!($("#pubSlug").value||"").trim()){pubErr("Pick a link name for this page first."); return;}
   try{
-    if(!session.slug){
-      const prior=await pubApi("/api/me", {method:"GET"});
-      if(!prior.consent){
-        if(!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
-        const agreed=await pubApi("/api/consent", {body:{consent:true}});
-        if(agreed&&agreed.url){savePending(slug); location.href=agreed.url; return;}
-        if(!agreed||!agreed.ok||agreed.needsCard){pubErr(agreed&&agreed.error==="stripe-key"?"The card check is not set up yet.":"The card check was not finished. Nothing was kept."); return;}
-      }
+    // A page the family already has does not mean this parent finished the
+    // check. Ask the server. If consent is missing, the trial opens the 50¢
+    // Checkout and a plan purchase opens its own Checkout.
+    const prior=await pubApi("/api/me", {method:"GET"});
+    if(!prior||!prior.ok){pubErr("Verify the parent’s email first."); return;}
+    if(!prior.consent){
+      if(!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
+      const agreed=await pubApi("/api/consent", {body:{consent:true}});
+      if(agreed&&agreed.url){savePending(slug); location.href=agreed.url; return;}
+      if(!agreed||!agreed.ok||agreed.needsCard){pubErr(agreed&&agreed.error==="stripe-key"?"The card check is not set up yet.":"The card check was not finished. Nothing was kept."); return;}
     }
     const me=await pubApi("/api/me", {method:"GET"});
     showHosting(me);
@@ -5056,7 +5064,8 @@ function accountWords(site){
   if(site.comp)return "Friends & family — free, no payment due";
   if(site.paid)return (site.planName||"Paid plan")+(site.paidUntilLabel?" through "+site.paidUntilLabel:"")+(site.grace?" · "+site.graceDays+" grace days left":"");
   if(site.trialOver)return "Free trial is over. Pick a plan below to bring the page back.";
-  const days=site.trialEndsLabel?site.trialDaysLeft+" days left":"trial not started";
+  const left=Number(site.trialDaysLeft);
+  const days=site.trialEndsLabel?left+" day"+(left===1?"":"s")+" left":"trial not started";
   return "Free trial · "+days+" · website, bookings, and flyers";
 }
 function statusWord(status){return {live:"Live",paused:"Paused",offline:"Offline",down:"Taken down"}[status]||"Not up";}
