@@ -975,10 +975,13 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
           </div>
         </div>
         <details class="help" id="parentHere"><summary>I’m the parent — continue here</summary>
+        <div id="pubCodeBox">
         <button type="button" class="btn ghost" id="pubSend">Email me a code</button>
         <p class="status" id="pubCodeMsg" role="status"></p>
         <label class="field" for="pubCode"><span>Code from the email</span><input type="text" id="pubCode" inputmode="numeric" autocomplete="one-time-code" spellcheck="false"></label>
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
+        </div>
+        <p class="status" id="pubVerified" role="status" hidden></p>
         <div id="pubReady" hidden>
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on.</span></label>
           <div id="planFirst">
@@ -4671,6 +4674,23 @@ async function pubApi(path, opt){
   return data;
 }
 function pubErr(msg){const e=$("#pubErr"); if(e)e.textContent=msg||""; }
+function showParentVerified(me){
+  const box=$("#pubCodeBox"); if(box)box.hidden=true;
+  const note=$("#pubVerified");
+  if(note){
+    note.hidden=false;
+    note.textContent=(me&&me.consent)?"Email verified.":"Email verified. Review the parent notice below to continue.";
+  }
+  const ready=$("#pubReady"); if(ready)ready.hidden=false;
+  const details=$("#parentHere"); if(details)details.open=true;
+  const ok=$("#pubOk");
+  if(ok&&!(me&&me.consent))ok.textContent="Email verified. Review the parent notice below to continue.";
+}
+function clearParentVerified(){
+  const box=$("#pubCodeBox"); if(box)box.hidden=false;
+  const note=$("#pubVerified"); if(note){note.hidden=true; note.textContent="";}
+  const ready=$("#pubReady"); if(ready)ready.hidden=true;
+}
 function niceDate(iso){
   const t=Date.parse(iso||"");
   if(!t)return "";
@@ -4861,8 +4881,8 @@ async function initPublish(){
   showHosting(me);
   pubSaveSession({email:me.email||"", slug:me.slug||""});
   if($("#pubEmail"))$("#pubEmail").value=me.email||"";
-  $("#parentHere").open=true;
-  if(me.consent)$("#pubReady").hidden=false;
+  if(me.verified)showParentVerified(me);
+  else if(me.consent){$("#parentHere").open=true; $("#pubReady").hidden=false;}
   applyPublishState(me);
   const help=$("#pubPlanHelp");
   if(help)help.textContent=planHelp(me);
@@ -4884,10 +4904,9 @@ $("#pubVerify").onclick=async()=>{
     if(!data.ok){pubErr("That code did not work. Send a new one."); return;}
     pubMemToken=data.token||"";
     pubSaveSession({email:data.email, slug:data.slug||""});
-    $("#pubReady").hidden=false;
+    showParentVerified(data);
     applyPublishState(data);
-    $("#pubOk").textContent="Email verified. Review the parent notice below to continue.";
-    const verified=$("#pubOk"); if(verified)verified.scrollIntoView({block:"center"});
+    const verified=$("#pubVerified"); if(verified)verified.scrollIntoView({block:"center"});
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
     try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
@@ -5180,6 +5199,7 @@ if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen
 const acctOutBtn=$("#acctSignOut");
 if(acctOutBtn)acctOutBtn.onclick=async()=>{
   await pubSignOut();
+  clearParentVerified();
   const ready=$("#pubReady"); if(ready)ready.hidden=true;
   const manage=$("#pubManage"); if(manage)manage.hidden=true;
   const wrap=$("#pubUrlWrap"); if(wrap)wrap.hidden=true;
@@ -5256,7 +5276,8 @@ $("#pubDelete").onclick=async()=>{
   if(!data.ok){pubErr("Could not delete the account."); return;}
   pubMemToken="";
   pubSaveSession(null);
-  $("#pubReady").hidden=true; $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
+  clearParentVerified();
+  $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
   const calBox=$("#calBox"); if(calBox)calBox.hidden=true;
   $("#pubSlug").readOnly=false; $("#pubOk").textContent="Deleted. The page, the calendar, and the parent email are gone.";
 };

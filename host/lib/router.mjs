@@ -186,6 +186,7 @@ async function accountByTokenValue(token) {
   if (!id) return null;
   const account = await readJson("accounts/" + id.trim() + ".json");
   if (!account || account.sessionVersion!==2 || !safeEqual(account.tokenHash || "", sha(token))) return null;
+  if (account.sessionExpiresAt && Number(account.sessionExpiresAt) <= Date.now()) return null;
   return account;
 }
 async function accountByToken(header) {
@@ -1919,6 +1920,7 @@ async function routeRequest(req) {
     account.emailVerifiedAt = new Date().toISOString();
     await noteFunnel("parent_verified");
     account.sessionVersion=2;
+    account.sessionExpiresAt = Date.now() + SESSION_COOKIE_MAX_AGE * 1000;
     account.verifyHash = "";
     const token = rand(32);
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
