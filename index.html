@@ -1601,6 +1601,7 @@ function siteMain(){
       if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; var grow=document.createElement("a"); grow.href="https://hustlebuilder.org/?for=parents&ref="+encodeURIComponent((C.publish&&C.publish.slug)||""); grow.textContent="Make one for your kid, free for 14 days"; grow.style.display="block"; grow.style.marginTop="10px"; box.appendChild(grow); showCopy(true); $("outWrap").hidden=true;}
       else if(r&&r.error==="fast"){box.textContent=r.message||"Wait a few seconds, then send it again.";}
       else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
+      else if(r&&r.message){box.textContent=r.message;}
       else{box.textContent="I couldn’t send that. Please try again in a minute.";}
     }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Try again in a minute, or use another contact option if one is shown."; $("outWrap").hidden=false;});
   };}
@@ -4157,7 +4158,7 @@ const TAG_IDEAS={
   tutor:["Let’s read. A parent is nearby.","Pages turned. A parent close by.","We read together.","Stories, out loud.","One chapter at a time.","Reading buddy. Parent nearby."],
   other:["Tell me the job. I’ll show up.","You name it. I’ll do it carefully.","A parent confirms every job.","Small help. On time.","Ask. I’ll show up.","Neighborhood help, parent-backed."]
 };
-const TAG_ANY=["Show up. Do it right. Leave it better.","Kid-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a student. Backed by a parent.","Work first. Brag later."];
+const TAG_ANY=["Show up. Do it right. Leave it better.","Kid-owned. Serious work.","Earn it. Own it.","Small crew. Big standards.","Built by a kid. Backed by a parent.","Work first. Brag later."];
 // Replace only a built-in suggestion from a different business type.
 if(S.tagline && Object.keys(TAG_IDEAS).some(t=>t!==S.type&&(S.tagline===TAGS[t]||TAG_IDEAS[t].includes(S.tagline))) && !tagList(S.type).includes(S.tagline)){S.tagline="";$("#tagline").value="";save();}
 

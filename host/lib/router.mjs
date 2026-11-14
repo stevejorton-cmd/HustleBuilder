@@ -1,9 +1,9 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
-import { DEFAULT_TZ, addEventIcs, bookingInviteIcs, eventTitle, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, publicText, validTz } from "./calendar.mjs";
+import { DEFAULT_TZ, addEventIcs, bookingInviteIcs, eventTitle, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, publicText, validTz, wallIn } from "./calendar.mjs";
 import { cleanVenmo, venmoNote, venmoPayUrl } from "./venmo.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
-import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
+import { decoratePage, familyVenmo, hidePhone, stripParentContact } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
@@ -1620,7 +1620,9 @@ async function serveSlugInner(slug, view) {
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
-  const page = stripParentContact(await (await store()).get("pages/" + slug + ".html"));
+  const stored = await (await store()).get("pages/" + slug + ".html");
+  const kid = String((meta.names && meta.names.first) || "").trim().split(/\s+/)[0].slice(0, 40);
+  const page = familyVenmo(stripParentContact(stored), account && account.venmo, kid);
   if (!page) return missingPage(slug, false);
   // The real page is the only response that gets the "Built with" belt,
   // added here at serve time so the stored page stays exactly as the
@@ -2877,7 +2879,10 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     if (priceRaw && Number.isFinite(priceNum) && priceNum > 0 && priceNum <= 999) fields.price = String(Math.round(priceNum * 100) / 100);
     const start = String(body.start || "").trim();
     if (!fields.name || !fields.address || !fields.contact || !fields.service || !(fields.when || start)) return withCors(json(400, { ok: false, error: "fields" }), req.headers && req.headers.origin);
-    const startOk = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start) && jobInstant(start) != null;
+    const startOk = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start) && jobInstant(start, tzOf(account)) != null;
+    if (start && startOk && start.slice(0, 10) <= wallIn(Date.now(), tzOf(account)).slice(0, 10)) {
+      return withCors(json(400, { ok: false, error: "date", message: "Pick a day that is tomorrow or later." }), req.headers && req.headers.origin);
+    }
     const blob = Object.values(fields).join(" ") + " " + start;
     const hitsWords = wordHits(blob);
     if (hitsWords.block) return withCors(json(400, { ok: false, error: "moderation", message: "That request has a word that is not allowed: \"" + hitsWords.block + "\"." }), req.headers && req.headers.origin);

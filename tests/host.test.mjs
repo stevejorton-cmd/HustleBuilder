@@ -8,7 +8,7 @@ import { fileStore, setStore } from "../host/lib/store.mjs";
 import { bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
-import { kidOwned, setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
+import { familyVenmo, kidOwned, setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
 import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
 import { heroFitPx } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
@@ -330,6 +330,46 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.match(confirmedParent.ics, /SEQUENCE:1/);
   assert.match(confirmedParent.ics, new RegExp("UID:" + requestUid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(confirmedParent.ics.includes(email), false);
+});
+
+test("a booking for today or earlier is refused", async () => {
+  const { token } = await parent("pastdate@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token, body: { slug: "past-yard", html: page("Past") } });
+  const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10) + "T16:00";
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "past-yard", name: "Riley", contact: "riley.past@example.com", service: "Mow",
+    when: "yesterday", address: "12 Oak", note: "Front", start: yesterday, t: 4000
+  } }));
+  assert.equal(booked.status, 400);
+  assert.equal(booked.body.error, "date");
+  assert.match(booked.body.message, /tomorrow or later/);
+});
+
+test("an already published page picks up the family's Venmo name and the job price", async () => {
+  const saved = `<!DOCTYPE html><html><body><section id="book"></section><script>window.__C={"first":"Will","email":"parent@gmail.com","services":[{"n":"Mow a small yard","p":"$10"}]};</script><p>parent@gmail.com</p></body></html>`;
+  const bare = familyVenmo(stripParentContact(saved), "", "Will");
+  assert.equal(bare.includes("venmo.com"), false);
+  const out = familyVenmo(stripParentContact(saved), "@Steven-Orton-1", "Will");
+  assert.match(out, /id="venmoPay"/);
+  assert.match(out, /https:\/\/venmo\.com\/Steven-Orton-1\?txn=pay&amp;amount=10&amp;note=Will%3A%20Mow%20a%20small%20yard/);
+  assert.equal(out.includes("parent@gmail.com"), false);
+  assert.equal(out.includes("@gmail"), false);
+  assert.equal(familyVenmo(out, "Steven-Orton-1", "Will").match(/id="hb-venmo"/g).length, 1);
+  const { token, email } = await parent("venmo-page@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token, body: { slug: "will-pay", html: page("Will") + saved } });
+  const before = await call("GET", "/api/site/will-pay");
+  assert.equal(before.body.includes("venmo.com"), false);
+  const named = await json(await call("POST", "/api/venmo", { token, body: { venmo: "Steven-Orton-1" } }));
+  assert.equal(named.body.venmo, "Steven-Orton-1");
+  const after = await call("GET", "/api/site/will-pay");
+  assert.equal(after.status, 200);
+  assert.match(after.body, /venmo\.com\/Steven-Orton-1\?txn=pay&amp;amount=10/);
+  assert.equal(after.body.includes(email), false);
+  assert.equal(after.body.includes("@gmail"), false);
 });
 
 test("a priced booking opens Venmo with the parent handle, amount, and note", async () => {
@@ -1084,7 +1124,7 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   assert.equal(pub.body.ok, true);
   const booked = await json(await call("POST", "/api/book", { body: {
     slug: "riley-pets", name: "Neighbor", contact: "neighbor@example.com", service: "Dog walk",
-    when: "Saturday at 10:00 AM", address: "4 Pine", start: "2026-11-07T10:00", t: 3000
+    when: "Saturday at 10:00 AM", address: "4 Pine", start: futureDay(14) + "T10:00", t: 3000
   } }));
   assert.equal(booked.body.ok, true);
   const note = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
@@ -1121,7 +1161,7 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   assert.match(parentMail.body.messages.map((m) => m.subject).join(" "), /cancelled/i);
   const phoneOnly = await json(await call("POST", "/api/book", { body: {
     slug: "riley-pets", name: "Pat", contact: "402-555-0199", service: "Dog walk",
-    when: "Sunday at 9:00 AM", address: "9 Oak", start: "2026-11-08T09:00", t: 3000
+    when: "Sunday at 9:00 AM", address: "9 Oak", start: futureDay(15) + "T09:00", t: 3000
   }, headers: { "x-forwarded-for": "198.51.100.77" } }));
   assert.equal(phoneOnly.body.ok, true);
   const notes = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
@@ -1138,6 +1178,11 @@ async function patchAccount(change) {
   return account;
 }
 
+function futureDay(days) {
+  const d = new Date(Date.now() + days * 864e5);
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+}
+
 function bookAt(n) {
   return {
     slug: "sam",
@@ -1146,7 +1191,7 @@ function bookAt(n) {
     service: "Mow " + n,
     when: "Monday at 4:0" + n + " PM",
     address: n + " Oak Street",
-    start: "2026-11-02T16:0" + n,
+    start: futureDay(14) + "T16:0" + n,
     t: 4000
   };
 }
@@ -1424,6 +1469,8 @@ test("an already published page gains privacy links, copy-job validation, and th
 test("kid-owned replaces student-owned on the builder and on pages already saved", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.equal(/student[ -]owned/i.test(src), false);
+  assert.equal(src.includes("Built by a student"), false);
+  assert.match(src, /Built by a kid\. Backed by a parent\./);
   assert.match(src, /Kid-owned\. Parent-backed\./);
   assert.match(src, /"Kid-owned\. Serious work\."/);
   assert.match(src, /KID-OWNED/);
@@ -1550,7 +1597,7 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(pub.body.ok, true);
   const booked = await json(await call("POST", "/api/book", { body: {
     slug: "sam-pets", name: "Neighbor", contact: "neighbor-pet@example.com", service: "Poop scoop, one time",
-    when: "Saturday morning", address: "4 Pine", start: "2026-11-07T10:00", t: 3000,
+    when: "Saturday morning", address: "4 Pine", start: futureDay(14) + "T10:00", t: 3000,
     freq: "Weekly poop scoop", petKind: "Dog", petCount: "2", petNames: "Milo", petSize: "Medium",
     dayPart: "Morning", access: "lockbox 4481"
   } }));
@@ -1969,7 +2016,7 @@ test("a parent account lists the site, trial, receipts, and requests", async () 
   await call("POST", "/api/publish", { token, body: { slug: "sam-yard", html: page("Sam") } });
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "sam-yard", name: "Riley", contact: "402-555-0199", service: "Mow the yard", when: "Saturday morning",
-    address: "12 Oak", start: "2026-11-07T10:00", t: 4000
+    address: "12 Oak", start: futureDay(14) + "T10:00", t: 4000
   } }));
   assert.equal(book.body.ok, true);
   const account = await json(await call("GET", "/api/account", { token }));
@@ -2825,7 +2872,7 @@ function bookOn(slug, n) {
     service: "Mow " + n,
     when: "Monday at 4:0" + n + " PM",
     address: n + " Oak Street",
-    start: "2026-11-02T16:0" + n,
+    start: futureDay(14) + "T16:0" + n,
     t: 4000
   };
 }

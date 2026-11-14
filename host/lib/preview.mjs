@@ -1,4 +1,5 @@
 import { heroFitBoot } from "./hero.mjs";
+import { cleanVenmo, venmoNote, venmoPayUrl } from "./venmo.mjs";
 
 function escAttr(value) {
   return String(value || "")
@@ -58,6 +59,45 @@ export function setDogWalkPrice(html) {
     out = out.replace(from, to);
   }
   return out;
+}
+
+function firstPricedService(html) {
+  const re = /"n"\s*:\s*"([^"]+)"\s*,\s*"p"\s*:\s*"([^"]*)"/g;
+  let match;
+  while ((match = re.exec(String(html || "")))) {
+    const price = match[2].replace(/[^0-9.]/g, "");
+    if (price && Number(price) > 0) return { name: match[1], price };
+  }
+  return { name: "", price: "" };
+}
+
+// Already published pages keep whatever pay line they were saved with.
+// The family's Venmo name lives on the account, so the live page grows a
+// Pay with Venmo link from that name. The amount is the job the neighbor
+// has picked. The note is the kid's first name and the job, never an
+// address, email, or phone.
+export function familyVenmo(html, username, kid) {
+  const user = cleanVenmo(username);
+  let out = String(html || "");
+  if (!user || out.includes('id="hb-venmo"')) return out;
+  const fromPage = String(html || "").match(/"first"\s*:\s*"([^"\\]{1,40})"/);
+  const who = String(kid || (fromPage && fromPage[1]) || "").trim().split(/\s+/)[0].replace(/[^A-Za-z'.-]/g, "").slice(0, 40);
+  const job = firstPricedService(out);
+  const href = venmoPayUrl(user, { amount: job.price, note: venmoNote({ kid: who, service: job.name }) });
+  const safeHref = escAttr(href);
+  if (/id=["']venmoPay["']/i.test(out)) {
+    out = out.replace(/(<a\b[^>]*id=["']venmoPay["'][^>]*)(>)/i, (full, open, end) => {
+      const next = /href\s*=/.test(open) ? open.replace(/href\s*=\s*["'][^"']*["']/, `href="${safeHref}"`) : open + ` href="${safeHref}"`;
+      return next + end;
+    });
+  } else {
+    const link = `<a class="venmo" id="venmoPay" href="${safeHref}" target="_blank" rel="noopener">Pay with Venmo</a>`;
+    if (/id=["']book["']/i.test(out)) out = out.replace(/(<section\b[^>]*id=["']book["'][^>]*>)/i, (tag) => tag + link);
+    else if (out.includes("</body>")) out = out.replace("</body>", () => link + "</body>");
+    else out += link;
+  }
+  const boot = `<script id="hb-venmo">(function(){var user=${JSON.stringify(user)};var kid=${JSON.stringify(who)};function price(){var sel=document.getElementById("svc");var name=sel?sel.value:"";var list=(window.__C&&window.__C.services)||[];var p="";for(var i=0;i<list.length;i++){if(list[i]&&list[i].n===name)p=String(list[i].p||"").replace(/[^0-9.]/g,"");}return p;}function href(){var parts=["txn=pay"];var raw=price();var num=Number(raw);if(raw&&isFinite(num)&&num>0&&num<=999)parts.push("amount="+encodeURIComponent(String(Math.round(num*100)/100)));var sel=document.getElementById("svc");var job=sel&&sel.value?sel.value:"";var note=[kid?kid+":":"",job].filter(Boolean).join(" ").replace(/\\s+/g," ").trim().slice(0,120);if(note)parts.push("note="+encodeURIComponent(note));return "https://venmo.com/"+encodeURIComponent(user)+"?"+parts.join("&");}function paint(){var a=document.getElementById("venmoPay");if(!a)return;a.href=href();}var sel=document.getElementById("svc");if(sel)sel.addEventListener("change",paint);paint();})();</script>`;
+  return out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
 }
 
 export function stripParentContact(html) {
