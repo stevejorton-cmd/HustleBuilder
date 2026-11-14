@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
-import { bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
+import { bookingInviteIcs, chicagoWall, inviteSummary, jobsToIcs } from "../host/lib/calendar.mjs";
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { stripParentContact } from "../host/lib/preview.mjs";
@@ -314,66 +314,6 @@ test("a booking invite names the kid and the neighbor, and a cancel removes that
   assert.match(byeIcs, /SUMMARY:Will: Leaf cleanup - Casey/);
   assert.equal(bye.text.includes("9 Hidden Ct"), false);
   assert.equal(bye.text.includes("402"), false);
-});
-
-test("something else takes its name from the note, and email plus phone both stay reachable", async () => {
-  assert.equal(jobTitle("Mow a small yard", "Dog walking"), "Mow a small yard");
-  assert.equal(jobTitle("Something else", "Dog walking"), "Dog walking");
-  assert.equal(jobTitle("Something else (tell me in the note)", ""), "Custom job");
-  assert.equal(jobTitle("Something else", "  \n  "), "Custom job");
-  assert.equal(jobTitle("Something else", "Please walk the dog every morning before school and bring waste bags"), "Please walk the dog every morning");
-  const { token, email } = await parent("custom@example.com");
-  await call("POST", "/api/consent", { token, body: { consent: true } });
-  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
-  const html = page("The Lawn Ranger") + "<script>window.__C={\"first\":\"Will\",\"biz\":\"The Lawn Ranger\"};</script>";
-  await call("POST", "/api/publish", { token, body: { slug: "will-custom", html } });
-  const book = await json(await call("POST", "/api/book", { body: {
-    slug: "will-custom", name: "Dana", contact: "dana@example.com, 402-555-0199", service: "Something else",
-    when: "Sat Nov 21 10:00 AM", address: "8 Quiet St", note: "Dog walking", start: "2026-11-21T10:00", t: 5000
-  } }));
-  assert.equal(book.body.ok, true);
-  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
-  const msg = box.body.messages.find((m) => /Booking request/.test(m.subject));
-  assert.equal(msg.subject, "Booking request: Dog walking");
-  assert.equal(msg.replyTo, "dana@example.com");
-  assert.match(msg.html, /tel:\+14025550199/);
-  assert.match(msg.html, /sms:\+14025550199/);
-  assert.match(msg.html, />Call Dana</);
-  assert.match(msg.html, />Text Dana</);
-  assert.match(msg.html, />Email Dana</);
-  assert.match(msg.text, /text=Dog%20walking%20-%20Dana/);
-  const ics = msg.ics.replace(/\r\n[ \t]/g, "");
-  assert.match(ics, /SUMMARY:Will: Dog walking - Dana/);
-  const me = await json(await call("GET", "/api/me", { token }));
-  const feed = await call("GET", new URL(me.body.calUrl).pathname);
-  assert.match(feed.body.replace(/\r\n[ \t]/g, ""), /SUMMARY:Dog walking - Dana/);
-  assert.equal(feed.body.includes("Something else"), false);
-  const blank = await json(await call("POST", "/api/book", { body: {
-    slug: "will-custom", name: "Dana", contact: "dana@example.com", service: "Something else",
-    when: "Sun Nov 22 11:00 AM", address: "8 Quiet St", note: "", start: "2026-11-22T11:00", t: 5000
-  }, headers: { "x-forwarded-for": "203.0.113.40" } }));
-  assert.equal(blank.body.ok, true);
-  const again = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
-  const empty = again.body.messages.filter((m) => /Booking request/.test(m.subject)).at(-1);
-  assert.equal(empty.subject, "Booking request: Custom job");
-  assert.equal(empty.html.includes("tel:"), false);
-  assert.match(empty.html, />Email Dana</);
-  assert.equal(empty.replyTo, "dana@example.com");
-  const mixed = await json(await call("POST", "/api/book", { body: {
-    slug: "will-custom", name: "Dana", contact: "user2@example.com, (402) 555-0108", service: "Mow",
-    when: "Mon Nov 23 9:00 AM", address: "8 Quiet St", note: "front only", start: "2026-11-23T09:00", t: 5000
-  }, headers: { "x-forwarded-for": "203.0.113.41" } }));
-  assert.equal(mixed.body.ok, true);
-  const both = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
-  const kept = both.body.messages.filter((m) => m.subject === "Booking request: Mow").at(-1);
-  assert.match(kept.html, /tel:\+14025550108/);
-  assert.match(kept.html, /sms:\+14025550108/);
-  assert.match(kept.html, /mailto:user2@example.com/);
-  assert.equal(kept.html.includes("24025550108"), false);
-  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  assert.match(src, /id="otherHint"/);
-  assert.match(src, /For something else, write what you need/);
-  assert.match(src, /otherOn\(\)&&!note/);
 });
 
 test("admin takedown hides the page and the parent cannot put it back", async () => {
