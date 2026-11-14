@@ -7,6 +7,7 @@ import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
+import { stripParentContact } from "../host/lib/preview.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
@@ -595,14 +596,60 @@ test("published pages have preview tags, hide the phone unless asked, and offer 
   assert.equal(shown.body.ok, true);
   const live2 = await call("GET", "/api/site/sam");
   assert.match(live2.body, /index,follow/);
-  assert.match(live2.body, /tel:4025550100/);
+  assert.equal(live2.body.includes("tel:"), false);
+  assert.equal(live2.body.includes("4025550100"), false);
+});
+
+test("a public page drops a parent's email and phone from html and script", async () => {
+  const leaked = `<!DOCTYPE html><html><head><title>Will</title></head><body>
+<a href="mailto:parent@example.com">Email</a>
+<a href="tel:4025550199">Call</a>
+<a href="sms:4025550199">Text</a>
+<p>Write parent@example.com</p>
+<script type="application/ld+json">{"email":"parent@example.com"}</script>
+<script>window.__C={"first":"Will","biz":"The Lawn Ranger","email":"parent@example.com","phoneDigits":"4025550199","phone":"402-555-0199"};</script>
+</body></html>`;
+  const clean = stripParentContact(leaked);
+  assert.equal(clean.includes("parent@example.com"), false);
+  assert.equal(clean.includes("4025550199"), false);
+  assert.equal(clean.includes("402-555-0199"), false);
+  assert.equal(clean.includes("mailto:parent"), false);
+  assert.equal(clean.includes("tel:"), false);
+  assert.equal(clean.includes("sms:"), false);
+  assert.match(clean, /href="#book"/);
+  assert.match(clean, /"email":""/);
+  assert.match(clean, /"phoneDigits":""/);
+  assert.match(clean, /"first":"Will"/);
+  assert.match(clean, /The Lawn Ranger/);
+  assert.match(clean, /a\[href\^="\/api\/report"\]/);
+  const kept = stripParentContact('<a href="mailto:bookings@hustlebuilder.org">Relay</a>');
+  assert.match(kept, /mailto:bookings@hustlebuilder\.org/);
+  const { token } = await parent("secret-parent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const html = page("Will") + leaked;
+  const pub = await json(await call("POST", "/api/publish", { token, body: {
+    slug: "will-public", html, showPhone: true, phone: "402-555-0199"
+  } }));
+  assert.equal(pub.body.ok, true);
+  const live = await call("GET", "/api/site/will-public");
+  assert.equal(live.body.includes("secret-parent@example.com"), false);
+  assert.equal(live.body.includes("parent@example.com"), false);
+  assert.equal(live.body.includes("4025550199"), false);
+  assert.equal(live.body.includes("402-555-0199"), false);
+  assert.equal(/mailto:(?!bookings@hustlebuilder\.org|support@hustlebuilder\.org)/i.test(live.body), false);
+  assert.match(live.body, /Report this page/);
+  assert.match(live.body, /font-weight:800/);
 });
 
 test("the builder hides the phone unless the parent turns it on", async () => {
   const { readFile } = await import("fs/promises");
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /showPhone:false/);
-  assert.match(src, /const publicPhone=!!\(c\.showPhone&&c\.phoneDigits\)/);
+  assert.match(src, /const publicPhone=false/);
+  assert.equal(src.includes("mailto:${esc(c.email)}"), false);
+  assert.match(src, /href="#book">Email</);
+  assert.match(src, /mailto:bookings@hustlebuilder\.org/);
   assert.equal(src.includes("app.netlify.com"), false);
   assert.equal(src.includes("Manage deployments"), false);
 });

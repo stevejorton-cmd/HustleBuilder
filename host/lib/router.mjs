@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
 import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
-import { decoratePage, hidePhone } from "./preview.mjs";
+import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
@@ -916,7 +916,7 @@ function privacyPage() {
 <p>We store that the check happened: the method (a card check, or a later plan payment), the time, Stripe’s payment id, and this notice’s version. We do not store the card number, the expiration date, or the security code. A parent who already passed the check does not do it again for another kid’s page or for an update. Buying a real plan also counts, so that parent skips the 50¢. Refunding the 50¢ does not take the page down.</p>
 
 <h2>What the public page shows</h2>
-<p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add. A parent’s phone number is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
+<p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add. A parent’s email and phone are not on the page. Neighbors use the booking form. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Each page has a “Report this page” link. If a few people report a page, it is hidden until we check it.</p>
 
 <h2>Booking requests from neighbors</h2>
@@ -1399,7 +1399,7 @@ async function serveSlugInner(slug, view) {
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
-  const page = await (await store()).get("pages/" + slug + ".html");
+  const page = stripParentContact(await (await store()).get("pages/" + slug + ".html"));
   if (!page) return missingPage(slug, false);
   // The real page is the only response that gets the "Built with" belt,
   // added here at serve time so the stored page stays exactly as the
@@ -2197,6 +2197,7 @@ async function routeRequest(req) {
     const image = pets.length ? petOgImage(origin) : (origin || "") + "/api/card/" + slug + ".png";
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
+    stored = stripParentContact(stored);
     await (await store()).put("pages/" + slug + ".html", stored);
     const pageNames = namesFromHtml(stored);
     const keptStatus = existing && ["paused","review"].includes(existing.status) ? existing.status : "live";

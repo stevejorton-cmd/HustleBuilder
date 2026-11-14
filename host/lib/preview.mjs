@@ -38,6 +38,21 @@ export function decoratePage(html, { title, description, image, url, indexable }
   return out;
 }
 
+// A published page must not carry a parent's email or phone: not in a link,
+// not in the page text, and not in the script config. The booking form is
+// how a neighbor reaches them. bookings@ and support@ are our own addresses.
+export function stripParentContact(html) {
+  let out = hidePhone(String(html || ""), "");
+  out = out.replace(/href\s*=\s*(["'])mailto:(?!bookings@hustlebuilder\.org|support@hustlebuilder\.org)[\s\S]*?\1/gi, 'href="#book"');
+  out = out.replace(/"(email|email2|phone|phone2|phoneDigits|phone2Digits)"\s*:\s*"(?:\\.|[^"\\])*"/g, '"$1":""');
+  out = out.replace(/[A-Z0-9._%+-]+@(?!hustlebuilder\.org\b)[A-Z0-9.-]+\.[A-Z]{2,}/gi, "");
+  if (!out.includes("report-link-contrast")) {
+    const css = `<style id="report-link-contrast">a[href^="/api/report"],footer a{color:var(--bone,CanvasText);font-weight:800;text-decoration:underline;text-underline-offset:3px;font-size:16px}</style>`;
+    out = out.includes("</head>") ? out.replace("</head>", () => css + "</head>") : css + out;
+  }
+  return out;
+}
+
 export function hidePhone(html,phone) {
   // Preserve scripts, CSS and image data byte-for-byte. Phone-shaped digit
   // sequences can appear inside embedded photos and must not be rewritten.
