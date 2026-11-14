@@ -15,7 +15,7 @@ function part(start, end) {
 test("ink saver is the default flyer and poster look for every job", () => {
   const theme = vm.createContext({});
   vm.runInContext(part("function flyerTheme(", "function drawHeadline("), theme);
-  for (const type of ["lawn", "snow", "both", "pet", "odd", "wash", "help", "tutor", "other"]) {
+  for (const type of ["lawn", "snow", "both", "pet", "prep", "odd", "wash", "help", "tutor", "other"]) {
     const ink = theme.flyerTheme({ type, style: "ink", accent: "#FF5B14" });
     assert.equal(ink.bg, "#FFFFFF", type);
     assert.equal(ink.ink, "#111111", type);

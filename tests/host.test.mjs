@@ -1885,7 +1885,7 @@ test("add more jobs lists the selected business type first", async () => {
   const end = src.indexOf("JOBS.forEach(g=>g.items", start);
   if (start < 0 || end < 0) throw new Error("missing job catalog");
   const names = (picked) => runInNewContext(src.slice(start, end) + `orderedJobGroups(${JSON.stringify(picked)}).map(g=>g.g).join("|")`);
-  const all = ["Yard jobs", "Snow jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"];
+  const all = ["Yard jobs", "Snow jobs", "Winter prep jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"];
   const expectOrder = (picked, first) => {
     const got = names(picked).split("|");
     assert.deepEqual(got.slice(0, first.length), first);
@@ -1895,12 +1895,13 @@ test("add more jobs lists the selected business type first", async () => {
   expectOrder("lawn", ["Yard jobs"]);
   expectOrder("snow", ["Snow jobs"]);
   expectOrder("pet", ["Pet jobs"]);
+  expectOrder("prep", ["Winter prep jobs"]);
   expectOrder("both", ["Yard jobs", "Snow jobs"]);
   expectOrder("odd", ["Yard jobs"]);
   expectOrder("wash", ["Car jobs"]);
   expectOrder("help", ["Helpful extras"]);
   expectOrder("tutor", ["Reading jobs"]);
-  expectOrder("other", ["Yard jobs", "Snow jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"]);
+  expectOrder("other", ["Yard jobs", "Snow jobs", "Winter prep jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"]);
   expectOrder(["pet", "snow"], ["Pet jobs", "Snow jobs"]);
   expectOrder(["snow", "lawn"], ["Snow jobs", "Yard jobs"]);
   expectOrder(["both", "pet"], ["Yard jobs", "Snow jobs", "Pet jobs"]);
@@ -1917,7 +1918,7 @@ test("each business type preloads starter jobs", async () => {
   if (start < 0 || end < 0) throw new Error("missing starter jobs");
   const api = runInNewContext(src.slice(start, end) + "({starterServices, svcSwitch})");
   const { starterServices, svcSwitch } = api;
-  for (const type of ["lawn", "snow", "pet", "wash", "odd", "help", "tutor", "both"]) {
+  for (const type of ["lawn", "snow", "pet", "prep", "wash", "odd", "help", "tutor", "both"]) {
     const jobs = starterServices(type, 1);
     assert.ok(jobs.length >= 4, type + " preloaded " + jobs.length);
     assert.equal(new Set(jobs.map((job) => job.n.toLowerCase())).size, jobs.length);
@@ -1927,6 +1928,12 @@ test("each business type preloads starter jobs", async () => {
   const lawn = starterServices("lawn", 1).map((job) => job.n);
   assert.ok(lawn.includes("Mow a small yard"));
   assert.ok(lawn.includes("Weeding"));
+  const prep = starterServices("prep", 1);
+  assert.equal(prep.find((job) => job.n === "Yard cleanup / winter prep, small").p, "15");
+  assert.equal(prep.find((job) => job.n === "Yard cleanup / winter prep, medium").p, "25");
+  assert.equal(prep.find((job) => job.n === "Yard cleanup / winter prep, large").p, "40");
+  assert.ok(prep.some((job) => job.n === "Gutter leaves, from the ground"));
+  assert.ok(prep.some((job) => job.n === "Shovel walks and driveway"));
   assert.equal(starterServices("lawn", 1)[0].p, "10");
   assert.equal(starterServices("lawn", 5)[0].p, "15"); // softened curve (Steven, 2026-11-07): L5 = base x1.48
   const mixed = starterServices(["pet", "lawn"], 1);
@@ -2012,7 +2019,7 @@ test("every job type has at least 12 name ideas and funny names", async () => {
     if (start < 0 || end < 0) throw new Error("missing " + from);
     return src.slice(start, end);
   };
-  const types = ["lawn", "snow", "both", "pet", "odd", "wash", "help", "tutor", "other"];
+  const types = ["lawn", "snow", "both", "pet", "prep", "odd", "wash", "help", "tutor", "other"];
   runInNewContext(cut("const NAME_IDEAS=", "const TAG_IDEAS=") + cut("const FUNNY=", "let funnyPage=") + `
     const seen = {};
     for (const type of ${JSON.stringify(types)}) {
@@ -3087,6 +3094,49 @@ test("pilot fixes: small animal has real art like the other pets", async () => {
   const html = genSite(demoCfg({ type: "pet", pets: ["dog", "cat", "fish", "bird", "small"] }));
   assert.ok(html.includes("pet-small.webp"), "the published pets row uses the hamster art");
   assert.equal(html.includes("🐹"), false, "no emoji stand-in left on the page");
+});
+
+test("yard cleanup and winter prep is a bookable job with hand-tool safety", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /\{id:"prep",name:"Winter prep"/);
+  assert.match(src, /No ladders, roofs, or power trimmers without an adult\. Hand tools only, or a parent's OK\./);
+  assert.match(src, /flyerStyle:"ink"/);
+  const { genSite } = extractBuilderParts(src);
+  const html = genSite(demoCfg({
+    type: "prep",
+    biz: "Taylor's Yard Cleanup",
+    tagline: "Hand tools only. No ladders or roofs.",
+    services: [
+      { n: "Yard cleanup / winter prep, small", p: "15" },
+      { n: "Yard cleanup / winter prep, medium", p: "25" },
+      { n: "Yard cleanup / winter prep, large", p: "40" }
+    ]
+  }));
+  assert.match(html, /Yard cleanup \/ winter prep, small/);
+  assert.match(html, />\$15</);
+  assert.match(html, />\$25</);
+  assert.match(html, />\$40</);
+  assert.match(html, /id="prepsafe"/);
+  assert.match(html, /Gutter leaves are cleared from the ground only/);
+  assert.match(html, /Every snowfall this winter/);
+  const { token, email } = await parent("prep@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const published = await json(await call("POST", "/api/publish", { token, body: { slug: "taylor-prep", html } }));
+  assert.equal(published.body.ok, true);
+  const live = await call("GET", "/api/site/taylor-prep");
+  assert.match(live.body, /Yard cleanup \/ winter prep, medium/);
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "taylor-prep", name: "Dana", contact: "dana-prep@example.com",
+    service: "Yard cleanup / winter prep, medium", price: "25",
+    when: "Sat Nov 21 10:00 AM", address: "123 Test St, Lincoln, NE",
+    note: "front walk", start: "2026-11-21T10:00", t: 5000
+  } }));
+  assert.equal(book.body.ok, true, JSON.stringify(book.body));
+  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const msg = box.body.messages.find((m) => /Booking request/.test(m.subject));
+  assert.equal(msg.subject, "Booking request: Yard cleanup / winter prep, medium");
+  assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /SUMMARY:Taylor: Yard cleanup \/ winter prep\\, medium - Dana/);
 });
 
 test("pilot fixes: sticky preview offset survives, pet hero spans full width, friendly tag is solid", async () => {
