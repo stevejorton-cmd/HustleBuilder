@@ -5,7 +5,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
-import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
+import { bookingInviteIcs, chicagoWall, inviteSummary, jobsToIcs } from "../host/lib/calendar.mjs";
+import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
@@ -217,8 +218,19 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   assert.match(msg.text, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
   assert.match(msg.text, /about 30 days/);
   assert.match(msg.ics, /BEGIN:VCALENDAR\r\n/);
+  assert.match(msg.ics, /METHOD:REQUEST/);
+  assert.match(msg.ics, /ORGANIZER;CN=Hustle Builder:mailto:bookings@hustlebuilder\.org/);
+  assert.match(msg.ics, /SEQUENCE:0/);
+  assert.match(msg.ics, /STATUS:TENTATIVE/);
   assert.match(msg.ics, /DTSTART;TZID=America\/Chicago:20261116T160000/);
-  assert.match(msg.ics, /Gate\\, side\\; door/);
+  assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /Gate\\, side\\; door/);
+  assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /mailto:parent@example.com/);
+  assert.match(msg.text, /calendar\.google\.com\/calendar\/r\?cid=/);
+  assert.equal(live.body.includes("/api/cal/"), false);
+  const sent = resendBody(msg);
+  assert.equal(sent.attachments[0].filename, "booking.ics");
+  assert.equal(sent.attachments[0].content_type, 'text/calendar; charset="UTF-8"; method=REQUEST');
+  assert.match(Buffer.from(sent.attachments[0].content, "base64").toString("utf8"), /METHOD:REQUEST/);
   const me = await json(await call("GET", "/api/me", { token }));
   assert.match(me.body.calUrl, /^http:\/\/sites\.test\/api\/cal\/[a-f0-9]{32,}\.ics$/);
   assert.equal(me.body.calGoogle, "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent(me.body.calWebcal));
@@ -232,6 +244,75 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   const privacy = await call("GET", "/api/site/privacy");
   assert.match(privacy.body, /family calendar/);
   assert.match(privacy.body, /30 days/);
+});
+
+test("a booking invite names the kid and the neighbor, and a cancel removes that same event", async () => {
+  assert.equal(inviteSummary("Will", "Mow a small yard", "Riley Stone"), "Will: Mow a small yard - Riley");
+  const updated = bookingInviteIcs({
+    id: "bupdated1", start: "2026-11-21T10:00", summary: "Will: Mow a small yard - Riley",
+    location: "12 Private Ln", description: "side gate\nMark confirmed or done: https://hustlebuilder.org/api/job/abc",
+    attendee: "parent@example.com", sequence: 2, method: "REQUEST"
+  });
+  assert.match(updated, /SEQUENCE:2/);
+  assert.match(updated, /METHOD:REQUEST/);
+  const { token, email } = await parent("invite@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const html = page("The Lawn Ranger") + "<script>window.__C={\"first\":\"Will\",\"biz\":\"The Lawn Ranger\"};</script>";
+  await call("POST", "/api/publish", { token, body: { slug: "will-yard", html } });
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "will-yard", name: "Riley Stone", contact: "neighbor@example.com", service: "Mow a small yard",
+    when: "Sat Nov 21 10:00 AM", address: "12 Private Ln", note: "side gate", start: "2026-11-21T10:00", t: 5000
+  } }));
+  assert.equal(book.body.ok, true);
+  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const msg = box.body.messages.find((m) => /Booking request/.test(m.subject));
+  const ics = msg.ics.replace(/\r\n[ \t]/g, "");
+  assert.match(ics, /SUMMARY:Will: Mow a small yard - Riley/);
+  assert.match(ics, /LOCATION:12 Private Ln/);
+  assert.match(ics, /side gate/);
+  assert.match(ics, /Mark confirmed or done: http:\/\/sites\.test\/api\/job\//);
+  assert.equal(ics.includes("neighbor@example.com"), false);
+  assert.equal(ics.includes("402"), false);
+  const uid = (ics.match(/UID:(b[a-f0-9]+@hustlebuilder\.org)/) || [])[1];
+  assert.ok(uid);
+  const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
+  const cancelUrl = (neighbor.body.messages[0].text.match(/https?:\/\/\S+\/api\/cancel\/[a-f0-9]+/) || [])[0];
+  const cancelled = await call("POST", new URL(cancelUrl).pathname, { body: {} });
+  assert.equal(cancelled.status, 200);
+  const after = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const note = after.body.messages.at(-1);
+  assert.equal(note.subject, "A neighbor cancelled");
+  const drop = note.ics.replace(/\r\n[ \t]/g, "");
+  assert.match(drop, /METHOD:CANCEL/);
+  assert.match(drop, /STATUS:CANCELLED/);
+  assert.match(drop, /SEQUENCE:1/);
+  assert.match(drop, new RegExp("UID:" + uid.replace(/[.]/g, "\\.")));
+  assert.equal(resendBody(note).attachments[0].content_type, 'text/calendar; charset="UTF-8"; method=CANCEL');
+  const me = await json(await call("GET", "/api/me", { token }));
+  const feed = await call("GET", new URL(me.body.calUrl).pathname);
+  assert.equal(feed.body.includes(uid), false);
+  const pageHtml = await call("GET", "/api/site/will-yard");
+  assert.equal(pageHtml.body.includes("12 Private Ln"), false);
+  assert.equal(pageHtml.body.includes("/api/cal/"), false);
+  const again = await json(await call("POST", "/api/book", { body: {
+    slug: "will-yard", name: "Casey", contact: "402-555-0144", service: "Leaf cleanup",
+    when: "Sun Nov 22 2:00 PM", address: "9 Hidden Ct", note: "back gate", start: "2026-11-22T14:00", t: 5000
+  } }));
+  assert.equal(again.body.ok, true);
+  const second = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const request = second.body.messages.filter((m) => /Booking request/.test(m.subject)).at(-1);
+  const action = (request.text.match(/https?:\/\/\S+\/api\/job\/[a-f0-9]+/) || [])[0];
+  const marked = await call("POST", new URL(action).pathname, { body: { status: "cancelled" } });
+  assert.equal(marked.status, 200);
+  const dropped = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const bye = dropped.body.messages.at(-1);
+  assert.match(bye.subject, /Booking cancelled/);
+  const byeIcs = bye.ics.replace(/\r\n[ \t]/g, "");
+  assert.match(byeIcs, /METHOD:CANCEL/);
+  assert.match(byeIcs, /SUMMARY:Will: Leaf cleanup - Casey/);
+  assert.equal(bye.text.includes("9 Hidden Ct"), false);
+  assert.equal(bye.text.includes("402"), false);
 });
 
 test("admin takedown hides the page and the parent cannot put it back", async () => {
@@ -1547,6 +1628,9 @@ test("going live and paying each send one email", async () => {
   assert.match(live[0].text, /Share the link/);
   assert.match(live[0].html, /api\/qr\/sam-yard\.png/);
   assert.match(live[0].text, /\/\?account=1/);
+  assert.match(live[0].text, /calendar\.google\.com\/calendar\/r\?cid=webcal%3A%2F%2F/);
+  assert.match(live[0].html, /Add the family calendar to Google Calendar/);
+  assert.equal(live[0].text.includes("steve@"), false);
   const qr = await call("GET", "/api/qr/sam-yard.png");
   assert.equal(qr.body[0], 137);
   const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));

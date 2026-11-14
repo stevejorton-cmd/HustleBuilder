@@ -6,6 +6,26 @@ const sha=v=>createHash('sha256').update(String(v)).digest('hex');
 const warned=new Set();
 const warnOnce=text=>{if(warned.has(text))return;warned.add(text);console.error(text);};
 export const withMailBatch=fn=>requests.run([],async()=>{const result=await fn();return {result,ids:requests.getStore()};});
+// Resend accepts a calendar invitation when the attachment content type
+// carries the iCalendar method. Their calendar example uses
+// text/calendar; charset="UTF-8"; method=REQUEST (and CANCEL for a
+// cancellation). Content stays base64, which is what the send API stores.
+export function resendBody(message) {
+  const payload = { from: process.env.BOOKING_FROM, to: [message.to], subject: message.subject, text: message.text };
+  if (message.html) payload.html = message.html;
+  if (message.replyTo) payload.reply_to = message.replyTo;
+  const ics = String(message.ics || "");
+  if (ics) {
+    const unfolded = ics.replace(/\r\n[ \t]/g, "");
+    const method = (unfolded.match(/^METHOD:(REQUEST|CANCEL|PUBLISH)/m) || [])[1] || "PUBLISH";
+    payload.attachments = [{
+      filename: method === "CANCEL" ? "cancel.ics" : "booking.ics",
+      content: Buffer.from(ics).toString("base64"),
+      content_type: 'text/calendar; charset="UTF-8"; method=' + method
+    }];
+  }
+  return payload;
+}
 export async function queueMail(message){
   const id=randomBytes(20).toString('hex');
   await (await store()).put('mailqueue/'+id+'.json',JSON.stringify({...message,id,createdAt:Date.now(),attempts:0}));
@@ -37,9 +57,7 @@ export async function flushMail(ids){
         rows.push({at:new Date().toISOString(),...m});await s.put(k,JSON.stringify(rows.slice(-20)));await s.del(key);return;
       }
       if(!process.env.RESEND_API_KEY||!process.env.BOOKING_FROM){warnOnce('[hb] mail is queued but cannot be sent: RESEND_API_KEY or BOOKING_FROM is not set');return;}
-      const payload={from:process.env.BOOKING_FROM,to:[m.to],subject:m.subject,text:m.text};
-      if(m.html)payload.html=m.html;if(m.replyTo)payload.reply_to=m.replyTo;
-      if(m.ics)payload.attachments=[{filename:'booking.ics',content:Buffer.from(m.ics).toString('base64')}];
+      const payload=resendBody(m);
       let response;
       try{response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'hb-mail-'+id},body:JSON.stringify(payload),signal:AbortSignal.timeout(Math.min(8000,Math.max(1,deadline-Date.now())))});}catch{/* Persist retry backoff even when the provider connection times out. */}
       if(response?.ok){await s.del(key);return;}
