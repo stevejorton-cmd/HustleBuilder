@@ -638,6 +638,32 @@ if(e){e.onclick=function(){var m=build(); if(m){window.location.href="mailto:"+C
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.ok(box.body.messages.length >= 1);
   assert.equal(live.body.includes(email), false);
+  for (const slug of ["maryn", "will-highline-yard"]) {
+    const pub2 = await json(await call("POST", "/api/publish", { token, body: { slug, html: page(slug) + leaked, showPhone: true, phone: "402-555-0199" } }));
+    assert.equal(pub2.body.ok, true, slug);
+    const live2 = await call("GET", "/api/site/" + slug);
+    assert.equal(live2.body.includes("parent@example.com"), false, slug);
+    assert.equal(live2.body.includes(email), false, slug);
+    assert.equal(live2.body.includes("4025550199"), false, slug);
+    assert.equal(live2.body.includes("mailto:"), false, slug);
+  }
+});
+
+test("a plan purchase is recorded on the page the parent was buying", async () => {
+  const { token } = await parent("which-page@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "maryn", html: page("Maryn") } });
+  await call("POST", "/api/publish", { token, body: { slug: "will-the-lawn-ranger", html: page("Will") } });
+  const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season", slug: "will-the-lawn-ranger" } }));
+  assert.equal(pay.body.ok, true);
+  const acct = await json(await call("GET", "/api/account", { token }));
+  const maryn = acct.body.sites.find((site) => site.slug === "maryn");
+  const will = acct.body.sites.find((site) => site.slug === "will-the-lawn-ranger");
+  assert.equal(maryn.receipts.length, 0);
+  assert.equal(will.receipts.length, 1);
+  assert.equal(will.receipts[0].slug, "will-the-lawn-ranger");
+  assert.equal(will.paid, true);
+  assert.match(will.planName, /Winter season/);
 });
 
 test("the builder hides the phone unless the parent turns it on", async () => {
@@ -1080,6 +1106,12 @@ test("a parent can confirm, finish, or cancel a booking from My jobs", async () 
   assert.match(home, /location\.pathname==="\/parents"/);
   assert.match(home, /What job do you need\?/);
   assert.match(home, /Plans are one-time payments and never renew on their own\./);
+  assert.match(home, /function applyPlanChrome\(me\)/);
+  assert.match(home, /id="planStatus"/);
+  assert.match(home, /Your site is good through /);
+  assert.match(home, /const EXAMPLE_RATES=/);
+  assert.match(home, /class="parents-link" href="\/parents"/);
+  assert.match(home, /overflow-wrap:break-word;word-break:normal/);
   assert.equal(email.includes("@"), true);
 });
 
@@ -2303,24 +2335,33 @@ test("serving line: the hero keeps extra room under the Serving row in every loo
 });
 
 /* ---- pilot fixes (Nov 1): prices, pet art, sticky preview, pet hero, tagline, Make It Yours ---- */
-test("pilot fixes: prices cap at $500 wherever they render, free text untouched", async () => {
+test("job prices over $200 ask to confirm and prices over $999 cannot publish", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { genSite, fmtPrice, cleanPrice } = extractBuilderParts(src);
-  assert.equal(cleanPrice("10000"), "500");
-  assert.equal(cleanPrice("501"), "500");
-  assert.equal(cleanPrice("500"), "500");
-  assert.equal(cleanPrice("499.99"), "499.99");
-  assert.equal(cleanPrice("20/hr"), "20/hr"); // free text stays free text
+  assert.equal(cleanPrice("250"), "250");
+  assert.equal(cleanPrice("10000"), "10000");
+  assert.equal(cleanPrice("20/hr"), "20/hr");
   assert.equal(cleanPrice("-50"), "");
-  assert.equal(fmtPrice("10000"), "$500");
   assert.equal(fmtPrice("25"), "$25");
-  const html = genSite(demoCfg({ services: [{ n: "Big job", p: "10000" }, { n: "Hourly help", p: "20/hr" }] }));
-  assert.ok(html.includes("$500"), "page renders the capped price");
-  assert.equal(html.includes("$10000"), false);
-  assert.ok(html.includes("20/hr"), "free-text price renders as typed");
-  // the builder clamps the field itself on blur, in both price inputs
-  assert.match(src, /p\.onblur=\(\)=>\{const v=priceNum\(p\.value\);if\(v!==null&&\(v>500\|\|v<0\)\)/);
-  assert.match(src, /addEventListener\("blur",\(\)=>\{const inp=\$\("#seasonPrice"\),v=priceNum\(inp\.value\);if\(v!==null&&\(v>500\|\|v<0\)\)/);
+  assert.equal(fmtPrice("10000"), "$10000");
+  const html = genSite(demoCfg({ services: [{ n: "Dog walk, 15 minutes", p: "10000" }, { n: "Hourly help", p: "20/hr" }] }));
+  assert.ok(html.includes("$10000"));
+  assert.ok(html.includes("20/hr"));
+  assert.match(src, /priceTooHigh/);
+  assert.match(src, /priceNeedsConfirm/);
+  assert.match(src, /A price over \$999 cannot be published/);
+  const { token } = await parent("prices@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season", slug: "maryn" } });
+  const ok = await json(await call("POST", "/api/publish", { token, body: { slug: "maryn", html: page("Maryn") + "<p>$15</p>" } }));
+  assert.equal(ok.body.ok, true);
+  const before = await call("GET", "/api/site/maryn");
+  const blocked = await json(await call("POST", "/api/publish", { token, body: { slug: "maryn", html: page("Maryn") + "<p>Dog walk, 15 minutes $10000</p>" } }));
+  assert.equal(blocked.body.error, "price");
+  assert.match(blocked.body.message, /\$10000/);
+  const after = await call("GET", "/api/site/maryn");
+  assert.equal(after.body, before.body);
+  assert.equal(after.body.includes("$10000"), false);
 });
 
 test("pilot fixes: small animal has real art like the other pets", async () => {

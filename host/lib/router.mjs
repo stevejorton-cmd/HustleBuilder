@@ -454,6 +454,30 @@ function kidJob(row, account) {
   };
 }
 
+// Job prices a neighbor would see. A number over $999 is refused at publish
+// so a typo like $10000 cannot go live. An already published page is left
+// as it is until the family publishes again.
+export function pricesOverMax(html) {
+  const found = [];
+  const re = /\$\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+(?:\.[0-9]{1,2})?)/g;
+  let match;
+  const text = String(html || "");
+  while ((match = re.exec(text))) {
+    const n = Number(match[1].replace(/,/g, ""));
+    if (Number.isFinite(n) && n > 999) found.push("$" + match[1]);
+    if (found.length > 4) break;
+  }
+  return found;
+}
+
+async function checkoutSlug(account, raw) {
+  const slug = String(raw || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return "";
+  const meta = await readJson("pages/" + slug + ".json");
+  if (meta && meta.accountId && meta.accountId !== account.id) return "";
+  return slug;
+}
+
 function payLinks(origin, account) {
   const base = (origin || "") + "/api/renew/" + account.renewToken;
   return { season: base + "?plan=season", year: base + "?plan=year" };
@@ -560,7 +584,8 @@ async function fulfillPaidSession(account, session, origin, eventId) {
   account.lastPaidSessionId = session.id;
   account.checkoutSessionId = ""; account.checkoutUrl = ""; account.checkoutPlan = "";
   account.checkoutGeneration = (account.checkoutGeneration || 0) + 1;
-  await addReceipt(account, origin, { id: receiptIdFor(session.id), plan: plan.id, planName: account.planName, amountLabel: plan.label, end: account.paidUntil, stripeUrl: "", extra: { ...change, sessionId: session.id, ...(paymentIntent ? { paymentIntent } : {}) } });
+  const pageSlug = /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(meta.slug || "")) ? String(meta.slug) : "";
+  await addReceipt(account, origin, { id: receiptIdFor(session.id), plan: plan.id, planName: account.planName, amountLabel: plan.label, end: account.paidUntil, stripeUrl: "", extra: { ...change, sessionId: session.id, ...(pageSlug ? { slug: pageSlug } : {}), ...(paymentIntent ? { paymentIntent } : {}) } });
   if (paymentIntent) await writeJson("payintents/" + paymentIntent + ".json", { accountId: account.id, receiptId: receiptIdFor(session.id) });
   await sendReceiptNote(account, origin, session.id);
   await saveAccount(account); await trackPlan(account); await releaseHeld(account, origin);
@@ -2033,13 +2058,14 @@ async function routeRequest(req) {
       markPlanConsent(account, "");
       if (mode === "off") account.paidUntil = new Date(Date.now() + 3650 * 864e5).toISOString();
       const receiptId = "pay-" + account.id + "-" + rand(4);
+      const pageSlug = await checkoutSlug(account, body.slug);
       await addReceipt(account, origin, {
         id: receiptId,
         plan: plan.id,
         planName: account.planName,
         amountLabel: plan.label,
         end: account.paidUntil,
-        extra: change
+        extra: { ...change, ...(pageSlug ? { slug: pageSlug } : {}) }
       });
       await sendReceiptNote(account, origin, receiptId);
       await saveAccount(account);
@@ -2072,6 +2098,7 @@ async function routeRequest(req) {
       if(account.checkoutPlan&&account.checkoutPlan!==plan.id)account.checkoutGeneration=(account.checkoutGeneration||0)+1;
       const checkoutPlan=plan;
       account.checkoutPlan=checkoutPlan.id;
+      const pageSlug=await checkoutSlug(account, body.slug);
       const attempt=sha('checkout:'+account.id+':'+(account.checkoutGeneration||0));
       const params=new URLSearchParams();
       params.set('mode','payment');params.set('customer_email',account.email);
@@ -2080,6 +2107,7 @@ async function routeRequest(req) {
       params.set('line_items[0][price_data][unit_amount]',String(checkoutPlan.amount));
       params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id,planBase(account)).name+', through '+niceDate(planOffer(checkoutPlan.id,planBase(account)).end));
       params.set('metadata[accountId]',account.id);params.set('metadata[plan]',checkoutPlan.id);params.set('metadata[attempt]',attempt);
+      if(pageSlug){params.set('metadata[slug]',pageSlug);params.set('payment_intent_data[metadata][slug]',pageSlug);}
       params.set('payment_intent_data[statement_descriptor_suffix]',STATEMENT_SUFFIX);
       let response,data;
       try{response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...providerHeaders,'Content-Type':'application/x-www-form-urlencoded','Idempotency-Key':'hb-checkout-'+attempt},body:params,signal:AbortSignal.timeout(8000)});data=await response.json();}catch{await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
@@ -2175,6 +2203,8 @@ async function routeRequest(req) {
     if (shape) return withCors(json(400, { ok: false, error: "page", message: shape }), req.headers && req.headers.origin);
     const words = checkPage(htmlIn);
     if (words) return withCors(json(400, { ok: false, error: "moderation", message: words }), req.headers && req.headers.origin);
+    const steep = pricesOverMax(htmlIn);
+    if (steep.length) return withCors(json(400, { ok: false, error: "price", message: "A job price is over $999 (" + steep[0] + "). Lower it, then publish again. The live page was not changed." }), req.headers && req.headers.origin);
     const existing = await readJson("pages/" + slug + ".json");
     if (existing && existing.accountId !== account.id) return withCors(json(409, { ok: false, error: "taken" }), req.headers && req.headers.origin);
     if (existing && existing.status === "down") return withCors(json(403, { ok: false, error: "down" }), req.headers && req.headers.origin);
@@ -2961,9 +2991,12 @@ document.getElementById("no").onclick=()=>mark("cancelled");
         trialEndsLabel: account.trialEndsAt ? niceDate(account.trialEndsAt) : "",
         trialOver: trialOver(account, used),
         renew: payLinks(origin, account),
-        receipts: index === 0 ? (account.receipts || []).slice(-12).map((item) => ({
-          id: item.id, plan: item.planName || item.plan || "", amount: item.amountLabel || "", at: item.at || "", end: item.endLabel || "", url: item.url || "", refunded: !!item.refundedAt
-        })) : [],
+        receipts: (account.receipts || []).filter((item) => {
+          const named = String(item && item.slug || "").trim().toLowerCase();
+          return named ? named === siteSlug : index === 0;
+        }).slice(-12).map((item) => ({
+          id: item.id, plan: item.planName || item.plan || "", amount: item.amountLabel || "", at: item.at || "", end: item.endLabel || "", url: item.url || "", refunded: !!item.refundedAt, slug: item.slug || ""
+        })),
         requests: rows.filter((row) => (row.slug ? row.slug === siteSlug : index === 0)).slice(-20).reverse().map((row) => ({
           service: row.service || "A job",
           when: row.when || "",

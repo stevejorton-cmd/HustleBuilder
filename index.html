@@ -339,8 +339,6 @@ body.soft .hours-quick button{border-radius:999px}
 .top .brand{padding:0}
 .top .brand .word{font-size:21px;white-space:nowrap}
 .parents-link{margin-left:12px;color:var(--ink);font-weight:800;font-size:15px;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
-.intro-parents{margin:12px 0 0}
-.intro-parents a{color:#173d2d;font-weight:800;text-decoration:underline;text-underline-offset:3px}
 .modes button{white-space:nowrap}
 .modes{display:flex;gap:4px}
 .modes button{border:0;background:transparent;color:var(--muted);font-family:var(--display);font-style:italic;font-weight:800;font-size:18px;text-transform:uppercase;padding:0 14px;min-height:40px;cursor:pointer;clip-path:polygon(9px 0,100% 0,calc(100% - 9px) 100%,0 100%)}
@@ -775,8 +773,8 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <article class="parents-example">
       <b>Sam's Lawn Co.</b>
       <p>Elkhorn</p>
-      <p>Mow a small yard · $20</p>
-      <p>Leaf cleanup · $15</p>
+      <p data-example-line>Mow a small yard · $20</p>
+      <p data-example-line>Leaf cleanup · $15</p>
     </article>
     <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
     <h2>Questions</h2>
@@ -866,7 +864,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <section class="step" data-step="2">
       <h2>Set your rates.</h2>
       <p class="lead" id="rateLead">Starter prices to work from. Change them for the jobs you offer.</p>
-      <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Pick a fair starting price.</b><br>These are example prices. Ask a parent to help you cover your time and supplies, then agree on the price before each job.</div></div>
+      <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Pick a fair starting price.</b><br>These are example prices. Ask a parent to help you cover your time and supplies, then agree on the price before each job. A price over $200 asks you to confirm it. A price over $999 cannot be published.</div></div>
       <details class="help price-level"><summary>Help me choose starter prices</summary><div class="lvl" id="lvlBox">
         <label class="lvl-q" for="lvl">How good are you at this job?</label>
         <div class="lvl-name" id="lvlName"></div>
@@ -965,7 +963,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         <p><button type="button" class="btn ghost" id="acctSignOut" hidden>Sign out on this device</button></p>
       </section>
       <div class="missing" id="missing" hidden></div>
-      <div class="launch-price"><b>One 14-day trial for your business.</b><p>Your website, booking requests, and flyer downloads are included for 14 days from first publication. After that, choose a plan to continue. Your saved work stays available. After that: $9.99 per season or $19.99 per year. Plans never renew automatically.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
+      <div class="launch-price" id="launchPitch"><b>One 14-day trial for your business.</b><p>Your website, booking requests, and flyer downloads are included for 14 days from first publication. After that, choose a plan to continue. Your saved work stays available. After that: $9.99 per season or $19.99 per year. Plans never renew automatically.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
       <div id="askInviteNotice" class="launch-price" role="status" hidden></div>
       <div id="pubBox">
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
@@ -993,6 +991,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         <p class="status" id="pubVerified" role="status" hidden></p>
         <div id="pubReady" hidden>
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My email and phone stay off the page.</span></label>
+          <p class="small" id="planStatus" hidden></p>
           <div id="planFirst">
             <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
             <button type="button" class="btn block" id="buySeason">Buy the winter season, $9.99</button>
@@ -1202,7 +1201,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       </section>
     </div>
     <p class="example-disclaimer">All examples are fictional. No payment was sent, and earnings aren’t guaranteed. Venmo Teen Accounts cannot receive payments for goods or services.</p>
-    <div class="intro-footer"><div><button type="button" class="btn" id="introStart">Build my business →</button><p>Build your draft free. A parent starts your 14-day website and flyer trial by publishing.</p><p class="intro-parents"><a href="/parents">For parents</a></p></div><label class="intro-remember"><input type="checkbox" id="introRemember">Skip this next time</label></div>
+    <div class="intro-footer"><div><button type="button" class="btn" id="introStart">Build my business →</button><p>Build your draft free. A parent starts your 14-day website and flyer trial by publishing.</p></div><label class="intro-remember"><input type="checkbox" id="introRemember">Skip this next time</label></div>
   </div>
 </div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">
@@ -1260,7 +1259,7 @@ function siteFontCss(id){
   if(typeof FONT_DATA==="undefined"||!id||id==="workwear"||!FONT_DATA[id])return "";
   const m=FONT_META[id],sel='h1,h2,h3,.btn,.venmo,.q b,.q span,.mono,.rates .p,.cal-head strong,.rwho,.how b,.season .p,.ba .tg,.std h3,.hero h1';
   let css='@font-face{font-family:"HB-'+id+'";font-weight:'+m.w+';font-style:normal;font-display:swap;src:url(data:font/woff2;base64,'+FONT_DATA[id]+') format("woff2")}\n/* Display font: '+m.copy+'. Licensed under the SIL Open Font License 1.1 (full text above). */\n:root{--display:'+m.fb+'}\n'+sel+'{font-family:var(--display)!important;font-style:normal!important;font-weight:'+m.w+'!important;'+(m.caps?'':'text-transform:none!important;')+'}\n';
-  if(m.wide)css+='.hero h1{font-size:clamp(34px,10.2vw,66px)!important;line-height:1.05!important;overflow-wrap:normal;word-break:normal}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
+  if(m.wide)css+='.hero h1{font-size:clamp(28px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:break-word;word-break:normal}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
   return css;
 }
 function fontChips(wrap,cur,fn,opts){
@@ -1614,8 +1613,10 @@ function siteMain(){
 /* ============ Helpers + palettes ============ */
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 function priceNum(p){const t=String(p==null?"":p).trim(); return /^-?\d+(\.\d+)?$/.test(t)?parseFloat(t):null;}
-function fmtPrice(p){p=String(p||"").trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(500,Math.round(n*100)/100); return v>0?"$"+v:"";}
-function cleanPrice(p){p=String(p==null?"":p).trim(); const n=priceNum(p); if(n===null)return p; const v=Math.min(500,Math.round(n*100)/100); return v>0?String(v):"";}
+function fmtPrice(p){p=String(p||"").trim(); const n=priceNum(p); if(n===null)return p; const v=Math.round(n*100)/100; return v>0?"$"+v:"";}
+function cleanPrice(p){p=String(p==null?"":p).trim(); const n=priceNum(p); if(n===null)return p; const v=Math.round(n*100)/100; return v>0?String(v):"";}
+function priceTooHigh(v){return v!==null&&v>999;}
+function priceNeedsConfirm(v){return v!==null&&v>200&&v<=999;}
 const RIGS={
   ember:{name:"Ember",c:"#FF5B14"},
   gold:{name:"Gold",c:"#F5B800"},
@@ -2085,7 +2086,7 @@ img.scene{object-fit:cover;object-position:63% 56%;display:block;height:62%;-web
 .flake{fill:#fff;opacity:.9;animation:fall linear infinite}
 @keyframes fall{from{transform:translate(0,-30px)}to{transform:translate(26px,420px)}}
 .hero-in{position:relative;z-index:2;width:100%;max-width:820px;margin:0 auto;padding:0 22px 66px}
-.hero h1{font-weight:900;font-size:clamp(62px,18vw,138px);line-height:.84;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:normal;word-break:normal}
+  .hero h1{font-weight:900;font-size:clamp(40px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:break-word;word-break:normal}
 .hero .tag{margin:20px 0 28px;font-size:clamp(19px,4.6vw,24px);font-weight:500;max-width:30ch;color:#E4E1DB;border-left:5px solid var(--accent);padding-left:14px;overflow-wrap:anywhere}
 .cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .btn{display:inline-flex;align-items:center;justify-content:center;border:0;background:var(--accent);color:var(--on);font-family:var(--display);font-style:italic;font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.02em;padding:0 34px;min-height:60px;cursor:pointer;text-decoration:none;clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);transition:filter .15s,transform .08s}
@@ -2185,7 +2186,7 @@ ${siteFontCss(c.font)}
 ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
 .hero.pethead .hero-in{grid-area:2/1;position:relative;z-index:2;width:100%;max-width:none;margin:0;padding:24px 24px 12px;background:#e7f6ea}
-.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(34px,8.4vw,64px);line-height:1.02;overflow-wrap:anywhere}
+.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(34px,8.4vw,64px);line-height:1.02;overflow-wrap:break-word;word-break:normal}
 .hero.pethead .tag{color:#1d3b32;text-shadow:none;margin:14px 0 0;font-size:clamp(16px,4vw,22px)}
 .hero.pethead .cta,.hero.pethead .meta{display:none}
 .petbar{background:#e7f6ea;padding:8px 24px 24px}
@@ -2666,7 +2667,7 @@ function renderServices(f){
     let previousPrice=s.p;
     p.onfocus=()=>{previousPrice=s.p;p.select();};
     p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
-    p.onblur=()=>{const v=priceNum(p.value);if(v!==null&&(v>500||v<0)){s.p=previousPrice;p.value=s.p;S.svcEdited=true;toast("Enter a price from $0 to $500. Your previous price was kept.");}queue();};
+    p.onblur=async()=>{const v=priceNum(p.value);if(v!==null&&v<0){s.p=previousPrice;p.value=s.p;S.svcEdited=true;toast("Enter a price of $0 or more. Your previous price was kept.");}else if(priceTooHigh(v)){s.p=previousPrice;p.value=s.p;S.svcEdited=true;toast("That price is over $999, so it was not kept.");}else if(priceNeedsConfirm(v)){const yes=await confirmModal('<h3>That price is over $200</h3><p class="small2">'+esc(s.n||"This job")+' would be listed at $'+v+'. Use that price?</p>',"Use this price");if(!yes){s.p=previousPrice;p.value=s.p;}queue();}else queue();};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
     const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";
@@ -2820,7 +2821,7 @@ function renderSeason(){
   const inp=$("#seasonPrice");if(document.activeElement!==inp)inp.value=S.seasonPrice||"";
 }
 $("#seasonPrice").addEventListener("input",()=>{S.seasonPrice=$("#seasonPrice").value;queue();});
-$("#seasonPrice").addEventListener("blur",()=>{const inp=$("#seasonPrice"),v=priceNum(inp.value);if(v!==null&&(v>500||v<0)){S.seasonPrice=cleanPrice(inp.value);inp.value=S.seasonPrice;queue();}});
+$("#seasonPrice").addEventListener("blur",async()=>{const inp=$("#seasonPrice"),v=priceNum(inp.value);if(v!==null&&(v<0||priceTooHigh(v))){S.seasonPrice="";inp.value="";toast(v<0?"Enter a price of $0 or more.":"A season price over $999 cannot be published.");queue();return;}if(priceNeedsConfirm(v)){const yes=await confirmModal('<h3>That price is over $200</h3><p class="small2">The winter plan would be listed at $'+v+'. Use that price?</p>',"Use this price");if(!yes){S.seasonPrice="";inp.value="";}}queue();});
 function renderSnowPlan(){
   const box=$("#snowPlanBox"),w=$("#snowPlan");if(!box||!w)return;
   box.hidden=!(S.type==="snow"||S.type==="both");w.innerHTML="";
@@ -4765,6 +4766,29 @@ function showHosting(me){
     pay.hidden=!due;
     pay.textContent=me&&me.paid?"Renew with this plan":(me&&(me.trialOver||me.grace)?"Pay and bring the page back":"Pay for this plan now");
   }
+  applyPlanChrome(me);
+}
+/* An active plan replaces the buy buttons and the free-trial pitch. A page
+   that is already live used to return before that hide ran, so Go live kept
+   offering "Buy the winter season" after the payment had landed. */
+function applyPlanChrome(me){
+  const active=!!(me&&me.ok&&me.paid&&!me.grace);
+  const planFirst=$("#planFirst");
+  if(planFirst) planFirst.hidden=active||!!(me&&me.consent);
+  const trial=$("#trialBox");
+  if(trial) trial.hidden=active;
+  const pitch=$("#launchPitch");
+  if(pitch) pitch.hidden=active;
+  const check=$("#cardCheckNote");
+  if(check) check.hidden=active||!!(me&&me.consent);
+  const status=$("#planStatus");
+  if(status){
+    status.hidden=!active;
+    if(active) status.textContent=(me.planName||"Your plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
+  }
+  const plans=$("#pubPlans");
+  const wrap=plans&&plans.closest(".mf");
+  if(wrap) wrap.hidden=active&&me.renewable===false;
 }
 function pendingPublish(){try{return JSON.parse(localStorage.getItem("hb-publish-pending")||"null");}catch(e){return null;}}
 function savePending(slug){localStorage.setItem("hb-publish-pending",JSON.stringify({slug,at:Date.now()}));}
@@ -4856,6 +4880,7 @@ function applyPublishState(me){
   const owned=ownedSlugs(me);
   const own=ownSlug();
   const slugEl=$("#pubSlug"), go=$("#pubGo"), note=$("#familyNote");
+  applyPlanChrome(me);
   if(own&&owned.includes(own)){
     if(slugEl){slugEl.value=own; slugEl.readOnly=true;}
     if(note)note.hidden=true;
@@ -4863,8 +4888,6 @@ function applyPublishState(me){
     return;
   }
   if(slugEl)slugEl.readOnly=false;
-  const planFirst=$("#planFirst");
-  if(planFirst) planFirst.hidden=!!(me&&me.consent);
   if(!(me&&me.consent)){
     if(go){go.hidden=false; go.className="btn ghost block"; go.textContent="Start the free 14-day trial with a 50¢ refunded check";}
     if(note)note.hidden=true;
@@ -4953,7 +4976,7 @@ async function pollPaid(ms){
 async function pubCheckout(){
   const nowMe=await pubApi("/api/me",{method:"GET"});
   if(nowMe&&nowMe.paid)return true;
-  const data=await pubApi("/api/checkout", {body:{plan:chosenPlan()}});
+  const data=await pubApi("/api/checkout", {body:{plan:chosenPlan(), slug:($("#pubSlug").value||ownSlug()||"").trim().toLowerCase()}});
   if(data.alreadyPaid)return true;
   if(data.pending){pubErr("A payment is already in progress. Check your payment status before trying again."); return false;}
   if(data.mode==="stripe"&&data.url){setPayReturn("publish"); savePending(($("#pubSlug").value||"").trim().toLowerCase()); location.href=data.url; return false;}
@@ -4969,11 +4992,12 @@ function takePayReturn(){let v="";try{v=localStorage.getItem("hb-pay-return")||"
 function planPrice(id){return id==="year"?"$19.99":"$9.99";}
 /* Pay for (or renew) hosting for pages that are already published. say(text)
    reports progress; returns true when the plan is active right now. */
-async function payPlan(planId, say){
+async function payPlan(planId, say, slug){
   say=say||function(){};
   say("Opening payment…");
   let data;
-  try{data=await pubApi("/api/checkout",{body:{plan:planId==="year"?"year":"season"}});}
+  const pageSlug=(slug||($("#pubSlug").value||ownSlug()||"")).trim().toLowerCase();
+  try{data=await pubApi("/api/checkout",{body:{plan:planId==="year"?"year":"season", slug:pageSlug}});}
   catch(e){say("Could not reach the host. Check your connection and try again."); return false;}
   if(data.status===401){say("Sign in with the parent email first, then pay."); return false;}
   if(data.alreadyPaid){say("You are already paid"+(data.paidUntil?" through "+niceDate(data.paidUntil):"")+". Nothing to pay yet."); return true;}
@@ -4989,9 +5013,9 @@ if(pubPayBtn)pubPayBtn.onclick=async()=>{
   const ok=await payPlan(chosenPlan(), t=>{const box=$("#pubOk"); if(box)box.textContent=t;});
   if(ok){try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok)showHosting(me);}catch(e){}}
 };
-function confirmModal(html){
+function confirmModal(html, yesLabel){
   return new Promise(res=>{
-    openModal(html+'<div class="mbtns"><button type="button" class="btn" id="cfYes">Replace the live page</button><button type="button" class="btn outline" id="cfNo">Cancel</button></div>');
+    openModal(html+'<div class="mbtns"><button type="button" class="btn" id="cfYes">'+(yesLabel||"Replace the live page")+'</button><button type="button" class="btn outline" id="cfNo">Cancel</button></div>');
     mbody.querySelector("#cfYes").onclick=()=>{closeModal();res(true);};
     mbody.querySelector("#cfNo").onclick=()=>{closeModal();res(false);};
   });
@@ -5040,6 +5064,8 @@ function recordSiteDraft(slug){
 async function pubPush(){
   pubErr("");
   if(missing().length){updateLaunch(); pubErr("Add the items still needed above, then try Publish again."); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
+  const steep=(S.services||[]).some(s=>priceTooHigh(priceNum(s.p)))||(S.seasonOn&&priceTooHigh(priceNum(S.seasonPrice)));
+  if(steep){pubErr("A price is over $999. Lower it, then publish again."); return;}
   const session=pubSession()||{};
   if(!pubToken()&&!session.email){
     const probe=await pubApi("/api/me", {method:"GET"}).catch(()=>null);
@@ -5099,7 +5125,7 @@ async function buyPlanFirst(plan){
   if($("#pubConsent")&&!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
   const slug=($("#pubSlug").value||"").trim().toLowerCase();
   try{
-    const data=await pubApi("/api/checkout",{body:{plan}});
+    const data=await pubApi("/api/checkout",{body:{plan, slug}});
     if(data&&data.url){savePending(slug); setPayReturn("publish"); location.href=data.url; return;}
     if(data&&data.pending){pubErr("A payment is already in progress. Check it before trying again."); return;}
     if(!data||(!data.ok&&!data.alreadyPaid)){pubErr(data&&data.error==="stripe-key"?"Payment is not set up yet.":"The plan was not started."); return;}
@@ -5174,7 +5200,7 @@ async function showAccount(){
       b.className=wantPlan&&wantPlan!==planId?"btn outline":"btn"; b.textContent=verb+", "+planPrice(planId)+" "+label;
       b.onclick=async()=>{
         b.disabled=true;
-        const ok=await payPlan(planId, t=>{if(msg)msg.textContent=t;});
+        const ok=await payPlan(planId, t=>{if(msg)msg.textContent=t;}, site.slug);
         b.disabled=false;
         if(ok){const keep=msg?msg.textContent:""; await showAccount(); if(msg)msg.textContent=keep;}
       };
@@ -5686,14 +5712,16 @@ async function resumeHosting(kind){
     await showAccount();
     const m=$("#accountMsg");
     if(m)m.textContent=me?"Payment received. "+(me.planName||"Your plan")+" runs through "+(niceDate(me.paidUntil)||"the end date")+". The page is on.":"The payment is still processing. Open your account again in a minute. You will not be charged twice.";
-    if(box)box.textContent="";
+    if(box)box.textContent=me?"Payment received. Your site is good through "+(niceDate(me.paidUntil)||"the end date")+".":"";
     if(me)showHosting(me);
     const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);
     return;
   }
   if(kind==="cancel"){
     if(box)box.textContent="Payment was not finished. If the card was charged, wait here. Check your payment status before trying again.";
-  }else if(box)box.textContent="Payment received, publishing…";
+    return;
+  }
+  if(box)box.textContent="Payment received. Checking the plan…";
   const me=await pollPaid(kind==="cancel"?20000:45000);
   if(!me){
     if(box)box.textContent="Payment is still processing. Tap Try again. Check your payment status before trying again.";
@@ -5702,12 +5730,31 @@ async function resumeHosting(kind){
     if(b)b.hidden=false;
     return;
   }
-  if($("#pubPlanHelp"))$("#pubPlanHelp").textContent=planHelp(me);
+  showHosting(me);
+  applyPublishState(me);
+  settleGoLive(me);
+  const through=niceDate(me.paidUntil)||"the end date";
+  if(box)box.textContent="Payment received. Your site is good through "+through+".";
   const pending=pendingPublish();
-  const slug=(pending&&pending.slug)||me.slug||($("#pubSlug")&&$("#pubSlug").value||"").trim().toLowerCase();
-  if($("#pubSlug")&&slug){$("#pubSlug").value=slug;}
+  if(!(pending&&pending.slug)||missing().length)return;
+  if($("#pubSlug"))$("#pubSlug").value=pending.slug;
   if($("#pubConsent")&&!$("#pubConsent").checked)$("#pubConsent").checked=true;
   await pubPush();
+  if(box)box.textContent="Payment received. Your site is good through "+through+".";
+}
+/* One list for the welcome preview and the parents page, so the sample
+   prices cannot drift apart. */
+const EXAMPLE_RATES=[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}];
+function paintExampleRates(){
+  document.querySelectorAll(".example-rate").forEach((row,i)=>{
+    const rate=EXAMPLE_RATES[i]; if(!rate)return;
+    const name=row.querySelector("span"), price=row.querySelector("b");
+    if(name)name.textContent=rate.n;
+    if(price)price.textContent="$"+rate.p;
+  });
+  document.querySelectorAll("[data-example-line]").forEach((line,i)=>{
+    const rate=EXAMPLE_RATES[i]; if(rate)line.textContent=rate.n+" · $"+rate.p;
+  });
 }
 /* Examples stay local and never change the child's draft or contact Venmo. */
 const INTRO_KEY="hb_examples_v1";
@@ -5720,7 +5767,7 @@ function selectExample(n,focus){
 function drawExamples(){
   const art=$("#exampleArt");if(!art.childNodes.length)art.innerHTML=sceneArt("lawn","cine-dusk");
   const cv=$("#exampleFlyer");
-  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
+  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:EXAMPLE_RATES.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
 }
 function openIntro(){
@@ -5800,6 +5847,7 @@ else if(accountQ){go(7); showAccount();}
 else if(!askQ)go(Number.isInteger(S.builderStep)?S.builderStep:0);
 if(startQ.get("account")){go(7); const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}
 syncLiveUrlFields();
+paintExampleRates();
 shell.dataset.type=S.type;
 syncTypeCopy();
 renderPetGallery();
