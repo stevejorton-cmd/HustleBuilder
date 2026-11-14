@@ -68,6 +68,19 @@ export function stripParentContact(html) {
     const css = `<style id="report-link-contrast">a[href^="/api/report"],footer a{color:var(--bone,CanvasText);font-weight:800;text-decoration:underline;text-underline-offset:3px;font-size:16px}</style>`;
     out = out.includes("</head>") ? out.replace("</head>", () => css + "</head>") : css + out;
   }
+  if (!/href=["']\/privacy["']/.test(out)) {
+    const links = `<p class="small"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>`;
+    if (out.includes("</footer>")) out = out.replace("</footer>", () => links + "</footer>");
+    else if (out.includes("</body>")) out = out.replace("</body>", () => links + "</body>");
+  }
+  out = out.replace(
+    "copyBook.onclick=function(){copyPlain(bookPlain(),copyBook);}",
+    "copyBook.onclick=function(){if(!build(false))return; copyPlain(bookPlain(),copyBook);}"
+  );
+  if (out.includes('value="Something else"') && !out.includes("What job do you need?")) {
+    const boot = `<script id="hb-other-note">(function(){var s=document.getElementById("svc"),n=document.getElementById("note");if(!s||!n)return;function sync(){if(s.value==="Something else")n.placeholder="What job do you need?";}s.addEventListener("change",sync);sync();})();</script>`;
+    out = out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
+  }
   return out;
 }
 

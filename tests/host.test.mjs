@@ -7,9 +7,8 @@ import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
-import { stripParentContact } from "../host/lib/preview.mjs";
+import { setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
-import { setDogWalkPrice } from "../host/lib/preview.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
 let dir;
@@ -1119,6 +1118,20 @@ test("Maryn's dog-walk price can be set to $10 without touching the page timeout
   assert.match(next, /setTimeout\(fn,10000\)/);
   assert.equal(setDogWalkPrice(next), next);
   assert.equal(setDogWalkPrice(html.replace("$10000", "$12")), null);
+});
+
+test("an already published page gains privacy links, copy-job validation, and the other-job placeholder", () => {
+  const html = `<footer><p>The Lawn Ranger</p><p class="small"><a href="/api/report/will">Report this page</a></p></footer>
+<select id="svc"><option value="Something else">Something else</option></select><textarea id="note"></textarea>
+<script>other.value="Something else";copyBook.onclick=function(){copyPlain(bookPlain(),copyBook);};setTimeout(fn,10000);</script>`;
+  const out = stripParentContact(html);
+  assert.match(out, /href="\/privacy">Privacy/);
+  assert.match(out, /href="\/terms">Terms/);
+  assert.match(out, /if\(!build\(false\)\)return/);
+  assert.match(out, /What job do you need\?/);
+  assert.match(out, /setTimeout\(fn,10000\)/);
+  const again = stripParentContact(out);
+  assert.equal(again.match(/href="\/privacy"/g).length, 1);
 });
 
 test("an unpaid checkout does not start the trial clock", async () => {
