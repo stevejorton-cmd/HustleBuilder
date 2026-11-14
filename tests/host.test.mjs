@@ -1483,6 +1483,37 @@ test("verify sets an HttpOnly session cookie and the cookie alone signs in", asy
   assert.equal(pub.body.ok, true);
 });
 
+test("a verified parent stays signed in after reload until the session expires, without consent", async () => {
+  const email = "reload@example.com";
+  const start = await json(await call("POST", "/api/auth/start", { body: { email } }));
+  const verifyRes = await call("POST", "/api/auth/verify", { body: { email, code: start.body.devCode } });
+  const verify = await json(verifyRes);
+  assert.equal(verify.body.ok, true);
+  assert.equal(verify.body.consent, false);
+  const cookie = "hb_session=" + verify.body.token;
+  const again = await json(await call("GET", "/api/me", { headers: { cookie } }));
+  assert.equal(again.body.ok, true);
+  assert.equal(again.body.verified, true);
+  assert.equal(again.body.consent, false);
+  assert.equal(again.body.email, email);
+  const blocked = await json(await call("POST", "/api/publish", { headers: { cookie }, body: { slug: "reload-kid", html: page("Reload") } }));
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.body.error, "consent");
+  const files = await readdir(path.join(dir, "accounts"));
+  const file = path.join(dir, "accounts", files[0]);
+  const account = JSON.parse(await readFile(file, "utf8"));
+  assert.ok(Number(account.sessionExpiresAt) > Date.now());
+  account.sessionExpiresAt = Date.now() - 1000;
+  await writeFile(file, JSON.stringify(account));
+  const expired = await json(await call("GET", "/api/me", { headers: { cookie } }));
+  assert.equal(expired.status, 401);
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(home, /function showParentVerified/);
+  assert.match(home, /if\(me\.verified\)showParentVerified\(me\)/);
+  assert.match(home, /delete keep\.token/);
+  assert.equal(home.includes("localStorage.setItem(PUB_KEY,JSON.stringify(s))"), false);
+});
+
 test("Bearer tokens still work during the cookie transition", async () => {
   const { token } = await parent("bearer@example.com");
   const me = await json(await call("GET", "/api/me", { token }));
