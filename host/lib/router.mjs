@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
-import { DEFAULT_TZ, bookingInviteIcs, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
+import { DEFAULT_TZ, bookingInviteIcs, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
@@ -931,7 +931,7 @@ function parentBookingMail(row, origin, account) {
   return {
     to: row.parentEmail,
     replyTo: row.replyTo || supportReply(),
-    subject: "Booking request: " + (fields.service || "a job"),
+    subject: "Booking request: " + (row.service || fields.service || "a job"),
     text,
     html: htmlMail,
     ics: row.ics || "",
@@ -1704,7 +1704,10 @@ function contactEmail(value) {
   return m ? m[0].toLowerCase() : "";
 }
 function contactPhone(value) {
-  const digits = String(value || "").replace(/\D/g, "");
+  // Drop any email first, so "name2@example.com, 402-555-0199" does not
+  // treat the 2 in the address as part of the phone.
+  const rest = String(value || "").replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, " ");
+  const digits = rest.replace(/\D/g, "");
   if (digits.length < 10 || digits.length > 15) return "";
   return digits.length === 10 ? "1" + digits : digits;
 }
@@ -2722,10 +2725,11 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       fields.access ? "Access, parent only: " + fields.access : ""
     ].filter(Boolean);
     const jobNote = [fields.note, petBits.join(". ")].filter(Boolean).join(" | ").slice(0, 500);
+    const titled = jobTitle(fields.service, fields.note);
     const job = startOk ? {
       id: "b" + rand(8),
       source: "book",
-      service: fields.service,
+      service: titled,
       customer: fields.name,
       address: fields.address,
       start,
@@ -2748,7 +2752,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       "",
       "Name: " + fields.name,
       "Reach them at: " + fields.contact,
-      "Job: " + fields.service,
+      "Job: " + titled,
       "When: " + fields.when,
       "Size: " + (fields.size || "not sure"),
       "How often: " + fields.freq,
@@ -2766,7 +2770,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       + "<p>" + [link(tel, "Call " + fields.name), link(sms, "Text " + fields.name), link(reply ? "mailto:" + reply : "", reply ? "Email " + fields.name : "")].filter(Boolean).join(" &nbsp; ") + "</p>"
       + (flagLine ? "<p>" + mailEscape(flagLine) + "</p>" : "")
       + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
-      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(fields.service) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
+      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(titled) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
       + (petBits.length ? "<br>" + petBits.map(mailEscape).join("<br>") : "") + "</p>"
       + (gcal ? "<p><a href=\"" + mailEscape(gcal) + "\">Add this job to Google Calendar</a></p>" : "")
       + "<p>We keep the name, address, and time for the family calendar for about 30 days.</p>"
@@ -2780,7 +2784,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     const actionToken = rand(12);
     const actionUrl = (origin || "") + "/api/job/" + actionToken;
     const names = await siteNames(slug, meta);
-    const summary = job ? inviteSummary(names.first, fields.service, fields.name) : "";
+    const summary = job ? inviteSummary(names.first, titled, fields.name) : "";
     const description = job ? [job.note, "Mark confirmed or done: " + actionUrl].filter(Boolean).join("\n") : "";
     const ics = job ? bookingInviteIcs({
       id: job.id, start: job.start, tz: tzOf(account), summary,
@@ -2793,7 +2797,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       parentEmail: account.email,
       replyTo: reply || supportReply(),
       firstName: firstName(fields.name),
-      service: fields.service,
+      service: titled,
       when: fields.when || start,
       address: fields.address,
       status: mode === "hold" ? "held" : "new",
@@ -2816,13 +2820,13 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     meta.bookCount=(meta.bookCount||0)+1;
     await writeJson('pages/'+slug+'.json',meta);
     if (mode === "hold") {
-      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + fields.service + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
+      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + titled + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
       const held = await sendMail({
         to: account.email,
         replyTo: supportReply(),
         subject: "You have a new request waiting",
         text: heldText,
-        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(fields.service) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
+        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(titled) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
       });
       if (!held.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
       return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
@@ -2834,7 +2838,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     const mailed = await sendMail({
       to: account.email,
       replyTo: reply || supportReply(),
-      subject: (hitsWords.flag ? "Check this booking: " : "Booking request: ") + (fields.service || "a job"),
+      subject: (hitsWords.flag ? "Check this booking: " : "Booking request: ") + (titled || "a job"),
       text: fullText, html: fullHtml, ics
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);

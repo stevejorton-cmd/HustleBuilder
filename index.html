@@ -1487,8 +1487,21 @@ function siteMain(){
   var sel=$("svc");
   C.services.forEach(function(s){var o=document.createElement("option");o.value=s.n;o.textContent=s.n+(s.p?" ("+s.p+")":"");sel.appendChild(o);});
   var other=document.createElement("option");other.value="Something else";other.textContent="Something else (tell me in the note)";sel.appendChild(other);
-  function syncOtherNote(){var note=$("note"); if(note) note.placeholder=sel.value==="Something else"?"What job do you need?":"";}
-  sel.addEventListener("change",syncOtherNote);
+  function otherOn(){return sel.value==="Something else";}
+  function syncOther(){
+    var on=otherOn(), hint=$("otherHint"), note=$("note");
+    if(hint)hint.hidden=!on;
+    if(!note)return;
+    note.placeholder=on?"What job do you need?":"";
+    note.setAttribute("aria-required",on?"true":"false");
+    var lab=note.parentNode;
+    if(lab&&lab.nodeName==="LABEL"&&lab.firstChild&&lab.firstChild.nodeType===3){
+      if(!lab.getAttribute("data-base"))lab.setAttribute("data-base",lab.firstChild.nodeValue||"");
+      lab.firstChild.nodeValue=on?"What do you need? The first words become the job name.":(lab.getAttribute("data-base")||lab.firstChild.nodeValue);
+    }
+  }
+  sel.addEventListener("change",syncOther);
+  syncOther();
   function calLine(nm,addr,svc){var l=gcalLink(svc+" for "+nm,addr,"Booked from the "+C.biz+" website. Not confirmed until "+C.first+"’s parent replies.");return l?"\nAdd to calendar: "+l:"";}
   function bookPlain(){
     var price="";
@@ -1527,6 +1540,7 @@ function siteMain(){
     if(!nm){err.textContent="Add your first name so I know who’s asking.";return null;}
     if(!addr){err.textContent="Add the address for the job.";return null;}
     if(needContact&&!ct){err.textContent="Add a phone number or email so my parent can reach you.";return null;}
+    if(otherOn()&&!note){err.textContent="Add a note that says what you need. The first words become the job name.";var box=$("note");if(box)box.focus();return null;}
     var m="Hi "+C.first+"! This is "+nm+". I’d like to book: "+sel.value+" on "+longDate(picked)+(($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value))+"."+petLine()+" "+($("sz")&&$("sz").value?"Size: "+$("sz").value+". ":"")+"How often: "+$("freq").value+". Address: "+addr+"."+(note?" Note: "+note:"")+(ct?" Reply to: "+ct+".":"")+" (Sent from the "+C.biz+" website)"+calLine(nm,addr,sel.value);
     $("out").value=m; $("outWrap").hidden=false;
     return m;
@@ -2028,7 +2042,7 @@ function genSite(c){
   const petSafe=c.type==="pet"?`<section id="petsafe"><h2>Pets I can help</h2><div class="petrow">${(c.pets&&c.pets.length?c.pets:["dog","cat","fish","bird"]).map(k=>petPortrait(k,petLabels[k]||"Pet",{lazy:true,root:petRoot})).join("")}</div><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
   const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
   const sizeField=c.type==="pet"?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
-  const noteField=c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:`<label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>`;
+  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:`<label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);

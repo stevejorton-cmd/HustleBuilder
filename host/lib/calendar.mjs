@@ -167,6 +167,28 @@ function eventLines(job, now, tz) {
   return lines;
 }
 
+// "Something else" is a menu label, not a job. The title is the first words
+// of the neighbor's note (about 40 characters), or "Custom job" if they
+// left the note blank. A named service is kept as they picked it.
+export function jobTitle(service, note) {
+  const raw = String(service || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!/^something else\b/i.test(raw)) return raw.slice(0, 80) || "Job";
+  let text = String(note || "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[\s.,;:!?\-–—]+/, "")
+    .trim();
+  if (!text) return "Custom job";
+  if (text.length > 40) {
+    let cut = text.slice(0, 40);
+    const space = cut.lastIndexOf(" ");
+    if (space >= 12) cut = cut.slice(0, space);
+    text = cut.replace(/[\s.,;:!?\-–—]+$/, "").trim();
+  }
+  return text || "Custom job";
+}
+
 // One-tap title: "Will: Mow a small yard - Riley". The customer's first name
 // only. A missing kid name leaves the job and the neighbor.
 export function inviteSummary(kid, service, customer) {
