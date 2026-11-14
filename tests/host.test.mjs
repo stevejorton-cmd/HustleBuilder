@@ -247,6 +247,9 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   const privacy = await call("GET", "/api/site/privacy");
   assert.match(privacy.body, /family calendar/);
   assert.match(privacy.body, /30 days/);
+  assert.match(privacy.body, /60 days/);
+  assert.match(privacy.body, /Venmo/);
+  assert.match(privacy.body, /support@hustlebuilder\.org/);
 });
 
 test("one-tap calendar buttons stay off the parent's contact, and confirming clears requested", async () => {
@@ -728,9 +731,15 @@ test("deleting the account removes calendar jobs and takedown does not", async (
   const still = await call("GET", new URL(me.body.calUrl).pathname);
   assert.equal(still.status, 200);
   assert.match(still.body, /50 Feed St/);
+  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("gone@example.com")));
+  const apple = box.body.messages.map((m) => m.text).join("\n").match(/\/api\/event\/[a-f0-9]+\.ics/);
+  assert.ok(apple);
+  assert.equal((await call("GET", apple[0])).status, 200);
   const gone = await json(await call("DELETE", "/api/account", { token }));
   assert.equal(gone.body.ok, true);
   assert.equal((await call("GET", new URL(me.body.calUrl).pathname)).status, 404);
+  assert.equal((await call("GET", apple[0])).status, 404);
+  assert.equal((await call("GET", "/api/site/sam")).status, 404);
 });
 
 test("stripe checkout sets the statement descriptor suffix", async () => {
@@ -1064,6 +1073,9 @@ test("ask my parent requires verification and reports only the verified family p
   assert.match(mail.body.messages[0].text, /50¢ card check that is refunded/);
   assert.doesNotMatch(mail.body.messages[0].text, /No payment is needed/);
   assert.match(mail.body.messages[0].text, /ask=/);
+  assert.match(mail.body.messages[0].text, /\/privacy/);
+  assert.match(mail.body.messages[0].html, /Privacy notice/);
+  assert.match(mail.body.messages[0].text, /support@hustlebuilder\.org/);
   const waiting = await json(await call("GET", "/api/ask/" + sent.body.token));
   assert.equal(waiting.body.status, "waiting");
   assert.equal(waiting.body.draft, undefined);
