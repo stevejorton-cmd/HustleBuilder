@@ -6,19 +6,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FF5B14">
 <script>
-window.hbCloseParents=function(asKid){
-  try{localStorage.setItem("hb-parents-seen","1");if(!asKid)localStorage.setItem("hb_intro_seen","1");}catch(e){}
+window.hbCloseParents=function(){
+  try{localStorage.setItem("hb-parents-seen","1");}catch(e){}
   document.documentElement.classList.add("hb-skip-parents");
-  var box=document.getElementById("forParents");if(box)box.hidden=true;
-  if(!asKid){var intro=document.getElementById("intro");if(intro)intro.hidden=true;}
+  var box=document.getElementById("forParents");if(box){box.hidden=true;box.inert=false;}
+  try{if(typeof openIntro==="function"&&typeof shouldOpenIntro==="function"&&shouldOpenIntro(new URLSearchParams(location.search)))openIntro();}catch(e){}
 };
 (function(){
   try{
     var q=new URLSearchParams(location.search);
     var force=location.pathname==="/parents"||q.get("for")==="parents";
-    var utility=q.get("account")||q.get("ask")||q.get("hosting")||q.get("draft")||q.get("consent");
-    if(!force&&(utility||localStorage.getItem("hb-parents-seen")==="1"))document.documentElement.classList.add("hb-skip-parents");
-  }catch(e){}
+    if(!force)document.documentElement.classList.add("hb-skip-parents");
+  }catch(e){document.documentElement.classList.add("hb-skip-parents");}
 })();
 </script>
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5654,7 +5653,7 @@ function drawExamples(){
 function openIntro(){
   const box=$("#intro");if(!box||!box.hidden)return;
   introReturnFocus=document.activeElement;
-  introBackground=Array.from(document.body.children).filter(el=>el!==box&&el.tagName!=="SCRIPT"&&!el.inert);
+  introBackground=Array.from(document.body.children).filter(el=>el!==box&&el.id!=="forParents"&&el.tagName!=="SCRIPT"&&!el.inert);
   introBackground.forEach(el=>el.inert=true);
   box.hidden=false;document.body.classList.add("intro-open");selectExample(0,false);drawExamples();
   $("#introRemember").checked=false;
@@ -5687,7 +5686,8 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
 function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent"].some(k=>params.has(k))&&!introSeen();}
-if(shouldOpenIntro(entryParams))openIntro();
+if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
+window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(!new URLSearchParams(location.search).get("ask"))initPublish();
 const startQ=new URLSearchParams(location.search);
 const hostQ=startQ.get("hosting");
