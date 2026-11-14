@@ -924,7 +924,7 @@ async function releaseHeld(account, origin) {
 
 function mailButton(href, label) {
   if (!href) return "";
-  return "<a href=\"" + mailEscape(href) + "\" style=\"display:block;max-width:340px;box-sizing:border-box;margin:8px 0;padding:14px 16px;background:#173d2d;color:#ffffff;text-align:center;text-decoration:none;font-weight:800;border-radius:10px\">" + mailEscape(label) + "</a>";
+  return "<a href=\"" + mailEscape(href) + "\" style=\"display:block;max-width:340px;box-sizing:border-box;margin:16px 0;padding:14px 16px;min-height:44px;background:#173d2d;color:#ffffff;text-align:center;text-decoration:none;font-weight:800;border-radius:10px\">" + mailEscape(label) + "</a>";
 }
 function calendarPitch(origin, account) {
   if (!account || !account.calToken) return { text: "", html: "" };

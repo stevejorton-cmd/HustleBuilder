@@ -674,9 +674,13 @@ details.help li{margin-bottom:10px}
 #trialBox{padding:8px 12px 8px 16px}
 #myJobs{padding:8px 4px 12px 10px}
 #myJobs h3{margin:0 0 8px}
-.kidjob{display:block;border:2px solid var(--line,#e6e1d8);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
+.kidjob{display:block;border:2px solid var(--line,#e6e1d8);border-radius:12px;padding:16px;margin-top:12px;background:#fff}
 .kidjob b,.kidjob span{display:block}
-.kidjob .jobst{font-weight:700;margin-top:4px}
+.kidjob .jobst{font-weight:700;margin:14px 0 0}
+.kidjob .mbtns{display:flex;gap:8px;margin-top:14px}
+.kidjob .mbtns button{flex:1 1 0;min-width:0;min-height:44px;padding:8px 6px;border:2px solid var(--line,#e6e1d8);border-radius:8px;background:#fff;color:var(--ink);font:700 15px/1.2 system-ui,sans-serif;cursor:pointer}
+.kidjob .venmo-pay{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;margin:14px 0 0;min-height:48px;padding:12px 16px;border-radius:10px;background:#3D95CE;color:#fff;text-decoration:none;font:800 17px/1.2 system-ui,sans-serif;clip-path:none}
+.kidjob .venmo-note{margin:14px 0 0}
 #jobBadge{display:inline-block;background:#FF5B14;color:#fff;border-radius:99px;min-width:1.4em;text-align:center;font-size:13px;margin-left:6px}
 #offlineNote{margin:0;padding:12px 16px;background:#FF5B14;color:#1a120c;font-weight:700;text-align:center}
 .acct{border:2px solid var(--line);border-radius:16px;padding:14px;margin:12px 0;background:var(--surface)}
@@ -5382,7 +5386,7 @@ async function loadMyJobs(){
     const list=$("#jobList"); if(!list)return;
     const jobs=data.jobs||[];
     list.innerHTML=jobs.map(j=>{
-      const pay=j.venmoUrl?'<a class="btn" href="'+esc(j.venmoUrl)+'" target="_blank" rel="noopener">Pay with Venmo</a>'+(j.status==="done"?'<p class="small2">The job is done. This opens Venmo with the amount filled in.</p>':'<p class="small2">Pay after the job.</p>'):'';
+      const pay=j.venmoUrl?'<a class="venmo-pay" href="'+esc(j.venmoUrl)+'" target="_blank" rel="noopener">Pay with Venmo</a><p class="small2 venmo-note">'+(j.status==="done"?"The job is done. This opens Venmo with the amount filled in.":"Pay after the job.")+'</p>':'';
       const acts=j.action?'<div class="mbtns"><button type="button" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button><button type="button" data-job="'+esc(j.action)+'" data-st="done">Done</button><button type="button" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel</button></div>'+pay:'';
       return '<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+'</div>';
     }).join("");

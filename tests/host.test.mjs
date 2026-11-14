@@ -374,6 +374,9 @@ test("a priced booking opens Venmo with the parent handle, amount, and note", as
   assert.match(src, /Neighbors will see this Venmo name/);
   assert.match(src, /id="acctVenmo"/);
   assert.equal(src.includes("id=\"skipLive\""), false);
+  assert.match(src, /\.kidjob \.venmo-pay\{[^}]*margin:14px 0 0[^}]*min-height:48px[^}]*text-decoration:none[^}]*clip-path:none/);
+  assert.match(src, /\.kidjob \.mbtns\{display:flex;gap:8px;margin-top:14px\}/);
+  assert.match(src, /class="venmo-pay"/);
 });
 
 test("a booking invite names the kid and the neighbor, and a cancel removes that same event", async () => {
