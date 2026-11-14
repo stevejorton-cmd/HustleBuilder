@@ -9,6 +9,7 @@ import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { stripParentContact } from "../host/lib/preview.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
+import { setDogWalkPrice } from "../host/lib/preview.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
 let dir;
@@ -1107,6 +1108,17 @@ test("a card that already started a trial cannot start another", async () => {
   assert.equal(pay.body.alreadyPaid, undefined);
   const live = await json(await call("POST", "/api/publish", { token: second.token, body: { slug: "card-two", html: page("Two") } }));
   assert.equal(live.body.ok, true);
+});
+
+test("Maryn's dog-walk price can be set to $10 without touching the page timeouts", () => {
+  const html = '<span class="n">Dog walk, 15 minutes</span><span class="p">$10000</span><script>window.__C={"services":[{"n":"Dog walk, 15 minutes","p":"$10000"}]};setTimeout(fn,10000);</script>';
+  const next = setDogWalkPrice(html);
+  assert.match(next, /class="p">\$10</);
+  assert.match(next, /"p":"\$10"/);
+  assert.equal(next.includes("$10000"), false);
+  assert.match(next, /setTimeout\(fn,10000\)/);
+  assert.equal(setDogWalkPrice(next), next);
+  assert.equal(setDogWalkPrice(html.replace("$10000", "$12")), null);
 });
 
 test("an unpaid checkout does not start the trial clock", async () => {

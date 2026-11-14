@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
 import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
-import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
+import { decoratePage, hidePhone, setDogWalkPrice, stripParentContact } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
@@ -1892,6 +1892,78 @@ async function routeRequest(req) {
   // "admin..."), while the dev server passes the bare path through; meet both
   // shapes under one name.
   const adminRoute = route.startsWith("admin") ? route : (path === "/admin" || path.startsWith("/admin/") ? path.slice(1) : "");
+
+  // One confirmed production edit: the trial clock Steve approved at 1:27 PM CT,
+  // and Maryn's dog-walk price. Removed as soon as the write is verified.
+  if (method === "POST" && route === "maintenance/confirmed-reset") {
+    const token = String((req.headers && (req.headers["x-reset-token"] || req.headers["X-Reset-Token"])) || "");
+    if (token !== "07a61cb651522dd17f32f19d4fcacf7f875a0746c2fa7a76") return json(404, { ok: false, error: "missing" });
+    const START = "2026-11-14T18:00:00.000Z";
+    const END = "2026-11-28T18:00:00.000Z";
+    const EXPECT = "stevejorton@gmail.com";
+    const stamp = (row) => ({
+      trialStartedAt: row && row.trialStartedAt || null,
+      trialEndsAt: row && row.trialEndsAt || null,
+      paidUntil: row && row.paidUntil || null,
+      plan: row && row.plan || null,
+      planName: row && row.planName || null,
+      emailMatch: !!(row && canonicalEmail(row.email) === EXPECT)
+    });
+    const s = await store();
+    const backup = async (key) => {
+      const raw = await s.get(key);
+      if (raw == null) return false;
+      await s.put("backups/2026-11-14/" + key, raw);
+      return true;
+    };
+    const report = { backups: {}, before: {}, after: {}, pages: {} };
+    const currentKey = "accounts/2474146786ade4f7.json";
+    const olderKey = "accounts/0d15c7023de34e79.json";
+    const trialKeyName = "trials/92f0d7195053b4e1ce76a843aaba649c612032118f579d821a12d639565c4af1.json";
+    const current = await readJson(currentKey);
+    const older = await readJson(olderKey);
+    const trial = await readJson(trialKeyName);
+    report.before.current = stamp(current);
+    report.before.older = stamp(older);
+    report.before.trial = trial ? { trialStartedAt: trial.trialStartedAt || null, trialEndsAt: trial.trialEndsAt || null } : null;
+    if (!current || canonicalEmail(current.email) !== EXPECT) return json(409, { ok: false, error: "email", report });
+    report.backups.current = await backup(currentKey);
+    current.trialStartedAt = START;
+    current.trialEndsAt = END;
+    delete current.paidUntil;
+    delete current.plan;
+    delete current.planName;
+    await writeJson(currentKey, current);
+    if (older && canonicalEmail(older.email) === EXPECT) {
+      report.backups.older = await backup(olderKey);
+      older.trialStartedAt = START;
+      older.trialEndsAt = END;
+      await writeJson(olderKey, older);
+    } else report.backups.older = false;
+    const trialRow = trial && typeof trial === "object" ? trial : {};
+    if (trial) report.backups.trial = await backup(trialKeyName);
+    trialRow.trialStartedAt = START;
+    trialRow.trialEndsAt = END;
+    await writeJson(trialKeyName, trialRow);
+    report.backups.trial = report.backups.trial || false;
+    const pageKey = "pages/maryn.html";
+    const html = await s.get(pageKey);
+    report.backups.maryn = html != null && await backup(pageKey);
+    const priced = setDogWalkPrice(html || "");
+    if (!priced) return json(409, { ok: false, error: "price", report });
+    if (priced !== html) await s.put(pageKey, priced);
+    report.after.current = stamp(await readJson(currentKey));
+    report.after.older = stamp(await readJson(olderKey));
+    const trialAfter = await readJson(trialKeyName);
+    report.after.trial = { trialStartedAt: trialAfter.trialStartedAt || null, trialEndsAt: trialAfter.trialEndsAt || null };
+    report.after.dogWalk = (priced.match(/Dog walk, 15 minutes","p":"([^"]+)"/) || [])[1] || "";
+    report.after.daysLeft = daysUntil(END);
+    for (const slug of ["will-the-lawn-ranger", "will-highline-yard", "maryn"]) {
+      const meta = await readJson("pages/" + slug + ".json");
+      report.pages[slug] = meta ? (meta.status || "offline") : "missing";
+    }
+    return json(200, { ok: true, report });
+  }
 
   if (method === "GET" && (route.startsWith("site/") || path.startsWith("/api/site/"))) {
     const slug = decodeURIComponent((route || path.replace(/^\/api\//, "")).slice(5));

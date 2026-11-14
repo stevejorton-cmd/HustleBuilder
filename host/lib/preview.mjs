@@ -41,6 +41,23 @@ export function decoratePage(html, { title, description, image, url, indexable }
 // A public page must not carry a parent's email or phone: not in a link,
 // not in the page text, and not in the script config. Neighbors use the
 // booking form. bookings@ and support@ are our own addresses and stay.
+// Only the dog-walk price on Maryn's stored page. The 10000 timeouts in
+// the page script must stay. Returns the new html, or null if the two
+// price spots are not exactly as published.
+export function setDogWalkPrice(html) {
+  const pairs = [
+    ['Dog walk, 15 minutes</span><span class="p">$10000</span>', 'Dog walk, 15 minutes</span><span class="p">$10</span>'],
+    ['"n":"Dog walk, 15 minutes","p":"$10000"', '"n":"Dog walk, 15 minutes","p":"$10"']
+  ];
+  let out = String(html || "");
+  if (out.includes(pairs[0][1]) && out.includes(pairs[1][1]) && !out.includes("$10000")) return out;
+  for (const [from, to] of pairs) {
+    if (out.split(from).length !== 2) return null;
+    out = out.replace(from, to);
+  }
+  return out;
+}
+
 export function stripParentContact(html) {
   let out = hidePhone(String(html || ""), "");
   out = out.replace(/window\.location\.href="mailto:"\+C\.email\+[\s\S]*?;/g, 'var sh=document.getElementById("sendHost");if(C.publish&&C.publish.book&&sh){sh.click();return;}var bk=document.getElementById("book");if(bk)bk.scrollIntoView({block:"start"});');
