@@ -5686,8 +5686,8 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
 function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent"].some(k=>params.has(k))&&!introSeen();}
-window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
+window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(!new URLSearchParams(location.search).get("ask"))initPublish();
 const startQ=new URLSearchParams(location.search);
 const hostQ=startQ.get("hosting");
