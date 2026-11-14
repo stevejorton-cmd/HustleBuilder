@@ -916,7 +916,7 @@ function privacyPage() {
 <p>We store that the check happened: the method (a card check, or a later plan payment), the time, Stripe’s payment id, and this notice’s version. We do not store the card number, the expiration date, or the security code. A parent who already passed the check does not do it again for another kid’s page or for an update. Buying a real plan also counts, so that parent skips the 50¢. Refunding the 50¢ does not take the page down.</p>
 
 <h2>What the public page shows</h2>
-<p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add. A parent’s phone number is not on the page unless they turn that on. Search engines are asked not to list the page unless the parent turns that on too.</p>
+<p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add. A parent’s email and phone are not on the page. Neighbors use the booking form. Search engines are asked not to list the page unless the parent turns that on too.</p>
 <p>Each page has a “Report this page” link. If a few people report a page, it is hidden until we check it.</p>
 
 <h2>Booking requests from neighbors</h2>

@@ -47,6 +47,10 @@ export function stripParentContact(html) {
   out = out.replace(/href\s*=\s*(["'])mailto:(?!bookings@hustlebuilder\.org|support@hustlebuilder\.org)[^"']*\1/gi, 'href="#book"');
   out = out.replace(/"(email|email2|phone|phone2|phoneDigits|phone2Digits)"\s*:\s*"(?:\\.|[^"\\])*"/g, '"$1":""');
   out = out.replace(/[A-Z0-9._%+-]+@(?!hustlebuilder\.org\b)[A-Z0-9.-]+\.[A-Z]{2,}/gi, "");
+  if (!out.includes("report-link-contrast")) {
+    const css = `<style id="report-link-contrast">a[href^="/api/report"],footer a{color:var(--bone,CanvasText);font-weight:800;text-decoration:underline;text-underline-offset:3px;font-size:16px}</style>`;
+    out = out.includes("</head>") ? out.replace("</head>", () => css + "</head>") : css + out;
+  }
   return out;
 }
 

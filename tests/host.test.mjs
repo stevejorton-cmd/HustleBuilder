@@ -7,6 +7,7 @@ import { createHmac, createHash } from "crypto";
 import { fileStore, setStore } from "../host/lib/store.mjs";
 import { chicagoWall, jobsToIcs } from "../host/lib/calendar.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
+import { stripParentContact } from "../host/lib/preview.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
@@ -627,6 +628,8 @@ if(e){e.onclick=function(){var m=build(); if(m){window.location.href="mailto:"+C
   assert.match(live.body, /href="#book"/);
   assert.match(live.body, /"email":""/);
   assert.match(live.body, /"first":"Will"/);
+  assert.match(live.body, /Report this page/);
+  assert.match(live.body, /report-link-contrast/);
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "will-public", name: "Dana", contact: "402-555-0101", service: "Mow", when: "Saturday at 10:00 AM",
     address: "8 Quiet St", note: "front", start: "2026-11-21T10:00", t: 5000
@@ -641,7 +644,10 @@ test("the builder hides the phone unless the parent turns it on", async () => {
   const { readFile } = await import("fs/promises");
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /showPhone:false/);
-  assert.match(src, /const publicPhone=!!\(c\.showPhone&&c\.phoneDigits\)/);
+  assert.match(src, /const publicPhone=false/);
+  assert.equal(src.includes("mailto:${esc(c.email)}"), false);
+  assert.match(src, /href="#book">Email</);
+  assert.match(src, /mailto:bookings@hustlebuilder\.org/);
   assert.equal(src.includes("app.netlify.com"), false);
   assert.equal(src.includes("Manage deployments"), false);
 });
