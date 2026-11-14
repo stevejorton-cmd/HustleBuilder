@@ -5,6 +5,7 @@ const FONT = {
   "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
   ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
   "'": ["01100", "01100", "00100", "00000", "00000", "00000", "00000"],
+  "$": ["00100", "01111", "10100", "01110", "00101", "11110", "00100"],
   A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
   B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
   C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
@@ -132,6 +133,29 @@ function pngFromRgb(buf, w, h) {
     chunk("IDAT", deflateSync(raw)),
     chunk("IEND", Buffer.alloc(0))
   ]);
+}
+
+export function homeOgPng() {
+  const w = 1200, h = 630;
+  const buf = Buffer.alloc(w * h * 3, 0);
+  const bar = [255, 91, 20];
+  const ink = [241, 239, 234];
+  const mute = [210, 206, 198];
+  fill(buf, w, 0, 0, w, h, [14, 16, 18], h);
+  fill(buf, w, 0, 0, w, 28, bar, h);
+  const lines = [
+    ["YOUR KID'S FIRST", 8, ink],
+    ["NEIGHBORHOOD BUSINESS", 7, ink],
+    ["$9.99 FOR THE WINTER", 8, bar],
+    ["NEVER AUTO-RENEWS", 5, mute]
+  ];
+  let y = 150;
+  for (const [text, scale, rgb] of lines) {
+    drawText(buf, w, h, text, 64, y, scale, rgb);
+    y += scale * 7 + 28;
+  }
+  drawText(buf, w, h, "HUSTLE BUILDER", 64, 560, 4, bar);
+  return pngFromRgb(buf, w, h);
 }
 
 export function cardPng({ title, line, accent } = {}) {

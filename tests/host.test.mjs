@@ -56,6 +56,18 @@ async function pendingSession(accountId,plan,id) {
   return {id,payment_status:'paid',amount_total:plan==='year'?1999:999,currency:'usd',metadata:{accountId,plan,attempt}};
 }
 
+test("the parent landing names the winter price and uses a made-up example", async () => {
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const block = home.slice(home.indexOf('id="forParents"'), home.indexOf("</section>") + 10);
+  assert.match(block, /\$9\.99 for the whole winter, never auto-renews/);
+  assert.match(block, /id="parentsStart"/);
+  assert.match(block, />Start free</);
+  assert.match(block, /Sam's Lawn Co\./);
+  assert.match(block, /Elkhorn/);
+  assert.equal(/steve|lincoln|maryn|levi|402/i.test(block), false);
+  assert.match(checkSlug("parents"), /reserved/i);
+});
+
 test("slug rules block last names, reserved words, and bad shapes", () => {
   assert.equal(checkSlug("sam"), "");
   assert.equal(checkSlug("sam-yard"), "");
@@ -360,6 +372,7 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     assert.equal(res.body.url, "https://checkout.stripe.test/c");
     const params = new URLSearchParams(seen);
     assert.equal(params.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.ok(("KEYSTONE* " + params.get("payment_intent_data[statement_descriptor_suffix]")).length <= 22);
     assert.equal(params.get("line_items[0][price_data][currency]"), "usd");
     assert.equal(params.get("line_items[0][price_data][unit_amount]"), "999");
     assert.equal(params.get("line_items[0][price]"), null);
@@ -370,6 +383,13 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     assert.equal(yearParams.get("line_items[0][price_data][currency]"), "usd");
     assert.equal(yearParams.get("line_items[0][price_data][unit_amount]"), "1999");
     assert.equal(yearParams.get("line_items[0][price]"), null);
+    const checkParent = await parent("card-check@example.com");
+    await call("POST", "/api/consent", { token: checkParent.token, body: { consent: true } });
+    const checkParams = new URLSearchParams(seen);
+    assert.equal(checkParams.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.equal(checkParams.get("line_items[0][price_data][unit_amount]"), "50");
+    const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+    assert.match(home, /id="buySeason">Buy the winter season, \$9\.99/);
   } finally {
     global.fetch = prev;
     process.env.PAYWALL_MODE = "test";
@@ -2495,4 +2515,37 @@ test("all flyer and poster export paths check account access and fail closed", a
     const start=src.indexOf("async function "+name+"{");
     assert.ok(src.slice(start,start+130).includes("await allowBusinessExport("),name);
   }
+});
+
+test("the home page can be shared and search engines can find the public pages", async () => {
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(home, /rel="canonical" href="https:\/\/hustlebuilder\.org\/"/);
+  assert.match(home, /property="og:title"/);
+  assert.match(home, /property="og:image" content="https:\/\/hustlebuilder\.org\/assets\/og-home\.png"/);
+  assert.match(home, /name="twitter:card" content="summary_large_image"/);
+  assert.match(home, /"@type":"SoftwareApplication"/);
+  assert.match(home, /"price":"9\.99"/);
+  assert.match(home, /"price":"19\.99"/);
+  const robots = await call("GET", "/robots.txt");
+  assert.equal(robots.status, 200);
+  assert.match(robots.body, /Allow: \//);
+  assert.match(robots.body, /Sitemap: http:\/\/sites\.test\/sitemap\.xml/);
+  const { token } = await parent("search@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam-lawn", html: page("Sam"), indexable: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam-snow", html: page("Snow"), indexable: false } });
+  const map = await call("GET", "/sitemap.xml");
+  assert.equal(map.status, 200);
+  assert.match(map.headers["content-type"], /xml/);
+  assert.match(map.body, /<loc>http:\/\/sites\.test\/<\/loc>/);
+  assert.match(map.body, /\/terms</);
+  assert.match(map.body, /\/privacy</);
+  assert.match(map.body, /\/sam-lawn</);
+  assert.equal(map.body.includes("/sam-snow"), false);
+  const icon = await call("GET", "/favicon.ico");
+  assert.equal(icon.status, 200);
+  assert.ok(Buffer.isBuffer(icon.body) ? icon.body.length > 32 : String(icon.body).length > 32);
+  const touch = await call("GET", "/apple-touch-icon.png");
+  assert.equal(touch.status, 200);
+  assert.match(touch.headers["content-type"], /png/);
 });

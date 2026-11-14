@@ -80,6 +80,10 @@
       "destination": "/api/handler?hbpath=$1"
     },
     {
+      "source": "/parents",
+      "destination": "/index.html"
+    },
+    {
       "source": "/((?!api/|icons/|manifest\\.webmanifest|sw\\.js)[^/]+)",
       "destination": "/api/handler?hbsite=$1"
     }

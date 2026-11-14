@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
-import { cardPng } from "./card.mjs";
+import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
@@ -15,6 +15,8 @@ export const CONSENT_VERSION = "2026-11-10-card";
 // A one-time parent check. Stripe emails the receipt, then we refund it in full.
 // Not a plan payment, and not a new environment variable.
 export const VERIFY_CENTS = 50;
+// Stripe joins the account prefix, "* ", and this suffix. KEYSTONE* HUSTLE BLDR is 21 characters, under the 22-character card line.
+export const STATEMENT_SUFFIX = "HUSTLE BLDR";
 // Booking counts are analytics only; trial access is based on its end date.
 export const GRACE_DAYS = 7;
 export const TRIAL_DAYS = 14;
@@ -711,7 +713,7 @@ async function beginCardCheck(account, origin) {
   params.set("metadata[notice]", CONSENT_VERSION);
   params.set("payment_intent_data[receipt_email]", account.email);
   params.set("payment_intent_data[description]", "Hustle Builder parent check, 50¢, refunded right away");
-  params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
+  params.set("payment_intent_data[statement_descriptor_suffix]", STATEMENT_SUFFIX);
   params.set("payment_intent_data[metadata][purpose]", "parent_verification");
   params.set("payment_intent_data[metadata][accountId]", account.id);
   params.set("payment_intent_data[metadata][notice]", CONSENT_VERSION);
@@ -1568,6 +1570,51 @@ function pngResponse(buf) {
   return { status: 200, headers: { "content-type": "image/png", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body: buf };
 }
 
+// A PNG wrapped as a .ico so browsers that request /favicon.ico get a real icon.
+function icoFromPng(png) {
+  const header = Buffer.alloc(22);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  header[6] = 32;
+  header[7] = 32;
+  header.writeUInt16LE(1, 10);
+  header.writeUInt16LE(32, 12);
+  header.writeUInt32LE(png.length, 14);
+  header.writeUInt32LE(22, 18);
+  return Buffer.concat([header, png]);
+}
+
+const HOME_ORIGIN = "https://hustlebuilder.org";
+function siteOrigin(origin) {
+  return String(origin || HOME_ORIGIN).replace(/\/$/, "") || HOME_ORIGIN;
+}
+function robotsTxt(origin) {
+  const base = siteOrigin(origin);
+  return "User-agent: *\nAllow: /\n\nSitemap: " + base + "/sitemap.xml\n";
+}
+async function sitemapXml(origin) {
+  const base = siteOrigin(origin);
+  const urls = [base + "/", base + "/terms", base + "/privacy"];
+  try {
+    const keys = await (await store()).list("pages/");
+    for (const key of keys) {
+      if (!String(key).endsWith(".json")) continue;
+      const meta = await readJson(key);
+      const slug = meta && meta.slug;
+      if (!meta || meta.indexable !== true) continue;
+      if (meta.status === "down" || meta.status === "review") continue;
+      if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug || ""))) continue;
+      urls.push(base + "/" + slug);
+    }
+  } catch { /* an empty sitemap still lists the public pages */ }
+  const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` + urls.map((loc) => `  <url><loc>${mailEscape(loc)}</loc></url>`).join("\n") + "\n</urlset>\n";
+  return body;
+}
+function textFile(body, type) {
+  return { status: 200, headers: { "content-type": type, "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body };
+}
+
 const ASK_MS = 7 * 24 * 60 * 60 * 1000;
 const DRAFT_MS = 90 * 24 * 60 * 60 * 1000;
 const DRAFT_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -1698,7 +1745,13 @@ async function routeRequest(req) {
   if (qMark >= 0) path = path.slice(0, qMark);
   const origin = await publicOrigin(req.origin);
   if (method === "OPTIONS") return withCors({ status: 204, headers: {}, body: "" }, req.headers && req.headers.origin);
-  if (method === "GET" && path === "/favicon.ico") return { status: 204, headers: { "cache-control": "public, max-age=86400" }, body: "" };
+  if (method === "GET") {
+    const bare = path.replace(/^\/api\/site\//, "/");
+    if (bare === "/robots.txt") return textFile(robotsTxt(origin), "text/plain; charset=utf-8");
+    if (bare === "/sitemap.xml") return textFile(await sitemapXml(origin), "application/xml; charset=utf-8");
+    if (bare === "/favicon.ico") return { status: 200, headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" }, body: icoFromPng(iconPng(32, false)) };
+    if (bare === "/apple-touch-icon.png") return pngResponse(iconPng(180, false));
+  }
   const route = path.startsWith("/api/") ? path.slice(5) : "";
   // /admin is a small operator site, not an API route. Vercel rewrites /admin
   // and /admin/* to /api/handler?hbpath=admin... (so they arrive as route
@@ -2022,7 +2075,7 @@ async function routeRequest(req) {
       params.set('line_items[0][price_data][unit_amount]',String(checkoutPlan.amount));
       params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id,planBase(account)).name+', through '+niceDate(planOffer(checkoutPlan.id,planBase(account)).end));
       params.set('metadata[accountId]',account.id);params.set('metadata[plan]',checkoutPlan.id);params.set('metadata[attempt]',attempt);
-      params.set('payment_intent_data[statement_descriptor_suffix]','HUSTLE BLDR');
+      params.set('payment_intent_data[statement_descriptor_suffix]',STATEMENT_SUFFIX);
       let response,data;
       try{response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...providerHeaders,'Content-Type':'application/x-www-form-urlencoded','Idempotency-Key':'hb-checkout-'+attempt},body:params,signal:AbortSignal.timeout(8000)});data=await response.json();}catch{await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
       if(!response.ok||!data.url||!data.id){await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
