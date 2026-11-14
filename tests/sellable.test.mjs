@@ -579,6 +579,13 @@ test("server source and internal notes are not served to the public", async () =
   assert.equal(cfg.rewrites.length, 6);
   assert.ok(cfg.rewrites.some((r) => r.source === "/parents" && r.destination === "/index.html"));
   assert.ok(cfg.rewrites.some((r) => r.source === "/calendar/subscribe/:token" && r.destination === "/api/handler?hbpath=calendar/subscribe/:token"));
+  for (const source of ["/", "/index.html", "/parents"]) {
+    const csp = (cfg.headers.find((h) => h.source === source).headers.find((h) => h.key === "Content-Security-Policy") || {}).value || "";
+    assert.match(csp, /font-src 'self'/);
+    assert.match(csp, /script-src 'self' 'unsafe-inline'/);
+    assert.match(csp, /connect-src 'self'/);
+    assert.equal(csp.includes("stripe.com"), false);
+  }
   const ignore = await readFile(new URL("../.vercelignore", import.meta.url), "utf8");
   for (const line of ["/tests", "/stress", "/scripts", "*.md"]) assert.ok(ignore.split("\n").includes(line), line);
   assert.equal(/^\/?(host|api|assets|icons|index\.html|package\.json|sw\.js)\b/m.test(ignore.replace(/^#.*$/gm, "")), false, "nothing the site needs is ignored");

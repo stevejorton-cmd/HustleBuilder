@@ -91,10 +91,11 @@ export function addHourWall(start, tz = TZID) {
   return wallIn(ms + 3600000, tz);
 }
 
-export function pruneJobs(jobs, now = Date.now()) {
+export function pruneJobs(jobs, now = Date.now(), tz = TZID) {
   const cutoff = now - JOB_KEEP_MS;
+  const zone = tz || TZID;
   return (Array.isArray(jobs) ? jobs : []).filter((j) => {
-    const ms = jobInstant(j && j.start);
+    const ms = jobInstant(j && j.start, zone);
     return ms != null && ms >= cutoff;
   });
 }
@@ -176,7 +177,7 @@ function eventLines(job, now, tz) {
     "DTSTAMP:" + dtstamp(now),
     ...when,
     "SUMMARY:" + icsEscape(summary),
-    "LOCATION:" + icsEscape(job.address || "")
+    "LOCATION:" + icsEscape(publicText(job.address || ""))
   ];
   if (bits.length) lines.push("DESCRIPTION:" + icsEscape(bits.join("\n")));
   lines.push("END:VEVENT");
@@ -259,7 +260,7 @@ export function bookingInviteIcs({
 export function jobsToIcs(jobs, now = Date.now(), tz = TZID) {
   const local = !tz || tz === TZID;
   const events = [];
-  for (const job of pruneJobs(jobs, now)) {
+  for (const job of pruneJobs(jobs, now, tz)) {
     if (!job || !/^[A-Za-z0-9_-]{6,80}$/.test(String(job.id || ""))) continue;
     events.push(...eventLines(job, now, tz));
   }

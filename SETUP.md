@@ -39,7 +39,7 @@ Set these on the Vercel project for Production (and Preview if you want to try a
 | `RESEND_API_KEY` | From Resend. Required when `PUBLISH_TEST_MODE` is `0`. |
 | `BOOKING_FROM` | A sender on a domain you verified in Resend, such as `Hustle Builder <bookings@your-domain>`. |
 | `REPLY_TO` | A mailbox a person reads, such as `steve@your-domain`. Code emails reply here. Booking emails reply to the customer when they leave an email. If this is empty, those code emails say replies are not read. Do not point it at `bookings@`, which has no mailbox. |
-| `ALLOWED_ORIGINS` | Optional. Comma-separated origins that may call the API, such as `https://stevejorton-cmd.github.io`. Localhost and `*.github.io` are already allowed. |
+| `ALLOWED_ORIGINS` | Optional. Comma-separated origins that may call the API. Localhost is already allowed. `*.github.io` is not. |
 | `STRIPE_SECRET_KEY` | Only when `PAYWALL_MODE=stripe`. Use the test key `sk_test_...` first. |
 | `STRIPE_WEBHOOK_SECRET` | Only when `PAYWALL_MODE=stripe`. From the webhook endpoint below. |
 | `BLOB_READ_WRITE_TOKEN` | Added when you connect the Blob store. |

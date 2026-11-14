@@ -1,3 +1,5 @@
+> **Stale.** This plan describes an old GitHub Pages upload and on-device-only data. The live app is https://hustlebuilder.org. Do not follow the hosting steps below.
+
 # Real-world test plan for Hustle Builder
 
 Everything so far was tested in a desktop browser on phone-size screens. This plan covers what a computer could not check. It takes about two class periods with 2 or 3 student volunteers and a parent or teacher helper.

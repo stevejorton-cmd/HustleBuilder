@@ -9,7 +9,7 @@ import { addEventIcs, bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jo
 import ICAL from "ical.js";
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
-import { familyVenmo, kidOwned, setDogWalkPrice, stripParentContact } from "../host/lib/preview.mjs";
+import { familyVenmo, hidePhone, kidOwned, stripParentContact } from "../host/lib/preview.mjs";
 import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
 import { heroFitPx } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
@@ -1491,15 +1491,91 @@ test("a card that already started a trial cannot start another", async () => {
   assert.equal(live.body.ok, true);
 });
 
-test("Maryn's dog-walk price can be set to $10 without touching the page timeouts", () => {
-  const html = '<span class="n">Dog walk, 15 minutes</span><span class="p">$10000</span><script>window.__C={"services":[{"n":"Dog walk, 15 minutes","p":"$10000"}]};setTimeout(fn,10000);</script>';
-  const next = setDogWalkPrice(html);
-  assert.match(next, /class="p">\$10</);
-  assert.match(next, /"p":"\$10"/);
-  assert.equal(next.includes("$10000"), false);
-  assert.match(next, /setTimeout\(fn,10000\)/);
-  assert.equal(setDogWalkPrice(next), next);
-  assert.equal(setDogWalkPrice(html.replace("$10000", "$12")), null);
+test("a public calendar file leaves out a gate note and disappears when the job is cancelled", async () => {
+  const { token, email } = await parent("gate-parent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token, body: { slug: "gate-yard", html: page("Will").replace("</body>", "<script>window.__C={\"first\":\"Will\"};</script></body>") } });
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "gate-yard", name: "Riley", contact: "riley.gate@example.com", service: "Mow a small yard",
+    when: "Saturday morning", address: "12 Oak parent@gmail.com 402-555-0199", note: "gate code 4481",
+    start: futureDay(12) + "T10:00", t: 4000
+  } }));
+  assert.equal(booked.body.ok, true);
+  const parentMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.match(parentMail.body.messages.at(-1).text, /gate code 4481/);
+  const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.gate@example.com")));
+  const apple = neighbor.body.messages[0].text.match(/\/api\/event\/[a-f0-9]+\.ics/);
+  assert.ok(apple);
+  const file = await call("GET", apple[0]);
+  assert.equal(file.status, 200);
+  assert.equal(file.body.includes("4481"), false);
+  assert.equal(file.body.includes("parent@gmail.com"), false);
+  assert.equal(file.body.includes("402-555-0199"), false);
+  assert.match(file.body, /LOCATION:12 Oak/);
+  const feed = jobsToIcs([{ id: "b12345678", start: futureDay(12) + "T10:00", service: "Mow", customer: "Riley", address: "12 Oak parent@gmail.com 402-555-0199", note: "gate code 4481" }], Date.parse("2026-11-10"));
+  assert.equal(feed.includes("parent@gmail.com"), false);
+  assert.equal(feed.includes("402-555-0199"), false);
+  const list = await json(await call("GET", "/api/my-jobs", { token }));
+  const cancelled = await json(await call("POST", "/api/job/" + list.body.jobs[0].action, { body: { status: "cancelled", json: true } }));
+  assert.equal(cancelled.body.status, "cancelled");
+  const gone = await call("GET", apple[0]);
+  assert.equal(gone.status, 404);
+});
+
+test("a paid checkout still grants the plan after a newer checkout is opened", async () => {
+  const { token } = await parent("two-checkout@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const names = await readdir(path.join(dir, "accounts"));
+  const file = path.join(dir, "accounts", names[0]);
+  const account = JSON.parse(await readFile(file, "utf8"));
+  const attempt = createHash("sha256").update("checkout:" + account.id + ":0").digest("hex");
+  account.checkoutSessionId = "cs_newer";
+  account.checkoutPlan = "year";
+  account.checkoutGeneration = 1;
+  await writeFile(file, JSON.stringify(account));
+  const payload = JSON.stringify({
+    id: "evt_old_paid",
+    type: "checkout.session.completed",
+    data: { object: {
+      id: "cs_older", payment_status: "paid", amount_total: 999, currency: "usd",
+      metadata: { accountId: account.id, plan: "season", attempt }
+    } }
+  });
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  const t = String(Math.floor(Date.now() / 1000));
+  const sig = createHmac("sha256", "whsec_test").update(t + "." + payload).digest("hex");
+  const paid = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=" + t + ",v1=" + sig } }));
+  assert.equal(paid.body.ok, true);
+  const me = await json(await call("GET", "/api/me", { token }));
+  assert.equal(me.body.paid, true);
+  assert.equal(me.body.plan, "season");
+  const until = me.body.paidUntil;
+  const again = await json(await call("POST", "/api/stripe/webhook", { raw: payload, headers: { "stripe-signature": "t=" + t + ",v1=" + sig } }));
+  assert.equal(again.body.duplicate, true);
+  const check = JSON.stringify({
+    id: "evt_check",
+    type: "checkout.session.completed",
+    data: { object: {
+      id: "cs_check", payment_status: "paid", amount_total: 50, currency: "usd",
+      metadata: { accountId: account.id, plan: "season" }
+    } }
+  });
+  const t2 = String(Math.floor(Date.now() / 1000));
+  const sig2 = createHmac("sha256", "whsec_test").update(t2 + "." + check).digest("hex");
+  const ignored = await json(await call("POST", "/api/stripe/webhook", { raw: check, headers: { "stripe-signature": "t=" + t2 + ",v1=" + sig2 } }));
+  assert.equal(ignored.status, 400);
+  const still = await json(await call("GET", "/api/me", { token }));
+  assert.equal(still.body.plan, "season");
+  assert.equal(still.body.paidUntil, until);
+});
+
+test("phone hiding covers a 7-digit number and an international number", () => {
+  const out = hidePhone("<p>Call 555-0100 or +44 20 7946 0958. $10 in 2026.</p><script>setTimeout(fn,10000)</script>");
+  assert.equal(out.includes("555-0100"), false);
+  assert.equal(out.includes("+44"), false);
+  assert.match(out, /\$10 in 2026/);
+  assert.match(out, /setTimeout\(fn,10000\)/);
 });
 
 test("an already published page gains privacy links, copy-job validation, and the other-job placeholder", () => {
@@ -2331,7 +2407,7 @@ test("admin view gates on the secret and lists accounts without private details"
   assert.match(setCookie, /hb_admin=[a-f0-9]{64}/);
   assert.match(setCookie, /HttpOnly/);
   assert.match(setCookie, /Secure/);
-  assert.match(setCookie, /SameSite=Lax/);
+  assert.match(setCookie, /SameSite=Strict/);
   assert.match(setCookie, /Path=\/admin/);
   const cookie = setCookie.split(";")[0];
 

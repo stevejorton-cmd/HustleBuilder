@@ -244,10 +244,10 @@ function cookieValue(header, name) {
 const ADMIN_COOKIE = "hb_admin";
 const ADMIN_COOKIE_MAX_AGE = 12 * 3600;
 function adminCookieHeader(token) {
-  return ADMIN_COOKIE + "=" + token + "; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=" + ADMIN_COOKIE_MAX_AGE;
+  return ADMIN_COOKIE + "=" + token + "; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=" + ADMIN_COOKIE_MAX_AGE;
 }
 function clearAdminCookieHeader() {
-  return ADMIN_COOKIE + "=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0";
+  return ADMIN_COOKIE + "=; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=0";
 }
 async function issueAdminSession() {
   const token = rand(32);
@@ -700,26 +700,32 @@ const receiptIdFor = (sessionId) => "stripe-" + String(sessionId).toLowerCase().
 async function fulfillPaidSession(account, session, origin, eventId) {
   const meta = session.metadata || {};
   const plan = Object.hasOwn(PLANS, meta.plan) ? PLANS[meta.plan] : null;
+  if (meta.purpose === "parent_verification") return "payment";
   if (session.payment_status !== "paid") return "unpaid";
   if (!plan || session.amount_total !== plan.amount || session.currency !== "usd") return "payment";
-  if (!account.checkoutSessionId || account.checkoutSessionId !== session.id) return "session";
-  if (meta.accountId !== account.id || meta.attempt !== sha("checkout:" + account.id + ":" + (account.checkoutGeneration || 0)) || account.checkoutPlan !== plan.id) return "session";
+  if (meta.accountId !== account.id) return "session";
+  // A parent can open a second checkout before paying the first. The paid
+  // session is identified by its own id in the ledger, not by whichever
+  // session happens to be open now. A 50¢ check cannot match a plan amount.
+  const ledgerKey = "payments/" + sha(session.id) + ".json";
+  if (await readJson(ledgerKey)) return "";
   const change = grantPlan(account, plan.id);
   const paymentIntent = /^pi_[A-Za-z0-9_]+$/.test(String(session.payment_intent || "")) ? session.payment_intent : "";
   markPlanConsent(account, paymentIntent);
   account.payMode = "stripe";
-  account.checkoutPendingAt = "";
-  // Keep payment deduplication in its own ledger; leave the next renewal available.
   account.lastPaidSessionId = session.id;
-  account.checkoutSessionId = ""; account.checkoutUrl = ""; account.checkoutPlan = "";
-  account.checkoutGeneration = (account.checkoutGeneration || 0) + 1;
+  if (account.checkoutSessionId === session.id) {
+    account.checkoutPendingAt = "";
+    account.checkoutSessionId = ""; account.checkoutUrl = ""; account.checkoutPlan = "";
+    account.checkoutGeneration = (account.checkoutGeneration || 0) + 1;
+  }
   const pageSlug = /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(meta.slug || "")) ? String(meta.slug) : "";
   await addReceipt(account, origin, { id: receiptIdFor(session.id), plan: plan.id, planName: account.planName, amountLabel: plan.label, end: account.paidUntil, stripeUrl: "", extra: { ...change, sessionId: session.id, ...(pageSlug ? { slug: pageSlug } : {}), ...(paymentIntent ? { paymentIntent } : {}) } });
   if (paymentIntent) await writeJson("payintents/" + paymentIntent + ".json", { accountId: account.id, receiptId: receiptIdFor(session.id) });
   await sendReceiptNote(account, origin, session.id);
   await saveAccount(account); await trackPlan(account); await releaseHeld(account, origin);
   await noteFunnel("plan_paid");
-  await writeJson("payments/" + sha(session.id) + ".json", { eventId: eventId || "", sessionId: session.id, processedAt: new Date().toISOString() });
+  await writeJson(ledgerKey, { eventId: eventId || "", sessionId: session.id, processedAt: new Date().toISOString() });
   return "";
 }
 
@@ -1022,7 +1028,6 @@ async function savePublicEvent(row, account) {
   const token = rand(18);
   const kid = String((row.calJob && row.calJob.kid) || "").trim();
   const customer = firstName(row.firstName || (row.fields && row.fields.name) || "");
-  const note = publicText((row.fields && row.fields.note) || "");
   const rec = {
     token,
     id: (row.calJob && row.calJob.id) || ("b" + rand(8)),
@@ -1030,13 +1035,20 @@ async function savePublicEvent(row, account) {
     tz: (row.invite && row.invite.tz) || tzOf(account),
     summary: eventTitle(kid, row.service || "Job", customer, false),
     location: publicText((row.fields && row.fields.address) || ""),
-    details: publicText((note ? note + "\n" : "") + "Requested. Not confirmed yet."),
+    details: "Requested. Not confirmed yet.",
     confirmed: false,
     sequence: 0
   };
   await writeJson("events/" + token + ".json", rec);
   row.eventToken = token;
   row.publicEvent = rec;
+}
+async function dropPublicEvent(row) {
+  if (!row || !row.eventToken) return;
+  const token = String(row.eventToken).toLowerCase();
+  if (/^[a-f0-9]{32,80}$/.test(token)) await (await store()).del("events/" + token + ".json");
+  row.eventToken = "";
+  row.publicEvent = null;
 }
 function parentBookingMail(row, origin, account) {
   const fields = row.fields || {};
@@ -1083,7 +1095,7 @@ function allowOrigin(originHeader) {
   try { host = new URL(origin).hostname; } catch { return ""; }
   const list = String(process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (list.includes(origin)) return origin;
-  if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".github.io")) return origin;
+  if (host === "localhost" || host === "127.0.0.1") return origin;
   const pub = String(process.env.PUBLIC_ORIGIN || "");
   if (pub && origin === pub.replace(/\/$/, "")) return origin;
   return "";
@@ -1734,15 +1746,15 @@ export function petOgImage(origin) {
 function tzOf(account) { return validTz(account && account.tz) || DEFAULT_TZ; }
 function jobsKey(accountId) { return "caljobs/" + accountId + ".json"; }
 
-async function loadJobs(accountId) {
+async function loadJobs(accountId, tz) {
   const raw = await readJson(jobsKey(accountId));
   const jobs = Array.isArray(raw) ? raw : [];
-  const kept = pruneJobs(jobs).slice(-200);
-  if (kept.length !== jobs.length) await saveJobs(accountId, kept);
+  const kept = pruneJobs(jobs, Date.now(), tz).slice(-200);
+  if (kept.length !== jobs.length) await saveJobs(accountId, kept, tz);
   return kept;
 }
-async function saveJobs(accountId, jobs) {
-  const kept = pruneJobs(jobs).sort((a, b) => String(a.start).localeCompare(String(b.start))).slice(-200);
+async function saveJobs(accountId, jobs, tz) {
+  const kept = pruneJobs(jobs, Date.now(), tz).sort((a, b) => String(a.start).localeCompare(String(b.start))).slice(-200);
   await writeJson(jobsKey(accountId), kept);
 }
 
@@ -1809,7 +1821,7 @@ function calendarResponse(status, body) {
 async function serveCalendar(token) {
   const account = await accountByCalToken(token);
   if (!account) return json(404, { ok: false, error: "missing" });
-  const jobs = await loadJobs(account.id);
+  const jobs = await loadJobs(account.id, tzOf(account));
   return calendarResponse(200, jobsToIcs(jobs, Date.now(), tzOf(account)));
 }
 
@@ -2081,7 +2093,7 @@ async function routeRequest(req) {
   if (method === "GET" && eventFile) {
     const rec = await readJson("events/" + eventFile[1].toLowerCase() + ".json");
     if (!rec || !rec.start) return json(404, { ok: false, error: "missing" });
-    const body = addEventIcs({ ...rec, id: rec.id || "event" });
+    const body = addEventIcs({ ...rec, id: rec.id || "event", description: rec.confirmed ? "Confirmed." : "Requested. Not confirmed yet.", location: publicText(rec.location || "") });
     if (!body) return json(404, { ok: false, error: "missing" });
     return {
       status: 200,
@@ -2705,6 +2717,7 @@ async function routeRequest(req) {
           row.status = "cancelled";
           cancelIcs = takeCancelIcs(row);
           await removeCalendarRequest(rec.accountId,row);
+          await dropPublicEvent(row);
           await saveRequests(rec.accountId, rows);
         }
       }
@@ -2795,14 +2808,14 @@ async function routeRequest(req) {
       const was = row.status;
       const cancelIcs = next === "cancelled" ? takeCancelIcs(row) : "";
       row.status = next;
-      if(next==='cancelled')await removeCalendarRequest(account.id,row);
+      if(next==='cancelled'){await removeCalendarRequest(account.id,row);await dropPublicEvent(row);}
       if (next === "confirmed" && was !== "confirmed" && row.eventToken) {
         const rec = await readJson("events/" + row.eventToken + ".json");
         if (rec) {
           rec.confirmed = true;
           rec.sequence = Math.max(1, Number(rec.sequence || 0) + 1);
           rec.summary = String(rec.summary || "").replace(" (requested)", "");
-          rec.details = publicText(String(rec.details || "").replace("Requested. Not confirmed yet.", "Confirmed."));
+          rec.details = "Confirmed.";
           await writeJson("events/" + row.eventToken + ".json", rec);
           row.publicEvent = rec;
           const add = eventMailBits(origin, rec);
@@ -3079,9 +3092,9 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     await noteFunnel("booking_sent");
     if (job) {
       await ensureCalToken(account);
-      const jobs = await loadJobs(account.id);
+      const jobs = await loadJobs(account.id, tzOf(account));
       jobs.push(job);
-      await saveJobs(account.id, jobs);
+      await saveJobs(account.id, jobs, tzOf(account));
       row.calJob = null;
       await saveRequests(account.id, rows);
     }
@@ -3635,6 +3648,11 @@ async function sweepExpired() {
     for(const legacy of LEGACY_COUNTER_PREFIXES)for(const key of await s.list(legacy))await s.del(key);
     // Admin sessions that simply ran out (nobody came back to trip the check).
     for(const key of await s.list('adminsessions/')){const rec=await readJson(key);if(!rec||Number(rec.exp)<=Date.now())await s.del(key);}
+    for(const key of await s.list('events/')){
+      const rec=await readJson(key);
+      const start=rec&&rec.start?jobInstant(rec.start, rec.tz):null;
+      if(start!=null&&start+30*864e5<Date.now())await s.del(key);
+    }
     for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
       const rec=await readJson(key);if(!rec)continue;
       const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;

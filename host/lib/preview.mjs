@@ -47,20 +47,6 @@ export function decoratePage(html, { title, description, image, url, indexable }
 // Only the dog-walk price on Maryn's stored page. The 10000 timeouts in
 // the page script must stay. Returns the new html, or null if the two
 // price spots are not exactly as published.
-export function setDogWalkPrice(html) {
-  const pairs = [
-    ['Dog walk, 15 minutes</span><span class="p">$10000</span>', 'Dog walk, 15 minutes</span><span class="p">$10</span>'],
-    ['"n":"Dog walk, 15 minutes","p":"$10000"', '"n":"Dog walk, 15 minutes","p":"$10"']
-  ];
-  let out = String(html || "");
-  if (out.includes(pairs[0][1]) && out.includes(pairs[1][1]) && !out.includes("$10000")) return out;
-  for (const [from, to] of pairs) {
-    if (out.split(from).length !== 2) return null;
-    out = out.replace(from, to);
-  }
-  return out;
-}
-
 function firstPricedService(html) {
   const re = /"n"\s*:\s*"([^"]+)"\s*,\s*"p"\s*:\s*"([^"]*)"/g;
   let match;
@@ -148,7 +134,7 @@ export function kidOwned(html) {
 export function hidePhone(html,phone) {
   // Preserve scripts, CSS and image data byte-for-byte. Phone-shaped digit
   // sequences can appear inside embedded photos and must not be rewritten.
-  const pattern=/(?:\+?1[ .()-]*)?(?:\(?\d{3}\)?[ .-]*)\d{3}[ .-]*\d{4}/g;
+  const pattern=/(?:\+\d{1,3}[\s.-]*)?(?:\(\d{3}\)|\d{3})[\s.-]*\d{3}[\s.-]*\d{4}|\b\d{3}[-.\s]\d{4}\b|\+\d{1,3}(?:[\s.-]*\d){6,14}/g;
   const raw=String(phone||'').trim();
   return String(html||'').replace(/<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<[^>]*>|[^<]+/gi,part=>{
     if(/^<(?:script|style)\b/i.test(part))return part;

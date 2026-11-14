@@ -1,3 +1,5 @@
+> **Stale.** This is a November 1, 2026 repair note. It was not the deployment that is live now.
+
 # Hustle Builder v4 — repair validation and deployment handoff
 
 Prepared November 1, 2026. **Repaired v4 source, tested locally; not deployed. This package supersedes the earlier repairs made from the v3 upload.**
