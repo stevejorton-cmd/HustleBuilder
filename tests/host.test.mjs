@@ -360,6 +360,7 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     assert.equal(res.body.url, "https://checkout.stripe.test/c");
     const params = new URLSearchParams(seen);
     assert.equal(params.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.ok(("KEYSTONE* " + params.get("payment_intent_data[statement_descriptor_suffix]")).length <= 22);
     assert.equal(params.get("line_items[0][price_data][currency]"), "usd");
     assert.equal(params.get("line_items[0][price_data][unit_amount]"), "999");
     assert.equal(params.get("line_items[0][price]"), null);
@@ -370,6 +371,13 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     assert.equal(yearParams.get("line_items[0][price_data][currency]"), "usd");
     assert.equal(yearParams.get("line_items[0][price_data][unit_amount]"), "1999");
     assert.equal(yearParams.get("line_items[0][price]"), null);
+    const checkParent = await parent("card-check@example.com");
+    await call("POST", "/api/consent", { token: checkParent.token, body: { consent: true } });
+    const checkParams = new URLSearchParams(seen);
+    assert.equal(checkParams.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.equal(checkParams.get("line_items[0][price_data][unit_amount]"), "50");
+    const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+    assert.match(home, /id="buySeason">Buy the winter season, \$9\.99/);
   } finally {
     global.fetch = prev;
     process.env.PAYWALL_MODE = "test";
