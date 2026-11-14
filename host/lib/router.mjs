@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
 import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
-import { decoratePage, hidePhone } from "./preview.mjs";
+import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
@@ -1399,7 +1399,7 @@ async function serveSlugInner(slug, view) {
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
   if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
-  const page = await (await store()).get("pages/" + slug + ".html");
+  const page = stripParentContact(await (await store()).get("pages/" + slug + ".html"));
   if (!page) return missingPage(slug, false);
   // The real page is the only response that gets the "Built with" belt,
   // added here at serve time so the stored page stays exactly as the
@@ -2197,6 +2197,7 @@ async function routeRequest(req) {
     const image = pets.length ? petOgImage(origin) : (origin || "") + "/api/card/" + slug + ".png";
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
+    stored = stripParentContact(stored);
     await (await store()).put("pages/" + slug + ".html", stored);
     const pageNames = namesFromHtml(stored);
     const keptStatus = existing && ["paused","review"].includes(existing.status) ? existing.status : "live";

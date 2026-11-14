@@ -595,7 +595,46 @@ test("published pages have preview tags, hide the phone unless asked, and offer 
   assert.equal(shown.body.ok, true);
   const live2 = await call("GET", "/api/site/sam");
   assert.match(live2.body, /index,follow/);
-  assert.match(live2.body, /tel:4025550100/);
+  assert.equal(live2.body.includes("tel:"), false);
+  assert.equal(live2.body.includes("4025550100"), false);
+});
+
+test("a public page and its site payload contain no parent email or phone", async () => {
+  const leaked = `<!DOCTYPE html><html><head><title>Will</title></head><body>
+<a class="btn alt" href="mailto:parent@example.com">Email</a>
+<a href="tel:4025550199">Call</a>
+<p>Steve helps run this business.</p>
+<script>window.__C={"first":"Will","biz":"The Lawn Ranger","email":"parent@example.com","phoneDigits":"4025550199","phone":"402-555-0199"};
+if(e){e.onclick=function(){var m=build(); if(m){window.location.href="mailto:"+C.email+"?subject="+encodeURIComponent("Booking request: "+C.biz)+"&body="+encodeURIComponent(m);}};}
+</script>
+</body></html>`;
+  const { token, email } = await parent("secret-parent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const pub = await json(await call("POST", "/api/publish", { token, body: {
+    slug: "will-public", html: page("Will") + leaked, showPhone: true, phone: "402-555-0199"
+  } }));
+  assert.equal(pub.body.ok, true);
+  const live = await call("GET", "/api/site/will-public");
+  assert.equal(live.status, 200);
+  assert.equal(live.body.includes("secret-parent@example.com"), false);
+  assert.equal(live.body.includes("parent@example.com"), false);
+  assert.equal(live.body.includes("@gmail.com"), false);
+  assert.equal(live.body.includes("4025550199"), false);
+  assert.equal(live.body.includes("402-555-0199"), false);
+  assert.equal(live.body.includes("mailto:parent"), false);
+  assert.equal(live.body.includes("tel:"), false);
+  assert.match(live.body, /href="#book"/);
+  assert.match(live.body, /"email":""/);
+  assert.match(live.body, /"first":"Will"/);
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "will-public", name: "Dana", contact: "402-555-0101", service: "Mow", when: "Saturday at 10:00 AM",
+    address: "8 Quiet St", note: "front", start: "2026-11-21T10:00", t: 5000
+  } }));
+  assert.equal(book.body.ok, true);
+  const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  assert.ok(box.body.messages.length >= 1);
+  assert.equal(live.body.includes(email), false);
 });
 
 test("the builder hides the phone unless the parent turns it on", async () => {

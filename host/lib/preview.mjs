@@ -38,6 +38,18 @@ export function decoratePage(html, { title, description, image, url, indexable }
   return out;
 }
 
+// A public page must not carry a parent's email or phone: not in a link,
+// not in the page text, and not in the script config. Neighbors use the
+// booking form. bookings@ and support@ are our own addresses and stay.
+export function stripParentContact(html) {
+  let out = hidePhone(String(html || ""), "");
+  out = out.replace(/window\.location\.href="mailto:"\+C\.email\+[\s\S]*?;/g, 'var sh=document.getElementById("sendHost");if(C.publish&&C.publish.book&&sh){sh.click();return;}var bk=document.getElementById("book");if(bk)bk.scrollIntoView({block:"start"});');
+  out = out.replace(/href\s*=\s*(["'])mailto:(?!bookings@hustlebuilder\.org|support@hustlebuilder\.org)[^"']*\1/gi, 'href="#book"');
+  out = out.replace(/"(email|email2|phone|phone2|phoneDigits|phone2Digits)"\s*:\s*"(?:\\.|[^"\\])*"/g, '"$1":""');
+  out = out.replace(/[A-Z0-9._%+-]+@(?!hustlebuilder\.org\b)[A-Z0-9.-]+\.[A-Z]{2,}/gi, "");
+  return out;
+}
+
 export function hidePhone(html,phone) {
   // Preserve scripts, CSS and image data byte-for-byte. Phone-shaped digit
   // sequences can appear inside embedded photos and must not be rewritten.
