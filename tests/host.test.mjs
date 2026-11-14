@@ -254,6 +254,8 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.match(src, /Subscribe on iPhone/);
   assert.match(src, /id="jobCalGoogle"/);
   assert.match(src, /id="jobCalApple"/);
+  assert.match(src, /a\.href=me\.calWebcal/);
+  assert.match(src, /ja\.href=me\.calWebcal/);
   const { token, email } = await parent("tapcal@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
@@ -272,8 +274,17 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.match(parentMail.text, /\(requested\)/);
   assert.match(parentMail.text, /dates=20261116T220000Z\/20261116T230000Z/);
   assert.match(parentMail.text, /Subscribe in Google Calendar/);
-  assert.match(parentMail.text, /webcal:\/\//);
+  assert.match(parentMail.html, /href="http:\/\/sites\.test\/calendar\/subscribe\/[a-f0-9]+"/);
+  assert.equal(/href="webcal:/.test(parentMail.html), false);
+  const subscribePath = parentMail.html.match(/\/calendar\/subscribe\/[a-f0-9]+/)[0];
+  const subscribePage = await call("GET", subscribePath);
+  assert.equal(subscribePage.status, 200);
+  assert.match(subscribePage.body, /Open on iPhone/);
+  assert.match(subscribePage.body, /webcal:\/\//);
+  assert.match(subscribePage.body, /Subscribe in Google Calendar/);
+  assert.equal((await call("GET", "/calendar/subscribe/" + "ab".repeat(16))).status, 404);
   assert.match(parentMail.ics, /METHOD:REQUEST/);
+  assert.match(parentMail.ics, /SEQUENCE:0/);
   const neighborBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.neighbor@example.com")));
   const neighborMail = neighborBox.body.messages[0];
   assert.match(neighborMail.html, /Add to Google Calendar/);
@@ -285,6 +296,9 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.match(apple.headers["content-type"], /text\/calendar/);
   assert.match(apple.headers["content-disposition"], /inline; filename="booking\.ics"/);
   assert.match(apple.body, /STATUS:TENTATIVE/);
+  assert.match(apple.body, /SEQUENCE:0/);
+  const requestUid = parentMail.ics.match(/UID:([^\r\n]+)/)[1];
+  assert.match(apple.body, new RegExp("UID:" + requestUid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(apple.body.includes(email), false);
   assert.equal(apple.body.includes("402-555-0100"), false);
   assert.equal(apple.body.toLowerCase().includes("mailto:"), false);
@@ -309,7 +323,12 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.equal(confirmedNeighbor.text.includes("(requested)"), false);
   const confirmedIcs = await call("GET", applePath);
   assert.match(confirmedIcs.body, /STATUS:CONFIRMED/);
+  assert.match(confirmedIcs.body, /SEQUENCE:1/);
+  assert.match(confirmedIcs.body, new RegExp("UID:" + requestUid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(confirmedIcs.body.includes("(requested)"), false);
+  assert.match(confirmedParent.ics, /SEQUENCE:1/);
+  assert.match(confirmedParent.ics, new RegExp("UID:" + requestUid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal(confirmedParent.ics.includes(email), false);
 });
 
 test("a booking invite names the kid and the neighbor, and a cancel removes that same event", async () => {
@@ -1810,8 +1829,9 @@ test("going live and paying each send one email", async () => {
   assert.match(live[0].text, /\/\?account=1/);
   assert.match(live[0].text, /calendar\.google\.com\/calendar\/r\?cid=webcal%3A%2F%2F/);
   assert.match(live[0].html, /Subscribe in Google Calendar/);
-  assert.match(live[0].html, /Subscribe on iPhone/);
-  assert.match(live[0].text, /webcal:\/\//);
+  assert.match(live[0].html, /href="http:\/\/sites\.test\/calendar\/subscribe\/[a-f0-9]+"/);
+  assert.equal(/href="webcal:/.test(live[0].html), false);
+  assert.match(live[0].text, /\/calendar\/subscribe\//);
   assert.equal(live[0].text.includes("steve@"), false);
   const qr = await call("GET", "/api/qr/sam-yard.png");
   assert.equal(qr.body[0], 137);

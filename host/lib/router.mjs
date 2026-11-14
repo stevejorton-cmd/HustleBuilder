@@ -906,10 +906,10 @@ function calendarPitch(origin, account) {
   if (!account || !account.calToken) return { text: "", html: "" };
   const links = feedLinks(origin, account.calToken);
   return {
-    text: "Subscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calWebcal + "\n",
+    text: "Subscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calSubscribe + "\n",
     html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">Subscribe once. New and confirmed bookings show up on their own.</p>"
       + mailButton(links.calGoogle, "Subscribe in Google Calendar")
-      + mailButton(links.calWebcal, "Subscribe on iPhone")
+      + mailButton(links.calSubscribe, "Subscribe on iPhone")
   };
 }
 function eventMailBits(origin, event) {
@@ -947,7 +947,8 @@ async function savePublicEvent(row, account) {
     summary: eventTitle(kid, row.service || "Job", customer, false),
     location: publicText((row.fields && row.fields.address) || ""),
     details: publicText((note ? note + "\n" : "") + "Requested. Not confirmed yet."),
-    confirmed: false
+    confirmed: false,
+    sequence: 0
   };
   await writeJson("events/" + token + ".json", rec);
   row.eventToken = token;
@@ -1054,8 +1055,8 @@ async function sendLiveNote(account, origin, slug, kind = "") {
     to: account.email,
     replyTo: supportReply(),
     subject,
-    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nSubscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calWebcal + "\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
-    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p>Subscribe once. New and confirmed bookings show up on their own.</p>" + mailButton(links.calGoogle, "Subscribe in Google Calendar") + mailButton(links.calWebcal, "Subscribe on iPhone") + "<p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
+    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nSubscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calSubscribe + "\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p>Subscribe once. New and confirmed bookings show up on their own.</p>" + mailButton(links.calGoogle, "Subscribe in Google Calendar") + mailButton(links.calSubscribe, "Subscribe on iPhone") + "<p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
   });
   if (sent.ok) {
     mailed.add(slug);
@@ -1973,6 +1974,21 @@ async function routeRequest(req) {
   if (method === "GET" && calFeed) {
     return withCors(await serveCalendar(calFeed[1]), req.headers && req.headers.origin);
   }
+  const subscribePath = route.startsWith("calendar/subscribe/") ? route : (path.startsWith("/calendar/subscribe/") ? path.slice(1) : "");
+  const subscribe = subscribePath.match(/^calendar\/subscribe\/([a-f0-9]{32,128})$/i);
+  if (method === "GET" && subscribe) {
+    const account = await accountByCalToken(subscribe[1]);
+    if (!account) return shell(404, "Calendar link finished", "<h1>That calendar link is finished</h1><p>Ask the family for a new subscribe link from the account screen.</p>");
+    const links = feedLinks(origin, account.calToken);
+    return shell(200, "Add the family calendar", `<h1>Add the family calendar</h1>
+<p>Subscribe once. New and confirmed bookings show up on their own.</p>
+<p><a class="hb-btn" style="display:block;text-align:center" href="${mailEscape(links.calWebcal)}">Open on iPhone</a></p>
+<p><a class="hb-btn" style="display:block;text-align:center" href="${mailEscape(links.calGoogle)}">Subscribe in Google Calendar</a></p>
+<h2>iPhone</h2>
+<ol><li>Tap Open on iPhone.</li><li>Tap Subscribe.</li></ol>
+<h2>Google Calendar</h2>
+<ol><li>Tap Subscribe in Google Calendar.</li><li>A new booking can take a few hours to show up.</li></ol>`);
+  }
   const eventFile = route.match(/^event\/([a-f0-9]{32,80})\.ics$/i);
   if (method === "GET" && eventFile) {
     const rec = await readJson("events/" + eventFile[1].toLowerCase() + ".json");
@@ -2684,11 +2700,13 @@ async function routeRequest(req) {
         const rec = await readJson("events/" + row.eventToken + ".json");
         if (rec) {
           rec.confirmed = true;
+          rec.sequence = Math.max(1, Number(rec.sequence || 0) + 1);
           rec.summary = String(rec.summary || "").replace(" (requested)", "");
           rec.details = publicText(String(rec.details || "").replace("Requested. Not confirmed yet.", "Confirmed."));
           await writeJson("events/" + row.eventToken + ".json", rec);
           row.publicEvent = rec;
           const add = eventMailBits(origin, rec);
+          const confirmedIcs = addEventIcs(rec);
           const who = row.firstName || "A neighbor";
           const jobName = row.service || "a job";
           await sendMail({
@@ -2698,7 +2716,8 @@ async function routeRequest(req) {
             origin,
             subject: "Booking confirmed: " + jobName,
             text: who + " · " + jobName + " is confirmed.\n\n" + add.text,
-            html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(who) + " · " + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>"
+            html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(who) + " · " + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>",
+            ics: confirmedIcs
           });
           const neighbor = contactEmail(row.fields && row.fields.contact);
           if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
@@ -2707,7 +2726,8 @@ async function routeRequest(req) {
               replyTo: supportReply(),
               subject: "Your booking is confirmed",
               text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + add.text,
-              html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>"
+              html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>",
+              ics: confirmedIcs
             });
           }
         }

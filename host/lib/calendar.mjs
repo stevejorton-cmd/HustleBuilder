@@ -305,11 +305,12 @@ export function gcalTemplate(job, tz = TZID) {
 
 // One event a phone can open with Add Event. No attendee and no parent
 // address: this file is the link in both the neighbor's email and the family's.
-export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, location = "", description = "", confirmed = false } = {}) {
+export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, location = "", description = "", confirmed = false, sequence = 0 } = {}) {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(String(id || ""))) return "";
   const when = timeLines(start, tz || TZID);
   if (!when) return "";
   const local = !tz || tz === TZID;
+  const seq = Math.max(0, Math.floor(Number(sequence) || 0));
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -319,6 +320,7 @@ export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, l
     ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
     "BEGIN:VEVENT",
     "UID:" + id + "@hustlebuilder.org",
+    "SEQUENCE:" + seq,
     "DTSTAMP:" + dtstamp(now),
     ...when,
     "SUMMARY:" + icsEscape(publicText(summary) || "Job"),
@@ -338,5 +340,7 @@ export function feedLinks(origin, token) {
   try { host = new URL(base).host; } catch { host = base.replace(/^https?:\/\//, ""); }
   const webcal = "webcal://" + host + "/api/cal/" + token + ".ics";
   const google = "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent(webcal);
-  return { calUrl: httpsUrl, calWebcal: webcal, calGoogle: google };
+  // Email apps drop a webcal:// href. The https page offers that link itself.
+  const subscribe = base + "/calendar/subscribe/" + token;
+  return { calUrl: httpsUrl, calWebcal: webcal, calGoogle: google, calSubscribe: subscribe };
 }

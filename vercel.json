@@ -84,6 +84,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/calendar/subscribe/:token",
+      "destination": "/api/handler?hbpath=calendar/subscribe/:token"
+    },
+    {
       "source": "/((?!api/|icons/|manifest\\.webmanifest|sw\\.js)[^/]+)",
       "destination": "/api/handler?hbsite=$1"
     }
