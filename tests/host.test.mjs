@@ -4,12 +4,12 @@ import path from "path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, createHash } from "crypto";
-import { fileStore, setStore } from "../host/lib/store.mjs";
+import { fileStore, setStore, store } from "../host/lib/store.mjs";
 import { addEventIcs, bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
 import ICAL from "ical.js";
 import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
-import { familyVenmo, hidePhone, kidOwned, stripParentContact } from "../host/lib/preview.mjs";
+import { decodeContactObfuscation, familyVenmo, hidePhone, kidOwned, stripParentContact } from "../host/lib/preview.mjs";
 import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
 import { heroFitPx } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
@@ -1568,6 +1568,43 @@ test("a paid checkout still grants the plan after a newer checkout is opened", a
   const still = await json(await call("GET", "/api/me", { token }));
   assert.equal(still.body.plan, "season");
   assert.equal(still.body.paidUntil, until);
+});
+
+test("obfuscated parent email and phone are still removed from a public page", () => {
+  const samples = [
+    "<p>Write parent&#64;gmail.com</p>",
+    "<p>Write parent&amp;#64;gmail.com</p>",
+    "<p>Write parent\\u0040gmail.com</p>",
+    "<p>Write parent\\u{40}gmail.com</p>",
+    "<p>Write parent\\x40gmail.com</p>",
+    "<script>var e=\"parent\\u0040gmail.com\";</script>",
+    "<p>Call &#52;&#48;&#50;&#45;&#53;&#53;&#53;&#45;&#48;&#49;&#48;&#48; today</p>"
+  ];
+  for (const sample of samples) {
+    const out = stripParentContact(sample);
+    assert.equal(out.toLowerCase().includes("gmail"), false, sample);
+    assert.equal(out.includes("402"), false, sample);
+  }
+  const kept = stripParentContact("<p>bookings@hustlebuilder.org</p><script>setTimeout(fn,10000);var q=\"\\u0022\";</script><p>$10 in 2026</p>");
+  assert.match(kept, /bookings@hustlebuilder\.org/);
+  assert.match(kept, /setTimeout\(fn,10000\)/);
+  assert.match(kept, /\\u0022/);
+  assert.match(kept, /\$10 in 2026/);
+  assert.equal(decodeContactObfuscation("parent&#64;gmail.com").includes("@"), true);
+});
+
+test("old calendar files and sent-mail flags expire on different clocks, and cancel deletes the file now", async () => {
+  const s = await store();
+  await s.put("events/old.json", JSON.stringify({ createdAt: new Date(Date.now() - 61 * 864e5).toISOString(), start: "2020-01-01T10:00" }));
+  await s.put("events/fresh.json", JSON.stringify({ createdAt: new Date().toISOString(), start: futureDay(3) + "T10:00" }));
+  await s.put("sentmail/old", String(Date.now() - 401 * 864e5));
+  await s.put("sentmail/fresh", String(Date.now()));
+  const swept = await call("GET", "/api/cron/renewals", { headers: { authorization: "Bearer test-admin-secret" } });
+  assert.equal(swept.status, 200);
+  assert.equal(await s.get("events/old.json"), null);
+  assert.ok(await s.get("events/fresh.json"));
+  assert.equal(await s.get("sentmail/old"), null);
+  assert.ok(await s.get("sentmail/fresh"));
 });
 
 test("phone hiding covers a 7-digit number and an international number", () => {

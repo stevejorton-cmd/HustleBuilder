@@ -363,12 +363,14 @@ test("PostgreSQL: expired housekeeping is one statement, bulk reads skip page HT
     await old("counters/2020-01-01/book-x", "3", "1 hour"); await old("counters/2999-01-01/book-y", "3", "1 hour");
     await old("iplimit/legacy", "3", "1 hour");
     await old("accounts/a.json", '{"id":"a"}', "400 days"); await old("pages/a.html", "<html>big</html>", "400 days"); await old("pages/a.json", '{"slug":"a"}', "400 days");
+    await old("events/old.json", "{}", "61 days"); await old("events/new.json", "{}", "10 days");
+    await old("sentmail/old", "1", "401 days"); await old("sentmail/new", "1", "10 days");
     await old("requests/a.json", '[{"id":1},{"id":2}]', "1 day"); await old("requests/b.json", "not json", "1 day");
     log.length = 0;
     const removed = await s.sweep({ keepFrom: "2026-11-09" });
-    assert.equal(removed, 8);
+    assert.equal(removed, 10);
     assert.equal(log.filter((sql) => /DELETE/.test(sql)).length, 1);
-    assert.deepEqual(await s.list(""), ["accounts/a.json", "adminsessions/new.json", "asks/new.json", "bookingids/a/new", "counters/2999-01-01/book-y", "drafts/new.json", "pages/a.html", "pages/a.json", "requests/a.json", "requests/b.json"]);
+    assert.deepEqual(await s.list(""), ["accounts/a.json", "adminsessions/new.json", "asks/new.json", "bookingids/a/new", "counters/2999-01-01/book-y", "drafts/new.json", "events/new.json", "pages/a.html", "pages/a.json", "requests/a.json", "requests/b.json", "sentmail/new"]);
     assert.deepEqual(await s.entries("pages/", ".json"), [["pages/a.json", '{"slug":"a"}']]);
     assert.equal(await s.sumArrayLengths("requests/"), 2);
     assert.ok(log.includes(PREFIX_INDEX), "the store creates its prefix index on first use");

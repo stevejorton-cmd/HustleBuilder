@@ -1037,12 +1037,15 @@ async function savePublicEvent(row, account) {
     location: publicText((row.fields && row.fields.address) || ""),
     details: "Requested. Not confirmed yet.",
     confirmed: false,
-    sequence: 0
+    sequence: 0,
+    createdAt: new Date().toISOString()
   };
   await writeJson("events/" + token + ".json", rec);
   row.eventToken = token;
   row.publicEvent = rec;
 }
+// Cancel removes the public file immediately. The 60-day sweep only
+// clears a file that was never cancelled.
 async function dropPublicEvent(row) {
   if (!row || !row.eventToken) return;
   const token = String(row.eventToken).toLowerCase();
@@ -1125,7 +1128,7 @@ function accountUrl(origin) {
 async function sendOnce(flag, message) {
   if (await (await store()).get(flag)) return { ok: true, skipped: true };
   const mailed = await sendMail(message);
-  if (mailed.ok) await (await store()).put(flag, "1");
+  if (mailed.ok) await (await store()).put(flag, String(Date.now()));
   return mailed;
 }
 
@@ -3648,10 +3651,17 @@ async function sweepExpired() {
     for(const legacy of LEGACY_COUNTER_PREFIXES)for(const key of await s.list(legacy))await s.del(key);
     // Admin sessions that simply ran out (nobody came back to trip the check).
     for(const key of await s.list('adminsessions/')){const rec=await readJson(key);if(!rec||Number(rec.exp)<=Date.now())await s.del(key);}
+    const eventKeep=60*864e5, mailKeep=400*864e5;
     for(const key of await s.list('events/')){
       const rec=await readJson(key);
+      const created=Date.parse(rec&&rec.createdAt||"");
       const start=rec&&rec.start?jobInstant(rec.start, rec.tz):null;
-      if(start!=null&&start+30*864e5<Date.now())await s.del(key);
+      const age=Number.isFinite(created)?created:start;
+      if(age!=null&&age+eventKeep<Date.now())await s.del(key);
+    }
+    for(const key of await s.list('sentmail/')){
+      const at=Number(await s.get(key));
+      if(Number.isFinite(at)&&at>0&&at+mailKeep<Date.now())await s.del(key);
     }
     for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
       const rec=await readJson(key);if(!rec)continue;

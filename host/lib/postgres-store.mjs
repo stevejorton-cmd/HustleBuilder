@@ -49,7 +49,8 @@ export function postgresStore(connectionString, injectedPool) {
         OR ((starts_with(key,'asks/') OR starts_with(key,'askby/')) AND updated_at < now() - interval '7 days')
         OR ((starts_with(key,'cancels/') OR starts_with(key,'bookingids/')) AND updated_at < now() - interval '30 days')
         OR ((starts_with(key,'drafts/') OR starts_with(key,'draftby/')) AND updated_at < now() - interval '90 days')
-        OR (starts_with(key,'events/') AND updated_at < now() - interval '30 days')`,['counters/'+keepFrom,LEGACY_COUNTERS]);
+        OR (starts_with(key,'events/') AND updated_at < now() - interval '60 days')
+        OR (starts_with(key,'sentmail/') AND updated_at < now() - interval '400 days')`,['counters/'+keepFrom,LEGACY_COUNTERS]);
       return r.rowCount||0;
     }
   });

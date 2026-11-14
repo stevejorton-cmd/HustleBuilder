@@ -41,12 +41,6 @@ export function decoratePage(html, { title, description, image, url, indexable }
   return out;
 }
 
-// A public page must not carry a parent's email or phone: not in a link,
-// not in the page text, and not in the script config. Neighbors use the
-// booking form. bookings@ and support@ are our own addresses and stay.
-// Only the dog-walk price on Maryn's stored page. The 10000 timeouts in
-// the page script must stay. Returns the new html, or null if the two
-// price spots are not exactly as published.
 function firstPricedService(html) {
   const re = /"n"\s*:\s*"([^"]+)"\s*,\s*"p"\s*:\s*"([^"]*)"/g;
   let match;
@@ -86,8 +80,40 @@ export function familyVenmo(html, username, kid) {
   return out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
 }
 
+function contactChar(code) {
+  if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return null;
+  if (code === 9 || code === 32 || code === 0xa0) return " ";
+  const ch = String.fromCodePoint(code);
+  return /[A-Za-z0-9@._%+\-()]/.test(ch) ? ch : null;
+}
+
+// Turn HTML entities and JavaScript hex or unicode escapes back into the
+// characters they hide, but only the ones an email or phone can contain.
+// A quote, slash, or newline stays escaped so a script is not rewritten.
+export function decodeContactObfuscation(text) {
+  let out = String(text || "");
+  for (let pass = 0; pass < 3; pass++) {
+    const next = out
+      .replace(/&amp;/gi, "&")
+      .replace(/&commat;/gi, "@")
+      .replace(/&period;/gi, ".")
+      .replace(/&#x([0-9a-f]{1,6});?/gi, (match, hex) => contactChar(parseInt(hex, 16)) ?? match)
+      .replace(/&#(\d{1,7});?/g, (match, dec) => contactChar(parseInt(dec, 10)) ?? match)
+      .replace(/\\u\{([0-9a-f]{1,6})\}/gi, (match, hex) => contactChar(parseInt(hex, 16)) ?? match)
+      .replace(/\\u([0-9a-f]{4})/gi, (match, hex) => contactChar(parseInt(hex, 16)) ?? match)
+      .replace(/\\x([0-9a-f]{2})/gi, (match, hex) => contactChar(parseInt(hex, 16)) ?? match);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
+const PHONE_SOURCE = "(?:\\+\\d{1,3}[\\s.-]*)?(?:\\(\\d{3}\\)|\\d{3})[\\s.-]*\\d{3}[\\s.-]*\\d{4}|\\b\\d{3}[-.\\s]\\d{4}\\b|\\+\\d{1,3}(?:[\\s.-]*\\d){6,14}";
+
 export function stripParentContact(html) {
-  let out = hidePhone(String(html || ""), "");
+  let out = decodeContactObfuscation(String(html || ""));
+  out = hidePhone(out, "");
+  out = out.replace(/<script\b[\s\S]*?<\/script\s*>/gi, (script) => script.replace(new RegExp(PHONE_SOURCE, "g"), ""));
   out = out.replace(/window\.location\.href="mailto:"\+C\.email\+[\s\S]*?;/g, 'var sh=document.getElementById("sendHost");if(C.publish&&C.publish.book&&sh){sh.click();return;}var bk=document.getElementById("book");if(bk)bk.scrollIntoView({block:"start"});');
   out = out.replace(/href\s*=\s*(["'])mailto:(?!bookings@hustlebuilder\.org|support@hustlebuilder\.org)[^"']*\1/gi, 'href="#book"');
   out = out.replace(/"(email|email2|phone|phone2|phoneDigits|phone2Digits)"\s*:\s*"(?:\\.|[^"\\])*"/g, '"$1":""');
@@ -134,7 +160,7 @@ export function kidOwned(html) {
 export function hidePhone(html,phone) {
   // Preserve scripts, CSS and image data byte-for-byte. Phone-shaped digit
   // sequences can appear inside embedded photos and must not be rewritten.
-  const pattern=/(?:\+\d{1,3}[\s.-]*)?(?:\(\d{3}\)|\d{3})[\s.-]*\d{3}[\s.-]*\d{4}|\b\d{3}[-.\s]\d{4}\b|\+\d{1,3}(?:[\s.-]*\d){6,14}/g;
+  const pattern=new RegExp(PHONE_SOURCE, "g");
   const raw=String(phone||'').trim();
   return String(html||'').replace(/<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<[^>]*>|[^<]+/gi,part=>{
     if(/^<(?:script|style)\b/i.test(part))return part;
