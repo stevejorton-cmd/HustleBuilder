@@ -26,9 +26,12 @@
     "icons/icon-512.png": "f4dc9759453a157d9a66a74b86745d16552d26344ab6864dcd04a3f341cf57cb",
     "icons/icon-192.png": "6e8b023247419cb18ff720053f73bbcb78312f3841ae9ac6d89cbfd38e9b3cf5"
   },
-  "cineRange": {
-    "startMarker": "const CINE",
-    "endMarker": "function cineUrl",
-    "sha256": "9bb606a3340c37e094c5dacbdc8634aa4a38278125861c01df9317fe41424d76"
+  "scenes": {
+    "assets/scenes/dusk-lawn.jpg": "9b99aa6b61db341b4ea2ebfa60daa5812500c9649b0f7a1781d757b4271a458d",
+    "assets/scenes/dusk-snow.jpg": "f6b3416c707847debcea9232c2cc344a34a8c7e24a48318b3a53afd06f8b70ae",
+    "assets/scenes/dusk-both.jpg": "292c428d552fed88ce29b4448636e5dc84f6bce1dd2c385420969570d6ebef72",
+    "assets/scenes/day-lawn.jpg": "8c2f179a12ea259aa5ae525ec116e4b6801be2242c8469646277bee2b341fa72",
+    "assets/scenes/day-snow.jpg": "6deefcc6aad61ea8bd3e1c4f684a63d34cf635990b0d66cf2dffd8681cfbe36c",
+    "assets/scenes/day-both.jpg": "8cc0593662dffef83b46460f20ec06548f36ef866dc7ded06deaa7684af50607"
   }
 }

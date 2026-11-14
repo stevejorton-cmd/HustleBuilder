@@ -50,6 +50,29 @@ const server = createServer(async (req, res) => {
       res.writeHead(404); res.end(); return;
     }
   }
+  if (req.method === "GET" && (url.pathname === "/assets/barlow.css" || url.pathname === "/assets/print-libs.js" || url.pathname === "/apple-touch-icon.png")) {
+    const rel = url.pathname.replace(/^\/+/, "");
+    const type = rel.endsWith(".css") ? "text/css; charset=utf-8" : rel.endsWith(".js") ? "text/javascript; charset=utf-8" : "image/png";
+    try {
+      const file = await readFile(new URL(rel, rootDir));
+      res.writeHead(200, { "content-type": type, "cache-control": "public, max-age=86400" });
+      res.end(file);
+      return;
+    } catch {
+      res.writeHead(404); res.end(); return;
+    }
+  }
+  if (req.method === "GET" && url.pathname.startsWith("/assets/scenes/")) {
+    const name = path.basename(url.pathname);
+    if (/^(day|dusk)-(lawn|snow|both)\.jpg$/.test(name)) {
+      try {
+        const file = await readFile(new URL("assets/scenes/" + name, rootDir));
+        res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" });
+        res.end(file);
+        return;
+      } catch { /* fall through */ }
+    }
+  }
   if (req.method === "GET" && url.pathname === "/assets/heic2any.js") {
     try {
       const file = await readFile(new URL("assets/heic2any.js", rootDir));

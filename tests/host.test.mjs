@@ -56,6 +56,15 @@ async function pendingSession(accountId,plan,id) {
   return {id,payment_status:'paid',amount_total:plan==='year'?1999:999,currency:'usd',metadata:{accountId,plan,attempt}};
 }
 
+test("the first page stays under 300KB compressed", async () => {
+  const { brotliCompressSync } = await import("zlib");
+  const html = await readFile(new URL("../index.html", import.meta.url));
+  const size = brotliCompressSync(html).length;
+  assert.ok(size < 300000, "brotli bytes " + size);
+  assert.match(html.toString("utf8"), /<h1 class="sr-only">Your kid's first neighborhood business<\/h1>/);
+  assert.equal(html.includes("data:image/jpeg;base64"), false);
+});
+
 test("slug rules block last names, reserved words, and bad shapes", () => {
   assert.equal(checkSlug("sam"), "");
   assert.equal(checkSlug("sam-yard"), "");
