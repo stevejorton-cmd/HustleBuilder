@@ -1728,6 +1728,26 @@ test("resting and missing pages do not count, and the week sum reads day buckets
   assert.equal(stored.days[key(now - 40 * dayMs)], undefined);
 });
 
+test("funnel counts stay aggregate and show on the admin page", async () => {
+  const bad = await json(await call("POST", "/api/funnel", { body: { event: "published" } }));
+  assert.equal(bad.status, 400);
+  const visit = await json(await call("POST", "/api/funnel", { body: { event: "ref_visit" } }));
+  assert.equal(visit.body.ok, true);
+  const { token } = await parent("funnel@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "funnel-yard", html: page("Funnel") } });
+  await call("POST", "/api/draft", { token, body: { draft: { first: "Sam" } } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const login = await call("POST", "/admin/login", { raw: "secret=test-admin-secret", headers: { "x-forwarded-for": "198.51.100.44" } });
+  const cookie = login.headers["set-cookie"].split(";")[0];
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.match(dash.body, /Card check passed/);
+  assert.match(dash.body, /Published/);
+  assert.match(dash.body, /Plan paid/);
+  assert.match(dash.body, /Referral visit/);
+  assert.equal(dash.body.includes("funnel/"), false);
+});
+
 test("live pages are served with one Built with Hustle Builder belt, added at serve time", async () => {
   const { token } = await parent("belt@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
@@ -1739,7 +1759,7 @@ test("live pages are served with one Built with Hustle Builder belt, added at se
   // Exactly one belt, linking home, after the page's own content and
   // still inside the body.
   assert.equal(first.body.split('id="hb-belt"').length - 1, 1);
-  assert.ok(first.body.includes('<a href="https://hustlebuilder.org" target="_top"'));
+  assert.ok(first.body.includes('<a href="https://hustlebuilder.org/?for=parents&amp;ref=belt-kid" target="_top"') || first.body.includes('<a href="https://hustlebuilder.org/?for=parents&ref=belt-kid" target="_top"'));
   assert.ok(first.body.indexOf('id="hb-belt"') > first.body.indexOf("<h1>Belt Kid</h1>"));
   assert.ok(first.body.indexOf('id="hb-belt"') < first.body.toLowerCase().indexOf("</body>"));
   // The family's own words are untouched.
