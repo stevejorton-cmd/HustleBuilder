@@ -79,7 +79,10 @@ test("the parent landing names the winter price and uses a made-up example", asy
   assert.match(home, /if\(!force\)document\.documentElement\.classList\.add\("hb-skip-parents"\)/);
   assert.equal(home.includes('setItem("hb_intro_seen"'), false);
   assert.match(home, /shouldOpenIntro\(entryParams\)&&document\.documentElement\.classList\.contains\("hb-skip-parents"\)/);
-  assert.match(block, /Sam's Lawn Co\./);
+  assert.match(block, /id="parentsExampleName"/);
+  assert.match(block, /Sam's Yard Cleanup/);
+  assert.match(home, /src="\/config\/season\.js"/);
+  assert.match(home, /applySeasonCopy\(\);/);
   assert.match(block, /Elkhorn/);
   assert.equal(/steve|lincoln|maryn|levi|402/i.test(block), false);
   assert.match(checkSlug("parents"), /reserved/i);
@@ -2151,7 +2154,8 @@ test("the home screen app can install and keep the builder offline", async () =>
   assert.ok(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512"));
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
-  assert.match(sw, /hustle-shell-2/);
+  assert.match(sw, /hustle-shell-3/);
+  assert.match(sw, /\/config\/season\.js/);
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /rel="manifest"/);
   assert.match(html, /You’re offline\. You can keep editing here\./);

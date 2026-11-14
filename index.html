@@ -775,10 +775,10 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     </ul>
     <h2>A made-up example</h2>
     <article class="parents-example">
-      <b>Sam's Lawn Co.</b>
-      <p>Elkhorn</p>
-      <p data-example-line>Mow a small yard · $20</p>
-      <p data-example-line>Leaf cleanup · $15</p>
+      <b id="parentsExampleName">Sam's Yard Cleanup</b>
+      <p id="parentsExampleTown">Elkhorn</p>
+      <p data-example-line>Yard cleanup / winter prep, small · $15</p>
+      <p data-example-line>Leaf raking · $15</p>
     </article>
     <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
     <h2>Questions</h2>
@@ -1208,17 +1208,17 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <div class="example-grid">
       <section class="example-card" id="examplePanel0" role="tabpanel" aria-labelledby="exampleTab0">
         <div class="example-label"><b>Your website</b><span>Made by you</span></div>
-        <div class="example-site"><div class="example-url">hustlebuilder.org / your-business</div><div class="example-art" id="exampleArt" aria-hidden="true"></div><div class="example-site-body"><span class="example-kicker">NEIGHBORHOOD LAWN CARE</span><h3>Taylor’s<br>Yard Crew</h3><p>Fresh cuts. Happy neighbors.</p><span class="example-cta">Request a job</span><div class="example-rate"><span>Mow a small yard</span><b>$20</b></div><div class="example-rate"><span>Leaf cleanup</span><b>$15</b></div></div></div>
+        <div class="example-site"><div class="example-url">hustlebuilder.org / your-business</div><div class="example-art" id="exampleArt" aria-hidden="true"></div><div class="example-site-body"><span class="example-kicker" id="exampleKicker">NEIGHBORHOOD YARD CLEANUP</span><h3 id="exampleBiz">Taylor’s<br>Yard Cleanup</h3><p id="exampleTag">Leaves raked. Yard ready for winter.</p><span class="example-cta">Request a job</span><div class="example-rate"><span>Yard cleanup / winter prep, small</span><b>$15</b></div><div class="example-rate"><span>Leaf raking</span><b>$15</b></div></div></div>
         <p class="example-caption">Pick your jobs, set your prices, and let a parent approve your page.</p>
       </section>
       <section class="example-card" id="examplePanel1" role="tabpanel" aria-labelledby="exampleTab1">
         <div class="example-label"><b>Your flyer</b><span>Ready to print</span></div>
-        <div class="example-paper"><canvas id="exampleFlyer" width="850" height="1100" role="img" aria-label="Example flyer for Taylor’s Yard Crew: mowing $20, leaf cleanup $15, with a sample QR code"></canvas><span class="example-stamp">SAMPLE FLYER</span></div>
+        <div class="example-paper"><canvas id="exampleFlyer" width="850" height="1100" role="img" aria-label="Example flyer for Taylor’s Yard Cleanup: yard cleanup $15, leaf raking $15, with a sample QR code"></canvas><span class="example-stamp">SAMPLE FLYER</span></div>
         <p class="example-caption">Hand out your flyer with a parent. Neighbors scan your code to reach you.</p>
       </section>
       <section class="example-card" id="examplePanel2" role="tabpanel" aria-labelledby="exampleTab2">
         <div class="example-label"><b>Your first payday</b><span>Example only</span></div>
-        <div class="example-payment"><div class="example-pay-brand">Venmo <span>SAMPLE</span></div><div class="example-pay-check" aria-hidden="true">✓</div><p>A neighbor paid<br><strong>your parent’s business</strong></p><div class="example-amount">+$20.00</div><p class="example-pay-note">“Thanks for mowing!”</p><div class="example-pay-rule">After the job is done.<br>Arranged with your parent.</div></div>
+        <div class="example-payment"><div class="example-pay-brand">Venmo <span>SAMPLE</span></div><div class="example-pay-check" aria-hidden="true">✓</div><p>A neighbor paid<br><strong>your parent’s business</strong></p><div class="example-amount" id="exampleAmount">+$15.00</div><p class="example-pay-note" id="examplePayNote">“Thanks for the yard cleanup!”</p><div class="example-pay-rule">After the job is done.<br>Arranged with your parent.</div></div>
         <p class="example-caption">A parent arranges payment. Use cash or an adult Venmo account eligible for job payments.</p>
       </section>
     </div>
@@ -1231,6 +1231,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="/config/season.js"></script>
 <script>
 /* QR Code Generator for JavaScript (qrcode-generator), embedded so flyers work offline.
 
@@ -2539,8 +2540,14 @@ function switchedBizName(name,auto,oldType,first){
 }
 const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
+function seasonDefaultType(){
+  const file=globalThis.HB_SEASON_FILE;
+  const id=file&&file.seasonView?file.seasonView(file.SEASON).defaultType:"lawn";
+  return PRESETS[id]?id:"lawn";
+}
 function defaults(){
-  return {type:"lawn",first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices("lawn",1),svcEdited:false,svcSets:{},
+  const type=seasonDefaultType();
+  return {type:type,first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices(type,1),svcEdited:false,svcSets:{},
     palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 let S=defaults();
@@ -2588,13 +2595,20 @@ const STEPS=8; let step=0;
 
 const seg=$("#seg"); for(let i=0;i<STEPS;i++){seg.appendChild(document.createElement("span"));}
 
-const TYPES=[
-  {id:"lawn",name:"Lawn",blurb:"Mow. Trim. Edge."},
-  {id:"snow",name:"Snow",blurb:"Shovel. Salt. Clear."},
-  {id:"both",name:"Both",blurb:"Lawn + snow"},
-  {id:"pet",name:"Pet care",blurb:"Walks, food, and cleanup"},
-  {id:"prep",name:"Winter prep",blurb:"Yard cleanup and snow"}
-];
+const TYPE_BY_ID={
+  lawn:{id:"lawn",name:"Lawn",blurb:"Mow. Trim. Edge."},
+  snow:{id:"snow",name:"Snow",blurb:"Shovel. Salt. Clear."},
+  both:{id:"both",name:"Both",blurb:"Lawn + snow"},
+  pet:{id:"pet",name:"Pet care",blurb:"Walks, food, and cleanup"},
+  prep:{id:"prep",name:"Winter prep",blurb:"Yard cleanup and snow"}
+};
+function seasonPicker(){
+  const file=globalThis.HB_SEASON_FILE;
+  const ids=file&&file.seasonView?file.seasonView(file.SEASON).picker:["lawn","snow","both","pet","prep"];
+  const tiles=ids.map(id=>TYPE_BY_ID[id]).filter(Boolean);
+  return tiles.length?tiles:["lawn","snow","both","pet","prep"].map(id=>TYPE_BY_ID[id]);
+}
+const TYPES=seasonPicker();
 const MORE_TYPES=[
   {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",img:"assets/jobs/odd.webp",color:"#8A5A12"},
   {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",img:"assets/jobs/wash.webp",color:"#1D4E89"},
@@ -5881,6 +5895,30 @@ async function resumeHosting(kind){
 /* One list for the welcome preview and the parents page, so the sample
    prices cannot drift apart. */
 const EXAMPLE_RATES=[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}];
+function currentSeasonView(){
+  const file=globalThis.HB_SEASON_FILE;
+  return file&&typeof file.seasonView==="function"?file.seasonView(file.SEASON):null;
+}
+function exampleScene(type){
+  if(type==="prep")return "both";
+  if(type==="snow"||type==="lawn"||type==="both")return type;
+  return "lawn";
+}
+function applySeasonCopy(){
+  const view=currentSeasonView();
+  if(!view)return;
+  EXAMPLE_RATES.length=0;
+  view.rates.forEach(rate=>EXAMPLE_RATES.push({n:rate.n,p:rate.p}));
+  const name=$("#parentsExampleName"); if(name)name.textContent=view.parentsBiz;
+  const town=$("#parentsExampleTown"); if(town)town.textContent=view.parentsTown;
+  const kicker=$("#exampleKicker"); if(kicker)kicker.textContent=view.kicker;
+  const biz=$("#exampleBiz"); if(biz)biz.innerHTML=view.bizHtml;
+  const tag=$("#exampleTag"); if(tag)tag.textContent=view.tagline;
+  const note=$("#examplePayNote"); if(note)note.textContent=view.payNote;
+  const amount=$("#exampleAmount"); if(amount)amount.textContent=view.payAmount;
+  const canvas=$("#exampleFlyer"); if(canvas)canvas.setAttribute("aria-label",view.flyerLabel);
+  paintExampleRates();
+}
 function paintExampleRates(){
   document.querySelectorAll(".example-rate").forEach((row,i)=>{
     const rate=EXAMPLE_RATES[i]; if(!rate)return;
@@ -5901,9 +5939,11 @@ function selectExample(n,focus){
   document.querySelectorAll(".example-card").forEach((p,i)=>p.classList.toggle("example-active",i===n));
 }
 function drawExamples(){
-  const art=$("#exampleArt");if(!art.childNodes.length)art.innerHTML=sceneArt("lawn","cine-dusk");
+  const view=currentSeasonView();
+  const art=$("#exampleArt");if(art&&!art.childNodes.length)art.innerHTML=sceneArt(exampleScene(view?view.sampleType:"lawn"),"cine-dusk");
   const cv=$("#exampleFlyer");
-  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:EXAMPLE_RATES.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
+  const rates=view&&view.rates?view.rates:EXAMPLE_RATES;
+  const example={fmt:"full",style:"ink",qrMode:"web",type:view?view.sampleType:"lawn",pets:[],biz:view?view.biz:"Taylor’s Yard Crew",tagline:view?view.tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:rates.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
 }
 function openIntro(){
@@ -5941,6 +5981,7 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
+applySeasonCopy();
 function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent","build"].some(k=>params.has(k))&&!introSeen();}
 if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
 window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;

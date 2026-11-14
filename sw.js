@@ -5,8 +5,8 @@
 // so it is stored once under "/" — never once per link — and private links
 // never end up as cache keys. Only good same-origin responses are stored, so
 // an error page can never replace the working offline copy.
-const CACHE = "hustle-shell-2";
-const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-192.png", "/icons/maskable-512.png"];
+const CACHE = "hustle-shell-3";
+const SHELL = ["/", "/config/season.js", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-192.png", "/icons/maskable-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
