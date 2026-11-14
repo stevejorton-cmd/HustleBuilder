@@ -44,6 +44,9 @@ window.hbCloseParents=function(asKid){
 {"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Hustle Builder","url":"https://hustlebuilder.org/"},{"@type":"SoftwareApplication","name":"Hustle Builder","applicationCategory":"BusinessApplication","operatingSystem":"Web","offers":[{"@type":"Offer","price":"9.99","priceCurrency":"USD","description":"Winter season, one-time, never auto-renews"},{"@type":"Offer","price":"19.99","priceCurrency":"USD","description":"Full year, one-time, never auto-renews"}]}]}
 </script>
 <script>window.HB_PUBLISH_ORIGIN="";</script>
+<script>
+(function(){try{var ref=new URLSearchParams(location.search).get("ref");if(!ref)return;fetch("/api/funnel",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({event:"ref_visit"})});}catch(e){}})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Hustle Builder">
