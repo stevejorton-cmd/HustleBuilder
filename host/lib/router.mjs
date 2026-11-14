@@ -175,7 +175,7 @@ function shell(status, title, inner, opts = {}) {
     return html(status, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${mailEscape(title)}</title><style>${SHELL_CSS}</style></head><body>
 <div class="hb-top"><a href="/">Hustle Builder</a></div>
 <main${opts.wide ? ' class="wide"' : ""}>${inner}</main>
-<p class="hb-foot"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
+<p class="hb-foot"><a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/retention">Retention</a> · <a href="/terms">Terms</a> · <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
 </body></html>`);
 }
 const SUPPORT_EMAIL = "support@hustlebuilder.org";
@@ -1207,7 +1207,7 @@ function privacyPage() {
 <p>Until a parent completes verification and consent, your draft stays only in this browser. “Ask my parent” sends only the contact information and names needed to request consent, not the business draft. If consent is not completed within seven days, we delete that request information. Cloud drafts become available only after parental consent.</p>
 
 <h2>What we keep for a parent account</h2>
-<p>The account belongs to the parent or guardian, not the child. We keep the parent’s email address, the parent check described below, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
+<p>The account belongs to the parent or guardian, not the child. The parent owns it and runs the page. The child can help build the draft. We keep the parent’s email address, the parent check described below, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
 <p>A kid does not make an account and does not give us an email address.</p>
 
 <h2>How a parent agrees</h2>
@@ -1246,7 +1246,8 @@ function privacyPage() {
 <p>A parent can pause the page, take it offline, or delete the account from the account screen at any time. Taking a page offline does not delete calendar jobs. Deleting the account removes the email, the consent record, every page on the account, the booking requests, the calendar jobs, the public calendar files, and the calendar link. Two scrambled markers can stay so the free trial cannot be restarted: one for the email, and one for the card if a card was used. Neither marker is the email address or the card number.</p>
 
 <h2>Questions</h2>
-<p>Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. A parent can ask us what we hold for their account or ask us to delete it.</p>`, { wide: true });
+<p>Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. A parent can ask us what we hold for their account or ask us to delete it.</p>
+<p><a href="/security">Security program</a> · <a href="/retention">Retention policy</a></p>`, { wide: true });
 }
 
 function termsPage() {
@@ -1255,7 +1256,7 @@ function termsPage() {
 <p>These terms cover the Hustle Builder app and the pages it hosts at hustlebuilder.org. By publishing a page or buying a plan you agree to them.</p>
 
 <h2>Who can use it</h2>
-<p>Kids can use the builder with a parent or guardian’s permission. Only a parent or guardian who is an adult can open an account, publish a page, or buy a plan. The parent is responsible for the page, for every job the child takes, and for the child’s safety on those jobs.</p>
+<p>A parent or guardian owns the account and runs the page. A child can help build the draft. Only a parent or guardian who is an adult can open an account, publish a page, or buy a plan. The parent is responsible for the page, for every job the child takes, and for the child’s safety on those jobs.</p>
 
 <h2>What Hustle Builder does, and does not do</h2>
 <p>We host the page and pass booking requests to the parent. A booking request is only a request: nothing is booked until the parent replies to the neighbor. We are not part of any job, we do not check who neighbors are, we do not supervise work, and we do not handle money between a family and a neighbor.</p>
@@ -1290,6 +1291,53 @@ function termsPage() {
 
 <h2>Contact</h2>
 <p><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>`, { wide: true });
+}
+
+function securityPage() {
+  return shell(200, "Security", `<h1>Security program</h1>
+<p>Last updated ${LEGAL_UPDATED}.</p>
+<p>Hustle Builder keeps a written security program for information collected from a child. The operator of Hustle Builder coordinates it and reviews it at least once a year, or after a change that affects that information. Questions: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. We do not publish a home address or a personal cell phone.</p>
+<h2>What we protect</h2>
+<p>After a parent agrees, the server can hold a child’s first name, town, business description, services, prices, and the photos or reviews the parent publishes, plus a Venmo username if the parent saves one. Before that agreement, the draft stays in the browser.</p>
+<p>For the parent we also store the email address, the consent record, the plan status, and booking requests from neighbors.</p>
+<h2>Safeguards</h2>
+<ul>
+<li>The parent session is an HttpOnly cookie. The admin cookie is HttpOnly and SameSite=Strict.</li>
+<li>Publishing, cloud drafts, and account deletion require a verified parent. Publish also requires the refunded 50¢ card check or a paid plan.</li>
+<li>Public pages are stripped of a parent email and phone, including HTML entities and JavaScript escapes. A page is not listed in search unless the parent turns that on.</li>
+<li>A public calendar file leaves out a gate code or key note, and is deleted when the booking is cancelled.</li>
+<li>Booking and account links use long random tokens. There is no directory of families.</li>
+<li>Stripe handles card numbers. We store a payment id and, to stop a second free trial, a card fingerprint. We do not store the card number, the expiration date, or the security code.</li>
+<li>The database password stays in the host’s environment, not in the public site.</li>
+<li>The home page and published pages send a content security policy. A published page cannot load an outside script.</li>
+<li>Stripe webhooks are checked with a signature. A paid plan is recorded once per checkout.</li>
+</ul>
+<h2>Reviewed each year</h2>
+<ul>
+<li>A stolen parent session cookie.</li>
+<li>A leaked calendar or booking token.</li>
+<li>An incident at a company that hosts, stores, emails, or takes payments for us.</li>
+<li>A parent publishing more than a first name and a town, such as a photo or a school.</li>
+</ul>
+<h2>Companies that help</h2>
+<p>Vercel hosts the site, Neon stores the database, Resend sends email, and Stripe takes payments. They handle information only to provide those services. See also the <a href="/privacy">Privacy</a> notice and the <a href="/retention">retention policy</a>.</p>`, { wide: true });
+}
+
+function retentionPage() {
+  return shell(200, "Retention", `<h1>Retention policy</h1>
+<p>Last updated ${LEGAL_UPDATED}.</p>
+<p>Information from a child is kept only for the purpose it was collected. It is not kept indefinitely. Questions: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>
+<h2>Before a parent agrees</h2>
+<p>The draft stays on the device. It is not uploaded. Publish and cloud-draft requests are refused until the parent agrees.</p>
+<p>An “ask my parent” note keeps the parent’s email, the child’s first name, and the business name. If the parent does not agree, it is deleted after 7 days.</p>
+<h2>After a parent agrees</h2>
+<p>The published page stays up until the parent takes it offline or deletes the account. Deleting the account removes the page, the booking requests, the calendar, and the public calendar files.</p>
+<p>A booking request is deleted about 30 days after it arrives. The family calendar drops a job about 30 days after the job date. A public calendar file for one booking is deleted as soon as the booking is cancelled, and otherwise about 60 days after it was saved.</p>
+<p>A cloud draft is deleted about 90 days after its last save, or when the account is deleted.</p>
+<h2>What can remain</h2>
+<p>Two scrambled markers can stay after an account is deleted, so the free trial cannot be restarted: one for the email, and one for the card if a card was used. Neither is the email address or the card number.</p>
+<p>A flag that we already sent a notice is removed after about 400 days. Page-view totals are daily counts with no name, kept about 35 days. Spam counters are cleared within a few days.</p>
+<p>A parent can delete the account in the app, or email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. See also the <a href="/privacy">Privacy</a> notice and the <a href="/security">security program</a>.</p>`, { wide: true });
 }
 
 function missingPage(slug, down) {
@@ -1683,6 +1731,8 @@ async function serveSlug(slug, view) {
 
 async function serveSlugInner(slug, view) {
   if (slug === "privacy") return privacyPage();
+  if (slug === "security") return securityPage();
+  if (slug === "retention") return retentionPage();
   if (slug === "terms") return termsPage();
   const why = checkSlug(slug);
   if (why) return missingPage(slug, false);
@@ -1901,7 +1951,7 @@ function robotsTxt(origin) {
 }
 async function sitemapXml(origin) {
   const base = siteOrigin(origin);
-  const urls = [base + "/", base + "/terms", base + "/privacy"];
+  const urls = [base + "/", base + "/terms", base + "/privacy", base + "/security", base + "/retention"];
   try {
     const keys = await (await store()).list("pages/");
     for (const key of keys) {
@@ -2641,7 +2691,7 @@ async function routeRequest(req) {
       forParent: true,
       origin,
       subject: names.biz ? who + " asked you to publish " + names.biz : "Your kid asked you to publish their page",
-      text: ready + "\n\n" + trialBlurb() + " A first-time parent verifies their email and completes a 50¢ card check that is refunded right away. Plans never renew automatically.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nThe page itself stays on their phone until you agree. Review the page together on the device where your child built it. Choose Go live, then “I’m the parent — continue here.” This invitation link expires in 7 days, and we delete the request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.\n\nPrivacy notice: " + (origin || "https://hustlebuilder.org") + "/privacy\nQuestions: " + SUPPORT_EMAIL + "\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
+      text: ready + "\n\n" + trialBlurb() + " A first-time parent verifies their email and completes a 50¢ card check that is refunded right away. Plans never renew automatically.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nYou would own the account and run the page with your kid. The page itself stays on their phone until you agree. Review the page together on the device where your child built it. Choose Go live, then “I’m the parent — continue here.” This invitation link expires in 7 days, and we delete the request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.\n\nPrivacy notice: " + (origin || "https://hustlebuilder.org") + "/privacy\nQuestions: " + SUPPORT_EMAIL + "\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
       html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(ready) + "</p><p>" + mailEscape(trialBlurb()) + " A first-time parent verifies their email and completes a 50¢ card check that is refunded right away. Plans never renew automatically.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p>The page itself stays on their device until you agree. Review it together there: choose Go live, then “I’m the parent — continue here.”</p><p><a href=\"" + mailEscape(link) + "\">View the invitation</a></p><p>The link expires in 7 days, and we delete this request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.</p><p><a href=\"" + mailEscape((origin || "https://hustlebuilder.org") + "/privacy") + "\">Privacy notice</a></p><p>Questions: <a href=\"mailto:" + SUPPORT_EMAIL + "\">" + SUPPORT_EMAIL + "</a></p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);

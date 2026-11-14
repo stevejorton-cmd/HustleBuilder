@@ -756,14 +756,15 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
   <div class="parents-wrap">
     <p class="parents-kicker">For parents</p>
     <h1>Your kid's first business, live this weekend.</h1>
+    <p class="parents-note">A parent owns the account and runs the page. Your kid can help build it.</p>
     <p class="parents-price">$9.99 for the whole winter, never auto-renews.</p>
     <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
     <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
     <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
     <h2>Three steps</h2>
     <ol>
-      <li><b>Your kid builds.</b> They pick the work, the prices, and the page.</li>
-      <li><b>You approve.</b> You check your email and say yes before it goes online.</li>
+      <li><b>Your kid can help build.</b> They pick the work, the prices, and the look of the page.</li>
+      <li><b>You own it.</b> The account is yours. You check your email and say yes before it goes online.</li>
       <li><b>Neighbors book.</b> A request comes to you first. Nothing is booked until you reply.</li>
     </ol>
     <h2>Kept small on purpose</h2>
@@ -851,10 +852,10 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 
     <section class="step" data-step="1">
       <h2>Put your name on it.</h2>
-      <p class="lead">First name only. Never your last name or street address.</p>
+      <p class="lead">The kid’s first name only. No last name, school, or age, and never a street address.</p>
       <button type="button" class="btn ghost" id="surprise" style="margin-bottom:22px">Surprise me</button>
       <div class="two">
-        <label class="field"><span>Your first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor"></label>
+        <label class="field"><span>Kid’s first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor"></label>
         <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
       </div>
       <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor's Lawn Co."><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
@@ -959,7 +960,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <button type="button" class="btn ghost" id="openAccount">Your account</button>
       <section id="accountScreen" hidden>
         <h3 class="h3">Your account</h3>
-        <p class="lead" id="accountLead">Sign in with the email code below. Then each kid page shows here.</p>
+        <p class="lead" id="accountLead">This account belongs to the parent. Sign in with the parent email. Then each page shows here.</p>
         <label class="field" for="acctVenmo"><span>Family Venmo</span><input type="text" id="acctVenmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small>Neighbors will see this Venmo name. Enter it once. Pay links use it on every job.</small></label>
         <p class="status" id="venmoMsg" role="status"></p>
         <div id="accountSites"></div>
@@ -988,6 +989,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         </div>
         <details class="help" id="parentHere"><summary>I’m the parent — continue here</summary>
         <div id="pubCodeBox">
+        <label class="check"><input type="checkbox" id="parentOwner"><span>I’m the parent or guardian and I run this page with my kid.</span></label>
         <button type="button" class="btn ghost" id="pubSend">Email me a code</button>
         <p class="status" id="pubCodeMsg" role="status"></p>
         <label class="field" for="pubCode"><span>Code from the email</span><input type="text" id="pubCode" inputmode="numeric" autocomplete="one-time-code" spellcheck="false"></label>
@@ -995,7 +997,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         </div>
         <p class="status" id="pubVerified" role="status" hidden></p>
         <div id="pubReady" hidden>
-          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My email and phone stay off the page.</span></label>
+          <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian and I run this page with my kid. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My email and phone stay off the page.</span></label>
           <p class="small" id="planStatus" hidden></p>
           <div id="planFirst">
             <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
@@ -1214,7 +1216,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       </section>
     </div>
     <p class="example-disclaimer">All examples are fictional. No payment was sent, and earnings aren’t guaranteed. Venmo Teen Accounts cannot receive payments for goods or services.</p>
-    <div class="intro-footer"><div><button type="button" class="btn" id="introStart">Build my business →</button><p>Build your draft free. A parent starts your 14-day website and flyer trial by publishing.</p></div><label class="intro-remember"><input type="checkbox" id="introRemember">Skip this next time</label></div>
+    <div class="intro-footer"><div><button type="button" class="btn" id="introStart">Build my business →</button><p>Build your draft free. A parent owns the account and starts the 14-day trial by publishing.</p></div><label class="intro-remember"><input type="checkbox" id="introRemember">Skip this next time</label></div>
   </div>
 </div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">
@@ -2360,7 +2362,7 @@ ${promiseHTML}
   ${contactHTML}
 </div>
 
-<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Kid-owned. Parent-backed.</p><p class="small"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
+<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Kid-owned. Parent-backed.</p><p class="small"><a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/retention">Retention</a> · <a href="/terms">Terms</a></p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
 
 <div class="dock" id="dock"><a class="btn" href="#book">Book a day</a></div>
 <script>window.__C=${cfgJson};<\/script>
@@ -4258,7 +4260,7 @@ const LIC_MIT="MIT License\n\nCopyright (c) 2009 Kazuhiko Arase\n\nPermission is
 function legalLink(){return '<p class="small2"><button type="button" class="link" data-about>About and legal</button> &nbsp;&nbsp; <button type="button" class="link" data-backup>Back up or load my business</button></p>';}
 function openAbout(){
   openModal('<h3>About and legal</h3>'
-   +'<details class="lg" open><summary>Hustle Builder</summary><p>Version '+APP_VERSION+'. Copyright &copy; 2026 Hustle Builder. All rights reserved.</p><p>The builder runs in your browser and keeps working offline. Putting a page online is a hosted service a parent signs up for.</p><p><a class="link" href="/terms" target="_blank" rel="noopener">Terms</a> &nbsp; <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> &nbsp; <a class="link" href="mailto:support@hustlebuilder.org">support@hustlebuilder.org</a></p></details>'
+   +'<details class="lg" open><summary>Hustle Builder</summary><p>Version '+APP_VERSION+'. Copyright &copy; 2026 Hustle Builder. All rights reserved.</p><p>The builder runs in your browser and keeps working offline. Putting a page online is a hosted service a parent signs up for.</p><p><a class="link" href="/terms" target="_blank" rel="noopener">Terms</a> &nbsp; <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> &nbsp; <a class="link" href="/security" target="_blank" rel="noopener">Security</a> &nbsp; <a class="link" href="/retention" target="_blank" rel="noopener">Retention</a> &nbsp; <a class="link" href="mailto:support@hustlebuilder.org">support@hustlebuilder.org</a></p></details>'
    +'<details class="lg"><summary>How it looks</summary><p>Pick light or dark, sharp or soft shapes, and your own app color.</p><p><button type="button" class="link" data-look>Change how the app looks</button></p></details>'
    +'<details class="lg"><summary>Back up or load</summary><p>Move your business to another phone or computer, or give a copy to a parent.</p><p><button type="button" class="link" data-backup>Back up or load my business</button></p></details>'
    +'<details class="lg" open><summary>How your information is handled</summary><ul>'
@@ -5050,11 +5052,14 @@ async function initPublish(){
   applySavedVenmo(me.venmo);
 }
 $("#pubSend").onclick=async()=>{
-  pubErr(""); $("#pubCode").value=""; $("#pubCodeMsg").textContent="Sending...";
+  pubErr(""); $("#pubCode").value="";
+  const owner=$("#parentOwner");
+  if(owner&&!owner.checked){$("#pubCodeMsg").textContent="Check the box: you are the parent or guardian and you run this page with your kid."; return;}
+  $("#pubCodeMsg").textContent="Sending...";
   try{
     const data=await pubApi("/api/auth/start", {body:{email:$("#pubEmail").value.trim()}});
     if(!data.ok)$("#pubCodeMsg").textContent=data.error==="mail"?"Email is not set up yet.":"Enter a parent’s email.";
-    else $("#pubCodeMsg").textContent=data.devCode?("Test mode. The code is "+data.devCode+". A real setup emails it to the parent only."):"Code sent. Ask the parent to check their email.";
+    else $("#pubCodeMsg").textContent=data.devCode?("Test mode. The code is "+data.devCode+". A real setup emails it to the parent only."):"Code sent. Check the parent email.";
   }catch(e){ $("#pubCodeMsg").textContent=e.message==="no-host"?"Publish is not set up on this link yet.":"Could not reach the host. Try again."; }
 };
 $("#pubVerify").onclick=async()=>{

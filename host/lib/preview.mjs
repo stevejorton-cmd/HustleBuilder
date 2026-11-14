@@ -123,7 +123,7 @@ export function stripParentContact(html) {
     out = out.includes("</head>") ? out.replace("</head>", () => css + "</head>") : css + out;
   }
   if (!/href=["']\/privacy["']/.test(out)) {
-    const links = `<p class="small"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>`;
+    const links = `<p class="small"><a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/retention">Retention</a> · <a href="/terms">Terms</a></p>`;
     if (out.includes("</footer>")) out = out.replace("</footer>", () => links + "</footer>");
     else if (out.includes("</body>")) out = out.replace("</body>", () => links + "</body>");
   }
