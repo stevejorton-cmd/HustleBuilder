@@ -672,6 +672,7 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   const note = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
   const msg = note.body.messages[0];
   assert.match(msg.text, /We got your request for Dog walk/);
+  assert.match(msg.text, /Make one for your kid, free for 14 days/);
   assert.match(msg.text, /Nothing is booked yet/);
   assert.match(msg.text, /\/api\/cancel\//);
   assert.equal(msg.text.includes(email), false);
@@ -1782,6 +1783,7 @@ test("live pages are served with one Built with Hustle Builder belt, added at se
   // Exactly one belt, linking home, after the page's own content and
   // still inside the body.
   assert.equal(first.body.split('id="hb-belt"').length - 1, 1);
+  assert.ok(first.body.includes('Make one for your kid, free for 14 days'));
   assert.ok(first.body.includes('<a href="https://hustlebuilder.org/?for=parents&amp;ref=belt-kid" target="_top"') || first.body.includes('<a href="https://hustlebuilder.org/?for=parents&ref=belt-kid" target="_top"'));
   assert.ok(first.body.indexOf('id="hb-belt"') > first.body.indexOf("<h1>Belt Kid</h1>"));
   assert.ok(first.body.indexOf('id="hb-belt"') < first.body.toLowerCase().indexOf("</body>"));

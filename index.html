@@ -1562,7 +1562,7 @@ function siteMain(){
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
       var box=$("sentBox"); box.hidden=false;
-      if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; showCopy(true); $("outWrap").hidden=true;}
+      if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; var grow=document.createElement("a"); grow.href="https://hustlebuilder.org/?for=parents&ref="+encodeURIComponent((C.publish&&C.publish.slug)||""); grow.textContent="Make one for your kid, free for 14 days"; grow.style.display="block"; grow.style.marginTop="10px"; box.appendChild(grow); showCopy(true); $("outWrap").hidden=true;}
       else if(r&&r.error==="fast"){box.textContent=r.message||"Wait a few seconds, then send it again.";}
       else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
       else{box.textContent="I couldn’t send that. Please try again in a minute.";}
