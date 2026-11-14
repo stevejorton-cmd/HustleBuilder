@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#FF5B14">
 <script>
 window.hbCloseParents=function(){
+  if(location.pathname==="/parents"){location.href="/?build=1";return;}
   try{localStorage.setItem("hb-parents-seen","1");}catch(e){}
   document.documentElement.classList.add("hb-skip-parents");
   var box=document.getElementById("forParents");if(box){box.hidden=true;box.inert=false;}
@@ -15,6 +16,7 @@ window.hbCloseParents=function(){
 (function(){
   try{
     var q=new URLSearchParams(location.search);
+    if(location.pathname==="/parents")document.documentElement.classList.add("parents-only");
     var force=location.pathname==="/parents"||q.get("for")==="parents";
     if(!force)document.documentElement.classList.add("hb-skip-parents");
   }catch(e){document.documentElement.classList.add("hb-skip-parents");}
@@ -743,6 +745,7 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
 .parents-example b{display:block;font-size:28px;line-height:1.05;margin-bottom:6px}
 .parents-example p{color:#d7e0d4;margin:4px 0}
 #parentsKid{margin-top:18px}
+html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,html.parents-only #boss,html.parents-only #flyers,html.parents-only #intro,html.parents-only #offlineNote{display:none !important}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
 </style>
 </head>
@@ -966,9 +969,11 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
       <div id="askInviteNotice" class="launch-price" role="status" hidden></div>
       <div id="pubBox">
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
+        <div id="askCopy">
         <button type="button" class="btn block" id="askParent">Email my parent an invitation</button>
         <p class="small2">Your draft stays on this device until a parent agrees. The invitation includes your first name and business name, and asks your parent to review the page here with you.</p>
         <p class="small2">Have your parent use “I’m the parent — continue here” below on this device to review and publish. <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
+        </div>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
           <p class="lead" style="margin:8px 0">Your parent is invited.</p>
@@ -1125,7 +1130,7 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
   <div class="mf"><label>Where should the QR code send people?</label><div class="chips" id="fQr"></div></div>
   <div class="mf" id="fUrlWrap"><label for="fUrl">Your website link</label>
     <input type="text" id="fUrl" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="hustlebuilder.org/sam" style="width:100%;min-height:54px;padding:12px 15px;border:2px solid var(--line);border-radius:8px;background:var(--surface);font-size:17.5px">
-    <small class="help2">Your link appears here after publishing. No site yet? Pick “Text my parent” above, or <button type="button" class="link" id="flyerGoLive">finish your website</button>.</small></div>
+    <small class="help2" id="fUrlHelp">Your link appears here after publishing. No site yet? Pick “Text my parent” above, or <button type="button" class="link" id="flyerGoLive">finish your website</button>.</small></div>
   <p class="small2" id="fSmsHelp" hidden>This QR code shares your parent’s phone number with anyone who scans it. It does not turn on the phone number on your website.</p>
   <label class="check"><input type="checkbox" id="fPhone"><span>Show my parent’s phone number on the flyer</span></label>
 
@@ -1482,6 +1487,8 @@ function siteMain(){
   var sel=$("svc");
   C.services.forEach(function(s){var o=document.createElement("option");o.value=s.n;o.textContent=s.n+(s.p?" ("+s.p+")":"");sel.appendChild(o);});
   var other=document.createElement("option");other.value="Something else";other.textContent="Something else (tell me in the note)";sel.appendChild(other);
+  function syncOtherNote(){var note=$("note"); if(note) note.placeholder=sel.value==="Something else"?"What job do you need?":"";}
+  sel.addEventListener("change",syncOtherNote);
   function calLine(nm,addr,svc){var l=gcalLink(svc+" for "+nm,addr,"Booked from the "+C.biz+" website. Not confirmed until "+C.first+"’s parent replies.");return l?"\nAdd to calendar: "+l:"";}
   function bookPlain(){
     var price="";
@@ -1504,7 +1511,7 @@ function siteMain(){
     else fallback();
   }
   var copyBook=$("copyBook");
-  if(copyBook){copyBook.setAttribute("data-label","Copy job");copyBook.onclick=function(){copyPlain(bookPlain(),copyBook);};}
+  if(copyBook){copyBook.setAttribute("data-label","Copy job");copyBook.onclick=function(){if(!build(false))return; copyPlain(bookPlain(),copyBook);};}
   function showCopy(on){if(copyBook)copyBook.hidden=!on;}
   function val(id){var el=$(id);return el?String(el.value||"").trim():"";}
   function petLine(){
@@ -2273,7 +2280,7 @@ ${promiseHTML}
   ${contactHTML}
 </div>
 
-<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Student-owned. Parent-backed.</p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
+<footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Student-owned. Parent-backed.</p><p class="small"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
 
 <div class="dock" id="dock"><a class="btn" href="#book">Book a day</a></div>
 <script>window.__C=${cfgJson};<\/script>
@@ -2894,6 +2901,7 @@ function syncLiveUrlFields(){
   const raw=S.siteUrl||"", u=normUrl(raw);
   const live=$("#liveUrl"); if(live&&document.activeElement!==live)live.value=raw;
   const f=$("#fUrl"); if(f&&document.activeElement!==f)f.value=raw;
+  const fHelp=$("#fUrlHelp"); if(fHelp)fHelp.hidden=!!(f&&String(f.value||"").trim());
   const err=$("#liveUrlErr"); if(err){err.textContent=raw.trim()&&!u?"That link doesn’t look right. It should look like hustlebuilder.org/sam.":"";err.hidden=!err.textContent;}
   const wrap=$("#liveOpenWrap"), a=$("#liveOpen");
   if(wrap&&a){if(u){wrap.hidden=false;a.href=u;}else wrap.hidden=true;}
@@ -3933,6 +3941,7 @@ function renderFlyerChips(){
   $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Ink saver is on: white page, black lettering, thin black lines.":"Bold keeps the dark background and your color. It uses more ink.";
 }
 $("#fUrl").value=S.siteUrl||"";
+syncLiveUrlFields();
 $("#fUrl").addEventListener("input",()=>setSiteUrl($("#fUrl").value));
 $("#fPhone").checked=!!S.flyerPhone;
 $("#fPhone").addEventListener("change",()=>{S.flyerPhone=$("#fPhone").checked;save();refreshFlyers();});
@@ -4702,6 +4711,20 @@ function niceDate(iso){
   if(!t)return "";
   return new Date(t).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
 }
+function settleGoLive(me){
+  const published=!!(me&&me.consent&&(me.slug||(me.slugs&&me.slugs.length)));
+  if(!published)return;
+  const ask=$("#askCopy"); if(ask)ask.hidden=true;
+  const wait=$("#askWait"); if(wait)wait.hidden=true;
+  const code=$("#pubCodeBox"); if(code)code.hidden=true;
+  const details=$("#parentHere");
+  if(details){
+    details.open=true;
+    const summary=details.querySelector("summary");
+    if(summary)summary.hidden=true;
+  }
+  const ready=$("#pubReady"); if(ready)ready.hidden=false;
+}
 function trialLine(me){
   const days=me&&typeof me.trialDaysLeft==="number"?me.trialDaysLeft:14;
   return days+" day"+(days===1?"":"s")+" left for your website, bookings, and flyer downloads.";
@@ -4715,7 +4738,7 @@ function planHelp(me){
   if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
   if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
   if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
-  if(me.trialEndsAt)return trialLine(me);
+  if(me.trialEndsAt)return "Plans are one-time payments and never renew on their own.";
   return TRIAL_WORDS;
 }
 function showHosting(me){
@@ -4889,6 +4912,7 @@ async function initPublish(){
   if($("#pubEmail"))$("#pubEmail").value=me.email||"";
   if(me.verified)showParentVerified(me);
   else if(me.consent){$("#parentHere").open=true; $("#pubReady").hidden=false;}
+  settleGoLive(me);
   applyPublishState(me);
   const help=$("#pubPlanHelp");
   if(help)help.textContent=planHelp(me);
@@ -5067,6 +5091,7 @@ async function pubPush(){
     $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
     showPublished(data.url);
     $("#pubOk").textContent=data.added?"Published. This page is covered by your family plan.":data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
+    try{const now=await pubApi("/api/me",{method:"GET"}); if(now&&now.ok){showHosting(now); settleGoLive(now);}}catch(e){}
   }catch(e){pubErr("Could not publish. Try again.");}
 }
 async function buyPlanFirst(plan){
@@ -5228,7 +5253,23 @@ async function loadMyJobs(){
     if(!data.ok)return;
     const list=$("#jobList"); if(!list)return;
     const jobs=data.jobs||[];
-    list.innerHTML=jobs.map(j=>'<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span></div>').join("");
+    list.innerHTML=jobs.map(j=>{
+      const acts=j.action?'<div class="mbtns"><button type="button" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button><button type="button" data-job="'+esc(j.action)+'" data-st="done">Done</button><button type="button" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel</button></div>':'';
+      return '<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+'</div>';
+    }).join("");
+    if(!list.dataset.bound){
+      list.dataset.bound="1";
+      list.addEventListener("click",async function(ev){
+        const btn=ev.target.closest("button[data-job]");
+        if(!btn)return;
+        btn.disabled=true;
+        try{
+          const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:btn.getAttribute("data-st"),json:true}});
+          if(!data.ok){btn.disabled=false; return;}
+        }catch(err){btn.disabled=false; return;}
+        loadMyJobs();
+      });
+    }
     const empty=$("#jobEmpty"); if(empty)empty.hidden=jobs.length>0;
     const badge=$("#jobBadge");
     if(badge){badge.hidden=!data.fresh; if(data.fresh)badge.textContent=String(data.fresh);}
@@ -5717,7 +5758,7 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
-function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent"].some(k=>params.has(k))&&!introSeen();}
+function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent","build"].some(k=>params.has(k))&&!introSeen();}
 if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
 window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(!new URLSearchParams(location.search).get("ask"))initPublish();

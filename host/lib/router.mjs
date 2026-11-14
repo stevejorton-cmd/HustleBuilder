@@ -2212,10 +2212,18 @@ async function routeRequest(req) {
     // calendar shows a 4:00 PM job at 4:00 PM wherever they live.
     const tz = validTz(body.tz);
     if (tz) account.tz = tz;
-    if (!paid(account) && !account.trialStartedAt) {
-      const now = Date.now();
-      account.trialStartedAt = new Date(now).toISOString();
-      account.trialEndsAt = new Date(now + trialLengthDays() * 864e5).toISOString();
+    if (!paid(account)) {
+      const started = Date.parse(account.trialStartedAt || "");
+      const created = Date.parse(account.createdAt || "");
+      // A clock copied at sign-in from an older deleted account is not this
+      // page's first publish. The 14 days start when this account publishes.
+      const inherited = Number.isFinite(started) && Number.isFinite(created) && started + 60000 < created;
+      const firstPage = !existing && addedPage && ownedBefore.length === 0;
+      if (!account.trialStartedAt || (firstPage && inherited)) {
+        const now = Date.now();
+        account.trialStartedAt = new Date(now).toISOString();
+        account.trialEndsAt = new Date(now + trialLengthDays() * 864e5).toISOString();
+      }
     }
     await rememberAccount(account);
     const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
@@ -2414,6 +2422,7 @@ async function routeRequest(req) {
 
   if (method === "GET" && route === "my-jobs") {
     let account = await me();
+    const parentSession = account;
     const code = String((req.query && req.query.get && req.query.get("code")) || "").trim().toLowerCase();
     if (!account && /^[a-z0-9]{8}$/.test(code)) {
       const id = await (await store()).get("jobcode/" + code);
@@ -2428,7 +2437,11 @@ async function routeRequest(req) {
       return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     }
     const rows = await loadRequests(account.id);
-    const jobs = rows.map((row) => kidJob(row, account));
+    const jobs = rows.map((row) => {
+      const job = kidJob(row, account);
+      if (parentSession && parentSession.id === account.id && row.actionToken) job.action = row.actionToken;
+      return job;
+    });
     const fresh = jobs.filter((row) => row.status === "new").length;
     return withCors(json(200, { ok: true, jobs, fresh, shareStreet: !!account.shareStreet }), req.headers && req.headers.origin);
   }
@@ -2447,6 +2460,7 @@ async function routeRequest(req) {
       row.status = next;
       if(next==='cancelled')await removeCalendarRequest(account.id,row);
       await saveRequests(account.id, rows);
+      if (body.json === true) return json(200, { ok: true, status: row.status });
     }
     const title = row.status === "new" ? "New request" : row.status[0].toUpperCase() + row.status.slice(1);
     return shell(200, title, `<h1>${mailEscape(row.service || "A job")}</h1>

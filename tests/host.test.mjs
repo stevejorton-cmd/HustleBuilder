@@ -1026,6 +1026,63 @@ test("a free trial lasts TRIAL_DAYS, then the page takes a break and bookings ar
   }
 });
 
+test("a leftover trial clock does not shorten the first publish of a new account", async () => {
+  const email = "inherited@example.com";
+  const hash = createHash("sha256").update(email).digest("hex");
+  await mkdir(path.join(dir, "trials"), { recursive: true });
+  await writeFile(path.join(dir, "trials", hash + ".json"), JSON.stringify({
+    trialStartedAt: new Date(Date.now() - 13 * 864e5).toISOString(),
+    trialEndsAt: new Date(Date.now() + 864e5).toISOString()
+  }));
+  const { token } = await parent(email);
+  const before = await json(await call("GET", "/api/me", { token }));
+  assert.ok(before.body.trialDaysLeft <= 2);
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const published = await json(await call("POST", "/api/publish", { token, body: { slug: "will-yard", html: page("Will") } }));
+  assert.equal(published.body.ok, true);
+  assert.ok(published.body.trialDaysLeft >= 13 && published.body.trialDaysLeft <= 14);
+  const again = await json(await call("POST", "/api/publish", { token, body: { slug: "will-yard", html: page("Will again") } }));
+  assert.equal(again.body.trialEndsAt, published.body.trialEndsAt);
+});
+
+test("a parent can confirm, finish, or cancel a booking from My jobs", async () => {
+  const { token, email } = await parent("jobs@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } });
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "sam", name: "Dana", contact: "402-555-0199", service: "Mow", when: "Saturday at 10:00 AM",
+    address: "8 Quiet St", note: "front", start: "2026-11-21T10:00", t: 5000
+  } }));
+  assert.equal(book.body.ok, true);
+  const list = await json(await call("GET", "/api/my-jobs", { token }));
+  assert.equal(list.body.jobs.length, 1);
+  assert.match(list.body.jobs[0].action, /^[a-f0-9]{16,}$/);
+  const marked = await json(await call("POST", "/api/job/" + list.body.jobs[0].action, { token, body: { status: "confirmed", json: true } }));
+  assert.equal(marked.body.ok, true);
+  assert.equal(marked.body.status, "confirmed");
+  const after = await json(await call("GET", "/api/my-jobs", { token }));
+  assert.equal(after.body.jobs[0].status, "confirmed");
+  const cancelled = await json(await call("POST", "/api/job/" + list.body.jobs[0].action, { token, body: { status: "cancelled", json: true } }));
+  assert.equal(cancelled.body.status, "cancelled");
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(home, /data-st="confirmed">Confirm/);
+  assert.match(home, /data-st="done">Done/);
+  assert.match(home, /data-st="cancelled">Cancel/);
+  assert.match(home, /settleGoLive\(me\)/);
+  assert.match(home, /id="askCopy"/);
+  assert.match(home, /id="fUrlHelp"/);
+  assert.match(home, /fHelp\.hidden=/);
+  assert.match(home, /if\(!build\(false\)\)return/);
+  assert.match(home, /href="\/privacy">Privacy/);
+  assert.match(home, /href="\/terms">Terms/);
+  assert.match(home, /parents-only/);
+  assert.match(home, /location\.pathname==="\/parents"/);
+  assert.match(home, /What job do you need\?/);
+  assert.match(home, /Plans are one-time payments and never renew on their own\./);
+  assert.equal(email.includes("@"), true);
+});
+
 function trialLineStandin(me) {
   return me.trialDaysLeft + " days left.";
 }
