@@ -28,7 +28,7 @@ const server = createServer(async (req, res) => {
     res.end('<!doctype html><html lang="en"><meta charset="utf-8"><title>Hustle Builder · 390px QA</title><style>body{margin:0;background:#e8e9e4;font:14px system-ui;display:grid;justify-content:center}p{text-align:center;margin:12px}iframe{border:1px solid #aaa;width:390px;height:844px;background:white}</style><p>Phone check · 390 × 844 CSS pixels · local test mode</p><iframe title="Phone preview" src="/"></iframe></html>');
     return;
   }
-  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
+  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/parents")) {
     const file = await readFile(indexUrl);
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
     res.end(file);
@@ -105,6 +105,16 @@ const server = createServer(async (req, res) => {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
       res.end("missing");
       return;
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/assets/og-home.png") {
+    try {
+      const file = await readFile(new URL("assets/og-home.png", rootDir));
+      res.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=86400" });
+      res.end(file);
+      return;
+    } catch {
+      res.writeHead(404); res.end(); return;
     }
   }
   if (req.method === "GET" && url.pathname.startsWith("/assets/jobs/")) {

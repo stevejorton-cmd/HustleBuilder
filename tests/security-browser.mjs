@@ -8,7 +8,7 @@ try{
  await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('startup timeout')),10000);child.stdout.on('data',d=>{if(d.toString().includes('listening')){clearTimeout(t);resolve();}});child.once('error',reject);});
  browser=await puppeteer.launch({executablePath:process.env.CHROME||'/usr/local/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  const email='parent@example.com',auth=await post('/api/auth/start',{email}),session=await post('/api/auth/verify',{email,code:auth.devCode});await post('/api/consent',{consent:true},session.token);
- const dismissIntro=async(p)=>{await p.evaluate(()=>{const el=document.getElementById("intro");const b=document.getElementById("introSkip");if(el&&!el.hidden&&b)b.click();}).catch(()=>{});};
+ const dismissIntro=async(p)=>{await p.evaluate(()=>{const el=document.getElementById("intro");const b=document.getElementById("introSkip");if(el&&!el.hidden&&b)b.click();const kid=document.getElementById("parentsKid");if(kid)kid.click();}).catch(()=>{});};
  const victim=await browser.newPage();await victim.goto(base);await dismissIntro(victim);
  const cookieLogin=await victim.evaluate(async email=>{const start=await (await fetch('/api/auth/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})})).json();return (await fetch('/api/auth/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,code:start.devCode})})).json();},email);
  session.token=cookieLogin.token;assert.ok((await victim.cookies()).some(c=>c.name==='hb_session'&&c.httpOnly));

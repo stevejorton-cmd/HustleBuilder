@@ -32,7 +32,7 @@ baker hall rivera campbell mitchell carter roberts
 const RESERVED = new Set(`
 api admin www mail app hustle publish account login index static assets setup
 host book auth consent checkout unpublish test vercel blob stripe resend about
-privacy terms help support status health favicon robots sitemap builder boss
+privacy terms help support status health favicon robots sitemap builder boss parents
 print flyer flyers gateway site me delete page pages
 icons sw manifest tests stress scripts package legal contact pricing blog docs
 security billing official staff

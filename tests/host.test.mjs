@@ -65,6 +65,21 @@ test("the first page stays under 300KB compressed", async () => {
   assert.equal(html.includes("data:image/jpeg;base64"), false);
 });
 
+test("the parent landing names the winter price and uses a made-up example", async () => {
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const block = home.slice(home.indexOf('id="forParents"'), home.indexOf("</section>") + 10);
+  assert.match(block, /\$9\.99 for the whole winter, never auto-renews/);
+  assert.match(block, /id="parentsStart"/);
+  assert.match(block, />Start free</);
+  assert.match(home, /if\(!force\)document\.documentElement\.classList\.add\("hb-skip-parents"\)/);
+  assert.equal(home.includes('setItem("hb_intro_seen"'), false);
+  assert.match(home, /shouldOpenIntro\(entryParams\)&&document\.documentElement\.classList\.contains\("hb-skip-parents"\)/);
+  assert.match(block, /Sam's Lawn Co\./);
+  assert.match(block, /Elkhorn/);
+  assert.equal(/steve|lincoln|maryn|levi|402/i.test(block), false);
+  assert.match(checkSlug("parents"), /reserved/i);
+});
+
 test("slug rules block last names, reserved words, and bad shapes", () => {
   assert.equal(checkSlug("sam"), "");
   assert.equal(checkSlug("sam-yard"), "");
@@ -369,6 +384,7 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     assert.equal(res.body.url, "https://checkout.stripe.test/c");
     const params = new URLSearchParams(seen);
     assert.equal(params.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.ok(("KEYSTONE* " + params.get("payment_intent_data[statement_descriptor_suffix]")).length <= 22);
     assert.equal(params.get("line_items[0][price_data][currency]"), "usd");
     assert.equal(params.get("line_items[0][price_data][unit_amount]"), "999");
     assert.equal(params.get("line_items[0][price]"), null);
@@ -379,6 +395,13 @@ test("stripe checkout sets the statement descriptor suffix", async () => {
     assert.equal(yearParams.get("line_items[0][price_data][currency]"), "usd");
     assert.equal(yearParams.get("line_items[0][price_data][unit_amount]"), "1999");
     assert.equal(yearParams.get("line_items[0][price]"), null);
+    const checkParent = await parent("card-check@example.com");
+    await call("POST", "/api/consent", { token: checkParent.token, body: { consent: true } });
+    const checkParams = new URLSearchParams(seen);
+    assert.equal(checkParams.get("payment_intent_data[statement_descriptor_suffix]"), "HUSTLE BLDR");
+    assert.equal(checkParams.get("line_items[0][price_data][unit_amount]"), "50");
+    const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+    assert.match(home, /id="buySeason">Buy the winter season, \$9\.99/);
   } finally {
     global.fetch = prev;
     process.env.PAYWALL_MODE = "test";
@@ -658,6 +681,7 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   const note = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
   const msg = note.body.messages[0];
   assert.match(msg.text, /We got your request for Dog walk/);
+  assert.match(msg.text, /Make one for your kid, free for 14 days/);
   assert.match(msg.text, /Nothing is booked yet/);
   assert.match(msg.text, /\/api\/cancel\//);
   assert.equal(msg.text.includes(email), false);
@@ -1737,6 +1761,26 @@ test("resting and missing pages do not count, and the week sum reads day buckets
   assert.equal(stored.days[key(now - 40 * dayMs)], undefined);
 });
 
+test("funnel counts stay aggregate and show on the admin page", async () => {
+  const bad = await json(await call("POST", "/api/funnel", { body: { event: "published" } }));
+  assert.equal(bad.status, 400);
+  const visit = await json(await call("POST", "/api/funnel", { body: { event: "ref_visit" } }));
+  assert.equal(visit.body.ok, true);
+  const { token } = await parent("funnel@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "funnel-yard", html: page("Funnel") } });
+  await call("POST", "/api/draft", { token, body: { draft: { first: "Sam" } } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const login = await call("POST", "/admin/login", { raw: "secret=test-admin-secret", headers: { "x-forwarded-for": "198.51.100.44" } });
+  const cookie = login.headers["set-cookie"].split(";")[0];
+  const dash = await call("GET", "/admin", { headers: { cookie } });
+  assert.match(dash.body, /Card check passed/);
+  assert.match(dash.body, /Published/);
+  assert.match(dash.body, /Plan paid/);
+  assert.match(dash.body, /Referral visit/);
+  assert.equal(dash.body.includes("funnel/"), false);
+});
+
 test("live pages are served with one Built with Hustle Builder belt, added at serve time", async () => {
   const { token } = await parent("belt@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
@@ -1748,7 +1792,8 @@ test("live pages are served with one Built with Hustle Builder belt, added at se
   // Exactly one belt, linking home, after the page's own content and
   // still inside the body.
   assert.equal(first.body.split('id="hb-belt"').length - 1, 1);
-  assert.ok(first.body.includes('<a href="https://hustlebuilder.org" target="_top"'));
+  assert.ok(first.body.includes('Make one for your kid, free for 14 days'));
+  assert.ok(first.body.includes('<a href="https://hustlebuilder.org/?for=parents&amp;ref=belt-kid" target="_top"') || first.body.includes('<a href="https://hustlebuilder.org/?for=parents&ref=belt-kid" target="_top"'));
   assert.ok(first.body.indexOf('id="hb-belt"') > first.body.indexOf("<h1>Belt Kid</h1>"));
   assert.ok(first.body.indexOf('id="hb-belt"') < first.body.toLowerCase().indexOf("</body>"));
   // The family's own words are untouched.
@@ -2484,4 +2529,37 @@ test("all flyer and poster export paths check account access and fail closed", a
     const start=src.indexOf("async function "+name+"{");
     assert.ok(src.slice(start,start+130).includes("await allowBusinessExport("),name);
   }
+});
+
+test("the home page can be shared and search engines can find the public pages", async () => {
+  const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(home, /rel="canonical" href="https:\/\/hustlebuilder\.org\/"/);
+  assert.match(home, /property="og:title"/);
+  assert.match(home, /property="og:image" content="https:\/\/hustlebuilder\.org\/assets\/og-home\.png"/);
+  assert.match(home, /name="twitter:card" content="summary_large_image"/);
+  assert.match(home, /"@type":"SoftwareApplication"/);
+  assert.match(home, /"price":"9\.99"/);
+  assert.match(home, /"price":"19\.99"/);
+  const robots = await call("GET", "/robots.txt");
+  assert.equal(robots.status, 200);
+  assert.match(robots.body, /Allow: \//);
+  assert.match(robots.body, /Sitemap: http:\/\/sites\.test\/sitemap\.xml/);
+  const { token } = await parent("search@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam-lawn", html: page("Sam"), indexable: true } });
+  await call("POST", "/api/publish", { token, body: { slug: "sam-snow", html: page("Snow"), indexable: false } });
+  const map = await call("GET", "/sitemap.xml");
+  assert.equal(map.status, 200);
+  assert.match(map.headers["content-type"], /xml/);
+  assert.match(map.body, /<loc>http:\/\/sites\.test\/<\/loc>/);
+  assert.match(map.body, /\/terms</);
+  assert.match(map.body, /\/privacy</);
+  assert.match(map.body, /\/sam-lawn</);
+  assert.equal(map.body.includes("/sam-snow"), false);
+  const icon = await call("GET", "/favicon.ico");
+  assert.equal(icon.status, 200);
+  assert.ok(Buffer.isBuffer(icon.body) ? icon.body.length > 32 : String(icon.body).length > 32);
+  const touch = await call("GET", "/apple-touch-icon.png");
+  assert.equal(touch.status, 200);
+  assert.match(touch.headers["content-type"], /png/);
 });

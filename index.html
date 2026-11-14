@@ -5,17 +5,51 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FF5B14">
+<script>
+window.hbCloseParents=function(){
+  try{localStorage.setItem("hb-parents-seen","1");}catch(e){}
+  document.documentElement.classList.add("hb-skip-parents");
+  var box=document.getElementById("forParents");if(box){box.hidden=true;box.inert=false;}
+  try{if(typeof openIntro==="function"&&typeof shouldOpenIntro==="function"&&shouldOpenIntro(new URLSearchParams(location.search)))openIntro();}catch(e){}
+};
+(function(){
+  try{
+    var q=new URLSearchParams(location.search);
+    var force=location.pathname==="/parents"||q.get("for")==="parents";
+    if(!force)document.documentElement.classList.add("hb-skip-parents");
+  }catch(e){document.documentElement.classList.add("hb-skip-parents");}
+})();
+</script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/assets/barlow.css">
-<link rel="icon" href="/icons/icon-192.png">
-<title>Hustle Builder — Your first neighborhood business</title>
-<meta name="description" content="Build a website, make flyers, and keep track of neighborhood jobs. Made for kids, with a parent helping every step of the way.">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+<link rel="canonical" href="https://hustlebuilder.org/">
+<title>Hustle Builder — Your kid's first neighborhood business</title>
+<meta name="description" content="A parent puts a kid's neighborhood business online. $9.99 for the whole winter, or $19.99 for a year. It never auto-renews.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hustle Builder">
+<meta property="og:title" content="Your kid's first neighborhood business">
+<meta property="og:description" content="$9.99 for the whole winter. Never auto-renews.">
+<meta property="og:url" content="https://hustlebuilder.org/">
+<meta property="og:image" content="https://hustlebuilder.org/assets/og-home.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your kid's first neighborhood business">
+<meta name="twitter:description" content="$9.99 for the whole winter. Never auto-renews.">
+<meta name="twitter:image" content="https://hustlebuilder.org/assets/og-home.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Hustle Builder","url":"https://hustlebuilder.org/"},{"@type":"SoftwareApplication","name":"Hustle Builder","applicationCategory":"BusinessApplication","operatingSystem":"Web","offers":[{"@type":"Offer","price":"9.99","priceCurrency":"USD","description":"Winter season, one-time, never auto-renews"},{"@type":"Offer","price":"19.99","priceCurrency":"USD","description":"Full year, one-time, never auto-renews"}]}]}
+</script>
 <script>window.HB_PUBLISH_ORIGIN="";</script>
+<script>
+(function(){try{var ref=new URLSearchParams(location.search).get("ref");if(!ref)return;fetch("/api/funnel",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({event:"ref_visit"})});}catch(e){}})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Hustle Builder">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230D0F11'/%3E%3Cpath d='M26 12h26L38 52H12z' fill='%23FF5B14'/%3E%3C/svg%3E">
 <style id="fontcss">
 /* Fonts: Barlow and Barlow Condensed. Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow).
 These fonts are licensed under the SIL Open Font License, Version 1.1, reproduced below. They may not be sold by themselves.
@@ -689,11 +723,84 @@ details.help[open] summary{margin-bottom:16px}
 .save-state{padding:12px;background:var(--surface);border:2px solid var(--danger);border-radius:8px;color:var(--danger)}
 .builder-tools{margin-top:24px}.price-level .lvl{margin-top:14px;margin-bottom:0}.launch-price{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:16px;margin:20px 0}.launch-price p{font-size:15px;line-height:1.5;margin:8px 0 0}.booking-inbox{margin:24px 20px 0}.booking-inbox .h3{margin-top:0}
 body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-filter:blur(8px)}.intro-card{position:relative;width:100%;max-width:1040px;max-height:calc(100dvh - 48px);background:#f6f4ed;color:#18221e;padding:24px 28px 20px;border:1px solid #deddd4;border-top:5px solid #FF5B14;border-radius:22px;box-shadow:0 24px 100px #0005;overscroll-behavior:contain}.intro-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.intro-eyebrow{font-size:12px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin:0;color:#586259}.intro-close{width:44px;height:44px;flex:none;border:1px solid #d0d4ca;border-radius:50%;background:transparent;color:#18221e;font:28px/1 system-ui;cursor:pointer}.intro-card #introTitle{font-family:Barlow,system-ui;font-style:normal;text-transform:none;font-size:clamp(30px,4.2vw,46px);font-weight:800;line-height:1.06;letter-spacing:-.03em;margin:8px 0 12px}.intro #introSubtitle{font-size:17px;line-height:1.45;margin:0 0 20px;color:#526055;max-width:620px}.example-tabs{display:none}.example-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.example-card{min-width:0}.example-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:10px;font-size:17px}.example-label>span{font-size:11px;font-weight:600;color:#586259}.example-site,.example-paper,.example-payment{height:414px;overflow:hidden;border:1px solid #d1d6cc;border-radius:12px;background:#fff}.example-url{background:#e8ece3;padding:8px 10px;color:#4b584d;font-size:11px;text-align:center}.example-art{height:132px;position:relative;background:#c9dfc5;overflow:hidden}.example-art img{position:static;display:block;width:100%;height:100%;object-fit:cover;object-position:center 55%;mask-image:none;-webkit-mask-image:none}.example-art svg{width:100%;height:100%;display:block}.example-site-body{padding:14px 18px;background:#101512;color:#fcfbef}.example-kicker{font-size:9px;font-weight:700;letter-spacing:.1em;color:#d6edb9}.example-site h3{font-family:var(--display);font-weight:900;font-style:italic;text-transform:uppercase;font-size:34px;line-height:.96;margin:6px 0}.example-site p{font-size:11px;margin:7px 0 8px}.example-cta{display:inline-block;background:#FF5B14;color:#101512;padding:8px 12px;border-radius:5px;font-weight:700;font-size:11px;margin-bottom:7px}.example-rate{display:flex;justify-content:space-between;border-top:1px solid #ffffff30;padding:5px 0;font-size:10px}.example-paper{position:relative;background:radial-gradient(ellipse at top,#d6d9cd,#aeb8a7);display:flex;justify-content:center;align-items:center;padding:14px}.example-paper canvas{height:100%;max-width:100%;object-fit:contain;box-shadow:2px 5px 16px #0002;background:white}.example-stamp{position:absolute;bottom:7px;right:8px;background:#18221e;color:#fff;padding:4px 8px;font-size:9px;letter-spacing:.08em;border-radius:3px}.example-payment{padding:20px 18px;text-align:center;display:flex;align-items:center;flex-direction:column}.example-pay-brand{width:100%;display:flex;justify-content:space-between;color:#0074c8;font-size:22px;font-weight:800;font-style:italic}.example-pay-brand span{font:700 9px Barlow,system-ui;align-self:center;letter-spacing:.08em;border-radius:4px;color:#526055;background:#eef0ec;padding:4px 6px}.example-pay-check{margin:20px 0 4px;width:40px;height:40px;border-radius:50%;background:#e0f5e8;color:#167441;line-height:40px;font-size:25px}.example-payment p{font-size:13px;line-height:1.4;margin:8px 0}.example-amount{font:800 42px/1.2 Barlow,system-ui;letter-spacing:-.04em;color:#146c44}.example-payment .example-pay-note{color:#526055;margin:7px 0 16px}.example-pay-rule{border-top:1px solid #e1e5de;width:100%;padding-top:12px;font-size:11px;color:#526055}.example-caption{font-size:14px;line-height:1.4;color:#526055;margin:12px 0 0}.example-disclaimer{font-size:11px;line-height:1.4;color:#596259;margin:16px 0 14px;max-width:780px}.intro-footer{border-top:1px solid #d6d9d0;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}.intro-footer .btn{background:#FF5B14;color:#141a15;clip-path:none;border-radius:10px;min-height:50px;font-family:Barlow,system-ui;font-size:17px;font-style:normal;text-transform:none;font-weight:800}.intro-footer p{font-size:11px;margin:6px 0 0;color:#526055}.intro-remember{font-size:12px;display:flex;align-items:center;gap:8px;min-height:44px}.intro-remember input{width:18px;height:18px;accent-color:#183e2d}
+#forParents{position:fixed;inset:0;z-index:90;overflow:auto;background:#f6f4ed;color:#18221e;padding:28px 20px 48px}
+html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
+.parents-wrap{max-width:40rem;margin:0 auto}
+#forParents h1{font-family:Barlow,system-ui;font-weight:800;font-size:clamp(36px,10vw,52px);line-height:1.02;letter-spacing:-.03em;margin:8px 0 12px}
+.parents-kicker{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:0;color:#586259}
+.parents-price{font-size:22px;font-weight:800;margin:0 0 6px}
+.parents-year{margin:0 0 16px;color:#314334}
+.parents-note{color:#526055;font-size:15px;margin:10px 0 0}
+#forParents h2{font-size:22px;margin:26px 0 8px}
+#forParents li{margin:0 0 8px}
+#forParents p,#forParents li{font-size:17px;line-height:1.45}
+#forParents details{border-top:1px solid #d6d9d0;padding:10px 0}
+#forParents summary{font-weight:800;cursor:pointer}
+.parents-example{background:#101512;color:#fcfbef;border-radius:16px;padding:16px 18px;margin-top:8px}
+.parents-example b{display:block;font-size:28px;line-height:1.05;margin-bottom:6px}
+.parents-example p{color:#d7e0d4;margin:4px 0}
+#parentsKid{margin-top:18px}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
 </style>
 </head>
 <body>
 <h1 class="sr-only">Your kid's first neighborhood business</h1>
+<section id="forParents" aria-label="For parents">
+  <div class="parents-wrap">
+    <p class="parents-kicker">For parents</p>
+    <h1>Your kid's first business, live this weekend.</h1>
+    <p class="parents-price">$9.99 for the whole winter, never auto-renews.</p>
+    <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
+    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
+    <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
+    <h2>Three steps</h2>
+    <ol>
+      <li><b>Your kid builds.</b> They pick the work, the prices, and the page.</li>
+      <li><b>You approve.</b> You check your email and say yes before it goes online.</li>
+      <li><b>Neighbors book.</b> A request comes to you first. Nothing is booked until you reply.</li>
+    </ol>
+    <h2>Kept small on purpose</h2>
+    <ul>
+      <li>The public page shows a first name and a town.</li>
+      <li>Your phone stays off the page unless you turn that on.</li>
+      <li>Every booking request comes to you.</li>
+    </ul>
+    <h2>A made-up example</h2>
+    <article class="parents-example">
+      <b>Sam's Lawn Co.</b>
+      <p>Elkhorn</p>
+      <p>Mow a small yard · $15</p>
+      <p>Edge the sidewalk · $10</p>
+    </article>
+    <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
+    <h2>Questions</h2>
+    <details>
+      <summary>Is it safe?</summary>
+      <p>The public page shows a first name and a town. A phone number stays hidden unless a parent turns it on. Every booking request goes to the parent.</p>
+    </details>
+    <details>
+      <summary>What does it cost?</summary>
+      <p>$9.99 for the whole winter, or $19.99 for a year. The first 14 days after publish are free.</p>
+    </details>
+    <details>
+      <summary>Does it auto-renew?</summary>
+      <p>No. A plan is a one-time payment. You are never charged automatically.</p>
+    </details>
+    <details>
+      <summary>What is the 50¢?</summary>
+      <p>A parent who starts the free trial checks a card for 50¢. Stripe emails a receipt, and we refund it right away. Buying a plan skips that check.</p>
+    </details>
+    <details>
+      <summary>Who gets paid for a job?</summary>
+      <p>Neighbors pay the family directly. Hustle Builder does not collect, hold, or guarantee job payments.</p>
+    </details>
+    <details>
+      <summary>Can we stop or get a refund?</summary>
+      <p>A parent can take the page down at any time. A plan can be refunded within 14 days of the payment.</p>
+    </details>
+    <button type="button" class="btn ghost block" id="parentsKid" onclick="hbCloseParents(true)">I'm a kid, let me build</button>
+  </div>
+</section>
 <header class="top">
   <div class="brand"><span class="slash" aria-hidden="true"></span><span class="word">Hustle Builder</span></div>
   <div class="modes" role="group" aria-label="Mode">
@@ -874,20 +981,25 @@ body.intro-open{overflow:hidden}.intro{padding:24px;align-items:center;backdrop-
         <button type="button" class="btn ghost" id="pubVerify">Verify email</button>
         <div id="pubReady" hidden>
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My phone stays off the page unless I turn that on.</span></label>
-          <p class="small2" id="cardCheckNote">To show this is a parent, we charge 50¢ on a card. Stripe emails a receipt, and we refund the 50¢ right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
+          <div id="planFirst">
+            <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
+            <button type="button" class="btn block" id="buySeason">Buy the winter season, $9.99</button>
+            <button type="button" class="btn ghost block" id="buyYear">Or a full year, $19.99</button>
+          </div>
+          <p class="small2" id="cardCheckNote">Or start the free 14-day trial. We charge 50¢ on a card, Stripe emails a receipt, and we refund it right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
             <p class="lead" id="trialPitch">Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.</p>
             <p class="status" id="trialCount" hidden></p>
           </div>
           <p class="status" id="graceBanner" hidden></p>
-          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Or pick a plan. Plans are one-time payments and never renew on their own.</small></div>
+          <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Plans are one-time payments and never renew on their own.</small></div>
           <button type="button" class="btn block" id="pubPay" hidden>Pay for this plan</button>
           <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Your first name plus your business name works great, like josie-josies-pet-care. It is harder for strangers to guess than a first name alone.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
-          <button type="button" class="btn block" id="pubGo" disabled>Publish my website</button>
+          <button type="button" class="btn ghost block" id="pubGo" disabled>Start the free 14-day trial with a 50¢ refunded check</button>
           <p class="small2" id="familyNote" hidden></p>
         </div>
         </details>
@@ -1445,7 +1557,7 @@ function siteMain(){
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
       var box=$("sentBox"); box.hidden=false;
-      if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; showCopy(true); $("outWrap").hidden=true;}
+      if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; var grow=document.createElement("a"); grow.href="https://hustlebuilder.org/?for=parents&ref="+encodeURIComponent((C.publish&&C.publish.slug)||""); grow.textContent="Make one for your kid, free for 14 days"; grow.style.display="block"; grow.style.marginTop="10px"; box.appendChild(grow); showCopy(true); $("outWrap").hidden=true;}
       else if(r&&r.error==="fast"){box.textContent=r.message||"Wait a few seconds, then send it again.";}
       else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
       else{box.textContent="I couldn’t send that. Please try again in a minute.";}
@@ -3411,7 +3523,7 @@ function setMode(m){
   $("#mFlyers").setAttribute("aria-pressed",String(fl));
   $("#mBoss").setAttribute("aria-pressed",String(boss));
   if(boss){lastProfit=0;renderBoss();loadMyJobs();}
-  if(fl){syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
+  if(fl){S.flyerStyle="ink";if(S.studio)S.studio.bg="ink";save();syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
   window.scrollTo(0,0);
 }
 $("#mBuild").onclick=()=>setMode("build");
@@ -3435,7 +3547,7 @@ function headline(ctx,text,maxW,maxLines,maxS,minS,maxH){
   fnt(ctx,900,minS,FFD,true);return {lines:wrapText(ctx,String(text).toUpperCase(),maxW).slice(0,maxLines),size:minS};
 }
 function fitSize(ctx,text,maxW,maxS,minS,w,fam,italic){let s=maxS;for(;s>minS;s-=1){fnt(ctx,w,s,fam,italic);if(ctx.measureText(text).width<=maxW)break;}return s;}
-function hazard(ctx,x,y,w,h,c1,c2){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle=c2;ctx.fillRect(x,y,w,h);ctx.fillStyle=c1;const st=h*1.1;for(let i=-h;i<w+h;i+=st*2){ctx.beginPath();ctx.moveTo(x+i,y+h);ctx.lineTo(x+i+st,y+h);ctx.lineTo(x+i+st+h,y);ctx.lineTo(x+i+h,y);ctx.closePath();ctx.fill();}ctx.restore();}
+function hazard(ctx,x,y,w,h,c1,c2){if((c1==="#111111"&&c2==="#FFFFFF")||(c1==="#FFFFFF"&&c2==="#111111")){ctx.fillStyle="#111111";ctx.fillRect(x,y,w,3);return;}ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle=c2;ctx.fillRect(x,y,w,h);ctx.fillStyle=c1;const st=h*1.1;for(let i=-h;i<w+h;i+=st*2){ctx.beginPath();ctx.moveTo(x+i,y+h);ctx.lineTo(x+i+st,y+h);ctx.lineTo(x+i+st+h,y);ctx.lineTo(x+i+h,y);ctx.closePath();ctx.fill();}ctx.restore();}
 function dashLine(ctx,x1,y1,x2,y2,col){ctx.save();ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.setLineDash([9,7]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();}
 function qrMods(text){try{const q=qrcode(0,"M");q.addData(text);q.make();const n=q.getModuleCount(),m=[];for(let r=0;r<n;r++){const row=[];for(let c=0;c<n;c++)row.push(q.isDark(r,c));m.push(row);}return m;}catch(e){return null;}}
 function drawQR(ctx,x,y,size,text){
@@ -3493,7 +3605,7 @@ function paintPetRow(ctx,x,y,w,h,pets){
     }
   });
 }
-function flyerTheme(c){const bold=c.style==="bold";const pet=c.type==="pet";return {bold,bg:bold?"#0E1012":"#FFFFFF",ink:bold?"#F1EFEA":"#111111",mute:bold?"#A3AAB1":"#4A4A4A",acc:pet?(bold?"#F6C14B":"#0F6E6A"):(bold?c.accent:"#111111"),pcol:pet?"#0F6E6A":(bold?c.accent:"#111111"),line:bold?"#3A4046":"#9A9A9A",hz2:bold?"#0B0C0D":"#FFFFFF",paw:pet?(bold?"#F6C14B":"#0F6E6A"):""};}
+function flyerTheme(c){const bold=c.style==="bold";const pet=c.type==="pet";if(!bold)return {bold:false,bg:"#FFFFFF",ink:"#111111",mute:"#333333",acc:"#111111",pcol:"#111111",line:"#111111",hz2:"#FFFFFF",paw:""};return {bold:true,bg:"#0E1012",ink:"#F1EFEA",mute:"#A3AAB1",acc:pet?"#F6C14B":c.accent,pcol:pet?"#0F6E6A":c.accent,line:"#3A4046",hz2:"#0B0C0D",paw:pet?"#F6C14B":""};}
 function drawHeadline(ctx,hl,x,y,col){ctx.fillStyle=col;fnt(ctx,900,hl.size,FFD,true);ctx.textAlign="left";let yy=y+hl.size*.82;hl.lines.forEach(l=>{ctx.fillText(l,x,yy);yy+=hl.size*.9;});return yy-hl.size*.9+hl.size*.12;}
 
 function flyerFull(ctx,c,t){
@@ -3625,7 +3737,7 @@ function flyerCards(ctx,c,t){
 }
 function flyerSign(ctx,c,t){
   const W=850,H=1100,M=50,iw=W-2*M;
-  hazard(ctx,0,0,W,40,t.acc,t.hz2);hazard(ctx,0,H-40,W,40,t.acc,t.hz2);
+  hazard(ctx,0,0,W,t.bold?40:8,t.acc,t.hz2);hazard(ctx,0,H-(t.bold?40:8),W,t.bold?40:8,t.acc,t.hz2);
   const hl=headline(ctx,c.biz,iw,3,190,100,330);
   let y=drawHeadline(ctx,hl,M,78,t.ink)+16;
   fnt(ctx,500,40,FFB,false);const tl=wrapText(ctx,c.tagline,iw).slice(0,2);ctx.fillStyle=t.mute;
@@ -3641,7 +3753,7 @@ function flyerSign(ctx,c,t){
 }
 function flyerSocial(ctx,c,t,W,H,story){
   const M=story?80:72;
-  hazard(ctx,0,0,W,story?44:36,t.acc,t.hz2);hazard(ctx,0,H-(story?44:36),W,story?44:36,t.acc,t.hz2);
+  hazard(ctx,0,0,W,t.bold?(story?44:36):8,t.acc,t.hz2);hazard(ctx,0,H-(t.bold?(story?44:36):8),W,t.bold?(story?44:36):8,t.acc,t.hz2);
   const qs=story?340:250;
   const colW=story?W-2*M:W-2*M-qs-50;
   const hl=headline(ctx,c.biz,W-2*M,story?4:3,story?220:190,story?90:76,story?520:story?0:340);
@@ -3800,7 +3912,7 @@ function renderFlyerChips(){
   $("#fUrlWrap").hidden=S.flyerQr!=="web";
   $("#fSmsHelp").hidden=S.flyerQr!=="sms";
   $("#fFmtHelp").textContent={full:"One big flyer for a window, a bulletin board, or a hand-off.",hanger:"Two door hangers per sheet. Cut them out and hang them on doorknobs.",tabs:"A flyer with eight tear-off tabs. Neighbors rip one off and scan it later.",cards:"Ten business cards per sheet. Cut along the dotted lines. Hand one to every customer.",refer:"Ten cards per sheet that say Tell a neighbor. Hand one to every happy customer and ask them to pass it on.",sign:"A letter-size sign with a huge QR code. Tape it up, or have a print shop make it big for a real yard sign.",post:"A square graphic for Instagram, Facebook, or a group chat. Saves as an image.",story:"A tall graphic sized for stories. Saves as an image."}[S.flyerFmt];
-  $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Black and white. Uses little ink and prints fine on any printer.":"Dark background with your brand color. Uses a lot of ink and leaves a white edge when printed.";
+  $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Ink saver is on: white page, black lettering, thin black lines.":"Bold keeps the dark background and your color. It uses more ink.";
 }
 $("#fUrl").value=S.siteUrl||"";
 $("#fUrl").addEventListener("input",()=>setSiteUrl($("#fUrl").value));
@@ -4047,10 +4159,10 @@ const PW=850,PH=1100,PM=56;
 const LAYOUT_NAMES=["Billboard","Worksite","Skyline","Split","Notice","Scoreboard","Sideline","Blueprint","Tape","Clean"];
 const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Clear by sunrise.","Snow day? We’re on it.","Book your driveway.","Shoveled before you wake.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."]};
 const BADGES=[["none","No sticker"],["owned","Student-owned"],["quote","Free quotes"],["parent","Parent-backed"],["early","Book early"],["local","Local"],["fast","Fast and reliable"],["pay","Pay after the job"]];
-const BG_OPTS=[["dark","Dark"],["light","Light"],["concrete","Concrete"],["accent","Color"]];
+const BG_OPTS=[["ink","Ink saver"],["dark","Dark"],["light","Light"],["concrete","Concrete"],["accent","Color"]];
 const NS_OPTS=[["heavy","Heavy"],["bold","Bold"],["plain","Plain"]];
 const SKY_OPTS=[["dusk","Dusk"],["sunny","Sunny"],["night","Night"],["dawn","Dawn"]];
-function studioDefaults(){return {layout:0,rig:RIGS[S.palette]?S.palette:"ember",bg:"dark",head:0,custom:"",nameStyle:"heavy",badge:0,sky:"dusk",flip:false,rates:true,tag:true,phone:false,photo:false,pkg:[],kind:null,name:"",tagText:"",trim:"stripes",font:"",art:""};}
+function studioDefaults(){return {layout:0,rig:RIGS[S.palette]?S.palette:"ember",bg:"ink",head:0,custom:"",nameStyle:"heavy",badge:0,sky:"dusk",flip:false,rates:true,tag:true,phone:false,photo:false,pkg:[],kind:null,name:"",tagText:"",trim:"stripes",font:"",art:""};}
 S.studio=Object.assign(studioDefaults(),S.studio||{});
 if(!RIGS[S.studio.rig])S.studio.rig="ember";
 S.studio.layout=Math.max(0,Math.min(LAYOUT_NAMES.length-1,S.studio.layout|0)); if(!Array.isArray(S.studio.pkg))S.studio.pkg=[];
@@ -4074,11 +4186,12 @@ function pcfg(over){
   return {type,layout:st.layout,biz,tagline,town:c.town,first:c.first,services:same?c.services:svcFor(type),qrText:c.qrText,urlText:c.urlText,ok:c.ok,why:c.why,qrMode:c.qrMode,phone:c.phone,parentName:c.parentName,showPhone:!!(st.phone&&c.phone),accent:r.c,trim:st.trim||"stripes",font:(st.font||(typeof LOOK!=="undefined"&&LOOK.font)||"workwear"),art:(ART.some(a=>a[0]===st.art)?st.art:artStyle()),nameStyle:st.nameStyle,bg:st.bg,sky:st.sky,flip:!!st.flip,rates:!!st.rates,pkg:pkgInfo(c.services,st.pkg||[]),tag:!!st.tag,badge:BADGES[st.badge]?BADGES[st.badge][0]:"none",headText:(st.custom||"").trim()||hs[st.head%hs.length],photo:st.photo?pPhoto():null};
 }
 function pTheme(p){const a=p.accent;
+  if(p.bg==="ink")return {bg:"#FFFFFF",ink:"#111111",mute:"#333333",line:"#111111",acc:"#111111",onAcc:"#111111",panel:"#FFFFFF",pInk:"#111111",price:"#111111",pPrice:"#111111",accText:"#111111",hz:["#111111","#FFFFFF"],dark:false,inkSaver:true};
   if(p.bg==="light")return{bg:"#F4F1EA",ink:"#111214",mute:"#565A5F",line:"#C9C4B8",acc:a,onAcc:"#0B0C0D",panel:"#FFFFFF",pInk:"#111214",price:"#111214",pPrice:"#111214",accText:"#111214",hz:[a,"#111214"],dark:false};
   if(p.bg==="concrete")return{bg:"#30353A",ink:"#F4F2EE",mute:"#BAC0C6",line:"#58606A",acc:a,onAcc:"#0B0C0D",panel:"#23272B",pInk:"#F4F2EE",price:a,pPrice:a,accText:a,hz:[a,"#0B0C0D"],dark:true,grit:true};
   if(p.bg==="accent")return{bg:a,ink:"#0B0C0D",mute:"rgba(11,12,13,.74)",line:"rgba(11,12,13,.35)",acc:"#0B0C0D",onAcc:a,panel:"#0B0C0D",pInk:"#F4F2EE",price:"#0B0C0D",pPrice:a,accText:"#0B0C0D",hz:["#0B0C0D",a],dark:false};
   return{bg:"#0E1012",ink:"#F1EFEA",mute:"#A3AAB1",line:"#3A4046",acc:a,onAcc:"#0B0C0D",panel:"#171A1D",pInk:"#F1EFEA",price:a,pPrice:a,accText:a,hz:[a,"#0B0C0D"],dark:true};}
-function pFlakes(ctx,p,t){if(p.type==='lawn')return;let s=3;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;},n=p.type==='snow'?70:34;for(let i=0;i<n;i++){const x=r()*PW,y=r()*PH,rad=2+r()*5,a=.1+r()*.2;ctx.fillStyle=t.dark?'rgba(255,255,255,'+a+')':(p.bg==='accent'?'rgba(255,255,255,'+(a+.12)+')':'rgba(110,150,205,'+(a+.12)+')');ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();}}
+function pFlakes(ctx,p,t){if(p.bg==="ink"||p.type==='lawn')return;let s=3;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;},n=p.type==='snow'?70:34;for(let i=0;i<n;i++){const x=r()*PW,y=r()*PH,rad=2+r()*5,a=.1+r()*.2;ctx.fillStyle=t.dark?'rgba(255,255,255,'+a+')':(p.bg==='accent'?'rgba(255,255,255,'+(a+.12)+')':'rgba(110,150,205,'+(a+.12)+')');ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();}}
 function pGrit(ctx){let s=7;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;};for(let i=0;i<1400;i++){ctx.fillStyle=r()>.5?"rgba(255,255,255,.035)":"rgba(0,0,0,.09)";const w=1+r()*3;ctx.fillRect(r()*PW,r()*PH,w,w);}}
 /* text helpers */
 function nameFont(ctx,size,ns){if(ns==="plain")ctx.font="700 "+size+"px "+FFB;else if(FFD!==FFD0)ctx.font=DF.w+" "+size+"px "+FFD;else ctx.font="italic "+(ns==="bold"?800:900)+" "+size+"px "+FFD;}
@@ -4089,15 +4202,15 @@ function pDrawName(ctx,nf,x,y,align,col,p){nameFont(ctx,nf.size,p.nameStyle);ctx
 function pLabel(ctx,p,x,y,col,size,align){ctx.save();ctx.fillStyle=col;ctx.textAlign=align||"left";fnt(ctx,900,size,FFD,true);try{ctx.letterSpacing=Math.round(size*.1)+"px";}catch(e){}ctx.fillText(DF.caps?p.headText.toUpperCase():p.headText,x,y);ctx.restore();}
 function pTag(ctx,p,x,y,maxW,col,size,align){if(!p.tag)return y;ctx.save();ctx.fillStyle=col;ctx.textAlign=align||"left";fnt(ctx,500,size,FFB,false);const ls=wrapText(ctx,p.tagline,maxW).slice(0,2);ls.forEach((l,i)=>ctx.fillText(l,x,y+size+i*size*1.3));ctx.restore();return y+ls.length*size*1.3+size*.35;}
 function pRates(ctx,p,t,x,y,w,rowH,ns,ps,n,col){if(!p.rates)return y;const list=rateRowsFor(p);list.forEach((r,i)=>rateRow(ctx,x,y+ns+i*rowH,w,r.n,r.p,ns,ps,col||t.ink,t.price,t.line));return y+list.length*rowH;}
-function pQR(ctx,p,t,x,y,size){drawQR(ctx,x,y,size,p.ok?p.qrText:"");ctx.save();ctx.strokeStyle=t.dark?t.acc:t.ink;ctx.lineWidth=6;ctx.strokeRect(x-3,y-3,size+6,size+6);ctx.restore();}
+function pQR(ctx,p,t,x,y,size){drawQR(ctx,x,y,size,p.ok?p.qrText:"");ctx.save();ctx.strokeStyle=t.inkSaver?"#111111":(t.dark?t.acc:t.ink);ctx.lineWidth=t.inkSaver?2:6;const pad=t.inkSaver?2:3;ctx.strokeRect(x-pad,y-pad,size+pad*2,size+pad*2);ctx.restore();}
 function pCaption(ctx,p,t,x,y,w,align,col,size){const txt=pU(p.qrMode==="sms"?"SCAN TO TEXT":"SCAN TO BOOK A DAY");const s=fitSize(ctx,txt,w,size||44,18,900,FFD,true);fnt(ctx,900,s,FFD,true);ctx.fillStyle=col||t.ink;ctx.textAlign=align||"left";ctx.fillText(txt,x,y);const u=p.urlText||"your link here",us=fitSize(ctx,u,w,s*.62,13,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillStyle=col||t.ink;ctx.fillText(u,x,y+us*1.5);ctx.textAlign="left";return y+us*1.5+8;}
 function pFooter(ctx,p,col,x,y,w,align){const f=p.biz+(p.town?", "+p.town:"")+". Student-owned. Parent-backed.";const s=fitSize(ctx,f,w,24,12,600,FFB,false);fnt(ctx,600,s,FFB,false);ctx.fillStyle=col;ctx.textAlign=align||"left";ctx.fillText(f,x,y);ctx.textAlign="left";}
 function pPhone(ctx,p,col,x,y,w,align){if(!p.showPhone)return y;const l="Call or text "+(p.parentName||"my parent")+": "+p.phone;const s=fitSize(ctx,l,w,26,13,700,FFB,false);fnt(ctx,700,s,FFB,false);ctx.fillStyle=col;ctx.textAlign=align||"left";ctx.fillText(l,x,y+s);ctx.textAlign="left";return y+s+10;}
 function pBadge(ctx,p,t,x,y,rot){if(p.badge==="none")return;const txt=pU({owned:"STUDENT-OWNED",quote:"FREE QUOTES",parent:"PARENT-BACKED",early:"BOOK EARLY",local:p.town?("LOCAL: "+p.town.toUpperCase()):"LOCAL AND PROUD",fast:"FAST AND RELIABLE",pay:"PAY AFTER THE JOB"}[p.badge]||"");
   ctx.save();ctx.translate(x,y);ctx.rotate(rot*Math.PI/180);fnt(ctx,900,32,FFD,true);const w=ctx.measureText(txt).width+52,h=56,sk=14;
-  ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.moveTo(-w/2+sk+5,-h/2+7);ctx.lineTo(w/2+5,-h/2+7);ctx.lineTo(w/2-sk+5,h/2+7);ctx.lineTo(-w/2+5,h/2+7);ctx.closePath();ctx.fill();
-  const fillc=t.bg===p.accent?"#0B0C0D":(p.bg==="accent"?"#0B0C0D":p.accent);ctx.fillStyle=fillc;ctx.beginPath();ctx.moveTo(-w/2+sk,-h/2);ctx.lineTo(w/2,-h/2);ctx.lineTo(w/2-sk,h/2);ctx.lineTo(-w/2,h/2);ctx.closePath();ctx.fill();
-  ctx.fillStyle=p.bg==="accent"?p.accent:"#0B0C0D";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(txt,0,2);ctx.restore();}
+  if(t.inkSaver){ctx.fillStyle="#FFFFFF";ctx.strokeStyle="#111111";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-w/2+sk,-h/2);ctx.lineTo(w/2,-h/2);ctx.lineTo(w/2-sk,h/2);ctx.lineTo(-w/2,h/2);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#111111";}
+  else{ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.moveTo(-w/2+sk+5,-h/2+7);ctx.lineTo(w/2+5,-h/2+7);ctx.lineTo(w/2-sk+5,h/2+7);ctx.lineTo(-w/2+5,h/2+7);ctx.closePath();ctx.fill();const fillc=t.bg===p.accent?"#0B0C0D":(p.bg==="accent"?"#0B0C0D":p.accent);ctx.fillStyle=fillc;ctx.beginPath();ctx.moveTo(-w/2+sk,-h/2);ctx.lineTo(w/2,-h/2);ctx.lineTo(w/2-sk,h/2);ctx.lineTo(-w/2,h/2);ctx.closePath();ctx.fill();ctx.fillStyle=p.bg==="accent"?p.accent:"#0B0C0D";}
+  ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(txt,0,2);ctx.restore();}
 function pCover(ctx,img,x,y,w,h){const k=Math.max(w/img.naturalWidth,h/img.naturalHeight),dw=img.naturalWidth*k,dh=img.naturalHeight*k;ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh);ctx.restore();}
 /* scene art */
 function drawScene(ctx,x,y,w,h,p){
@@ -4134,9 +4247,9 @@ function L_billboard(ctx,p,t){
   pTrim(ctx,p,t,0,0,W,24);pLabel(ctx,p,ax,80,t.accText,30,al);
   const maxH=H-24-bandH-24-(nR*56+(nR?20:0))-(p.tag?96:0)-100-60-24;
   const nf=pName(ctx,p,W-2*PM,3,240,64,maxH);let y=pDrawName(ctx,nf,ax,100,al,t.ink,p)+10;
-  ctx.fillStyle=t.acc;ctx.fillRect(l?PM:W-PM-300,y,300,10);y+=32;
+  ctx.fillStyle=t.acc;ctx.fillRect(l?PM:W-PM-300,y,300,t.inkSaver?3:10);y+=32;
   y=pTag(ctx,p,ax,y,W-2*PM-20,t.mute,32,al);if(nR)pRates(ctx,p,t,PM,y+6,W-2*PM,56,30,44,4);
-  const by=H-24-bandH;ctx.fillStyle=t.acc;ctx.fillRect(0,by,W,bandH);
+  const by=H-24-bandH;if(t.inkSaver){ctx.fillStyle="#111111";ctx.fillRect(0,by,W,3);}else{ctx.fillStyle=t.acc;ctx.fillRect(0,by,W,bandH);}
   const qs=170,qx=l?PM:W-PM-qs;pQR(ctx,p,{dark:false,ink:t.onAcc},qx,by+30,qs);
   const tx=l?PM+qs+40:PM,tw=W-2*PM-qs-40;
   pCaption(ctx,p,t,tx,by+30+54,tw,"left",t.onAcc,56);
@@ -4146,11 +4259,11 @@ function L_billboard(ctx,p,t){
 function L_worksite(ctx,p,t){
   const W=PW,H=PH,cx=W/2,nR=rateRowsFor(p).length;
   pTrim(ctx,p,t,0,0,W,56);pTrim(ctx,p,t,0,H-56,W,56);
-  ctx.strokeStyle=t.ink;ctx.lineWidth=8;ctx.strokeRect(40,86,W-80,H-172);
+  ctx.strokeStyle=t.ink;ctx.lineWidth=t.inkSaver?2:8;ctx.strokeRect(40,86,W-80,H-172);
   pLabel(ctx,p,cx,160,t.accText,34,"center");
   const maxH=H-172-60-(nR*50+14)-(p.tag?82:0)-250-40;
   const nf=pName(ctx,p,W-190,3,200,60,Math.min(300,maxH));let y=pDrawName(ctx,nf,cx,180,"center",t.ink,p)+10;
-  ctx.fillStyle=t.acc;ctx.fillRect(cx-90,y,180,10);y+=26;
+  ctx.fillStyle=t.acc;ctx.fillRect(cx-90,y,180,t.inkSaver?3:10);y+=26;
   y=pTag(ctx,p,cx,y,W-220,t.mute,28,"center");if(nR){pRates(ctx,p,t,(W-540)/2,y+4,540,50,28,40,4);y+=nR*50+14;}
   const qs=150,qy=Math.max(y+16,H-56-30-qs-96);pQR(ctx,p,t,cx-qs/2,qy,qs);const e=pCaption(ctx,p,t,cx,qy+qs+40,W-200,"center",t.ink,40);
   pPhone(ctx,p,t.mute,cx,e,W-200,"center");pBadge(ctx,p,t,p.flip?W-190:190,qy+qs/2,p.flip?9:-9);
@@ -4170,7 +4283,7 @@ function L_skyline(ctx,p,t){
 function L_split(ctx,p,t){
   const W=PW,H=PH,l=!p.flip,d=80,mid=500,nR=rateRowsFor(p).length;
   ctx.save();ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W,0);if(l){ctx.lineTo(W,mid-d);ctx.lineTo(0,mid+d);}else{ctx.lineTo(W,mid+d);ctx.lineTo(0,mid-d);}ctx.closePath();ctx.clip();
-  if(p.photo){pCover(ctx,p.photo,0,0,W,mid+d);ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(0,0,W,H);}else{ctx.fillStyle=t.acc;ctx.fillRect(0,0,W,H);}ctx.restore();
+  if(p.photo){pCover(ctx,p.photo,0,0,W,mid+d);ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(0,0,W,H);}else if(t.inkSaver){ctx.fillStyle="#FFFFFF";ctx.fillRect(0,0,W,H);ctx.fillStyle="#111111";ctx.fillRect(0,mid-1,W,3);}else{ctx.fillStyle=t.acc;ctx.fillRect(0,0,W,H);}ctx.restore();
   const ti=p.photo?"#F1EFEA":t.onAcc;pLabel(ctx,p,PM,86,ti,30,"left");
   const nf=pName(ctx,p,W-2*PM,3,210,60,mid-d-120);pDrawName(ctx,nf,PM,104,"left",ti,p);
   const qs=215,qx=l?W-PM-qs:PM,cx0=l?PM:PM+qs+40,cw=W-2*PM-qs-40,y0=mid+d+34;
@@ -4193,7 +4306,7 @@ function L_notice(ctx,p,t){
 function L_scoreboard(ctx,p,t){
   const W=PW,H=PH,l=!p.flip,ax=l?PM:W-PM,al=l?"left":"right",nR=p.rates?Math.min(4,p.services.length):0;
   pTrim(ctx,p,t,0,0,W,22);
-  ctx.fillStyle=t.acc;ctx.fillRect(0,22,W,300);pLabel(ctx,p,ax,78,t.onAcc,28,al);
+  if(t.inkSaver){ctx.fillStyle="#111111";ctx.fillRect(0,22,W,3);}else{ctx.fillStyle=t.acc;ctx.fillRect(0,22,W,300);}pLabel(ctx,p,ax,78,t.onAcc,28,al);
   const nf=pName(ctx,p,W-2*PM,2,150,56,200);pDrawName(ctx,nf,ax,98,al,t.onAcc,p);
   const ty=348,tw=(W-2*PM-20)/2,th=172;
   p.services.slice(0,p.rates?4:0).forEach((s,i)=>{const x=PM+(i%2)*(tw+20),y=ty+Math.floor(i/2)*(th+20);ctx.fillStyle=t.panel;ctx.fillRect(x,y,tw,th);ctx.strokeStyle=t.dark?t.line:t.ink;ctx.lineWidth=3;ctx.strokeRect(x,y,tw,th);
@@ -4209,7 +4322,7 @@ function L_scoreboard(ctx,p,t){
 }
 function L_sideline(ctx,p,t){
   const W=PW,H=PH,l=!p.flip,bw=230,bx=l?0:W-bw,nR=rateRowsFor(p).length;
-  ctx.fillStyle=t.acc;ctx.fillRect(bx,0,bw,H);pTrim(ctx,p,t,bx,0,bw,22,1);pTrim(ctx,p,t,bx,H-22,bw,22,1);
+  if(t.inkSaver){ctx.strokeStyle="#111111";ctx.lineWidth=2;ctx.strokeRect(bx+1,1,bw-2,H-2);}else{ctx.fillStyle=t.acc;ctx.fillRect(bx,0,bw,H);}pTrim(ctx,p,t,bx,0,bw,22,1);pTrim(ctx,p,t,bx,H-22,bw,22,1);
   const nf=pName(ctx,Object.assign({},p),H-150,1,200,46,bw-50);
   ctx.save();ctx.translate(bx+bw/2+nf.size*.32,H-70);ctx.rotate(-Math.PI/2);nameFont(ctx,nf.size,p.nameStyle);ctx.fillStyle=t.onAcc;ctx.textAlign="left";ctx.fillText(nf.lines[0],0,0);ctx.restore();
   const cx0=l?bw+44:44,cw=W-bw-88;pLabel(ctx,p,cx0,100,t.accText,30,"left");
@@ -4241,7 +4354,7 @@ function L_tape(ctx,p,t){
   const hs=HEADS[p.type]||HEADS.lawn;pLabel(ctx,p,W/2,100,t.accText,30,"center");
   if(p.tag){const y=pTag(ctx,p,W/2,128,W-200,t.mute,30,"center");}
   ctx.save();ctx.translate(W/2,430);ctx.rotate((l?-1:1)*.15);
-  pTrim(ctx,p,t,-700,-96,1400,34);pTrim(ctx,p,t,-700,62,1400,34);ctx.fillStyle=t.acc;ctx.fillRect(-700,-62,1400,124);
+  pTrim(ctx,p,t,-700,-96,1400,34);pTrim(ctx,p,t,-700,62,1400,34);if(t.inkSaver){ctx.strokeStyle="#111111";ctx.lineWidth=3;ctx.strokeRect(-700,-62,1400,124);}else{ctx.fillStyle=t.acc;ctx.fillRect(-700,-62,1400,124);}
   const nf=pName(ctx,Object.assign({},p),W-160,1,120,40,140);nameFont(ctx,nf.size,p.nameStyle);ctx.fillStyle=t.onAcc;ctx.textAlign="center";ctx.fillText(nf.lines[0],0,nf.size*.34);ctx.restore();
   const cy=640,cw=(W-2*PM-20)/2;
   p.services.slice(0,p.rates?4:0).forEach((s,i)=>{const x=PM+(i%2)*(cw+20),y=cy+Math.floor(i/2)*92;ctx.fillStyle=t.panel;ctx.fillRect(x,y,cw,80);ctx.fillStyle=t.acc;ctx.fillRect(x,y,10,80);const pr=fmtPrice(s.p);fnt(ctx,900,52,FFD,true);const pw=ctx.measureText(pr).width;ctx.fillStyle=t.pPrice;ctx.fillText(pr,x+cw-pw-16,y+56);const ns=fitSize(ctx,s.n,cw-pw-70,24,12,700,FFB,false);fnt(ctx,700,ns,FFB,false);ctx.fillStyle=t.pInk;ctx.fillText(s.n,x+26,y+47);});
@@ -4692,16 +4805,18 @@ function applyPublishState(me){
     return;
   }
   if(slugEl)slugEl.readOnly=false;
+  const planFirst=$("#planFirst");
+  if(planFirst) planFirst.hidden=!!(me&&me.consent);
   if(!(me&&me.consent)){
-    if(go){go.hidden=false; go.textContent="Check my card, 50¢";}
+    if(go){go.hidden=false; go.className="btn ghost block"; go.textContent="Start the free 14-day trial with a 50¢ refunded check";}
     if(note)note.hidden=true;
     if(slugEl&&!slugEl.value)suggestSlug();
   }else if(owned.length){
-    if(go){go.hidden=false; go.textContent="Put this page online too";}
+    if(go){go.hidden=false; go.className="btn block"; go.textContent="Put this page online too";}
     if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial. The parent check is already done.";}
     if(slugEl&&!slugEl.value)suggestSlug();
   }else{
-    if(go)go.textContent="Publish my website";
+    if(go){go.className="btn block"; go.textContent="Publish my website";}
     if(note)note.hidden=true;
     if(slugEl&&!slugEl.value)suggestSlug();
   }
@@ -4921,6 +5036,21 @@ async function pubPush(){
     $("#pubOk").textContent=data.added?"Published. This page is covered by your family plan.":data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
   }catch(e){pubErr("Could not publish. Try again.");}
 }
+async function buyPlanFirst(plan){
+  pubErr("");
+  if($("#pubConsent")&&!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
+  const slug=($("#pubSlug").value||"").trim().toLowerCase();
+  try{
+    const data=await pubApi("/api/checkout",{body:{plan}});
+    if(data&&data.url){savePending(slug); setPayReturn("publish"); location.href=data.url; return;}
+    if(data&&data.pending){pubErr("A payment is already in progress. Check it before trying again."); return;}
+    if(!data||(!data.ok&&!data.alreadyPaid)){pubErr(data&&data.error==="stripe-key"?"Payment is not set up yet.":"The plan was not started."); return;}
+    await pubPush();
+  }catch(e){pubErr("The plan was not started. Try again.");}
+}
+const buySeason=$("#buySeason"), buyYear=$("#buyYear");
+if(buySeason) buySeason.onclick=()=>buyPlanFirst("season");
+if(buyYear) buyYear.onclick=()=>buyPlanFirst("year");
 $("#pubGo").onclick=pubPush;
 function accountWords(site){
   if(site.comp)return "Friends & family — free, no payment due";
@@ -5513,13 +5643,13 @@ function selectExample(n,focus){
 function drawExamples(){
   const art=$("#exampleArt");if(!art.childNodes.length)art.innerHTML=sceneArt("lawn","cine-dusk");
   const cv=$("#exampleFlyer");
-  const example={fmt:"full",style:"bold",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#FF5B14",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
+  const example={fmt:"full",style:"ink",qrMode:"web",type:"lawn",pets:[],biz:"Taylor’s Yard Crew",tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}],accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
 }
 function openIntro(){
   const box=$("#intro");if(!box||!box.hidden)return;
   introReturnFocus=document.activeElement;
-  introBackground=Array.from(document.body.children).filter(el=>el!==box&&el.tagName!=="SCRIPT"&&!el.inert);
+  introBackground=Array.from(document.body.children).filter(el=>el!==box&&el.id!=="forParents"&&el.tagName!=="SCRIPT"&&!el.inert);
   introBackground.forEach(el=>el.inert=true);
   box.hidden=false;document.body.classList.add("intro-open");selectExample(0,false);drawExamples();
   $("#introRemember").checked=false;
@@ -5552,7 +5682,8 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
 function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent"].some(k=>params.has(k))&&!introSeen();}
-if(shouldOpenIntro(entryParams))openIntro();
+if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
+window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(!new URLSearchParams(location.search).get("ask"))initPublish();
 const startQ=new URLSearchParams(location.search);
 const hostQ=startQ.get("hosting");
