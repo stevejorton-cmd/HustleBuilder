@@ -136,20 +136,11 @@ function utcStamp(ms) {
   return new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-function timeLines(start, tz) {
-  const local = !tz || tz === TZID;
-  const end = addHourWall(start, local ? TZID : tz);
-  if (!end) return null;
-  const startMs = local ? 0 : jobInstant(start, tz);
-  return [
-    local ? "DTSTART;TZID=" + TZID + ":" + stamp(start) : "DTSTART:" + utcStamp(startMs),
-    local ? "DTEND;TZID=" + TZID + ":" + stamp(end) : "DTEND:" + utcStamp(startMs + 3600000)
-  ];
-}
-
 function eventLines(job, now, tz) {
-  const when = timeLines(job.start, tz);
-  if (!when) return [];
+  const local = !tz || tz === TZID;
+  const end = addHourWall(job.start, local ? TZID : tz);
+  if (!end) return [];
+  const startMs = local ? 0 : jobInstant(job.start, tz);
   const summary = (job.service || "Job") + " - " + (job.customer || "Customer");
   const bits = [];
   if (job.note) bits.push(String(job.note));
@@ -158,64 +149,14 @@ function eventLines(job, now, tz) {
     "BEGIN:VEVENT",
     "UID:" + job.id + "@hustlebuilder.org",
     "DTSTAMP:" + dtstamp(now),
-    ...when,
+    local ? "DTSTART;TZID=" + TZID + ":" + stamp(job.start) : "DTSTART:" + utcStamp(startMs),
+    local ? "DTEND;TZID=" + TZID + ":" + stamp(end) : "DTEND:" + utcStamp(startMs + 3600000),
     "SUMMARY:" + icsEscape(summary),
     "LOCATION:" + icsEscape(job.address || "")
   ];
   if (bits.length) lines.push("DESCRIPTION:" + icsEscape(bits.join("\n")));
   lines.push("END:VEVENT");
   return lines;
-}
-
-// One-tap title: "Will: Mow a small yard - Riley". The customer's first name
-// only. A missing kid name leaves the job and the neighbor.
-export function inviteSummary(kid, service, customer) {
-  const who = String(customer || "").trim().split(/\s+/)[0] || "Neighbor";
-  const job = String(service || "").trim() || "Job";
-  const name = String(kid || "").replace(/[\r\n]+/g, " ").trim().slice(0, 40);
-  return (name ? name + ": " : "") + job + " - " + who;
-}
-
-export const INVITE_ORGANIZER = "bookings@hustlebuilder.org";
-
-// A real invitation, separate from the family feed (that one stays
-// METHOD:PUBLISH). REQUEST is tentative so Google adds it for the parent to
-// confirm. CANCEL uses the same UID and a higher SEQUENCE so the calendar
-// drops that same event.
-export function bookingInviteIcs({
-  id, start, tz = TZID, now = Date.now(), summary, location = "", description = "",
-  attendee, sequence = 0, method = "REQUEST", organizer = INVITE_ORGANIZER
-} = {}) {
-  if (!/^[A-Za-z0-9_-]{6,80}$/.test(String(id || ""))) return "";
-  const when = timeLines(start, tz);
-  if (!when) return "";
-  const kind = method === "CANCEL" ? "CANCEL" : "REQUEST";
-  const seq = Math.max(0, Math.floor(Number(sequence) || 0));
-  const mail = String(attendee || "").trim();
-  const local = !tz || tz === TZID;
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Hustle Builder//EN",
-    "CALSCALE:GREGORIAN",
-    "METHOD:" + kind,
-    ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
-    "BEGIN:VEVENT",
-    "UID:" + id + "@hustlebuilder.org",
-    "SEQUENCE:" + seq,
-    "DTSTAMP:" + dtstamp(now),
-    ...when,
-    "SUMMARY:" + icsEscape(summary || "Job"),
-    "LOCATION:" + icsEscape(location),
-    "DESCRIPTION:" + icsEscape(description),
-    "ORGANIZER;CN=Hustle Builder:mailto:" + organizer,
-    "ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:" + mail,
-    "STATUS:" + (kind === "CANCEL" ? "CANCELLED" : "TENTATIVE"),
-    "CLASS:PRIVATE",
-    "END:VEVENT",
-    "END:VCALENDAR"
-  ];
-  return lines.map(fold).join("\r\n") + "\r\n";
 }
 
 export function jobsToIcs(jobs, now = Date.now(), tz = TZID) {
