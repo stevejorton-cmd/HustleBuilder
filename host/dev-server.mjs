@@ -84,6 +84,16 @@ const server = createServer(async (req, res) => {
       return;
     }
   }
+  if (req.method === "GET" && url.pathname === "/assets/og-home.png") {
+    try {
+      const file = await readFile(new URL("assets/og-home.png", rootDir));
+      res.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=86400" });
+      res.end(file);
+      return;
+    } catch {
+      res.writeHead(404); res.end(); return;
+    }
+  }
   if (req.method === "GET" && url.pathname.startsWith("/assets/jobs/")) {
     const name = path.basename(url.pathname);
     const type = assetTypes[path.extname(name).toLowerCase()];
