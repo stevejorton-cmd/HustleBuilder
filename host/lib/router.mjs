@@ -922,9 +922,69 @@ async function releaseHeld(account, origin) {
   if (changed) await saveRequests(account.id, rows);
 }
 
-function mailButton(href, label) {
+function mailButton(href, label, wide) {
   if (!href) return "";
-  return "<a href=\"" + mailEscape(href) + "\" style=\"display:block;max-width:340px;box-sizing:border-box;margin:16px 0;padding:14px 16px;min-height:44px;background:#173d2d;color:#ffffff;text-align:center;text-decoration:none;font-weight:800;border-radius:10px\">" + mailEscape(label) + "</a>";
+  const box = wide
+    ? "display:block;width:100%;max-width:100%;box-sizing:border-box;margin:16px 0;padding:16px;min-height:48px;background:#173d2d;color:#ffffff;text-align:center;text-decoration:none;font-weight:800;font-size:18px;line-height:1.2;border-radius:10px"
+    : "display:block;max-width:340px;box-sizing:border-box;margin:16px 0;padding:14px 16px;min-height:44px;background:#173d2d;color:#ffffff;text-align:center;text-decoration:none;font-weight:800;border-radius:10px";
+  return "<a href=\"" + mailEscape(href) + "\" style=\"" + box + "\">" + mailEscape(label) + "</a>";
+}
+function givenName(value) {
+  return (String(value || "").trim().split(/\s+/)[0] || "").slice(0, 40);
+}
+function priceLabel(value) {
+  const raw = String(value == null ? "" : value).replace(/[^0-9.]/g, "");
+  const num = Number(raw);
+  if (!raw || !Number.isFinite(num) || num <= 0 || num > 999) return "";
+  const rounded = Math.round(num * 100) / 100;
+  return "$" + (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2));
+}
+// One note to the neighbor when the family marks the job done, plus a short
+// copy to the parent. The neighbor gets the pay link. A second Done tap
+// does not send either again.
+async function sendDoneNotice(account, row, origin) {
+  const neighbor = contactEmail(row.fields && row.fields.contact);
+  if (!neighbor) return true;
+  const kid = givenName(row.kid) || "A kid";
+  const who = givenName(row.firstName) || "your neighbor";
+  const job = String(row.service || "the job").replace(/\s+/g, " ").trim();
+  const when = String(row.when || "").replace(/\s+/g, " ").trim();
+  const price = priceLabel(row.fields && row.fields.price);
+  const note = venmoNote({ kid: givenName(row.kid), service: job, when });
+  const payUrl = venmoPayUrl(account && account.venmo, { amount: row.fields && row.fields.price, note });
+  const page = row.slug ? String(origin || "").replace(/\/$/, "") + "/" + row.slug : "";
+  const lead = kid + " finished " + job + (when ? " on " + when : "") + ". Thanks for hiring a kid-owned business!";
+  const cash = "Pay " + kid + " in cash or as you arranged.";
+  const button = payUrl ? mailButton(payUrl, price ? "Pay " + price + " with Venmo" : "Pay with Venmo", true) : "";
+  const text = [lead, price, payUrl ? payUrl : cash, page ? "Book again: " + page : ""].filter(Boolean).join("\n\n");
+  const html = "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\">"
+    + "<p>" + mailEscape(lead) + "</p>"
+    + (price ? "<p><b>" + mailEscape(price) + "</b></p>" : "")
+    + (payUrl ? button : "<p>" + mailEscape(cash) + "</p>")
+    + (page ? "<p><a href=\"" + mailEscape(page) + "\">Book again</a></p>" : "")
+    + "</div>";
+  const sent = await sendMail({
+    to: neighbor,
+    replyTo: supportReply(),
+    subject: kid + " finished " + job,
+    text,
+    html
+  });
+  if (!sent.ok) return false;
+  const parentTo = String(account && account.email || "").trim();
+  if (parentTo && parentTo.toLowerCase() !== neighbor) {
+    const family = "We let " + who + " know the job's done" + (payUrl ? " and sent the pay link." : ".");
+    await sendMail({
+      to: parentTo,
+      replyTo: supportReply(),
+      forParent: true,
+      origin,
+      subject: "Job done: " + job,
+      text: family,
+      html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">" + mailEscape(family) + "</p>"
+    });
+  }
+  return true;
 }
 function calendarPitch(origin, account) {
   if (!account || !account.calToken) return { text: "", html: "" };
@@ -2772,6 +2832,10 @@ async function routeRequest(req) {
             });
           }
         }
+      }
+      if (next === "done" && !row.doneMailedAt) {
+        const told = await sendDoneNotice(account, row, origin);
+        if (told) row.doneMailedAt = new Date().toISOString();
       }
       await saveRequests(account.id, rows);
       if (cancelIcs) await sendMail({

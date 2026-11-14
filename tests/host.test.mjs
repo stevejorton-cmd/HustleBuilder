@@ -1622,6 +1622,79 @@ test("a parent can confirm, finish, or cancel a booking from My jobs", async () 
   assert.equal(email.includes("@"), true);
 });
 
+test("marking a job done emails the neighbor once, with the pay link or a cash fallback", async () => {
+  const { token, email } = await parent("done-parent@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const html = page("Will").replace("</body>", "<script>window.__C={\"first\":\"Will Ranger\",\"email\":\"done-parent@example.com\"};</script></body>");
+  await call("POST", "/api/publish", { token, body: { slug: "will-done", html } });
+  await call("POST", "/api/venmo", { token, body: { venmo: "Steven-Orton-1" } });
+  const when = "Saturday, November 21 at 10:00 AM";
+  const book = await json(await call("POST", "/api/book", { body: {
+    slug: "will-done", name: "Dana Jones", contact: "dana.done@example.com, 402-555-0199",
+    service: "Mow a small yard", price: "10", when, address: "999 Secret Lane",
+    note: "gate 4481", start: futureDay(14) + "T10:00", t: 4000
+  } }));
+  assert.equal(book.body.ok, true);
+  const list = await json(await call("GET", "/api/my-jobs", { token }));
+  const action = list.body.jobs[0].action;
+  const done = await json(await call("POST", "/api/job/" + action, { body: { status: "done", json: true } }));
+  assert.equal(done.body.status, "done");
+  const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("dana.done@example.com")));
+  const note = neighbor.body.messages.filter((m) => m.subject === "Will finished Mow a small yard");
+  assert.equal(note.length, 1);
+  const msg = note[0];
+  assert.match(msg.text, /Will finished Mow a small yard on Saturday, November 21 at 10:00 AM\. Thanks for hiring a kid-owned business!/);
+  assert.match(msg.text, /\$10/);
+  const expectedNote = encodeURIComponent("Will: Mow a small yard " + when);
+  assert.match(msg.html, new RegExp("https://venmo\\.com/Steven-Orton-1\\?txn=pay&amp;amount=10&amp;note=" + expectedNote.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(msg.html, /Pay \$10 with Venmo/);
+  assert.match(msg.html, /width:100%/);
+  assert.match(msg.html, /min-height:48px/);
+  assert.match(msg.html, /text-decoration:none/);
+  assert.match(msg.html, /color:#ffffff/);
+  assert.match(msg.html, /href="http:\/\/sites\.test\/will-done">Book again/);
+  assert.equal(msg.text.includes(email), false);
+  assert.equal(msg.html.includes(email), false);
+  assert.equal(msg.text.includes("Secret"), false);
+  assert.equal(msg.html.includes("Secret"), false);
+  assert.equal(msg.text.includes("402-555-0199"), false);
+  assert.equal(msg.html.includes("402"), false);
+  assert.equal(msg.text.includes("Ranger"), false);
+  assert.equal(msg.text.includes("Jones"), false);
+  assert.equal(msg.text.includes("4481"), false);
+  const family = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const copy = family.body.messages.filter((m) => m.subject === "Job done: Mow a small yard");
+  assert.equal(copy.length, 1);
+  assert.match(copy[0].text, /We let Dana know the job's done and sent the pay link\./);
+  assert.equal(copy[0].text.includes("Secret"), false);
+  assert.equal(copy[0].text.includes("402"), false);
+  await call("POST", "/api/job/" + action, { body: { status: "done", json: true } });
+  const again = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("dana.done@example.com")));
+  assert.equal(again.body.messages.filter((m) => m.subject === "Will finished Mow a small yard").length, 1);
+
+  const cashParent = await parent("cash-parent@example.com");
+  await call("POST", "/api/consent", { token: cashParent.token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token: cashParent.token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token: cashParent.token, body: { slug: "cash-kid", html: page("Sam").replace("</body>", "<script>window.__C={\"first\":\"Sam\"};</script></body>") } });
+  await call("POST", "/api/book", { body: {
+    slug: "cash-kid", name: "Riley", contact: "riley.cash@example.com", service: "Leaf raking",
+    price: "25.5", when: "Nov 21", address: "12 Oak", note: "", start: futureDay(16) + "T09:00", t: 4000
+  }, headers: { "x-forwarded-for": "203.0.113.77" } });
+  const cashList = await json(await call("GET", "/api/my-jobs", { token: cashParent.token }));
+  await call("POST", "/api/job/" + cashList.body.jobs[0].action, { body: { status: "done", json: true } });
+  const cash = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.cash@example.com")));
+  const cashMsg = cash.body.messages.find((m) => m.subject === "Sam finished Leaf raking");
+  assert.match(cashMsg.text, /Pay Sam in cash or as you arranged/);
+  assert.equal(cashMsg.text.includes("venmo.com"), false);
+  assert.equal(cashMsg.html.includes("venmo.com"), false);
+  assert.match(cashMsg.text, /\$25\.50/);
+  const cashFamily = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(cashParent.email)));
+  const cashCopy = cashFamily.body.messages.find((m) => m.subject === "Job done: Leaf raking");
+  assert.match(cashCopy.text, /We let Riley know the job's done\./);
+  assert.equal(cashCopy.text.includes("pay link"), false);
+});
+
 function trialLineStandin(me) {
   return me.trialDaysLeft + " days left.";
 }
