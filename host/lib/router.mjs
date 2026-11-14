@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { DEFAULT_TZ, feedLinks, gcalTemplate, jobInstant, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
-import { cardPng } from "./card.mjs";
+import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
@@ -15,6 +15,8 @@ export const CONSENT_VERSION = "2026-11-10-card";
 // A one-time parent check. Stripe emails the receipt, then we refund it in full.
 // Not a plan payment, and not a new environment variable.
 export const VERIFY_CENTS = 50;
+// Stripe joins the account prefix, "* ", and this suffix. KEYSTONE* HUSTLE BLDR is 21 characters, under the 22-character card line.
+export const STATEMENT_SUFFIX = "HUSTLE BLDR";
 // Booking counts are analytics only; trial access is based on its end date.
 export const GRACE_DAYS = 7;
 export const TRIAL_DAYS = 14;
@@ -561,6 +563,7 @@ async function fulfillPaidSession(account, session, origin, eventId) {
   if (paymentIntent) await writeJson("payintents/" + paymentIntent + ".json", { accountId: account.id, receiptId: receiptIdFor(session.id) });
   await sendReceiptNote(account, origin, session.id);
   await saveAccount(account); await trackPlan(account); await releaseHeld(account, origin);
+  await noteFunnel("plan_paid");
   await writeJson("payments/" + sha(session.id) + ".json", { eventId: eventId || "", sessionId: session.id, processedAt: new Date().toISOString() });
   return "";
 }
@@ -659,7 +662,8 @@ async function completeVerification(account, session) {
   const refunded = await refundVerificationCharge(pi);
   if (!refunded) return "refund";
   const now = new Date().toISOString();
-  if (!(account.consentMethod === "card_charge" && account.consentAt && account.consentRefundedAt) && account.consentMethod !== "plan_payment") {
+  const firstPass = !(account.consentMethod === "card_charge" && account.consentAt && account.consentRefundedAt) && account.consentMethod !== "plan_payment";
+  if (firstPass) {
     account.consentAt = account.consentAt || now;
     account.consentMethod = "card_charge";
     account.consentVersion = String(meta.notice || CONSENT_VERSION);
@@ -673,6 +677,7 @@ async function completeVerification(account, session) {
   account.verifySessionId = "";
   account.verifyCheckoutUrl = "";
   await saveAccount(account);
+  if (firstPass) await noteFunnel("check_passed");
   await writeJson(ledgerKey, { sessionId: session.id, purpose: "parent_verification", paymentIntent: pi, processedAt: now });
   return "";
 }
@@ -708,7 +713,7 @@ async function beginCardCheck(account, origin) {
   params.set("metadata[notice]", CONSENT_VERSION);
   params.set("payment_intent_data[receipt_email]", account.email);
   params.set("payment_intent_data[description]", "Hustle Builder parent check, 50¢, refunded right away");
-  params.set("payment_intent_data[statement_descriptor_suffix]", "HUSTLE BLDR");
+  params.set("payment_intent_data[statement_descriptor_suffix]", STATEMENT_SUFFIX);
   params.set("payment_intent_data[metadata][purpose]", "parent_verification");
   params.set("payment_intent_data[metadata][accountId]", account.id);
   params.set("payment_intent_data[metadata][notice]", CONSENT_VERSION);
@@ -928,7 +933,7 @@ function privacyPage() {
 <p>Payments are handled by Stripe. We never see or store a card number. We keep a record that a plan was paid, the amount, and the date it runs through.</p>
 
 <h2>Page views and abuse limits</h2>
-<p>We count how many times a page is opened, as a daily total only. We do not keep who opened it. To stop spam we keep short-lived counters tied to a scrambled form of a visitor’s network address; they cannot be turned back into the address, and the counters are cleared within a few days. A report on a page keeps one such scrambled marker so the same visitor is only counted once. We do not use advertising or tracking cookies. A signed-in parent gets one cookie that keeps them signed in.</p>
+<p>We count how many times a page is opened, as a daily total only. We do not keep who opened it. We also keep a daily total for steps such as a draft started, a parent invited, a page published, and a plan paid. Those totals have no name, email, or address. To stop spam we keep short-lived counters tied to a scrambled form of a visitor’s network address; they cannot be turned back into the address, and the counters are cleared within a few days. A report on a page keeps one such scrambled marker so the same visitor is only counted once. We do not use advertising or tracking cookies. A signed-in parent gets one cookie that keeps them signed in.</p>
 
 <h2>Who helps us run this</h2>
 <p>We use service providers to host the site and database, send email, and take payments. They handle the information above only to provide those services to us.</p>
@@ -1269,6 +1274,7 @@ async function adminDashboardPage(origin, query) {
 <form method="post" action="/admin/logout"><button type="submit" style="font:16px system-ui;padding:8px 14px">Sign out</button></form>
 </div>
 <div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0">${tiles}</div>
+${await funnelTable()}
 ${noteText ? `<p style="padding:10px 14px;border:1px solid #ccd2d8;border-radius:10px;background:#f4f6f8"><b>${mailEscape(noteText)}</b></p>` : ""}
 ${searchForm}${pager}
 <table style="border-collapse:collapse;width:100%">
@@ -1354,7 +1360,7 @@ const BELT_MARKER = 'id="hb-belt"';
 function beltHtml(slug) {
   const ref = /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug || "")) ? encodeURIComponent(slug) : "";
   const href = "https://hustlebuilder.org/?for=parents" + (ref ? "&ref=" + ref : "");
-  return `<div id="hb-belt" style="margin:28px 0 0;padding:14px 12px;background:#14181d;border-top:3px solid #ff5b14;text-align:center;font:13px/1.4 system-ui,sans-serif;color:#aeb8c2"><a href="${href}" target="_top" style="color:#e8ecf0;text-decoration:none;font-weight:600">Make one for your kid, free for 14 days</a></div>`;
+  return `<div id="hb-belt" style="margin:28px 0 0;padding:14px 12px;background:#14181d;border-top:3px solid #ff5b14;text-align:center;font:13px/1.4 system-ui,sans-serif;color:#aeb8c2"><a href="${href}" target="_top" style="color:#e8ecf0;text-decoration:none;font-weight:600"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="vertical-align:-1px;margin-right:5px"><polygon points="9,1 3,9 7,9 6,15 13,7 9,7" fill="#ff5b14"/></svg>Make one for your kid, free for 14 days</a></div>`;
 }
 function withBelt(pageHtml, slug) {
   if (typeof pageHtml !== "string" || pageHtml.includes(BELT_MARKER)) return pageHtml;
@@ -1564,6 +1570,51 @@ function pngResponse(buf) {
   return { status: 200, headers: { "content-type": "image/png", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body: buf };
 }
 
+// A PNG wrapped as a .ico so browsers that request /favicon.ico get a real icon.
+function icoFromPng(png) {
+  const header = Buffer.alloc(22);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  header[6] = 32;
+  header[7] = 32;
+  header.writeUInt16LE(1, 10);
+  header.writeUInt16LE(32, 12);
+  header.writeUInt32LE(png.length, 14);
+  header.writeUInt32LE(22, 18);
+  return Buffer.concat([header, png]);
+}
+
+const HOME_ORIGIN = "https://hustlebuilder.org";
+function siteOrigin(origin) {
+  return String(origin || HOME_ORIGIN).replace(/\/$/, "") || HOME_ORIGIN;
+}
+function robotsTxt(origin) {
+  const base = siteOrigin(origin);
+  return "User-agent: *\nAllow: /\n\nSitemap: " + base + "/sitemap.xml\n";
+}
+async function sitemapXml(origin) {
+  const base = siteOrigin(origin);
+  const urls = [base + "/", base + "/terms", base + "/privacy"];
+  try {
+    const keys = await (await store()).list("pages/");
+    for (const key of keys) {
+      if (!String(key).endsWith(".json")) continue;
+      const meta = await readJson(key);
+      const slug = meta && meta.slug;
+      if (!meta || meta.indexable !== true) continue;
+      if (meta.status === "down" || meta.status === "review") continue;
+      if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug || ""))) continue;
+      urls.push(base + "/" + slug);
+    }
+  } catch { /* an empty sitemap still lists the public pages */ }
+  const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` + urls.map((loc) => `  <url><loc>${mailEscape(loc)}</loc></url>`).join("\n") + "\n</urlset>\n";
+  return body;
+}
+function textFile(body, type) {
+  return { status: 200, headers: { "content-type": type, "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" }, body };
+}
+
 const ASK_MS = 7 * 24 * 60 * 60 * 1000;
 const DRAFT_MS = 90 * 24 * 60 * 60 * 1000;
 const DRAFT_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -1653,6 +1704,43 @@ async function countKey(key, limit) {
   return n > limit;
 }
 
+const FUNNEL_EVENTS = ["draft_started", "parent_invited", "parent_verified", "check_started", "check_passed", "published", "checkout_started", "plan_paid", "booking_sent", "ref_visit"];
+function funnelDay(ts = Date.now()) {
+  return new Date(ts).toISOString().slice(0, 10);
+}
+async function noteFunnel(event) {
+  if (!FUNNEL_EVENTS.includes(event)) return;
+  const key = "funnel/" + funnelDay() + "/" + event;
+  const n = Number((await (await store()).get(key)) || 0) + 1;
+  await (await store()).put(key, String(n));
+}
+async function funnelTotals(days) {
+  const totals = Object.fromEntries(FUNNEL_EVENTS.map((event) => [event, 0]));
+  for (let i = 0; i < days; i++) {
+    const day = funnelDay(Date.now() - i * 864e5);
+    for (const event of FUNNEL_EVENTS) totals[event] += Number((await (await store()).get("funnel/" + day + "/" + event)) || 0);
+  }
+  return totals;
+}
+const FUNNEL_LABELS = {
+  draft_started: "Draft started",
+  parent_invited: "Parent invited",
+  parent_verified: "Parent verified",
+  check_started: "Card check started",
+  check_passed: "Card check passed",
+  published: "Published",
+  checkout_started: "Checkout started",
+  plan_paid: "Plan paid",
+  booking_sent: "Booking sent",
+  ref_visit: "Referral visit"
+};
+async function funnelTable() {
+  const week = await funnelTotals(7);
+  const month = await funnelTotals(30);
+  const rows = FUNNEL_EVENTS.map((event) => `<tr><td style="padding:6px 8px">${FUNNEL_LABELS[event]}</td><td style="padding:6px 8px">${week[event]}</td><td style="padding:6px 8px">${month[event]}</td></tr>`).join("");
+  return `<h2 style="font-size:20px;margin:8px 0">Funnel</h2><p style="color:#5a6672;margin:0 0 8px">Totals only. No names, emails, or addresses.</p><table style="border-collapse:collapse;margin:0 0 18px"><thead><tr style="text-align:left"><th style="padding:6px 8px">Step</th><th style="padding:6px 8px">7 days</th><th style="padding:6px 8px">30 days</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 async function routeRequest(req) {
   const method = String(req.method || "GET").toUpperCase();
   let path = String(req.path || "/");
@@ -1660,7 +1748,13 @@ async function routeRequest(req) {
   if (qMark >= 0) path = path.slice(0, qMark);
   const origin = await publicOrigin(req.origin);
   if (method === "OPTIONS") return withCors({ status: 204, headers: {}, body: "" }, req.headers && req.headers.origin);
-  if (method === "GET" && path === "/favicon.ico") return { status: 204, headers: { "cache-control": "public, max-age=86400" }, body: "" };
+  if (method === "GET") {
+    const bare = path.replace(/^\/api\/site\//, "/");
+    if (bare === "/robots.txt") return textFile(robotsTxt(origin), "text/plain; charset=utf-8");
+    if (bare === "/sitemap.xml") return textFile(await sitemapXml(origin), "application/xml; charset=utf-8");
+    if (bare === "/favicon.ico") return { status: 200, headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" }, body: icoFromPng(iconPng(32, false)) };
+    if (bare === "/apple-touch-icon.png") return pngResponse(iconPng(180, false));
+  }
   const route = path.startsWith("/api/") ? path.slice(5) : "";
   // /admin is a small operator site, not an API route. Vercel rewrites /admin
   // and /admin/* to /api/handler?hbpath=admin... (so they arrive as route
@@ -1823,6 +1917,7 @@ async function routeRequest(req) {
     if (account.verifyTries > 8) { account.verifyHash = ""; await saveAccount(account); return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin); }
     if (!safeEqual(account.verifyHash, sha(code + ":" + email))) { await saveAccount(account); return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin); }
     account.emailVerifiedAt = new Date().toISOString();
+    await noteFunnel("parent_verified");
     account.sessionVersion=2;
     account.verifyHash = "";
     const token = rand(32);
@@ -1866,6 +1961,13 @@ async function routeRequest(req) {
     }), req.headers && req.headers.origin);
   }
 
+  if (method === "POST" && route === "funnel") {
+    const event = String(body.event || "");
+    if (event !== "ref_visit") return withCors(json(400, { ok: false, error: "event" }), req.headers && req.headers.origin);
+    await noteFunnel(event);
+    return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
+  }
+
   if (method === "POST" && route === "consent") {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
@@ -1884,6 +1986,7 @@ async function routeRequest(req) {
       if (started.consent) return withCors(json(200, { ok: true, consent: true, method: "card_charge", refunded: true }), req.headers && req.headers.origin);
       if (started.error === "stripe-key") return withCors(json(503, { ok: false, error: "stripe-key" }), req.headers && req.headers.origin);
       if (started.error || !started.url) return withCors(json(502, { ok: false, error: started.error || "stripe" }), req.headers && req.headers.origin);
+      await noteFunnel("check_started");
       return withCors(json(200, { ok: true, needsCard: true, url: started.url, mode: "stripe", reused: !!started.reused }), req.headers && req.headers.origin);
     }
     const now = new Date().toISOString();
@@ -1895,6 +1998,7 @@ async function routeRequest(req) {
     account.consentPaymentIntent = pi;
     account.consentRefundedAt = now;
     await saveAccount(account);
+    await noteFunnel("check_passed");
     return withCors(json(200, { ok: true, consent: true, refunded: true, mode, method: "card_charge", consentAt: account.consentAt }), req.headers && req.headers.origin);
   }
 
@@ -1939,6 +2043,7 @@ async function routeRequest(req) {
       await saveAccount(account);
       await trackPlan(account);
       await releaseHeld(account, origin);
+      await noteFunnel("plan_paid");
       return withCors(json(200, { ok: true, mode, plan: plan.id, planName: account.planName, paidUntil: account.paidUntil }), req.headers && req.headers.origin);
     }
     if (mode === "stripe") {
@@ -1973,12 +2078,13 @@ async function routeRequest(req) {
       params.set('line_items[0][price_data][unit_amount]',String(checkoutPlan.amount));
       params.set('line_items[0][price_data][product_data][name]','Hustle Builder hosting, '+planOffer(checkoutPlan.id,planBase(account)).name+', through '+niceDate(planOffer(checkoutPlan.id,planBase(account)).end));
       params.set('metadata[accountId]',account.id);params.set('metadata[plan]',checkoutPlan.id);params.set('metadata[attempt]',attempt);
-      params.set('payment_intent_data[statement_descriptor_suffix]','HUSTLE BLDR');
+      params.set('payment_intent_data[statement_descriptor_suffix]',STATEMENT_SUFFIX);
       let response,data;
       try{response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...providerHeaders,'Content-Type':'application/x-www-form-urlencoded','Idempotency-Key':'hb-checkout-'+attempt},body:params,signal:AbortSignal.timeout(8000)});data=await response.json();}catch{await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
       if(!response.ok||!data.url||!data.id){await saveAccount(account);return json(502,{ok:false,error:'stripe'});}
       account.checkoutSessionId=data.id;account.checkoutUrl=data.url;account.checkoutPendingAt=new Date().toISOString();
       await saveAccount(account);
+      await noteFunnel("checkout_started");
       return json(200,{ok:true,mode:'stripe',url:data.url});
     }
     return withCors(json(400, { ok: false, error: "paywall" }), req.headers && req.headers.origin);
@@ -2120,6 +2226,7 @@ async function routeRequest(req) {
       ? "added"
       : account.slug === slug && account.liveMailed && account.liveMailed !== slug ? "renamed" : "";
     await sendLiveNote(account, origin, slug, liveKind);
+    if (!existing) await noteFunnel("published");
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
     const used = await trialCount(account.email);
@@ -2187,6 +2294,7 @@ async function routeRequest(req) {
       html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(ready) + "</p><p>" + mailEscape(trialBlurb()) + " A first-time parent verifies their email and completes a 50¢ card check that is refunded right away. Plans never renew automatically.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p>The page itself stays on their device until you agree. Review it together there: choose Go live, then “I’m the parent — continue here.”</p><p><a href=\"" + mailEscape(link) + "\">View the invitation</a></p><p>The link expires in 7 days, and we delete this request then if you have not agreed.</p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
+    await noteFunnel("parent_invited");
     return withCors(json(200, { ok: true, token, link, expires }), req.headers && req.headers.origin);
   }
 
@@ -2228,7 +2336,8 @@ async function routeRequest(req) {
     const existing = code ? await readJson("drafts/" + code + ".json") : null;
     if (!existing && await countKey(counterKey("draftnew", clientIp(req)), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
     let rec = existing;
-    if (!code || !rec) {
+    const freshDraft = !code || !rec;
+    if (freshDraft) {
       code = draftCode();
       rec = { createdAt: new Date().toISOString() };
     }
@@ -2243,6 +2352,7 @@ async function routeRequest(req) {
       await (await store()).put("draftacct/" + account.id, code);
     }
     await writeJson("drafts/" + code + ".json", rec);
+    if (freshDraft) await noteFunnel("draft_started");
     const link = (origin || "") + "/?draft=" + code;
     return withCors(json(200, { ok: true, code, link }), req.headers && req.headers.origin);
   }
@@ -2542,6 +2652,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       text: fullText, html: fullHtml, ics
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
+    await noteFunnel("booking_sent");
     if (job) {
       await ensureCalToken(account);
       const jobs = await loadJobs(account.id);

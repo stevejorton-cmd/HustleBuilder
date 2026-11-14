@@ -575,7 +575,8 @@ test("server source and internal notes are not served to the public", async () =
   for (const p of ["/host/lib/router.mjs", "/tests/host.test.mjs", "/stress/results.json", "/scripts/backup.mjs", "/package.json", "/package-lock.json", "/SETUP.md", "/REPAIR-HANDOFF.md", "/assets/pets/README.md", "/booking-inbox-script-template.gs.txt"]) assert.equal(hidden(p), true, p);
   for (const p of ["/", "/sam-yard", "/privacy", "/terms", "/admin", "/api/book", "/sw.js", "/icons/icon-192.png", "/assets/pets/pet-dog.webp", "/assets/heic2any.js", "/manifest.webmanifest"]) assert.equal(hidden(p), false, p);
   assert.deepEqual(cfg.crons.map((c) => c.path), ["/api/cron/renewals", "/api/cron/mail"]);
-  assert.equal(cfg.rewrites.length, 4);
+  assert.equal(cfg.rewrites.length, 5);
+  assert.ok(cfg.rewrites.some((r) => r.source === "/parents" && r.destination === "/index.html"));
   const ignore = await readFile(new URL("../.vercelignore", import.meta.url), "utf8");
   for (const line of ["/tests", "/stress", "/scripts", "*.md"]) assert.ok(ignore.split("\n").includes(line), line);
   assert.equal(/^\/?(host|api|assets|icons|index\.html|package\.json|sw\.js)\b/m.test(ignore.replace(/^#.*$/gm, "")), false, "nothing the site needs is ignored");
