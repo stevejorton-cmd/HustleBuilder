@@ -62,6 +62,9 @@ test("the parent landing names the winter price and uses a made-up example", asy
   assert.match(block, /\$9\.99 for the whole winter, never auto-renews/);
   assert.match(block, /id="parentsStart"/);
   assert.match(block, />Start free</);
+  assert.match(home, /if\(!force\)document\.documentElement\.classList\.add\("hb-skip-parents"\)/);
+  assert.equal(home.includes('setItem("hb_intro_seen"'), false);
+  assert.match(home, /shouldOpenIntro\(entryParams\)&&document\.documentElement\.classList\.contains\("hb-skip-parents"\)/);
   assert.match(block, /Sam's Lawn Co\./);
   assert.match(block, /Elkhorn/);
   assert.equal(/steve|lincoln|maryn|levi|402/i.test(block), false);
