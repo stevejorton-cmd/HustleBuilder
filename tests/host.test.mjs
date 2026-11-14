@@ -247,6 +247,71 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   assert.match(privacy.body, /30 days/);
 });
 
+test("one-tap calendar buttons stay off the parent's contact, and confirming clears requested", async () => {
+  const { readFile } = await import("fs/promises");
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(src, /Subscribe in Google Calendar/);
+  assert.match(src, /Subscribe on iPhone/);
+  assert.match(src, /id="jobCalGoogle"/);
+  assert.match(src, /id="jobCalApple"/);
+  const { token, email } = await parent("tapcal@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const html = page("Will") + "<script>window.__C={\"first\":\"Will\",\"biz\":\"Will Yard\",\"email\":\"\",\"phoneDigits\":\"\"};</script>";
+  await call("POST", "/api/publish", { token, body: { slug: "will-tap", html } });
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "will-tap", name: "Riley Stone", contact: "riley.neighbor@example.com", service: "Mow a small yard",
+    when: "Monday at 4:00 PM", address: "12 Oak", note: "Side gate. Reach " + email + " or 402-555-0100",
+    start: "2026-11-16T16:00", t: 4000
+  } }));
+  assert.equal(booked.body.ok, true);
+  const parentBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const parentMail = parentBox.body.messages.find((m) => /Booking request/.test(m.subject));
+  assert.match(parentMail.html, /Add to Google Calendar/);
+  assert.match(parentMail.html, /Add to Apple Calendar/);
+  assert.match(parentMail.text, /\(requested\)/);
+  assert.match(parentMail.text, /dates=20261116T220000Z\/20261116T230000Z/);
+  assert.match(parentMail.text, /Subscribe in Google Calendar/);
+  assert.match(parentMail.text, /webcal:\/\//);
+  assert.match(parentMail.ics, /METHOD:REQUEST/);
+  const neighborBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.neighbor@example.com")));
+  const neighborMail = neighborBox.body.messages[0];
+  assert.match(neighborMail.html, /Add to Google Calendar/);
+  assert.match(neighborMail.html, /Add to Apple Calendar/);
+  assert.equal(neighborMail.text.includes(email), false);
+  assert.equal(neighborMail.text.includes("402-555-0100"), false);
+  const applePath = neighborMail.text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const apple = await call("GET", applePath);
+  assert.match(apple.headers["content-type"], /text\/calendar/);
+  assert.match(apple.headers["content-disposition"], /inline; filename="booking\.ics"/);
+  assert.match(apple.body, /STATUS:TENTATIVE/);
+  assert.equal(apple.body.includes(email), false);
+  assert.equal(apple.body.includes("402-555-0100"), false);
+  assert.equal(apple.body.toLowerCase().includes("mailto:"), false);
+  const me = await json(await call("GET", "/api/me", { token }));
+  const feed = await call("GET", new URL(me.body.calUrl).pathname);
+  assert.match(feed.body, /SUMMARY:Will: Mow a small yard - Riley/);
+  assert.equal(feed.body.includes("Riley Stone"), false);
+  assert.equal(feed.body.includes(email), false);
+  assert.equal(feed.body.includes("402-555-0100"), false);
+  const jobs = await json(await call("GET", "/api/my-jobs", { token }));
+  const marked = await json(await call("POST", "/api/job/" + jobs.body.jobs[0].action, { body: { status: "confirmed", json: true } }));
+  assert.equal(marked.body.status, "confirmed");
+  const afterParent = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const confirmedParent = afterParent.body.messages.find((m) => m.subject === "Booking confirmed: Mow a small yard");
+  assert.ok(confirmedParent);
+  assert.equal(confirmedParent.text.includes("(requested)"), false);
+  assert.match(confirmedParent.text, /This job is confirmed/);
+  const afterNeighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.neighbor@example.com")));
+  const confirmedNeighbor = afterNeighbor.body.messages.find((m) => m.subject === "Your booking is confirmed");
+  assert.ok(confirmedNeighbor);
+  assert.equal(confirmedNeighbor.text.includes(email), false);
+  assert.equal(confirmedNeighbor.text.includes("(requested)"), false);
+  const confirmedIcs = await call("GET", applePath);
+  assert.match(confirmedIcs.body, /STATUS:CONFIRMED/);
+  assert.equal(confirmedIcs.body.includes("(requested)"), false);
+});
+
 test("a booking invite names the kid and the neighbor, and a cancel removes that same event", async () => {
   assert.equal(inviteSummary("Will", "Mow a small yard", "Riley Stone"), "Will: Mow a small yard - Riley");
   const updated = bookingInviteIcs({
@@ -341,12 +406,12 @@ test("something else takes its name from the note, and email plus phone both sta
   assert.match(msg.html, />Call Dana</);
   assert.match(msg.html, />Text Dana</);
   assert.match(msg.html, />Email Dana</);
-  assert.match(msg.text, /text=Dog%20walking%20-%20Dana/);
+  assert.match(msg.text, /text=Will%3A%20Dog%20walking%20\(requested\)%20-%20Dana/);
   const ics = msg.ics.replace(/\r\n[ \t]/g, "");
   assert.match(ics, /SUMMARY:Will: Dog walking - Dana/);
   const me = await json(await call("GET", "/api/me", { token }));
   const feed = await call("GET", new URL(me.body.calUrl).pathname);
-  assert.match(feed.body.replace(/\r\n[ \t]/g, ""), /SUMMARY:Dog walking - Dana/);
+  assert.match(feed.body.replace(/\r\n[ \t]/g, ""), /SUMMARY:Will: Dog walking - Dana/);
   assert.equal(feed.body.includes("Something else"), false);
   const blank = await json(await call("POST", "/api/book", { body: {
     slug: "will-custom", name: "Dana", contact: "dana@example.com", service: "Something else",
@@ -960,6 +1025,19 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   assert.match(msg.text, /We got your request for Dog walk/);
   assert.match(msg.text, /Make one for your kid, free for 14 days/);
   assert.match(msg.text, /Nothing is booked yet/);
+  assert.match(msg.text, /\(requested\)/);
+  assert.match(msg.html, /Add to Google Calendar/);
+  assert.match(msg.html, /Add to Apple Calendar/);
+  assert.match(msg.html, /display:block/);
+  const applePath = msg.text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const apple = await call("GET", applePath);
+  assert.equal(apple.status, 200);
+  assert.match(apple.headers["content-type"], /text\/calendar/);
+  assert.match(apple.headers["content-disposition"], /inline/);
+  assert.match(apple.body, /METHOD:PUBLISH/);
+  assert.match(apple.body, /\(requested\)/);
+  assert.equal(apple.body.includes(email), false);
+  assert.equal(msg.text.includes(email), false);
   assert.match(msg.text, /\/api\/cancel\//);
   assert.equal(msg.text.includes(email), false);
   assert.equal(msg.text.includes("402"), false);
@@ -1731,7 +1809,9 @@ test("going live and paying each send one email", async () => {
   assert.match(live[0].html, /api\/qr\/sam-yard\.png/);
   assert.match(live[0].text, /\/\?account=1/);
   assert.match(live[0].text, /calendar\.google\.com\/calendar\/r\?cid=webcal%3A%2F%2F/);
-  assert.match(live[0].html, /Add the family calendar to Google Calendar/);
+  assert.match(live[0].html, /Subscribe in Google Calendar/);
+  assert.match(live[0].html, /Subscribe on iPhone/);
+  assert.match(live[0].text, /webcal:\/\//);
   assert.equal(live[0].text.includes("steve@"), false);
   const qr = await call("GET", "/api/qr/sam-yard.png");
   assert.equal(qr.body[0], 137);

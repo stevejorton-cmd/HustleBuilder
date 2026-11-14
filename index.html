@@ -426,7 +426,7 @@ a.link{display:inline;padding:0;font:inherit;font-weight:700}
 .mbtns .btn{flex:1;min-width:130px}
 #calBox{margin-top:18px}
 #calBox .mbtns{margin-top:12px}
-#calBox .mbtns a.btn,#calBox .mbtns .btn{flex:1 1 100%;text-decoration:none;text-align:center;white-space:normal;line-height:1.15;padding:12px 16px;font-size:20px}
+#calBox .mbtns a.btn,#calBox .mbtns .btn,#jobCal .mbtns a.btn,#jobCal .mbtns .btn{flex:1 1 100%;text-decoration:none;text-align:center;white-space:normal;line-height:1.15;padding:12px 16px;font-size:20px}
 #calLink{overflow-wrap:anywhere;margin:8px 0 0}
 .job .maprow button{color:var(--ink);font-weight:700;text-decoration:underline;font-size:15px;background:none;border:0;padding:8px 0;min-height:44px;cursor:pointer;font-family:inherit}
 .rankup{text-align:center;padding:14px 0 calc(22px + env(safe-area-inset-bottom,0px))}
@@ -1034,12 +1034,12 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         </div>
         <div id="calBox" hidden>
           <h3 class="h3">Family calendar</h3>
-          <p class="lead" style="margin-bottom:8px">Add this once. New jobs show up on the family’s calendar.</p>
-          <p class="small2">The same subscribe link is in the email that says your page is live, and in each booking email.</p>
+          <p class="lead" style="margin-bottom:8px">Subscribe once. New and confirmed bookings show up on their own.</p>
+          <p class="small2">The same links are in the email that says your page is live, and in each booking email.</p>
           <p class="small2" id="calLink"></p>
           <div class="mbtns">
-            <a class="btn" id="calGoogle" href="" target="_blank" rel="noopener">Add to Google Calendar</a>
-            <a class="btn" id="calApple" href="">Add to iPhone / Mac</a>
+            <a class="btn" id="calGoogle" href="" target="_blank" rel="noopener">Subscribe in Google Calendar</a>
+            <a class="btn" id="calApple" href="">Subscribe on iPhone</a>
             <button type="button" class="btn ghost" id="calCopy">Copy link</button>
             <button type="button" class="btn outline" id="calNew">Make a new link</button>
           </div>
@@ -1110,6 +1110,13 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 
 <section id="boss" aria-label="My jobs and earnings"><div class="bcard booking-inbox">        <div id="myJobs">
           <h3 class="h3">Booking requests <span id="jobBadge" hidden></span></h3>
+          <div id="jobCal" hidden>
+            <p class="small2">Subscribe once. New and confirmed bookings show up on their own.</p>
+            <div class="mbtns">
+              <a class="btn" id="jobCalGoogle" href="" target="_blank" rel="noopener">Subscribe in Google Calendar</a>
+              <a class="btn" id="jobCalApple" href="">Subscribe on iPhone</a>
+            </div>
+          </div>
           <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent marks them confirmed or done.</p>
           <div id="jobList"></div>
         </div>
@@ -4724,6 +4731,9 @@ function showCalendar(me){
   const link=$("#calLink"); if(link)link.textContent=me.calUrl;
   const g=$("#calGoogle"); if(g)g.href=me.calGoogle||"";
   const a=$("#calApple"); if(a)a.href=me.calWebcal||"";
+  const jg=$("#jobCalGoogle"); if(jg)jg.href=me.calGoogle||"";
+  const ja=$("#jobCalApple"); if(ja)ja.href=me.calWebcal||"";
+  const jobCal=$("#jobCal"); if(jobCal)jobCal.hidden=false;
   const sync=$("#calSync"); if(sync)sync.checked=localStorage.getItem("hb-cal-sync")!=="0";
   box.hidden=false;
 }

@@ -255,7 +255,8 @@ test("a family outside Central time gets calendar events at the hour the neighbo
   assert.match(feed.body, /DTEND:20261202T220000Z/);
   assert.equal(feed.body.includes("TZID=America/Chicago"), false);
   const mail = (await outbox(p.email)).find((m) => /Booking request/.test(m.subject));
-  assert.match(mail.text, /ctz=America%2FNew_York/);
+  assert.match(mail.text, /dates=20261202T210000Z\/20261202T220000Z/);
+  assert.equal(mail.text.includes("ctz="), false);
   assert.match(mail.ics, /DTSTART:20261202T210000Z/);
   // A junk zone from the browser is ignored, not stored.
   await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-yard", html: page("Sam"), tz: "Not/AZone" } });

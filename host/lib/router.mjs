@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
-import { DEFAULT_TZ, bookingInviteIcs, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, validTz } from "./calendar.mjs";
+import { DEFAULT_TZ, addEventIcs, bookingInviteIcs, eventTitle, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, publicText, validTz } from "./calendar.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, hidePhone, stripParentContact } from "./preview.mjs";
@@ -533,6 +533,7 @@ async function removeRequestArtifacts(row,accountId) {
   const s=await store();
   if(row.actionToken)await s.del('jobact/'+row.actionToken);
   if(row.cancelToken)await s.del('cancels/'+row.cancelToken+'.json');
+  if(row.eventToken && /^[a-f0-9]{32,80}$/i.test(row.eventToken))await s.del('events/'+row.eventToken.toLowerCase()+'.json');
   if(row.idempotencyKey)await s.del('bookingids/'+accountId+'/'+row.idempotencyKey);
 }
 async function loadRequests(accountId) {
@@ -883,6 +884,7 @@ async function releaseHeld(account, origin) {
     if (row.status !== "held") continue;
     changed = true;
     await ensureCalToken(account);
+    await savePublicEvent(row, account);
     const mailed = await sendMail(parentBookingMail(row, origin, account));
     if(mailed.ok)row.status="new";
     if (mailed.ok && row.calJob) {
@@ -896,13 +898,60 @@ async function releaseHeld(account, origin) {
   if (changed) await saveRequests(account.id, rows);
 }
 
+function mailButton(href, label) {
+  if (!href) return "";
+  return "<a href=\"" + mailEscape(href) + "\" style=\"display:block;max-width:340px;box-sizing:border-box;margin:8px 0;padding:14px 16px;background:#173d2d;color:#ffffff;text-align:center;text-decoration:none;font-weight:800;border-radius:10px\">" + mailEscape(label) + "</a>";
+}
 function calendarPitch(origin, account) {
   if (!account || !account.calToken) return { text: "", html: "" };
   const links = feedLinks(origin, account.calToken);
   return {
-    text: "Add every job to the family calendar:\n" + links.calGoogle + "\n",
-    html: "<p><a href=\"" + mailEscape(links.calGoogle) + "\">Add the family calendar to Google Calendar</a></p>"
+    text: "Subscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calWebcal + "\n",
+    html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">Subscribe once. New and confirmed bookings show up on their own.</p>"
+      + mailButton(links.calGoogle, "Subscribe in Google Calendar")
+      + mailButton(links.calWebcal, "Subscribe on iPhone")
   };
+}
+function eventMailBits(origin, event) {
+  if (!event || !event.token || !event.start) return { text: "", html: "" };
+  const apple = String(origin || "").replace(/\/$/, "") + "/api/event/" + event.token + ".ics";
+  const google = gcalTemplate({
+    start: event.start,
+    title: event.summary,
+    details: event.details,
+    location: event.location
+  }, event.tz);
+  const note = event.confirmed
+    ? "This job is confirmed."
+    : "Nothing is booked yet. The title says (requested) until the family confirms.";
+  return {
+    text: note + "\nAdd to Google Calendar:\n" + google + "\nAdd to Apple Calendar:\n" + apple + "\n",
+    html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">" + mailEscape(note) + "</p>"
+      + mailButton(google, "Add to Google Calendar")
+      + mailButton(apple, "Add to Apple Calendar")
+  };
+}
+async function savePublicEvent(row, account) {
+  if (!row || row.eventToken) return;
+  const start = (row.invite && row.invite.start) || (row.calJob && row.calJob.start) || "";
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start)) return;
+  const token = rand(18);
+  const kid = String((row.calJob && row.calJob.kid) || "").trim();
+  const customer = firstName(row.firstName || (row.fields && row.fields.name) || "");
+  const note = publicText((row.fields && row.fields.note) || "");
+  const rec = {
+    token,
+    id: (row.calJob && row.calJob.id) || ("b" + rand(8)),
+    start,
+    tz: (row.invite && row.invite.tz) || tzOf(account),
+    summary: eventTitle(kid, row.service || "Job", customer, false),
+    location: publicText((row.fields && row.fields.address) || ""),
+    details: publicText((note ? note + "\n" : "") + "Requested. Not confirmed yet."),
+    confirmed: false
+  };
+  await writeJson("events/" + token + ".json", rec);
+  row.eventToken = token;
+  row.publicEvent = rec;
 }
 function parentBookingMail(row, origin, account) {
   const fields = row.fields || {};
@@ -919,6 +968,7 @@ function parentBookingMail(row, origin, account) {
     "Address: " + (fields.address || ""),
     "Note: " + (fields.note || "none"),
     "",
+    eventMailBits(origin, row.publicEvent).text,
     pitch.text
   ].filter((line, i, arr) => !(line === "" && arr[i - 1] === "")).join("\n");
   const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif\">"
@@ -927,6 +977,7 @@ function parentBookingMail(row, origin, account) {
     + "<p>Name: " + mailEscape(fields.name || row.firstName) + "<br>Reach them at: " + mailEscape(fields.contact || "")
     + "<br>Job: " + mailEscape(fields.service || row.service) + "<br>When: " + mailEscape(fields.when || row.when)
     + "<br>Address: " + mailEscape(fields.address || "") + "</p>"
+    + eventMailBits(origin, row.publicEvent).html
     + pitch.html + "</div>";
   return {
     to: row.parentEmail,
@@ -1003,8 +1054,8 @@ async function sendLiveNote(account, origin, slug, kind = "") {
     to: account.email,
     replyTo: supportReply(),
     subject,
-    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nAdd the family calendar once. New jobs show up there.\nGoogle Calendar:\n" + links.calGoogle + "\nPrivate link:\n" + links.calUrl + "\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
-    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p><a href=\"" + mailEscape(links.calGoogle) + "\">Add the family calendar to Google Calendar</a></p><p>Private link: " + mailEscape(links.calUrl) + "</p><p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
+    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nSubscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calWebcal + "\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p>Subscribe once. New and confirmed bookings show up on their own.</p>" + mailButton(links.calGoogle, "Subscribe in Google Calendar") + mailButton(links.calWebcal, "Subscribe on iPhone") + "<p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
   });
   if (sent.ok) {
     mailed.add(slug);
@@ -1772,7 +1823,7 @@ function draftCode() {
   const bytes = randomBytes(8);
   return Array.from(bytes, (b) => DRAFT_ALPHABET[b % DRAFT_ALPHABET.length]).join("");
 }
-async function notifyNeighbor({ origin, reply, fields, account, requestId, slug }) {
+async function notifyNeighbor({ origin, reply, fields, account, requestId, slug, event }) {
   const cancel = rand(18);
   await writeJson("cancels/" + cancel + ".json", {
     accountId: account.id,
@@ -1794,6 +1845,7 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug 
     "We got your request for " + (fields.service || "a job") + (fields.when ? " on " + fields.when : "") + ".",
     "Nothing is booked yet. The family will confirm with you.",
     "",
+    eventMailBits(origin, event).text,
     "Changed your mind? Cancel here:",
     url,
     "",
@@ -1806,6 +1858,7 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug 
     + "<p>We got your request for <b>" + mailEscape(fields.service || "a job") + "</b>"
     + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p>"
     + "<p>Nothing is booked yet. The family will confirm with you.</p>"
+    + eventMailBits(origin, event).html
     + "<p><a href=\"" + mailEscape(url) + "\">Cancel this request</a></p>"
     + "<p><a href=\"https://hustlebuilder.org/?for=parents" + (slug ? "&amp;ref=" + mailEscape(slug) : "") + "\">Make one for your kid, free for 14 days</a></p>"
     + (unread ? "<p>" + mailEscape(unread) + "</p>" : "")
@@ -1919,6 +1972,23 @@ async function routeRequest(req) {
   const calFeed = route.match(/^cal\/([a-f0-9]{32,128})\.ics$/i);
   if (method === "GET" && calFeed) {
     return withCors(await serveCalendar(calFeed[1]), req.headers && req.headers.origin);
+  }
+  const eventFile = route.match(/^event\/([a-f0-9]{32,80})\.ics$/i);
+  if (method === "GET" && eventFile) {
+    const rec = await readJson("events/" + eventFile[1].toLowerCase() + ".json");
+    if (!rec || !rec.start) return json(404, { ok: false, error: "missing" });
+    const body = addEventIcs({ ...rec, id: rec.id || "event" });
+    if (!body) return json(404, { ok: false, error: "missing" });
+    return {
+      status: 200,
+      headers: {
+        "content-type": "text/calendar; charset=utf-8",
+        "content-disposition": "inline; filename=\"booking.ics\"",
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff"
+      },
+      body
+    };
   }
 
   const cardHit = route.match(/^card\/([a-z0-9][a-z0-9-]{1,40})\.png$/);
@@ -2606,9 +2676,42 @@ async function routeRequest(req) {
     if (method === "POST") {
       const next = String(body.status || "");
       if (next !== "confirmed" && next !== "done" && next !== "cancelled") return json(400, { ok: false, error: "status" });
+      const was = row.status;
       const cancelIcs = next === "cancelled" ? takeCancelIcs(row) : "";
       row.status = next;
       if(next==='cancelled')await removeCalendarRequest(account.id,row);
+      if (next === "confirmed" && was !== "confirmed" && row.eventToken) {
+        const rec = await readJson("events/" + row.eventToken + ".json");
+        if (rec) {
+          rec.confirmed = true;
+          rec.summary = String(rec.summary || "").replace(" (requested)", "");
+          rec.details = publicText(String(rec.details || "").replace("Requested. Not confirmed yet.", "Confirmed."));
+          await writeJson("events/" + row.eventToken + ".json", rec);
+          row.publicEvent = rec;
+          const add = eventMailBits(origin, rec);
+          const who = row.firstName || "A neighbor";
+          const jobName = row.service || "a job";
+          await sendMail({
+            to: account.email,
+            replyTo: supportReply(),
+            forParent: true,
+            origin,
+            subject: "Booking confirmed: " + jobName,
+            text: who + " · " + jobName + " is confirmed.\n\n" + add.text,
+            html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(who) + " · " + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>"
+          });
+          const neighbor = contactEmail(row.fields && row.fields.contact);
+          if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
+            await sendMail({
+              to: neighbor,
+              replyTo: supportReply(),
+              subject: "Your booking is confirmed",
+              text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + add.text,
+              html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>"
+            });
+          }
+        }
+      }
       await saveRequests(account.id, rows);
       if (cancelIcs) await sendMail({
         to: account.email,
@@ -2726,17 +2829,18 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     ].filter(Boolean);
     const jobNote = [fields.note, petBits.join(". ")].filter(Boolean).join(" | ").slice(0, 500);
     const titled = jobTitle(fields.service, fields.note);
+    const names = await siteNames(slug, meta);
     const job = startOk ? {
       id: "b" + rand(8),
       source: "book",
       service: titled,
       customer: fields.name,
+      kid: names.first ? firstName(names.first) : "",
       address: fields.address,
       start,
       note: jobNote,
       createdAt: new Date().toISOString()
     } : null;
-    const gcal = job ? gcalTemplate(job, tzOf(account)) : "";
     const reply = contactEmail(fields.contact);
     const phone = contactPhone(fields.contact);
     const tel = phone ? "tel:+" + phone : "";
@@ -2760,8 +2864,6 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       "Address: " + fields.address,
       "Note: " + (fields.note || "none"),
       "",
-      gcal ? "Add this job to Google Calendar:\n" + gcal : "",
-      "",
       "We keep the name, address, and time for the family calendar for about 30 days. It is not a customer list."
     ].filter((line, i, arr) => line !== "" && !(line === "" && arr[i - 1] === "")).join("\n");
     const link = (href, label) => href ? "<a href=\"" + mailEscape(href) + "\" style=\"font-weight:700\">" + mailEscape(label) + "</a>" : "";
@@ -2772,7 +2874,6 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
       + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(titled) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
       + (petBits.length ? "<br>" + petBits.map(mailEscape).join("<br>") : "") + "</p>"
-      + (gcal ? "<p><a href=\"" + mailEscape(gcal) + "\">Add this job to Google Calendar</a></p>" : "")
       + "<p>We keep the name, address, and time for the family calendar for about 30 days.</p>"
       + "</div>";
     if (!account.renewToken) account.renewToken = rand(16);
@@ -2783,7 +2884,6 @@ document.getElementById("no").onclick=()=>mark("cancelled");
     const requestId = "r" + rand(8);
     const actionToken = rand(12);
     const actionUrl = (origin || "") + "/api/job/" + actionToken;
-    const names = await siteNames(slug, meta);
     const summary = job ? inviteSummary(names.first, titled, fields.name) : "";
     const description = job ? [job.note, "Mark confirmed or done: " + actionUrl].filter(Boolean).join("\n") : "";
     const ics = job ? bookingInviteIcs({
@@ -2832,9 +2932,11 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
     }
     await ensureCalToken(account);
+    await savePublicEvent(row, account);
     const pitch = calendarPitch(origin, account);
-    const fullText = text + "\n\nMark it confirmed or done:\n" + actionUrl + (pitch.text ? "\n\n" + pitch.text : "");
-    const fullHtml = htmlMail.replace("</div>", "<p><a href=\"" + mailEscape(actionUrl) + "\">Mark confirmed or done</a></p>" + pitch.html + "</div>");
+    const add = eventMailBits(origin, row.publicEvent);
+    const fullText = text + "\n\n" + add.text + "\nMark it confirmed or done:\n" + actionUrl + (pitch.text ? "\n\n" + pitch.text : "");
+    const fullHtml = htmlMail.replace("</div>", "<p><a href=\"" + mailEscape(actionUrl) + "\">Mark confirmed or done</a></p>" + add.html + pitch.html + "</div>");
     const mailed = await sendMail({
       to: account.email,
       replyTo: reply || supportReply(),
@@ -2857,7 +2959,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
 
     }
 
-    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId, slug });
+    if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId, slug, event: row.publicEvent });
     return withCors(json(200, { ok: true, trialLeft: undefined }), req.headers && req.headers.origin);
   }
 

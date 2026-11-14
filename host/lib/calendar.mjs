@@ -150,10 +150,13 @@ function timeLines(start, tz) {
 function eventLines(job, now, tz) {
   const when = timeLines(job.start, tz);
   if (!when) return [];
-  const summary = (job.service || "Job") + " - " + (job.customer || "Customer");
+  const summary = job.kid
+    ? inviteSummary(job.kid, job.service || "Job", job.customer || "Neighbor")
+    : (job.service || "Job") + " - " + (job.customer || "Customer");
   const bits = [];
-  if (job.note) bits.push(String(job.note));
-  if (job.amount) bits.push("Price: " + job.amount);
+  const note = publicText(job.note);
+  if (note) bits.push(note);
+  if (job.amount) bits.push("Price: " + publicText(job.amount));
   const lines = [
     "BEGIN:VEVENT",
     "UID:" + job.id + "@hustlebuilder.org",
@@ -261,17 +264,71 @@ export function jobsToIcs(jobs, now = Date.now(), tz = TZID) {
   return lines.map(fold).join("\r\n") + "\r\n";
 }
 
+// Drop a parent's email or phone if one was pasted into a note. Neighbors
+// and the family feed never see that contact.
+export function publicText(value) {
+  return String(value || "")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
+    .replace(/(?:\+?1[\s.-]*)?(?:\(\d{3}\)|\d{3})[\s.-]*\d{3}[\s.-]*\d{4}/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// "Will: Mow (requested) - Riley" until the family confirms, then the same
+// title without the word requested.
+export function eventTitle(kid, service, customer, confirmed) {
+  const base = inviteSummary(kid, service, customer);
+  if (confirmed) return base;
+  const mark = " - ";
+  const at = base.lastIndexOf(mark);
+  if (at < 0) return base + " (requested)";
+  return base.slice(0, at) + " (requested)" + base.slice(at);
+}
+
+// Google's template dates are UTC instants. A 4:00 PM Chicago booking in
+// November is 22:00 UTC, and the same hour in July is 21:00 UTC.
 export function gcalTemplate(job, tz = TZID) {
-  const end = addHourWall(job && job.start, tz || TZID);
-  if (!end) return "";
-  const text = (job.service || "Job") + " - " + (job.customer || "");
-  const details = [job.note || "", job.amount ? "Price: " + job.amount : ""].filter(Boolean).join("\n");
-  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="
+  const zone = tz || TZID;
+  const startMs = jobInstant(job && job.start, zone);
+  if (startMs == null) return "";
+  const text = job.title || ((job.service || "Job") + (job.customer ? " - " + String(job.customer).trim().split(/\s+/)[0] : ""));
+  const details = publicText(job.details != null ? job.details : [job.note || "", job.amount ? "Price: " + job.amount : ""].filter(Boolean).join("\n"));
+  const loc = publicText(job.location != null ? job.location : (job.address || ""));
+  let url = "https://calendar.google.com/calendar/render?action=TEMPLATE&text="
     + encodeURIComponent(text)
-    + "&dates=" + stamp(job.start) + "/" + stamp(end)
-    + "&details=" + encodeURIComponent(details)
-    + "&location=" + encodeURIComponent(job.address || "")
-    + (tz && tz !== TZID ? "&ctz=" + encodeURIComponent(tz) : "");
+    + "&dates=" + utcStamp(startMs) + "/" + utcStamp(startMs + 3600000);
+  if (details) url += "&details=" + encodeURIComponent(details);
+  if (loc) url += "&location=" + encodeURIComponent(loc);
+  return url;
+}
+
+// One event a phone can open with Add Event. No attendee and no parent
+// address: this file is the link in both the neighbor's email and the family's.
+export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, location = "", description = "", confirmed = false } = {}) {
+  if (!/^[A-Za-z0-9_-]{6,80}$/.test(String(id || ""))) return "";
+  const when = timeLines(start, tz || TZID);
+  if (!when) return "";
+  const local = !tz || tz === TZID;
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Hustle Builder//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    ...(local ? [VTIMEZONE] : ["X-WR-TIMEZONE:" + tz]),
+    "BEGIN:VEVENT",
+    "UID:" + id + "@hustlebuilder.org",
+    "DTSTAMP:" + dtstamp(now),
+    ...when,
+    "SUMMARY:" + icsEscape(publicText(summary) || "Job"),
+    "LOCATION:" + icsEscape(publicText(location)),
+    "DESCRIPTION:" + icsEscape(publicText(description)),
+    "STATUS:" + (confirmed ? "CONFIRMED" : "TENTATIVE"),
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ];
+  return lines.map(fold).join("\r\n") + "\r\n";
 }
 
 export function feedLinks(origin, token) {
