@@ -136,7 +136,10 @@ export function stripParentContact(html) {
     out = out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
   }
   out = kidOwned(out);
-  if (out.includes('class="hero') && !out.includes("function fitHero(") && !out.includes('id="hb-hero-fit"')) {
+  // Pages saved before the width measurement still carry the older fitter,
+  // which sized the hero from the longest letter count. Add the width pass
+  // unless this HTML already measures every word.
+  if (out.includes('class="hero') && !out.includes("function widest(size)")) {
     const boot = heroFitBoot();
     out = out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
   }
