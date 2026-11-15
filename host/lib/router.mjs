@@ -236,6 +236,20 @@ function cookieValue(header, name) {
   }
   return "";
 }
+async function accountFromRequest(req) {
+  const headers = (req && req.headers) || {};
+  const fromCookie = await accountByTokenValue(cookieValue(headers.cookie || headers.Cookie, SESSION_COOKIE));
+  if (fromCookie) return fromCookie;
+  return accountByToken(headers.authorization || headers.Authorization);
+}
+// A draft code is not a login. The parent who saved it (accountId) may read
+// and update it. An older row with no accountId stays with the account that
+// already points at that code. Anyone else gets a new draft instead of this one.
+function draftOwnedBy(rec, account, code) {
+  if (!rec || !account) return false;
+  if (rec.accountId) return rec.accountId === account.id;
+  return !!code && account.draftCode === code;
+}
 
 // The operator view at /admin is gated by the same ADMIN_SECRET as
 // /api/admin/restore, but a correct password trades for a random HttpOnly
@@ -2196,10 +2210,12 @@ async function routeRequest(req) {
   const draftGet = route.match(/^draft\/([a-z0-9]{8})$/);
   if (method === "GET" && draftGet) {
     const rec = await readJson("drafts/" + draftGet[1] + ".json");
-    if (!rec || Date.now() - Date.parse(rec.updatedAt || 0) > DRAFT_MS) {
-      if (rec) await (await store()).del("drafts/" + draftGet[1] + ".json");
-      // A draft code is the only key to a kid's draft. Wrong codes are
-      // counted per address so nobody can sit and guess them.
+    const fresh = !!(rec && Date.now() - Date.parse(rec.updatedAt || 0) <= DRAFT_MS);
+    if (rec && !fresh) await (await store()).del("drafts/" + draftGet[1] + ".json");
+    const account = await accountFromRequest(req);
+    // Wrong codes and someone else's code look the same, and both count, so
+    // a signed-in parent cannot pull another family's draft into this browser.
+    if (!fresh || !draftOwnedBy(rec, account, draftGet[1])) {
       if (await countKey(counterKey("codemiss", clientIp(req)), CODE_MISS_LIMIT)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
       return withCors(json(404, { ok: false, error: "missing" }), req.headers && req.headers.origin);
     }
@@ -2214,16 +2230,12 @@ async function routeRequest(req) {
 
   const body = method === "GET" ? {} : parseBody(req.body);
   if (body === null) return withCors(json(400, { ok: false, error: "json" }), req.headers && req.headers.origin);
-  const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
-  const cookieHdr = req.headers && (req.headers.cookie || req.headers.Cookie);
 
   async function me() {
     // The HttpOnly cookie is the primary credential now. The Bearer token is
     // still accepted so parents who signed in before cookies existed (token
     // in localStorage) are not logged out; the cookie wins when it resolves.
-    const fromCookie = await accountByTokenValue(cookieValue(cookieHdr, SESSION_COOKIE));
-    if (fromCookie) return fromCookie;
-    return accountByToken(auth);
+    return accountFromRequest(req);
   }
 
   if (method === "POST" && route === "slug") {
@@ -2735,23 +2747,24 @@ async function routeRequest(req) {
     if (code && !/^[a-z0-9]{8}$/.test(code)) return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin);
     const day = new Date().toISOString().slice(0, 10);
     const existing = code ? await readJson("drafts/" + code + ".json") : null;
-    if (!existing && await countKey(counterKey("draftnew", clientIp(req)), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
-    let rec = existing;
-    const freshDraft = !code || !rec;
+    // Never overwrite or reassign a draft this parent does not own. Their
+    // save still succeeds, under a new code, and the other family's row stays.
+    const ownsExisting = !!(existing && draftOwnedBy(existing, account, code));
+    const freshDraft = !existing || !ownsExisting;
+    if (freshDraft && await countKey(counterKey("draftnew", clientIp(req)), 40)) return withCors(json(429, { ok: false, error: "limit" }), req.headers && req.headers.origin);
+    let rec = ownsExisting ? existing : null;
     if (freshDraft) {
       code = draftCode();
       rec = { createdAt: new Date().toISOString() };
     }
     rec.draft = packed.draft;
     rec.updatedAt = new Date().toISOString();
-    if (account) {
-      rec.accountId = account.id;
-      account.draftCode = code;
-      await saveAccount(account);
-      await ownerIndexSince();
-      await (await store()).put("draftby/" + account.id + "/" + code, String(Date.now()));
-      await (await store()).put("draftacct/" + account.id, code);
-    }
+    rec.accountId = account.id;
+    account.draftCode = code;
+    await saveAccount(account);
+    await ownerIndexSince();
+    await (await store()).put("draftby/" + account.id + "/" + code, String(Date.now()));
+    await (await store()).put("draftacct/" + account.id, code);
     await writeJson("drafts/" + code + ".json", rec);
     if (freshDraft) await noteFunnel("draft_started");
     const link = (origin || "") + "/?draft=" + code;

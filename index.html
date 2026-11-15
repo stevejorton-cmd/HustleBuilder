@@ -2568,27 +2568,64 @@ function defaults(){
   return {type:type,first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices(type,1),svcEdited:false,svcSets:{},
     palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
+function draftBelongsTo(ownerEmail, sessionEmail){
+  const owner=String(ownerEmail||"").trim().toLowerCase();
+  const who=String(sessionEmail||"").trim().toLowerCase();
+  return !!(who&&owner&&owner===who);
+}
+/* The flyer link has to be THIS draft's page. A slug recorded for a different
+   build (or the account's older primary page) is not this draft's link. */
+function flyerUrlForDraft(siteUrl, draftCode, slugOwners, legacyCode, primarySlug){
+  const raw=String(siteUrl||"").trim();
+  if(!raw)return "";
+  const seg=raw.replace(/[?#].*$/,"").replace(/\/+$/,"").split("/").filter(Boolean).pop()||"";
+  const slug=seg.trim().toLowerCase();
+  if(!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug))return "";
+  const code=String(draftCode||"").trim();
+  const owners=slugOwners&&typeof slugOwners==="object"?slugOwners:{};
+  const claimed=String(owners[slug]||"").trim();
+  if(claimed)return claimed===code?raw:"";
+  const primary=String(primarySlug||"").trim().toLowerCase();
+  const legacy=String(legacyCode||"").trim();
+  if(legacy&&primary&&slug===primary&&legacy!==code)return "";
+  return raw;
+}
+function hydrateDraft(savedRaw){
+  S=Object.assign(defaults(),savedRaw||{});
+  if(blankLawnDefault(savedRaw))S.type=seasonDefaultType();
+  if(!RIGS[S.palette])S.palette="ember";
+  if(!PRESETS[S.type])S.type="lawn";
+  fixSvcRows();
+  if(!S.svcEdited)S.services=starterServices(undefined, S.lvlApplied||1);
+  const repairedPetPrices=repairPetPriceCaps(S);
+  if(repairedPetPrices){const note=document.getElementById("priceRepairNote");note.hidden=false;note.textContent="We corrected saved $500 pet-service prices to the starter amounts. Review each price before sharing.";}
+  if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
+    const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
+    S.sched=[0,1,2,3,4,5,6].map(i=>Object.assign({on:untouched?false:!!(S.days&&S.days[i])},defHours(i)));
+    if((S.hours||"")===DEF_HOURS)S.hours="";
+  }
+  S.days=S.sched.map(x=>!!x.on);
+  if(!Array.isArray(S.proof))S.proof=[];
+  if(!Array.isArray(S.reviews))S.reviews=[];
+}
 let S=defaults();
 let savedRaw=null;
-try{const r=localStorage.getItem(LS); if(r){savedRaw=JSON.parse(r);S=Object.assign(defaults(),savedRaw);}}catch(e){}
-if(blankLawnDefault(savedRaw))S.type=seasonDefaultType();
-if(!RIGS[S.palette])S.palette="ember";
-if(!PRESETS[S.type])S.type="lawn";
-fixSvcRows();
-if(!S.svcEdited)S.services=starterServices(undefined, S.lvlApplied||1);
-const repairedPetPrices=repairPetPriceCaps(S);
-if(repairedPetPrices){const note=document.getElementById("priceRepairNote");note.hidden=false;note.textContent="We corrected saved $500 pet-service prices to the starter amounts. Review each price before sharing.";}
-if(savedRaw&&!Array.isArray(savedRaw.sched)||!Array.isArray(S.sched)||S.sched.length!==7){
-  const untouched=Array.isArray(S.days)&&S.days.length===7&&S.days.every(Boolean)&&(S.hours||"")===DEF_HOURS;
-  S.sched=[0,1,2,3,4,5,6].map(i=>Object.assign({on:untouched?false:!!(S.days&&S.days[i])},defHours(i)));
-  if((S.hours||"")===DEF_HOURS)S.hours="";
-}
-S.days=S.sched.map(x=>!!x.on);
-if(!Array.isArray(S.proof))S.proof=[];
-if(!Array.isArray(S.reviews))S.reviews=[];
+let draftOwner="";
+let sessionEmail="";
+let draftDirty=false;
+try{const r=localStorage.getItem(LS); if(r)savedRaw=JSON.parse(r);}catch(e){}
+try{draftOwner=localStorage.getItem("hb-draft-owner")||"";}catch(e){}
+hydrateDraft(null);
 function save(){
   const status=document.getElementById("saveState");
-  try{localStorage.setItem(LS,JSON.stringify(S));if(status){status.hidden=true;status.textContent="";}return true;}
+  draftDirty=true;
+  try{
+    localStorage.setItem(LS,JSON.stringify(S));
+    if(typeof sessionEmail!=="undefined"&&sessionEmail)localStorage.setItem("hb-draft-owner", sessionEmail);
+    else if(localStorage.removeItem)localStorage.removeItem("hb-draft-owner");
+    if(status){status.hidden=true;status.textContent="";}
+    return true;
+  }
   catch(e){if(status){status.hidden=false;status.textContent="This device could not save your changes. Keep this page open and use Back up or load my business before leaving.";}return false;}
 }
 
@@ -3143,7 +3180,8 @@ const BK="hustle-boss-v1";
 let storageOK=true;
 function freshBoss(){return {goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};}
 let B=freshBoss();
-try{const r=localStorage.getItem(BK); if(r){B=Object.assign(B,JSON.parse(r));} localStorage.setItem("hb-test","1");localStorage.removeItem("hb-test");}catch(e){storageOK=false;}
+let savedBoss=null;
+try{const r=localStorage.getItem(BK); if(r)savedBoss=JSON.parse(r); localStorage.setItem("hb-test","1");localStorage.removeItem("hb-test");}catch(e){storageOK=false;}
 if(!Array.isArray(B.upcoming))B.upcoming=[];
 if(!B.missions)B.missions={};if(!B.mdone)B.mdone={};if(!B.mweeks)B.mweeks={};
 function saveB(){try{localStorage.setItem(BK,JSON.stringify(B));}catch(e){storageOK=false;}}
@@ -4002,7 +4040,8 @@ function drawFlyer(ctx,c){
 }
 
 function flyerCfg(){
-  const c=resolve(true), url=normUrl(S.siteUrl);
+  const linked=typeof flyerUrlForDraft==="function"?flyerUrlForDraft(S.siteUrl, typeof currentDraftCode==="function"?currentDraftCode():"", typeof siteDraftsLoad==="function"?siteDraftsLoad():{}, typeof legacySiteDraft==="function"?legacySiteDraft():"", (typeof pubSession==="function"&&pubSession()&&pubSession().slug)||""):S.siteUrl;
+  const c=resolve(true), url=normUrl(linked);
   let qrText="",urlText="",ok=false,why="";
   if(S.flyerQr==="sms"){
     const flyerPhone=String(S.phone||"").replace(/[^\d+]/g,"");
@@ -5010,9 +5049,10 @@ async function suggestSlug(){
 }
 function showPublished(url){
   const wrap=$("#pubUrlWrap"), a=$("#pubUrl");
-  if(url&&wrap&&a){wrap.hidden=false; a.href=url; a.textContent=url;}
+  const owned=flyerUrlForDraft(url, currentDraftCode(), siteDraftsLoad(), legacySiteDraft(), (pubSession()&&pubSession().slug)||"");
+  if(owned&&wrap&&a){wrap.hidden=false; a.href=owned; a.textContent=owned;}
   else if(wrap)wrap.hidden=true;
-  if(url){setSiteUrl(url);$("#afterPublish").open=true;$("#parentHere").open=true;}
+  if(owned){setSiteUrl(owned);$("#afterPublish").open=true;$("#parentHere").open=true;}
   const manage=$("#pubManage"); if(manage)manage.hidden=!url;
   const addr=$("#webAddress"); if(addr)addr.hidden=!url;
   const ready=$("#pubReady"); if(ready&&url)ready.hidden=false;
@@ -5065,12 +5105,14 @@ function applyPublishState(me){
   const own=ownSlug();
   const slugEl=$("#pubSlug"), go=$("#pubGo"), note=$("#familyNote");
   applyPlanChrome(me);
-  if(own&&owned.includes(own)){
+  const linkOk=flyerUrlForDraft(S.siteUrl, currentDraftCode(), siteDraftsLoad(), legacySiteDraft(), (pubSession()&&pubSession().slug)||"");
+  if(own&&owned.includes(own)&&linkOk){
     if(slugEl){slugEl.value=own; slugEl.readOnly=true;}
     if(note)note.hidden=true;
     showPublished((origin||"")+"/"+own);
     return;
   }
+  if((S.siteUrl||"")&&!linkOk){S.siteUrl=""; syncLiveUrlFields(); if(slugEl)slugEl.value="";}
   if(slugEl)slugEl.readOnly=false;
   if(!(me&&me.consent)){
     if(go){go.hidden=false; go.className="btn ghost block"; go.textContent="Start the free 14-day trial with a 50¢ refunded check";}
@@ -5103,6 +5145,41 @@ function publishExtras(slug){
     tz:(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})()
   };
 }
+function clearDeviceDraft(){
+  const keys=[LS,"hb-draft-owner","hb-draft","hb-draft-code","hb-job-code","hb-local-drafts","hb-builds","hb-publish-pending",BK];
+  try{
+    keys.forEach(k=>localStorage.removeItem(k));
+    for(let i=localStorage.length-1;i>=0;i--){
+      const k=localStorage.key(i);
+      if(k&&k.indexOf("hb-boss-")===0)localStorage.removeItem(k);
+    }
+  }catch(e){}
+  savedRaw=null; savedBoss=null; draftOwner="";
+}
+function resetBuilderToStock(){
+  hydrateDraft(null);
+  B=freshBoss();
+  if(typeof paintCurrentBuild==="function")paintCurrentBuild();
+}
+function restoreOwnedDraft(){
+  if(draftDirty)return;
+  if(draftBelongsTo(draftOwner, sessionEmail)&&savedRaw&&typeof savedRaw==="object"){
+    hydrateDraft(savedRaw);
+    if(String(S.siteUrl||"").trim()&&!flyerUrlForDraft(S.siteUrl, currentDraftCode(), siteDraftsLoad(), legacySiteDraft(), (pubSession()&&pubSession().slug)||""))S.siteUrl="";
+    if(savedBoss&&typeof savedBoss==="object"){
+      B=Object.assign(freshBoss(), savedBoss);
+      if(!Array.isArray(B.jobs))B.jobs=[];
+      if(!Array.isArray(B.costs))B.costs=[];
+      if(!Array.isArray(B.upcoming))B.upcoming=[];
+      if(!B.missions)B.missions={};
+      if(!B.mdone)B.mdone={};
+      if(!B.mweeks)B.mweeks={};
+    }
+    if(typeof paintCurrentBuild==="function")paintCurrentBuild();
+    return;
+  }
+  clearDeviceDraft();
+}
 async function initPublish(){
   pubPlans();
   const origin=publishOrigin();
@@ -5111,10 +5188,14 @@ async function initPublish(){
   if(!origin){pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
   /* Signed-in state comes from the server now: the HttpOnly cookie (or a
      remembered token) answers /api/me, so a parent with no local cache is
-     still recognised, and a stale cache alone is not enough. */
+     still recognised, and a stale cache alone is not enough. A draft on
+     this device is shown only when it belongs to that parent. */
   let me=null;
   try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){ return; }
-  if(!me.ok){pubSaveSession(null); return;}
+  if(!me.ok){pubSaveSession(null); sessionEmail=""; if(!draftDirty)restoreOwnedDraft(); return;}
+  sessionEmail=String(me.email||"").trim().toLowerCase();
+  if(draftDirty){try{localStorage.setItem("hb-draft-owner", sessionEmail); localStorage.setItem(LS, JSON.stringify(S));}catch(e){}}
+  else restoreOwnedDraft();
   showHosting(me);
   pubSaveSession({email:me.email||"", slug:me.slug||""});
   if($("#pubEmail"))$("#pubEmail").value=me.email||"";
@@ -5145,7 +5226,9 @@ $("#pubVerify").onclick=async()=>{
     const data=await pubApi("/api/auth/verify", {body:{email:$("#pubEmail").value.trim(), code:$("#pubCode").value.trim()}});
     if(!data.ok){pubErr("That code did not work. Send a new one."); return;}
     pubMemToken=data.token||"";
+    sessionEmail=String(data.email||"").trim().toLowerCase();
     pubSaveSession({email:data.email, slug:data.slug||""});
+    try{localStorage.setItem("hb-draft-owner", sessionEmail); localStorage.setItem(LS, JSON.stringify(S));}catch(e){}
     showParentVerified(data);
     applyPublishState(data);
     const verified=$("#pubVerified"); if(verified)verified.scrollIntoView({block:"center"});
@@ -5261,7 +5344,8 @@ async function pubPush(){
     if(!probe||!probe.ok){pubErr("Verify the parent’s email first."); return;}
     session.email=probe.email||""; session.slug=probe.slug||session.slug||"";
   }
-  const slug=($("#pubSlug").value||session.slug||"").trim().toLowerCase();
+  const slug=($("#pubSlug").value||"").trim().toLowerCase();
+  if(!slug){pubErr("Pick a link name for this page first."); return;}
   const familyNote=$("#familyNote");
   if(familyNote&&!familyNote.hidden&&!($("#pubSlug").value||"").trim()){pubErr("Pick a link name for this page first."); return;}
   try{
@@ -5445,6 +5529,10 @@ if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen
 const acctOutBtn=$("#acctSignOut");
 if(acctOutBtn)acctOutBtn.onclick=async()=>{
   await pubSignOut();
+  sessionEmail="";
+  draftDirty=false;
+  clearDeviceDraft();
+  resetBuilderToStock();
   clearParentVerified();
   const ready=$("#pubReady"); if(ready)ready.hidden=true;
   const manage=$("#pubManage"); if(manage)manage.hidden=true;
@@ -5539,6 +5627,10 @@ $("#pubDelete").onclick=async()=>{
   if(!data.ok){pubErr("Could not delete the account."); return;}
   pubMemToken="";
   pubSaveSession(null);
+  sessionEmail="";
+  draftDirty=false;
+  clearDeviceDraft();
+  resetBuilderToStock();
   clearParentVerified();
   $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
   const calBox=$("#calBox"); if(calBox)calBox.hidden=true;
@@ -5563,7 +5655,7 @@ function draftPayload(){
   return d;
 }
 let draftTimer=0;
-function scheduleDraft(){if(!publishOrigin()||!consentOn())return;clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,1200);}
+function scheduleDraft(){if(!publishOrigin()||!consentOn()||!draftDirty)return;clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,1200);}
 function showOffline(on){const note=$("#offlineNote"); if(note)note.hidden=!on;}
 window.addEventListener("offline", ()=>showOffline(true));
 window.addEventListener("online", ()=>{showOffline(false); scheduleDraft();});
@@ -5777,7 +5869,7 @@ if(otherBtn)otherBtn.onclick=async()=>{
     if(!data.ok){if(st)st.textContent="Could not save. Try again.";return;}
     localStorage.setItem("hb-draft",data.code);
     if(st)st.textContent="Saved. Use this code on the other device.";
-    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, open the link. Or type the code here later.</p><p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
+    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, sign in with the same parent email, then open the link. Or type the code here later.</p><p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
     const codeEl=mbody.querySelector("#draftCode"); if(codeEl)codeEl.textContent=data.code;
     const linkEl=mbody.querySelector("#draftLink"); if(linkEl)linkEl.textContent=data.link;
     drawQr(mbody.querySelector("#draftQr"), data.link);
