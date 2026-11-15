@@ -1936,7 +1936,9 @@ test("each business type preloads starter jobs", async () => {
   assert.equal(prep.find((job) => job.n === "Yard cleanup, small").p, "15");
   assert.equal(prep.find((job) => job.n === "Yard cleanup, medium").p, "25");
   assert.equal(prep.find((job) => job.n === "Yard cleanup, large").p, "40");
-  assert.ok(prep.some((job) => job.n === "Gutter leaves, from the ground"));
+  assert.equal(prep.some((job) => /gutter/i.test(job.n)), false);
+  assert.ok(prep.some((job) => job.n === "Clear dead plants"));
+  assert.ok(prep.some((job) => job.n === "Cover outdoor faucets"));
   assert.equal(prep.some((job) => job.n === "Shovel walks and driveway"), false);
   assert.equal(starterServices("lawn", 1)[0].p, "10");
   assert.equal(starterServices("lawn", 5)[0].p, "15"); // softened curve (Steven, 2026-11-07): L5 = base x1.48
@@ -3104,13 +3106,15 @@ test("pilot fixes: small animal has real art like the other pets", async () => {
 test("yard cleanup and winter prep is a bookable job with hand-tool safety", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /\{id:"prep",name:"Winter prep"/);
-  assert.match(src, /No ladders, roofs, or power trimmers without an adult\. Hand tools only, or a parent's OK\./);
+  assert.match(src, /Hand tools only, rakes and clippers\./);
+  assert.equal(/gutter/i.test(src), false);
+  assert.equal(/ladder/i.test(src), false);
   assert.match(src, /flyerStyle:"ink"/);
   const { genSite } = extractBuilderParts(src);
   const html = genSite(demoCfg({
     type: "prep",
     biz: "Taylor's Yard Cleanup",
-    tagline: "Hand tools only. No ladders or roofs.",
+    tagline: "Hand tools only, rakes and clippers.",
     services: [
       { n: "Yard cleanup, small", p: "15" },
       { n: "Yard cleanup, medium", p: "25" },
@@ -3124,7 +3128,8 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
   assert.match(html, />\$25</);
   assert.match(html, />\$40</);
   assert.match(html, /id="prepsafe"/);
-  assert.match(html, /Gutter leaves are cleared from the ground only/);
+  assert.match(html, /Hand tools only, rakes and clippers/);
+  assert.equal(/gutter|ladder/i.test(html), false);
   assert.match(html, /Every snowfall this winter/);
   const { token, email } = await parent("prep@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });

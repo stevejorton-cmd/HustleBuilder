@@ -40,7 +40,7 @@ test("fall leads with yard cleanup and snow is second", () => {
   assert.equal(fall.picker.join(","), "prep,lawn,pet,snow,both");
   assert.equal(fall.picker[0], "prep");
   assert.equal(fall.prepCard.name, "Yard cleanup");
-  assert.equal(fall.prepCard.blurb, "Leaves. Gutters. Garden cleanup.");
+  assert.equal(fall.prepCard.blurb, "Leaf raking. Dead plant cleanup.");
   assert.equal(fall.prepCard.blurb.toLowerCase().includes("snow"), false);
   assert.match(fall.prepCard.img, /prep\.webp/);
   assert.equal(fall.parentsBiz, "Sam's Yard Cleanup");

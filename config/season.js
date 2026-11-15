@@ -24,7 +24,7 @@ const SEASON_PACKS = {
   fall: {
     defaultType: "prep",
     picker: ["prep", "lawn", "pet", "snow", "both"],
-    prepCard: { name: "Yard cleanup", blurb: "Leaves. Gutters. Garden cleanup.", img: "assets/jobs/prep.webp" },
+    prepCard: { name: "Yard cleanup", blurb: "Leaf raking. Dead plant cleanup.", img: "assets/jobs/prep.webp" },
     parentsBiz: "Sam's Yard Cleanup",
     parentsTown: "Elkhorn",
     rates: [{ n: "Yard cleanup, small", p: "15" }, { n: "Leaf raking", p: "15" }],
