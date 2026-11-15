@@ -70,6 +70,7 @@ test('readiness: signup, consent, publish, duplicate booking, confirm and parent
   await storage.put(accountKey,JSON.stringify(account));
   assert.match((await call('GET','/api/site/test-yard')).body,/Taking a break/);
   assert.equal((await json('GET','/api/me',undefined,token)).exportAllowed,false);
+  await json('GET','/api/cron/renewals',undefined,'test-admin-secret');
   assert.equal((await inbox(neighbor)).length,customerMailBeforeTrialChange,'Family trial expiry must not cancel or email a customer booking');
   await json('POST','/api/checkout',{plan:'year'},token);
   assert.match((await call('GET','/api/site/test-yard')).body,/<h1>Alex<\/h1>/);
