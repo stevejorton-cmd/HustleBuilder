@@ -172,3 +172,12 @@ export function hidePhone(html,phone) {
     return part.replace(pattern,'');
   });
 }
+
+// Apply current platform branding on read, including pages published before the
+// slash logo launched. Do not rewrite the saved business content or custom icons.
+export function withSiteFavicon(html) {
+  const out = String(html || "");
+  if (/<link\b[^>]*\brel\s*=\s*["'](?:shortcut\s+)?icon["']/i.test(out)) return out;
+  const tag = '<link rel="icon" href="/favicon.svg?v=hustle-slashes-1" type="image/svg+xml" sizes="any">';
+  return /<\/head\s*>/i.test(out) ? out.replace(/<\/head\s*>/i, () => tag + "</head>") : tag + out;
+}

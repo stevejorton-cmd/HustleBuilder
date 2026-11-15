@@ -3759,3 +3759,38 @@ test("the home page can be shared and search engines can find the public pages",
   assert.equal(touch.status, 200);
   assert.match(touch.headers["content-type"], /png/);
 });
+
+test("created sites use the current slash favicon without rewriting saved family pages", async () => {
+  const { token } = await parent("favicon@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const publish = await call("POST", "/api/publish", { token, body: { slug: "family-logo", html: page("Before the Freeze") } });
+  assert.equal(publish.status, 200);
+  // An already-published page has no explicit icon and used the old /favicon.ico.
+  const before = await (await store()).get("pages/family-logo.html");
+  assert.doesNotMatch(before, /rel="icon"/);
+  for (let i = 0; i < 2; i++) {
+    const live = await call("GET", "/api/site/family-logo");
+    assert.equal(live.status, 200);
+    assert.match(live.body, /<title>Before the Freeze<\/title>/);
+    assert.match(live.body, /<h1>Before the Freeze<\/h1>/);
+    assert.match(live.body, /href="\/favicon.svg\?v=hustle-slashes-1"/);
+    assert.equal((live.body.match(/rel="icon"/g) || []).length, 1);
+  }
+  assert.equal(await (await store()).get("pages/family-logo.html"), before);
+  const icon = await call("GET", "/favicon.svg?v=hustle-slashes-1");
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers["content-type"], "image/svg+xml");
+  assert.equal(icon.body, await readFile(new URL("../favicon.svg", import.meta.url), "utf8"));
+  assert.equal((await call("GET", "/api/site/favicon.svg")).body, icon.body);
+  const source = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(source, /<title>\$\{esc\(c.biz\)\}[\s\S]*?<link rel="icon" href="https:\/\/hustlebuilder.org\/favicon.svg\?v=hustle-slashes-1"/);
+  // Freshly generated pages already carry the icon. A custom family icon is retained too.
+  const fresh = page("Fresh").replace("</head>", '<link rel="icon" href="https://hustlebuilder.org/favicon.svg?v=hustle-slashes-1"></head>');
+  const custom = page("Custom").replace("</head>", '<link rel="icon" href="data:image/png;base64,family"></head>');
+  for (const [slug, markup] of [["fresh-logo", fresh], ["custom-logo", custom]]) {
+    assert.equal((await call("POST", "/api/publish", { token, body: { slug, html: markup } })).status, 200);
+    const served = await call("GET", "/api/site/" + slug);
+    assert.equal((served.body.match(/rel="icon"/g) || []).length, 1);
+    assert.ok(served.body.includes(markup.match(/<link[^>]+>/)[0]));
+  }
+});
