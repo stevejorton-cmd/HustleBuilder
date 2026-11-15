@@ -11,7 +11,7 @@ import { resendBody } from "../host/lib/mail.mjs";
 import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { decodeContactObfuscation, familyVenmo, hidePhone, kidOwned, stripParentContact } from "../host/lib/preview.mjs";
 import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
-import { heroFitPx } from "../host/lib/hero.mjs";
+import { heroFitPx, heroFitSize } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
@@ -1716,11 +1716,25 @@ test("a long hero word scales down so it fits a phone, and hyphenation is only t
   assert.equal(heroFitPx("Sam's Lawn Co.", 346), 84);
   assert.ok(heroFitPx("Taylor\u2019s Yard Cleanup", 220) < heroFitPx("Taylor Yard", 220), "a curly apostrophe stays in the word so the S is counted");
   assert.equal(heroFitPx("N".repeat(80), 346), 15);
+  // HANDSOME is the same letter count as HENLEE'S but much wider. Fit uses measured width.
+  const handsome = heroFitSize((size) => Math.max(8 * size * 0.50, 8 * size * 0.72), 306);
+  assert.ok(handsome <= 53, "wide word must shrink, got " + handsome);
+  assert.ok(handsome >= 52);
+  assert.equal(heroFitSize(() => 10, 306), 84);
+  assert.equal(heroFitSize(() => 9999, 306), 15);
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /function heroFitPx\(name, boxPx\)/);
   assert.match(src, /function fitHero\(\)/);
+  assert.match(src, /function widest\(size\)/);
+  assert.match(src, /for\(var i=0;i<words\.length;i\+\+\)/);
   assert.match(src, /\.hero h1\{[^}]*overflow-wrap:normal;word-break:normal;hyphens:manual/);
   assert.match(src, /hyphens","auto"/);
+  assert.match(src, /for\(let size=minS-1;size>=8;size--\)/);
+  const { breakWideWords } = extractNamedFns(src, ["breakWideWords"]);
+  const thirty = "A".repeat(30);
+  const parts = breakWideWords({ measureText:(t)=>({width:String(t).length * 20}) }, thirty, 100).split(" ");
+  assert.ok(parts.length > 1);
+  assert.equal(parts.every((part) => part.length * 20 <= 100), true);
 });
 
 test("an unpaid checkout does not start the trial clock", async () => {

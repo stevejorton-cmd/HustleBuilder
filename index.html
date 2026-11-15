@@ -1670,24 +1670,24 @@ function siteMain(){
     var width=box?box.clientWidth-parseFloat(boxCss.paddingLeft||0)-parseFloat(boxCss.paddingRight||0):0;
     if(!width)return;
     var words=String(h1.textContent||"").toUpperCase().split(/[^A-Z0-9&'\u2019\u2018]+/).filter(Boolean);
-    var longest=words.reduce(function(a,b){return a.length>=b.length?a:b;},"")||"X";
+    if(!words.length)words=["X"];
     var probe=document.getElementById("hb-hero-probe");
     if(!probe){probe=document.createElement("span");probe.id="hb-hero-probe";probe.setAttribute("aria-hidden","true");probe.style.cssText="position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;pointer-events:none;";document.body.appendChild(probe);}
     var cs=getComputedStyle(h1);
     probe.style.fontFamily=cs.fontFamily;probe.style.fontStyle=cs.fontStyle;probe.style.fontWeight=cs.fontWeight;probe.style.letterSpacing=cs.letterSpacing;probe.style.textTransform="uppercase";
-    probe.textContent=longest;
+    function widest(size){probe.style.fontSize=size+"px";var best=0;for(var i=0;i<words.length;i++){probe.textContent=words[i];var w=probe.getBoundingClientRect().width;if(w>best)best=w;}return best;}
     var min=15,max=84,lo=min,hi=max,best=min,mid;
-    while(lo<=hi){mid=(lo+hi)>>1;probe.style.fontSize=mid+"px";if(probe.getBoundingClientRect().width<=width){best=mid;lo=mid+1;}else hi=mid-1;}
+    while(lo<=hi){mid=(lo+hi)>>1;if(widest(mid)<=width){best=mid;lo=mid+1;}else hi=mid-1;}
     h1.style.setProperty("font-size",best+"px","important");
     h1.style.setProperty("overflow-wrap","normal","important");
     h1.style.setProperty("word-break","normal","important");
     h1.style.setProperty("hyphens","manual","important");
-    probe.style.fontSize=best+"px";
-    if(probe.getBoundingClientRect().width>width+0.5){if(!h1.getAttribute("lang"))h1.setAttribute("lang","en");h1.style.setProperty("hyphens","auto","important");h1.style.setProperty("overflow-wrap","break-word","important");}
+    if(widest(best)>width+0.5){if(!h1.getAttribute("lang"))h1.setAttribute("lang","en");h1.style.setProperty("hyphens","auto","important");h1.style.setProperty("overflow-wrap","break-word","important");}
   }
   fitHero();
   window.addEventListener("resize",fitHero);
   window.addEventListener("load",fitHero);
+  window.addEventListener("beforeprint",fitHero);
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitHero);
 }
 
@@ -2087,7 +2087,7 @@ function heroFitPx(name, boxPx){
   var words=String(name||"").toUpperCase().split(/[^A-Z0-9&'\u2019\u2018]+/).filter(Boolean);
   var longest=words.reduce(function(n,w){return Math.max(n,w.length);},1);
   var box=Math.max(120, Number(boxPx)||346);
-  var size=Math.floor(box/(longest*0.75));
+  var size=Math.floor(box/(longest*0.82));
   if(size<15)return 15;
   if(size>84)return 84;
   return size;
@@ -3776,10 +3776,27 @@ function setPosterFont(id){const m=FONT_META[id];if(!m||id==="workwear"){FFD=FFD
 function pU(t){return DF.caps?String(t).toUpperCase():String(t).toLowerCase().replace(/(^|[\s:-])([a-z])/g,(m,a,b)=>a+b.toUpperCase());}
 function fnt(ctx,w,size,fam,italic){if(fam===FFD&&FFD!==FFD0){w=DF.w;italic=false;}ctx.font=(italic?"italic ":"")+w+" "+size+"px "+fam;}
 function wrapText(ctx,text,maxW){const words=String(text).split(/\s+/).filter(Boolean),lines=[];let cur="";words.forEach(w=>{const t=cur?cur+" "+w:w;if(!cur||ctx.measureText(t).width<=maxW)cur=t;else{lines.push(cur);cur=w;}});if(cur)lines.push(cur);return lines;}
+function breakWideWords(ctx,text,maxW){
+  return String(text||"").split(/\s+/).filter(Boolean).map(word=>{
+    if(ctx.measureText(word).width<=maxW)return word;
+    let parts=[],cur="";
+    for(const ch of word){
+      const next=cur+ch;
+      if(cur&&ctx.measureText(next).width>maxW){parts.push(cur);cur=ch;}
+      else cur=next;
+    }
+    if(cur)parts.push(cur);
+    return parts.join(" ");
+  }).join(" ");
+}
 function headline(ctx,text,maxW,maxLines,maxS,minS,maxH){
   maxH=maxH||9999;
-  for(let size=maxS;size>=minS;size-=4){fnt(ctx,900,size,FFD,true);const lines=wrapText(ctx,String(text).toUpperCase(),maxW);if(lines.length<=maxLines&&lines.length*size*.9<=maxH&&lines.every(l=>ctx.measureText(l).width<=maxW))return {lines,size};}
-  fnt(ctx,900,minS,FFD,true);return {lines:wrapText(ctx,String(text).toUpperCase(),maxW).slice(0,maxLines),size:minS};
+  const raw=String(text||"").toUpperCase();
+  const pack=size=>{fnt(ctx,900,size,FFD,true);const lines=wrapText(ctx,raw,maxW);return {lines,size,wide:lines.some(l=>ctx.measureText(l).width>maxW+0.5)};};
+  for(let size=maxS;size>=minS;size-=4){const p=pack(size);if(!p.wide&&p.lines.length<=maxLines&&p.lines.length*size*.9<=maxH)return {lines:p.lines,size};}
+  for(let size=minS-1;size>=8;size--){const p=pack(size);if(!p.wide)return {lines:p.lines.slice(0,maxLines),size};}
+  fnt(ctx,900,8,FFD,true);
+  return {lines:wrapText(ctx,breakWideWords(ctx,raw,maxW),maxW).slice(0,maxLines),size:8};
 }
 function fitSize(ctx,text,maxW,maxS,minS,w,fam,italic){let s=maxS;for(;s>minS;s-=1){fnt(ctx,w,s,fam,italic);if(ctx.measureText(text).width<=maxW)break;}return s;}
 function hazard(ctx,x,y,w,h,c1,c2){if((c1==="#111111"&&c2==="#FFFFFF")||(c1==="#FFFFFF"&&c2==="#111111")){ctx.fillStyle="#111111";ctx.fillRect(x,y,w,3);return;}ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle=c2;ctx.fillRect(x,y,w,h);ctx.fillStyle=c1;const st=h*1.1;for(let i=-h;i<w+h;i+=st*2){ctx.beginPath();ctx.moveTo(x+i,y+h);ctx.lineTo(x+i+st,y+h);ctx.lineTo(x+i+st+h,y);ctx.lineTo(x+i+h,y);ctx.closePath();ctx.fill();}ctx.restore();}
@@ -4444,8 +4461,11 @@ function pGrit(ctx){let s=7;const r=()=>{s=(s*16807)%2147483647;return s/2147483
 /* text helpers */
 function nameFont(ctx,size,ns){if(ns==="plain")ctx.font="700 "+size+"px "+FFB;else if(FFD!==FFD0)ctx.font=DF.w+" "+size+"px "+FFD;else ctx.font="italic "+(ns==="bold"?800:900)+" "+size+"px "+FFD;}
 function pName(ctx,p,maxW,maxLines,maxS,minS,maxH){const text=(p.nameStyle==="plain"||!DF.caps)?p.biz:p.biz.toUpperCase(),k=p.nameStyle==="plain"?1.08:.9;maxH=maxH||9999;
-  for(let s=maxS;s>=minS;s-=4){nameFont(ctx,s,p.nameStyle);const lines=wrapText(ctx,text,maxW);if(lines.length<=maxLines&&lines.length*s*k<=maxH&&lines.every(l=>ctx.measureText(l).width<=maxW))return {lines,size:s,lh:s*k};}
-  nameFont(ctx,minS,p.nameStyle);return {lines:wrapText(ctx,text,maxW).slice(0,maxLines),size:minS,lh:minS*k};}
+  const pack=s=>{nameFont(ctx,s,p.nameStyle);const lines=wrapText(ctx,text,maxW);return {lines,size:s,lh:s*k,wide:lines.some(l=>ctx.measureText(l).width>maxW+0.5)};};
+  for(let s=maxS;s>=minS;s-=4){const row=pack(s);if(!row.wide&&row.lines.length<=maxLines&&row.lines.length*row.lh<=maxH)return {lines:row.lines,size:s,lh:row.lh};}
+  for(let s=minS-1;s>=8;s--){const row=pack(s);if(!row.wide)return {lines:row.lines.slice(0,maxLines),size:s,lh:s*k};}
+  nameFont(ctx,8,p.nameStyle);
+  return {lines:wrapText(ctx,breakWideWords(ctx,text,maxW),maxW).slice(0,maxLines),size:8,lh:8*k};}
 function pDrawName(ctx,nf,x,y,align,col,p){nameFont(ctx,nf.size,p.nameStyle);ctx.fillStyle=col;ctx.textAlign=align;let yy=y+nf.size*.82;nf.lines.forEach(l=>{ctx.fillText(l,x,yy);yy+=nf.lh;});ctx.textAlign="left";return y+nf.lines.length*nf.lh+nf.size*.06;}
 function pLabel(ctx,p,x,y,col,size,align){ctx.save();ctx.fillStyle=col;ctx.textAlign=align||"left";fnt(ctx,900,size,FFD,true);try{ctx.letterSpacing=Math.round(size*.1)+"px";}catch(e){}ctx.fillText(DF.caps?p.headText.toUpperCase():p.headText,x,y);ctx.restore();}
 function pTag(ctx,p,x,y,maxW,col,size,align){if(!p.tag)return y;ctx.save();ctx.fillStyle=col;ctx.textAlign=align||"left";fnt(ctx,500,size,FFB,false);const ls=wrapText(ctx,p.tagline,maxW).slice(0,2);ls.forEach((l,i)=>ctx.fillText(l,x,y+size+i*size*1.3));ctx.restore();return y+ls.length*size*1.3+size*.35;}
