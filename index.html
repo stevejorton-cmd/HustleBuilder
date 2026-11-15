@@ -5161,6 +5161,14 @@ function resetBuilderToStock(){
   B=freshBoss();
   if(typeof paintCurrentBuild==="function")paintCurrentBuild();
 }
+function forgetUnownedDraft(){
+  if(draftBelongsTo(draftOwner, sessionEmail))return;
+  try{
+    ["hb-draft","hb-draft-code","hb-job-code","hb-local-drafts","hb-builds"].forEach(k=>localStorage.removeItem(k));
+    if(!sessionEmail&&localStorage.removeItem)localStorage.removeItem("hb-draft-owner");
+  }catch(e){}
+  draftOwner="";
+}
 function restoreOwnedDraft(){
   if(draftDirty)return;
   if(draftBelongsTo(draftOwner, sessionEmail)&&savedRaw&&typeof savedRaw==="object"){
@@ -5192,8 +5200,9 @@ async function initPublish(){
      this device is shown only when it belongs to that parent. */
   let me=null;
   try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){ return; }
-  if(!me.ok){pubSaveSession(null); sessionEmail=""; if(!draftDirty)restoreOwnedDraft(); return;}
+  if(!me.ok){pubSaveSession(null); sessionEmail=""; forgetUnownedDraft(); if(!draftDirty)restoreOwnedDraft(); return;}
   sessionEmail=String(me.email||"").trim().toLowerCase();
+  forgetUnownedDraft();
   if(draftDirty){try{localStorage.setItem("hb-draft-owner", sessionEmail); localStorage.setItem(LS, JSON.stringify(S));}catch(e){}}
   else restoreOwnedDraft();
   showHosting(me);
