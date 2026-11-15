@@ -3711,7 +3711,7 @@ async function remindAccount(id, origin, dry, due) {
 
 // The daily job, resumable. It walks the tracked accounts in id order within
 // a time budget and records how far it got; if it runs out of time, the
-// five-minute mail cron picks it up from there until the day's pass is done.
+// ten-minute mail cron picks it up from there until the day's pass is done.
 // Reminders are keyed per account and window, so repeating a step is harmless.
 const CRON_STATE = "cronstate/renewals.json";
 export async function runRenewals({ origin, dry, budgetMs, resume }) {
