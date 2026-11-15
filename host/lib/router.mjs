@@ -635,6 +635,109 @@ function grantPlan(account, planId) {
   return { prev, addedMs: Math.max(0, Date.parse(account.paidUntil) - base.getTime()) };
 }
 
+// Playtester code. One season plan, free, no card. 25 families total, one
+// each, and it stops at 23:59 America/Chicago on December 31, 2026. After
+// the season end the account is an ordinary account again. Nothing renews.
+export const PLAYTEST_CODE = "FAMILYTEST";
+export const PLAYTEST_MAX = 25;
+export function chicagoWallMs(year, month, day, hour, minute) {
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date(utcGuess)).filter((p) => p.type !== "literal").map((p) => [p.type, p.value]));
+  const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+  return utcGuess - (asUtc - utcGuess);
+}
+export function playtestExpiresAt() {
+  return chicagoWallMs(2026, 12, 31, 23, 59);
+}
+function playtestKey() {
+  return "playtests/" + PLAYTEST_CODE + ".json";
+}
+function playtestRows(rec) {
+  return rec && Array.isArray(rec.redemptions) ? rec.redemptions.filter((row) => row && typeof row === "object") : [];
+}
+function playtestUsedCount(rec) {
+  return playtestRows(rec).filter((row) => !row.voided).length;
+}
+function normalizePlaytestCode(raw) {
+  return String(raw || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+const PLAYTEST_MESSAGES = {
+  code: "That code is not a playtester code.",
+  expired: "That playtester code expired on December 31, 2026.",
+  used: "That playtester code has been used 25 times.",
+  already: "This account already used a playtester code.",
+  consent: "Check the box: you are the parent or guardian and you run this page with your kid.",
+  auth: "Verify the parent email first.",
+  plan: "This account already has a plan. A playtester code is not needed."
+};
+async function releasePlaytest(account) {
+  if (!account || (!account.playtestCode && !account.email)) return;
+  await transaction(async () => {
+    const rec = await readJson(playtestKey());
+    if (!rec) return;
+    const emailHash = sha(account.email || "");
+    let changed = false;
+    for (const row of playtestRows(rec)) {
+      if (!row.voided && (row.accountId === account.id || (emailHash && row.emailHash === emailHash))) {
+        row.voided = true;
+        row.voidedAt = new Date().toISOString();
+        changed = true;
+      }
+    }
+    if (changed) await writeJson(playtestKey(), rec);
+  }, { keys: ["playtest:" + PLAYTEST_CODE] });
+}
+async function redeemPlaytest(account, rawCode, now = Date.now()) {
+  const code = normalizePlaytestCode(rawCode);
+  if (code !== PLAYTEST_CODE) return { ok: false, error: "code", message: PLAYTEST_MESSAGES.code };
+  if (now >= playtestExpiresAt()) return { ok: false, error: "expired", message: PLAYTEST_MESSAGES.expired };
+  if (!account || !account.emailVerifiedAt) return { ok: false, error: "auth", message: PLAYTEST_MESSAGES.auth };
+  return transaction(async () => {
+    const rec = (await readJson(playtestKey())) || { code: PLAYTEST_CODE, redemptions: [] };
+    if (!Array.isArray(rec.redemptions)) rec.redemptions = [];
+    const fresh = await readJson("accounts/" + account.id + ".json");
+    if (!fresh || !fresh.emailVerifiedAt) return { ok: false, error: "auth", message: PLAYTEST_MESSAGES.auth };
+    const emailHash = sha(fresh.email);
+    if (fresh.playtestCode || rec.redemptions.some((row) => row && (row.accountId === fresh.id || row.emailHash === emailHash))) {
+      return { ok: false, error: "already", message: PLAYTEST_MESSAGES.already };
+    }
+    if (comped(fresh) || paid(fresh)) return { ok: false, error: "plan", message: PLAYTEST_MESSAGES.plan };
+    const used = playtestUsedCount(rec);
+    if (used >= PLAYTEST_MAX) return { ok: false, error: "used", message: PLAYTEST_MESSAGES.used };
+    rec.code = PLAYTEST_CODE;
+    rec.redemptions.push({ accountId: fresh.id, emailHash, at: new Date(now).toISOString() });
+    await writeJson(playtestKey(), rec);
+    grantPlan(fresh, "season");
+    fresh.payMode = "playtest";
+    markPlanConsent(fresh, "");
+    fresh.playtestCode = PLAYTEST_CODE;
+    fresh.playtestAt = new Date(now).toISOString();
+    await saveAccount(fresh);
+    await trackPlan(fresh);
+    const ends = niceDate(fresh.paidUntil);
+    return {
+      ok: true,
+      used: used + 1,
+      max: PLAYTEST_MAX,
+      plan: fresh.plan,
+      planName: fresh.planName,
+      paidUntil: fresh.paidUntil,
+      endsLabel: ends,
+      message: "The season plan is on, free, through " + ends + ". Nothing was charged. It does not renew on its own. After that date this is a normal account."
+    };
+  }, { keys: ["playtest:" + PLAYTEST_CODE, "account:" + account.id] });
+}
+
 // Undo one payment: used when it is refunded or disputed. If it was the most
 // recent payment the account goes back to exactly how it was before it (a
 // trial that still had time resumes; a lapsed plan is lapsed again). If a
@@ -2362,6 +2465,7 @@ async function routeRequest(req) {
       shareStreet: !!account.shareStreet, jobCode: account.jobCode || account.draftCode || "",
       slug: account.slug || "", slugs: slugsOf(account), url: account.slug && base ? base + "/" + account.slug : "", venmo: account.venmo || "", testMode: testMode(),
       payMode: paywallMode(), indexable: !!account.indexable, draftCode: account.draftCode || "",
+      playtest: account.playtestCode === PLAYTEST_CODE,
       ...feedLinks(base, account.calToken)
     }), req.headers && req.headers.origin);
   }
@@ -2665,6 +2769,7 @@ async function routeRequest(req) {
   if (method === "DELETE" && route === "account") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
+    await releasePlaytest(account);
     await eraseRelated(account);
     for (const slug of slugsOf(account)) {
       await (await store()).del("pages/" + slug + ".html");
@@ -2817,6 +2922,22 @@ async function routeRequest(req) {
         { id: "year", price: PLANS.year.label, amount: PLANS.year.amount, name: year.name, ends: year.end, endsLabel: niceDate(year.end), includes: year.includes }
       ]
     }), req.headers && req.headers.origin);
+  }
+
+  if (method === "GET" && route === "playtest") {
+    const account = await me();
+    if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth", message: PLAYTEST_MESSAGES.auth }), req.headers && req.headers.origin);
+    const rec = await readJson(playtestKey());
+    return withCors(json(200, { ok: true, used: playtestUsedCount(rec), max: PLAYTEST_MAX, expires: new Date(playtestExpiresAt()).toISOString() }), req.headers && req.headers.origin);
+  }
+
+  if (method === "POST" && route === "playtest") {
+    const account = await me();
+    if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth", message: PLAYTEST_MESSAGES.auth }), req.headers && req.headers.origin);
+    if (body.consent !== true) return withCors(json(400, { ok: false, error: "consent", message: PLAYTEST_MESSAGES.consent }), req.headers && req.headers.origin);
+    const result = await redeemPlaytest(account, body.code);
+    const status = result.ok ? 200 : result.error === "auth" ? 401 : result.error === "used" ? 409 : 400;
+    return withCors(json(status, result), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "venmo") {

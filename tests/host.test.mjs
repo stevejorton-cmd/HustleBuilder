@@ -8,7 +8,7 @@ import { fileStore, setStore, store } from "../host/lib/store.mjs";
 import { addEventIcs, bookingInviteIcs, chicagoWall, inviteSummary, jobTitle, jobsToIcs } from "../host/lib/calendar.mjs";
 import ICAL from "ical.js";
 import { resendBody } from "../host/lib/mail.mjs";
-import { handleRequest, petOgImage, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
+import { handleRequest, petOgImage, playtestExpiresAt, seasonOffer, stripeSignatureOk, trialLengthDays, TRIAL_DAYS } from "../host/lib/router.mjs";
 import { decodeContactObfuscation, familyVenmo, hidePhone, kidOwned, stripParentContact } from "../host/lib/preview.mjs";
 import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
 import { heroFitPx, heroFitSize } from "../host/lib/hero.mjs";
@@ -1155,6 +1155,81 @@ test("an unfinished ask is deleted after 7 days", async () => {
   await writeFile(file, JSON.stringify(rec));
   await call("GET", "/api/cron/renewals", { headers: { authorization: "Bearer test-admin-secret" } });
   await assert.rejects(() => readFile(file));
+});
+
+test("FAMILYTEST grants one free season, refuses a 26th, and a deleted account does not keep the slot", async () => {
+  assert.equal(new Date(playtestExpiresAt()).toISOString(), "2027-01-01T05:59:00.000Z");
+  async function family(n) {
+    const email = "play" + n + "@example.com";
+    const headers = { "x-forwarded-for": "203.0.113." + n };
+    const start = await json(await call("POST", "/api/auth/start", { body: { email }, headers }));
+    assert.equal(start.body.ok, true, email);
+    const verify = await json(await call("POST", "/api/auth/verify", { body: { email, code: start.body.devCode }, headers }));
+    await call("POST", "/api/consent", { token: verify.body.token, body: { consent: true } });
+    return { email, token: verify.body.token };
+  }
+  const unverified = await json(await call("POST", "/api/playtest", { body: { code: "FAMILYTEST", consent: true } }));
+  assert.equal(unverified.status, 401);
+  const first = await family(1);
+  const noBox = await json(await call("POST", "/api/playtest", { token: first.token, body: { code: "FAMILYTEST", consent: false } }));
+  assert.equal(noBox.status, 400);
+  assert.equal(noBox.body.error, "consent");
+  assert.match(noBox.body.message, /parent or guardian/);
+  const bad = await json(await call("POST", "/api/playtest", { token: first.token, body: { code: "NOPE", consent: true } }));
+  assert.equal(bad.body.error, "code");
+  const lower = await json(await call("POST", "/api/playtest", { token: first.token, body: { code: "familytest", consent: true } }));
+  assert.equal(lower.body.ok, true);
+  assert.equal(lower.body.used, 1);
+  assert.match(lower.body.message, /Nothing was charged/);
+  assert.match(lower.body.message, /does not renew/);
+  const me = await json(await call("GET", "/api/me", { token: first.token }));
+  assert.equal(me.body.playtest, true);
+  assert.equal(me.body.paid, true);
+  assert.equal(me.body.consent, true);
+  assert.equal(me.body.plan, "season");
+  assert.equal(me.body.paidUntil, lower.body.paidUntil);
+  const again = await json(await call("POST", "/api/playtest", { token: first.token, body: { code: "FAMILYTEST", consent: true } }));
+  assert.equal(again.body.error, "already");
+  const people = [first];
+  for (let n = 2; n <= 25; n++) people.push(await family(n));
+  for (let n = 1; n < 25; n++) {
+    const got = await json(await call("POST", "/api/playtest", { token: people[n].token, body: { code: "FAMILYTEST", consent: true } }));
+    assert.equal(got.body.ok, true, "redemption " + (n + 1));
+  }
+  const full = await json(await call("GET", "/api/playtest", { token: first.token }));
+  assert.equal(full.body.used, 25);
+  assert.equal(full.body.max, 25);
+  const extra = await family(26);
+  const denied = await json(await call("POST", "/api/playtest", { token: extra.token, body: { code: "FAMILYTEST", consent: true } }));
+  assert.equal(denied.status, 409);
+  assert.equal(denied.body.error, "used");
+  assert.match(denied.body.message, /25 times/);
+  await call("DELETE", "/api/account", { token: people[24].token });
+  const after = await json(await call("GET", "/api/playtest", { token: first.token }));
+  assert.equal(after.body.used, 24);
+  const reused = await json(await call("POST", "/api/playtest", { token: extra.token, body: { code: "FAMILYTEST", consent: true } }));
+  assert.equal(reused.body.ok, true);
+  assert.equal(reused.body.used, 25);
+  const sameEmail = await json(await call("POST", "/api/auth/start", { body: { email: people[24].email }, headers: { "x-forwarded-for": "198.51.100.24" } }));
+  const sameVerify = await json(await call("POST", "/api/auth/verify", { body: { email: people[24].email, code: sameEmail.body.devCode }, headers: { "x-forwarded-for": "198.51.100.24" } }));
+  const blocked = await json(await call("POST", "/api/playtest", { token: sameVerify.body.token, body: { code: "FAMILYTEST", consent: true } }));
+  assert.equal(blocked.body.error, "already");
+});
+
+test("concurrent FAMILYTEST redemptions stop at 25", async () => {
+  const people = [];
+  for (let n = 1; n <= 30; n++) {
+    const email = "race" + n + "@example.com";
+    const headers = { "x-forwarded-for": "198.51.100." + n };
+    const start = await json(await call("POST", "/api/auth/start", { body: { email }, headers }));
+    const verify = await json(await call("POST", "/api/auth/verify", { body: { email, code: start.body.devCode }, headers }));
+    people.push(verify.body.token);
+  }
+  const results = await Promise.all(people.map(async (token) => json(await call("POST", "/api/playtest", { token, body: { code: "FAMILYTEST", consent: true } }))));
+  assert.equal(results.filter((row) => row.body.ok).length, 25);
+  assert.equal(results.filter((row) => row.body.error === "used").length, 5);
+  const seen = [...new Set(results.filter((row) => row.body.ok).map((row) => row.body.used))].sort((a, b) => a - b);
+  assert.deepEqual(seen, Array.from({ length: 25 }, (_, i) => i + 1));
 });
 
 test("a draft is not stored until a parent consents", async () => {
