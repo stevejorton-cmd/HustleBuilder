@@ -441,7 +441,7 @@ test("a booking invite names the kid and the neighbor, and a cancel removes that
   const html = page("The Lawn Ranger") + "<script>window.__C={\"first\":\"Will\",\"biz\":\"The Lawn Ranger\"};</script>";
   await call("POST", "/api/publish", { token, body: { slug: "will-yard", html } });
   const book = await json(await call("POST", "/api/book", { body: {
-    slug: "will-yard", name: "Riley Stone", contact: "neighbor@example.com", service: "Mow a small yard",
+    slug: "will-yard", name: "Riley Stone", contact: "neighbor@example.com, 402-555-0199", service: "Mow a small yard",
     when: "Sat Nov 21 10:00 AM", address: "12 Private Ln", note: "side gate", start: "2026-11-21T10:00", t: 5000
   } }));
   assert.equal(book.body.ok, true);
@@ -453,7 +453,8 @@ test("a booking invite names the kid and the neighbor, and a cancel removes that
   assert.match(ics, /side gate/);
   assert.match(ics, /Mark confirmed or done: http:\/\/sites\.test\/api\/job\//);
   assert.equal(ics.includes("neighbor@example.com"), false);
-  assert.equal(ics.includes("402"), false);
+  // Random ids may contain "402"; assert the actual customer phone is absent.
+  assert.doesNotMatch(ics, /402[-\s]*555[-\s]*0199/);
   const uid = (ics.match(/UID:(b[a-f0-9]+@hustlebuilder\.org)/) || [])[1];
   assert.ok(uid);
   const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
