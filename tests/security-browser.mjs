@@ -38,6 +38,8 @@ try{
  const cached=await offline.evaluate(async()=>{const urls=[];for(const name of await caches.keys())for(const request of await (await caches.open(name)).keys())urls.push(request.url);return urls;});
  assert.ok(cached.every(url=>!new URL(url).pathname.startsWith('/api/')));results.push({name:'service worker never caches private API responses',pass:true});
  await offline.setOfflineMode(true);await offline.reload({waitUntil:'domcontentloaded'});
+ // Recovery follows the failed identity request, not DOMContentLoaded.
+ await offline.waitForFunction(()=>document.querySelector('input[data-k="first"]').value==='OfflineSam');
  assert.match(await offline.$eval('input[data-k="first"]',el=>el.value),/OfflineSam/);results.push({name:'v4 builder reopens saved progress offline',pass:true});
  await offline.setOfflineMode(false);await offline.close();await anonymousContext.close();
  // Parent-owned work is deliberately not shown without online identity validation.
