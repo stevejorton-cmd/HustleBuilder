@@ -3041,6 +3041,25 @@ async function routeRequest(req) {
         const told = await sendDoneNotice(account, row, origin);
         if (told) row.doneMailedAt = new Date().toISOString();
       }
+      // The parent is cancelling the request, not merely hiding it locally.
+      // Notify an email customer once. Do not forward the private parent
+      // calendar invitation: it can contain access notes and parent details.
+      if (next === "cancelled" && !row.cancelMailedAt) {
+        const neighbor = contactEmail(row.fields && row.fields.contact);
+        if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
+          const job = row.service || "Your booking";
+          const when = row.when ? " for " + row.when : "";
+          const text = job + when + " has been cancelled by the family. This booking will not go ahead.\n\nPlease remove it from your calendar. If you need another time, contact the family or send a new request through their page.";
+          const sent = await sendMail({
+            to: neighbor,
+            replyTo: supportReply(),
+            subject: "Your booking has been cancelled",
+            text,
+            html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(job + when) + " has been cancelled by the family. This booking will not go ahead.</p><p>Please remove it from your calendar. If you need another time, contact the family or send a new request through their page.</p></div>"
+          });
+          if (sent.ok) row.cancelMailedAt = new Date().toISOString();
+        }
+      }
       await saveRequests(account.id, rows);
       if (cancelIcs) await sendMail({
         to: account.email,
@@ -3059,7 +3078,8 @@ async function routeRequest(req) {
 <p>${mailEscape(row.firstName || "Neighbor")} · ${mailEscape(row.when || "")}</p>
 <p>Status: <b id="st">${mailEscape(row.status)}</b></p>
 <p>${mailEscape((row.fields && row.fields.contact) || "")}<br>${mailEscape((row.fields && row.fields.address) || "")}</p>
-<p>Nothing is booked until you reply to the customer. These buttons only update your own list and the kid’s My jobs.</p>
+<p>For requests with a date and customer email, Confirm sends a confirmation. Done sends a completion notice to customers with an email.</p>
+<p>Cancel updates your list and calendar and emails a cancellation to customers with an email. For phone-only requests, contact the customer directly to confirm or cancel.</p>
 <button type="button" id="yes">Confirmed</button>
 <button type="button" id="done">Done</button>
 <button type="button" id="no" class="alt">Cancelled</button>
