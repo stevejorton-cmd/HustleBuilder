@@ -30,7 +30,7 @@ try{
   await p.waitForSelector('#pubEmail');assert.equal(errors.length,0,errors.join('\n'));const width=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));assert.ok(width.scroll<=width.client+2,type+' overflow');results.push({name:'phone builder step sweep: '+type,pass:true});await p.close();
  }
  const anonymousContext=await browser.createBrowserContext();
- const offline=await anonymousContext.newPage();await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
+ const offline=await anonymousContext.newPage();const offlineErrors=[];offline.on('pageerror',e=>offlineErrors.push(String(e)));await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
  await offline.evaluate(()=>navigator.serviceWorker.ready);
  await offline.select('#stepJump','1');await offline.type('input[data-k="first"]','OfflineSam');
  await offline.waitForFunction(()=>Object.keys(localStorage).some(k=>String(localStorage.getItem(k)).includes('OfflineSam')));
@@ -39,7 +39,7 @@ try{
  assert.ok(cached.every(url=>!new URL(url).pathname.startsWith('/api/')));results.push({name:'service worker never caches private API responses',pass:true});
  await offline.setOfflineMode(true);await offline.reload({waitUntil:'domcontentloaded'});
  // Recovery follows the failed identity request, not DOMContentLoaded.
- await offline.waitForFunction(()=>document.querySelector('input[data-k="first"]').value==='OfflineSam');
+ try{await offline.waitForFunction(()=>document.querySelector('input[data-k="first"]').value==='OfflineSam');}catch(error){console.log('offline recovery diagnostic',await offline.evaluate(()=>({online:navigator.onLine,anonymous:typeof anonymousDraft==='undefined'?'undefined':anonymousDraft,saved:typeof savedRaw==='undefined'?'undefined':!!savedRaw,owner:!!localStorage.getItem('hb-draft-owner'),marker:localStorage.getItem('hb-anonymous-draft'),storedFirst:JSON.parse(localStorage.getItem('hustle-builder-v3')||'{}').first,stateFirst:typeof S==='undefined'?'undefined':S.first,input:document.querySelector('input[data-k="first"]').value,status:document.getElementById('saveState').textContent,origin:typeof publishOrigin==='function'?publishOrigin():'undefined'})),offlineErrors);throw error;}
  assert.match(await offline.$eval('input[data-k="first"]',el=>el.value),/OfflineSam/);results.push({name:'v4 builder reopens saved progress offline',pass:true});
  await offline.setOfflineMode(false);await offline.close();await anonymousContext.close();
  // Parent-owned work is deliberately not shown without online identity validation.
