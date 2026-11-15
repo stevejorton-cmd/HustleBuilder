@@ -1317,7 +1317,7 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   const { token, email } = await parent("bookparent@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
-  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "riley-pets", html: page("Riley") } }));
+  const pub = await json(await call("POST", "/api/publish", { token, body: { slug: "riley-pets", html: page("Riley"), phone: "402-555-0100", showPhone: false } }));
   assert.equal(pub.body.ok, true);
   const booked = await json(await call("POST", "/api/book", { body: {
     slug: "riley-pets", name: "Neighbor", contact: "neighbor@example.com", service: "Dog walk",
@@ -1344,7 +1344,8 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   assert.equal(msg.text.includes(email), false);
   assert.match(msg.text, /\/api\/cancel\//);
   assert.equal(msg.text.includes(email), false);
-  assert.equal(msg.text.includes("402"), false);
+  // Capability URLs are random hex and can contain "402"; check the actual phone.
+  assert.doesNotMatch(msg.text, /402[\s().-]*555[\s().-]*0100/);
   assert.equal(msg.replyTo, "support@example.com");
   const cancelPath = msg.text.match(/\/api\/cancel\/[a-f0-9]+/)[0];
   const peek = await call("GET", cancelPath);

@@ -193,3 +193,22 @@ Before real families:
 - Decide with a lawyer whether the parent card charge plus the consent text is enough, or whether you need a signed form or a phone call as well.
 - Read the privacy page at `/privacy` and the terms at `/terms` and replace them if the lawyer wants different words. Both are written in `host/lib/router.mjs` (`privacyPage` and `termsPage`); change `LEGAL_UPDATED` when you edit them. The terms promise a full refund within 14 days of a payment (`REFUND_DAYS`). To give one, sign in at `/admin` and use the Refund link on the family's row. In Stripe, the webhook endpoint must also send `charge.refunded` and `charge.dispute.created` so a refund or dispute made inside Stripe ends the plan here too.
 - Do not collect more than the parent email, the public page, and the calendar jobs described above.
+
+## Background retries and database idle time
+
+`/api/cron/mail` runs every 10 minutes (144 polls/day instead of 288).
+New mail still gets its first delivery attempt immediately after the originating
+request commits. The cron retries durable failed mail and resumes unfinished
+daily renewal passes; the daily renewal schedule remains 14:00 UTC.
+
+A retry that becomes due just after a poll can wait nearly 10 minutes for the
+next poll, plus provider delays or further backoff. Sign-in codes expire after
+20 minutes, so do not lengthen this schedule beyond that window without a
+separate timely retry mechanism. Expired codes are discarded, never sent.
+Renewal continuation batches may also wait up to 10 minutes between runs.
+
+The wider polling gap gives an idle Neon compute an opportunity to suspend.
+It does not guarantee a particular compute saving: normal traffic or other
+jobs can keep it active. After deployment, compare compute active time and
+CU-hours over a representative day and check mail failures/queue backlog.
+Rollback is restoring the mail schedule to `*/5 * * * *`.
