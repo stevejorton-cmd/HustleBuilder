@@ -1233,6 +1233,27 @@ test("concurrent FAMILYTEST redemptions stop at 25", async () => {
   assert.deepEqual(seen, Array.from({ length: 25 }, (_, i) => i + 1));
 });
 
+test("a published trial still shows the playtester code, and fall labels the season card without winter", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { playtestOfferHidden, hostingSeasonLabel } = extractNamedFns(src, ["playtestOfferHidden", "hostingSeasonLabel"]);
+  const planFirst = src.indexOf('id="planFirst"');
+  const planClose = src.indexOf('id="cardCheckNote"');
+  const plans = src.indexOf('id="pubPlans"');
+  const box = src.indexOf('id="playtestBox"');
+  assert.ok(planFirst > 0 && box > planClose && box > plans, "the code field sits with Hosting plan, not only on the first-publish block");
+  assert.equal(src.slice(planFirst, planClose).includes("playtestCode"), false);
+  assert.equal(playtestOfferHidden({ ok: true, paid: false, consent: true, trialDaysLeft: 13 }), false);
+  assert.equal(playtestOfferHidden({ ok: true, paid: false, trialOver: true, consent: true }), false);
+  assert.equal(playtestOfferHidden({ ok: true, paid: true, grace: true }), false);
+  assert.equal(playtestOfferHidden({ ok: true, paid: true, grace: false, playtest: true }), true);
+  assert.equal(playtestOfferHidden({ ok: true, paid: true, grace: false, comp: true }), true);
+  assert.equal(hostingSeasonLabel("Winter season, Nov–Mar", false), "Season, Nov–Mar");
+  assert.equal(hostingSeasonLabel("Winter season, Nov–Mar", true), "Winter season, Nov–Mar");
+  assert.equal(hostingSeasonLabel("Summer season, May–Aug", false), "Summer season, May–Aug");
+  assert.match(src, /hostingSeasonLabel\(it\.name, snowSeason\)/);
+  assert.match(src, /Buy the season, \$9\.99/);
+});
+
 test("a draft is not stored until a parent consents", async () => {
   const denied = await json(await call("POST", "/api/draft", { body: { draft: { type: "wash", first: "Riley", phone: "4025550100", services: [{ n: "Wash the outside", p: "10" }] } } }));
   assert.equal(denied.status, 403);

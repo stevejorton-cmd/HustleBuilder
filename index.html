@@ -1009,9 +1009,6 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
             <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
             <button type="button" class="btn block" id="buySeason">Buy the winter season, $9.99</button>
             <button type="button" class="btn ghost block" id="buyYear">Or a full year, $19.99</button>
-            <label class="field" for="playtestCode"><span>Have a playtester code?</span><input type="text" id="playtestCode" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Code"></label>
-            <button type="button" class="btn ghost block" id="playtestGo">Apply code</button>
-            <p class="status" id="playtestMsg" role="status"></p>
           </div>
           <p class="small2" id="cardCheckNote">Or start the free 14-day trial. We charge 50¢ on a card, Stripe emails a receipt, and we refund it right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
@@ -1022,6 +1019,11 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
           <p class="status" id="graceBanner" hidden></p>
           <div class="mf"><label>Hosting plan</label><div class="chips" id="pubPlans"></div><small class="help2" id="pubPlanHelp">Plans are one-time payments and never renew on their own.</small></div>
           <button type="button" class="btn block" id="pubPay" hidden>Pay for this plan</button>
+          <div id="playtestBox">
+            <label class="field" for="playtestCode"><span>Have a playtester code?</span><input type="text" id="playtestCode" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Code"></label>
+            <button type="button" class="btn ghost block" id="playtestGo">Apply code</button>
+            <p class="status" id="playtestMsg" role="status"></p>
+          </div>
           <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Your first name plus your business name works great, like josie-josies-pet-care. It is harder for strangers to guess than a first name alone.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
@@ -5036,10 +5038,19 @@ function showHosting(me){
 /* An active plan replaces the buy buttons and the free-trial pitch. A page
    that is already live used to return before that hide ran, so Go live kept
    offering "Buy the winter season" after the payment had landed. */
+function playtestOfferHidden(me){
+  return !!(me&&me.ok&&me.paid&&!me.grace);
+}
+function hostingSeasonLabel(name, snow){
+  if(!snow && /^Winter season, Nov/.test(String(name||""))) return "Season, Nov–Mar";
+  return String(name||"");
+}
 function applyPlanChrome(me){
   const active=!!(me&&me.ok&&me.paid&&!me.grace);
   const planFirst=$("#planFirst");
   if(planFirst) planFirst.hidden=active||!!(me&&me.consent);
+  const play=$("#playtestBox");
+  if(play) play.hidden=playtestOfferHidden(me);
   const trial=$("#trialBox");
   if(trial) trial.hidden=active;
   const pitch=$("#launchPitch");
@@ -5111,9 +5122,11 @@ async function pubPlans(){
     if(data.ok&&Array.isArray(data.plans))plans=data.plans;
     const pitch=$("#trialPitch"); if(pitch&&data.free)pitch.textContent=data.free;
   }catch(e){}
+  const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
   plans.forEach((it,i)=>{
     const b=document.createElement("button"); b.type="button"; b.dataset.plan=it.id;
-    b.innerHTML="<b>"+esc(it.name)+" · "+esc(it.price)+"</b><span>"+esc(it.includes)+(it.endsLabel?" Ends "+esc(it.endsLabel)+".":"")+"</span>";
+    const label=it.id==="season"?hostingSeasonLabel(it.name, snowSeason):it.name;
+    b.innerHTML="<b>"+esc(label)+" · "+esc(it.price)+"</b><span>"+esc(it.includes)+(it.endsLabel?" Ends "+esc(it.endsLabel)+".":"")+"</span>";
     b.setAttribute("aria-pressed", String(i===0));
     b.onclick=()=>{box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));};
     box.appendChild(b);
@@ -6182,6 +6195,11 @@ function applySeasonCopy(){
     }catch(e){}
   }
   paintExampleRates();
+  const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
+  const buy=$("#buySeason");
+  const lead=document.querySelector("#planFirst .lead");
+  if(buy) buy.textContent=snowSeason?"Buy the winter season, $9.99":"Buy the season, $9.99";
+  if(lead) lead.textContent=snowSeason?"Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.":"Buy the season, $9.99. That payment is the parent check, and it never auto-renews.";
 }
 function paintExampleRates(){
   document.querySelectorAll(".example-rate").forEach((row,i)=>{
