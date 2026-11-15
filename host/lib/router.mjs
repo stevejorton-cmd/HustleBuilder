@@ -1,9 +1,10 @@
+import { readFile } from "fs/promises";
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { DEFAULT_TZ, addEventIcs, bookingInviteIcs, eventTitle, feedLinks, gcalTemplate, inviteSummary, jobInstant, jobTitle, jobsToIcs, pruneJobs, publicText, validTz, wallIn } from "./calendar.mjs";
 import { cleanVenmo, venmoNote, venmoPayUrl } from "./venmo.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
-import { decoratePage, familyVenmo, hidePhone, stripParentContact } from "./preview.mjs";
+import { decoratePage, familyVenmo, hidePhone, stripParentContact, withSiteFavicon } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import QRCode from "qrcode";
@@ -1873,7 +1874,7 @@ async function serveSlugInner(slug, view) {
   // The real page is the only response that gets the "Built with" belt,
   // added here at serve time so the stored page stays exactly as the
   // family published it.
-  const res = html(200, withBelt(page, slug));
+  const res = html(200, withBelt(withSiteFavicon(page), slug));
   // The response is settled; only now does the view count. noteView swallows
   // its own errors, and every other return above (break, pause, review,
   // missing, down, redirect) leaves the counter untouched.
@@ -2229,6 +2230,7 @@ async function routeRequest(req) {
     const bare = path.replace(/^\/api\/site\//, "/");
     if (bare === "/robots.txt") return textFile(robotsTxt(origin), "text/plain; charset=utf-8");
     if (bare === "/sitemap.xml") return textFile(await sitemapXml(origin), "application/xml; charset=utf-8");
+    if (bare === "/favicon.svg") return { status: 200, headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" }, body: await readFile(new URL("../../favicon.svg", import.meta.url), "utf8") };
     if (bare === "/favicon.ico") return { status: 200, headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" }, body: icoFromPng(iconPng(32, false)) };
     if (bare === "/apple-touch-icon.png") return pngResponse(iconPng(180, false));
   }
