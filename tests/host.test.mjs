@@ -1727,6 +1727,9 @@ test("a long hero word scales down so it fits a phone, and hyphenation is only t
   assert.match(src, /function fitHero\(\)/);
   assert.match(src, /function widest\(size\)/);
   assert.match(src, /for\(var i=0;i<words\.length;i\+\+\)/);
+  const oldPage = stripParentContact(`<header class="hero"><h1>HANDSOME</h1></header><script>function fitHero(){var longest="";}</script></body>`);
+  assert.match(oldPage, /function widest\(size\)/);
+  assert.equal(stripParentContact(oldPage).match(/id="hb-hero-fit"/g).length, 1);
   assert.match(src, /\.hero h1\{[^}]*overflow-wrap:normal;word-break:normal;hyphens:manual/);
   assert.match(src, /hyphens","auto"/);
   assert.match(src, /for\(let size=minS-1;size>=8;size--\)/);
