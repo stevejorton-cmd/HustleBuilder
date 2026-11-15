@@ -1009,6 +1009,9 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
             <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
             <button type="button" class="btn block" id="buySeason">Buy the winter season, $9.99</button>
             <button type="button" class="btn ghost block" id="buyYear">Or a full year, $19.99</button>
+            <label class="field" for="playtestCode"><span>Have a playtester code?</span><input type="text" id="playtestCode" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Code"></label>
+            <button type="button" class="btn ghost block" id="playtestGo">Apply code</button>
+            <p class="status" id="playtestMsg" role="status"></p>
           </div>
           <p class="small2" id="cardCheckNote">Or start the free 14-day trial. We charge 50¢ on a card, Stripe emails a receipt, and we refund it right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
@@ -4979,6 +4982,7 @@ function consentOn(){try{return localStorage.getItem("hb-consent")==="1";}catch(
 function planHelp(me){
   if(!me)return TRIAL_WORDS;
   if(me.comp)return "Friends & family — free, no payment due.";
+  if(me.playtest&&me.paid)return "Playtester season, free, through "+(niceDate(me.paidUntil)||"the end of the season")+". It does not renew.";
   if(me.grace)return "Your plan ended. The page stays up for "+me.graceDays+" more day"+(me.graceDays===1?"":"s")+". Renew to keep it.";
   if(me.paid)return (me.planName||"This plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
   if(me.trialOver)return "The free trial ended. "+trialLine(me)+" Pay to bring the page back.";
@@ -5027,7 +5031,7 @@ function applyPlanChrome(me){
   const status=$("#planStatus");
   if(status){
     status.hidden=!active;
-    if(active) status.textContent=(me.planName||"Your plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
+    if(active) status.textContent=me.playtest?"Playtester season, free, through "+(niceDate(me.paidUntil)||"the end date")+". It does not renew.":(me.planName||"Your plan")+" through "+(niceDate(me.paidUntil)||"the end date")+".";
   }
   const plans=$("#pubPlans");
   const wrap=plans&&plans.closest(".mf");
@@ -5437,6 +5441,27 @@ async function buyPlanFirst(plan){
 const buySeason=$("#buySeason"), buyYear=$("#buyYear");
 if(buySeason) buySeason.onclick=()=>buyPlanFirst("season");
 if(buyYear) buyYear.onclick=()=>buyPlanFirst("year");
+async function applyPlaytest(){
+  pubErr("");
+  const msg=$("#playtestMsg");
+  if($("#pubConsent")&&!$("#pubConsent").checked){
+    const t="Check the box: you are the parent or guardian and you run this page with your kid.";
+    if(msg)msg.textContent=t;
+    return;
+  }
+  const code=($("#playtestCode")&&$("#playtestCode").value||"").trim();
+  if(!code){if(msg)msg.textContent="Enter a playtester code.";return;}
+  if(msg)msg.textContent="Checking…";
+  try{
+    const data=await pubApi("/api/playtest",{body:{code,consent:true}});
+    if(!data.ok){if(msg)msg.textContent=data.message||"That code did not work.";return;}
+    if(msg)msg.textContent=data.message||"The season plan is on, free. Nothing was charged.";
+    const ok=$("#pubOk"); if(ok)ok.textContent=data.message||"";
+    try{const me=await pubApi("/api/me",{method:"GET"}); if(me&&me.ok){showHosting(me); applyPublishState(me); settleGoLive(me);}}catch(e){}
+  }catch(e){if(msg)msg.textContent="Could not check that code. Try again.";}
+}
+const playtestGo=$("#playtestGo");
+if(playtestGo) playtestGo.onclick=applyPlaytest;
 $("#pubGo").onclick=pubPush;
 function accountWords(site){
   if(site.comp)return "Friends & family — free, no payment due";
