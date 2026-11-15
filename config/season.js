@@ -35,7 +35,12 @@ const SEASON_PACKS = {
     flyerLabel: "Example flyer for Taylor’s Yard Cleanup: yard cleanup $15, leaf raking $15, with a sample QR code",
     payAmount: "+$15.00",
     payNote: "“Thanks for the yard cleanup!”",
-    sampleType: "prep"
+    sampleType: "prep",
+    priceLead: "$9.99 for the season, never auto-renews.",
+    priceMeta: "A parent puts a kid's neighborhood business online. $9.99 for the season, or $19.99 for a year. It never auto-renews.",
+    priceShare: "$9.99 for the season. Never auto-renews.",
+    priceFaq: "$9.99 for the season, or $19.99 for a year. The first 14 days after publish are free.",
+    priceOffer: "Season, one-time, never auto-renews"
   },
   snow: {
     defaultType: "snow",
@@ -51,7 +56,12 @@ const SEASON_PACKS = {
     flyerLabel: "Example flyer for Taylor’s Snow Removal: driveway $10, walk $12, with a sample QR code",
     payAmount: "+$10.00",
     payNote: "“Thanks for shoveling!”",
-    sampleType: "snow"
+    sampleType: "snow",
+    priceLead: "$9.99 for the whole winter, never auto-renews.",
+    priceMeta: "A parent puts a kid's neighborhood business online. $9.99 for the whole winter, or $19.99 for a year. It never auto-renews.",
+    priceShare: "$9.99 for the whole winter. Never auto-renews.",
+    priceFaq: "$9.99 for the whole winter, or $19.99 for a year. The first 14 days after publish are free.",
+    priceOffer: "Winter season, one-time, never auto-renews"
   }
 };
 

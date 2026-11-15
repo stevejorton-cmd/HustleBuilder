@@ -27,7 +27,8 @@ test("the season file is the one switch and ships fall", () => {
   assert.match(html, /if\(blankLawnDefault\(savedRaw\)\)S\.type=seasonDefaultType\(\)/);
   assert.match(html, /applySeasonCopy\(\);\nfunction shouldOpenIntro/);
   assert.match(html, /Object\.assign\(defaults\(\),savedRaw\)/);
-  assert.match(html, /\$9\.99 for the whole winter/);
+  assert.match(html, /\$9\.99 for the season, never auto-renews/);
+  assert.equal(html.includes("tonight"), false);
   assert.match(html, /\$19\.99 covers a full year/);
   assert.equal(html.includes("student-owned"), false);
   assert.equal(html.includes("student owned"), false);
@@ -122,6 +123,45 @@ test("a new draft follows the season and a saved draft keeps its own type", () =
   assert.equal(kept.type, "lawn");
   assert.equal(kept.services[0].p, "10");
   assert.match(html, /Object\.assign\(defaults\(\),savedRaw\)/);
+});
+
+test("fall wording keeps snow strings for snow mode and hides the shovel starter", () => {
+  const fall = seasonView("fall");
+  const snow = seasonView("snow");
+  assert.equal(fall.priceLead, "$9.99 for the season, never auto-renews.");
+  assert.equal(fall.priceLead.includes("winter"), false);
+  assert.equal(fall.priceShare, "$9.99 for the season. Never auto-renews.");
+  assert.match(fall.priceFaq, /\$9\.99 for the season, or \$19\.99/);
+  assert.equal(fall.priceOffer, "Season, one-time, never auto-renews");
+  assert.match(snow.priceLead, /\$9\.99 for the whole winter/);
+  assert.equal(snow.priceOffer, "Winter season, one-time, never auto-renews");
+  assert.match(html, /Starter prices for yard cleanup\. Small is about \$15, medium about \$25, and large about \$40\. Change any price\./);
+  assert.match(html, /Starter prices for yard cleanup and winter prep\. Small is about \$15/);
+  assert.match(html, /\$\{prepTitle\} uses hand tools only/);
+  assert.match(html, /data-prep-snow/);
+  const start = html.indexOf("function starterServices(");
+  const end = html.indexOf("// Repair the old numeric-ceiling", start);
+  const run = (season) => {
+    const sandbox = { PRESETS: null, HB_SEASON_FILE: { SEASON: season } };
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(html.slice(html.indexOf("const PRESETS="), start) + html.slice(start, end) + "\nthis.starterServices=starterServices;", sandbox);
+    return sandbox.starterServices("prep", 1);
+  };
+  const fallJobs = run("fall");
+  const snowJobs = run("snow");
+  assert.equal(fallJobs.some((job) => job.n === "Shovel walks and driveway"), false);
+  const shovel = snowJobs.find((job) => job.n === "Shovel walks and driveway");
+  assert.equal(shovel.p, "15");
+  assert.equal(fallJobs.find((job) => job.n === "Yard cleanup, small").p, "15");
+  assert.equal(snowJobs.find((job) => job.n === "Yard cleanup, large").p, "40");
+  const names = html.slice(html.indexOf("const PREP_FALL_NAMES="), html.indexOf("function prepIdea("));
+  assert.match(names, /\{F\}’s Winter Prep/);
+  assert.match(names, /\{F\}’s Yard Cleanup/);
+  assert.match(names, /\{T\} Leaf Crew/);
+  assert.match(names, /Curb Ready Yard Care/);
+  assert.match(html, /const NAME_IDEAS=/);
+  assert.match(html, /\{F\}’s Winter Prep/);
 });
 
 test("the season doc tells Steve to change one line and merge", async () => {

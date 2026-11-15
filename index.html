@@ -28,21 +28,21 @@ window.hbCloseParents=function(){
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
 <link rel="canonical" href="https://hustlebuilder.org/">
 <title>Hustle Builder — Your kid's first neighborhood business</title>
-<meta name="description" content="A parent puts a kid's neighborhood business online. $9.99 for the whole winter, or $19.99 for a year. It never auto-renews.">
+<meta name="description" content="A parent puts a kid's neighborhood business online. $9.99 for the season, or $19.99 for a year. It never auto-renews.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hustle Builder">
 <meta property="og:title" content="Your kid's first neighborhood business">
-<meta property="og:description" content="$9.99 for the whole winter. Never auto-renews.">
+<meta property="og:description" content="$9.99 for the season. Never auto-renews.">
 <meta property="og:url" content="https://hustlebuilder.org/">
 <meta property="og:image" content="https://hustlebuilder.org/assets/og-home.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Your kid's first neighborhood business">
-<meta name="twitter:description" content="$9.99 for the whole winter. Never auto-renews.">
+<meta name="twitter:description" content="$9.99 for the season. Never auto-renews.">
 <meta name="twitter:image" content="https://hustlebuilder.org/assets/og-home.png">
-<script type="application/ld+json">
-{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Hustle Builder","url":"https://hustlebuilder.org/"},{"@type":"SoftwareApplication","name":"Hustle Builder","applicationCategory":"BusinessApplication","operatingSystem":"Web","offers":[{"@type":"Offer","price":"9.99","priceCurrency":"USD","description":"Winter season, one-time, never auto-renews"},{"@type":"Offer","price":"19.99","priceCurrency":"USD","description":"Full year, one-time, never auto-renews"}]}]}
+<script type="application/ld+json" id="homeLd">
+{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Hustle Builder","url":"https://hustlebuilder.org/"},{"@type":"SoftwareApplication","name":"Hustle Builder","applicationCategory":"BusinessApplication","operatingSystem":"Web","offers":[{"@type":"Offer","price":"9.99","priceCurrency":"USD","description":"Season, one-time, never auto-renews"},{"@type":"Offer","price":"19.99","priceCurrency":"USD","description":"Full year, one-time, never auto-renews"}]}]}
 </script>
 <script>window.HB_PUBLISH_ORIGIN="";</script>
 <script>
@@ -757,7 +757,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <p class="parents-kicker">For parents</p>
     <h1>Your kid's first business, live this weekend.</h1>
     <p class="parents-note">A parent owns the account and runs the page. Your kid can help build it.</p>
-    <p class="parents-price">$9.99 for the whole winter, never auto-renews.</p>
+    <p class="parents-price" id="parentsPrice">$9.99 for the season, never auto-renews.</p>
     <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
     <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
     <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
@@ -788,7 +788,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     </details>
     <details>
       <summary>What does it cost?</summary>
-      <p>$9.99 for the whole winter, or $19.99 for a year. The first 14 days after publish are free.</p>
+      <p id="parentsCost">$9.99 for the season, or $19.99 for a year. The first 14 days after publish are free.</p>
     </details>
     <details>
       <summary>Does it auto-renew?</summary>
@@ -837,10 +837,10 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
           <div><b>Safety for kids.</b><br>A parent knows about every job. Meet the pet first, with the owner there. Start with pets you already know. No aggressive dogs. Wash your hands. A parent handles any medicine.</div>
         </div>
       </details>
-      <details class="petfront" id="prepFront" hidden><summary>Tips for yard cleanup and winter prep</summary>
+      <details class="petfront" id="prepFront" hidden><summary>Tips for yard cleanup</summary>
         <div class="callout">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
-          <div><b>Safety for kids.</b><br>No ladders, roofs, or power trimmers without an adult. Hand tools only, or a parent's OK. Clear gutter leaves from the ground only. Snow removal is walks and driveways.</div>
+          <div><b>Safety for kids.</b><br>No ladders, roofs, or power trimmers without an adult. Hand tools only, or a parent's OK. Clear gutter leaves from the ground only. <span data-prep-snow hidden>Snow removal is walks and driveways.</span></div>
         </div>
       </details>
       <h3 class="h3">More ways to earn</h3>
@@ -2324,7 +2324,7 @@ ${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">B
   <h2>Rates</h2>
   <ul class="rates">${rows}</ul>
   <p class="small">Very large or overgrown jobs may cost more. I’ll confirm the price before I start.</p>
-  ${offersPrep&&c.type!=="prep"?`<p class="small">Yard cleanup and winter prep uses hand tools only. No ladders, roofs, or power trimmers without an adult. Gutter leaves are cleared from the ground only.</p>`:""}
+  ${offersPrep&&c.type!=="prep"?`<p class="small">${prepTitle} uses hand tools only. No ladders, roofs, or power trimmers without an adult. Gutter leaves are cleared from the ground only.</p>`:""}
   ${snowPlan}
   ${seasonHTML}
 </section>
@@ -2423,8 +2423,10 @@ function starterServices(picked, level){
   const seen={}, out=[];
   types.forEach(id=>{
     if(id==="other"&&!onlyOther)return;
+    const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
     (PRESETS[id]||PRESETS.other).forEach(row=>{
       const key=String(row[0]).toLowerCase();
+      if(id==="prep"&&!snowSeason&&key==="shovel walks and driveway")return;
       if(seen[key])return;
       seen[key]=1;
       const price=Array.isArray(row[1])?row[1][Math.min(L,row[1].length)-1]:row[1];
@@ -2725,7 +2727,14 @@ function renderPetPicks(){
 }
 function syncTypeCopy(){
   const lead=$("#rateLead");
-  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?"Starter prices for yard cleanup and winter prep. Small is about $15, medium about $25, and large about $40. Change any price.":"Starter prices to work from. Change them for the jobs you offer.";
+  const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
+  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?(snowSeason?"Starter prices for yard cleanup and winter prep. Small is about $15, medium about $25, and large about $40. Change any price.":"Starter prices for yard cleanup. Small is about $15, medium about $25, and large about $40. Change any price."):"Starter prices to work from. Change them for the jobs you offer.";
+  const prepFront=$("#prepFront");
+  if(prepFront){
+    const sum=prepFront.querySelector("summary");
+    if(sum)sum.textContent=snowSeason?"Tips for yard cleanup and winter prep":"Tips for yard cleanup";
+    prepFront.querySelectorAll("[data-prep-snow]").forEach(el=>{el.hidden=!snowSeason;});
+  }
   const tip=$("#extrasTipText");
   if(tip){const ex={lawn:"like bagging or edging",both:"like bagging, edging, or salting",snow:"like clearing the walk or salting",pet:"like a longer visit or an extra pet",prep:"like hedge trimming or a larger yard",wash:"like vacuuming the inside or a dry and shine"}[S.type];
     tip.textContent="Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer"+(ex?", "+ex:"")+".";}
@@ -4271,12 +4280,18 @@ function funnyShow(names,page,per){const n=names.length,out=[];for(let i=0;i<Mat
 let ideaSeed=Math.floor(Math.random()*1e9), namePage=0, tagPage=0;
 function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function shuffled(arr,seed){const a=arr.slice(),r=rng(seed);for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+const PREP_FALL_NAMES={"{F}’s Winter Prep":"{F}’s Yard Cleanup","{T} Winter Prep":"{T} Leaf Crew","Curb Ready Winter Prep":"Curb Ready Yard Care","Porch Light Winter Prep":"Porch Light Yard Care","Fairway Winter Prep":"Fairway Yard Care"};
+function prepIdea(name){
+  if(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")return name;
+  return PREP_FALL_NAMES[name]||name;
+}
 function nameList(type){
   const F=S.first.trim(),T=S.town.trim();
   const poss=n=>/s$/i.test(n)?n+"’":n+"’s";
   const out=[];
   const ideas=NAME_IDEAS[type||S.type]||["{F}'s "+typeInfo(type||S.type).biz,"{T} "+typeInfo(type||S.type).biz];
-  ideas.forEach(t=>{
+  ideas.forEach(raw=>{
+    const t=(type||S.type)==="prep"?prepIdea(raw):raw;
     if(t.indexOf("{F}")>=0&&!F)return;
     if(t.indexOf("{T}")>=0&&!T)return;
     out.push(t.replace("{F}’s",poss(F)).replace(/\{F\}/g,F).replace(/\{T\}/g,T));
@@ -5942,6 +5957,20 @@ function applySeasonCopy(){
   const note=$("#examplePayNote"); if(note)note.textContent=view.payNote;
   const amount=$("#exampleAmount"); if(amount)amount.textContent=view.payAmount;
   const canvas=$("#exampleFlyer"); if(canvas)canvas.setAttribute("aria-label",view.flyerLabel);
+  const price=$("#parentsPrice"); if(price&&view.priceLead)price.textContent=view.priceLead;
+  const cost=$("#parentsCost"); if(cost&&view.priceFaq)cost.textContent=view.priceFaq;
+  const desc=document.querySelector('meta[name="description"]'); if(desc&&view.priceMeta)desc.setAttribute("content",view.priceMeta);
+  const og=document.querySelector('meta[property="og:description"]'); if(og&&view.priceShare)og.setAttribute("content",view.priceShare);
+  const tw=document.querySelector('meta[name="twitter:description"]'); if(tw&&view.priceShare)tw.setAttribute("content",view.priceShare);
+  const ld=document.getElementById("homeLd");
+  if(ld&&view.priceOffer){
+    try{
+      const data=JSON.parse(ld.textContent);
+      const offers=data["@graph"]&&data["@graph"][1]&&data["@graph"][1].offers;
+      if(offers&&offers[0])offers[0].description=view.priceOffer;
+      ld.textContent=JSON.stringify(data);
+    }catch(e){}
+  }
   paintExampleRates();
 }
 function paintExampleRates(){

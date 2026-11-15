@@ -73,7 +73,7 @@ test("the first page stays under 300KB compressed", async () => {
 test("the parent landing names the winter price and uses a made-up example", async () => {
   const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const block = home.slice(home.indexOf('id="forParents"'), home.indexOf("</section>") + 10);
-  assert.match(block, /\$9\.99 for the whole winter, never auto-renews/);
+  assert.match(block, /\$9\.99 for the season, never auto-renews/);
   assert.match(block, /id="parentsStart"/);
   assert.match(block, />Start free</);
   assert.match(home, /if\(!force\)document\.documentElement\.classList\.add\("hb-skip-parents"\)/);
@@ -1937,7 +1937,7 @@ test("each business type preloads starter jobs", async () => {
   assert.equal(prep.find((job) => job.n === "Yard cleanup, medium").p, "25");
   assert.equal(prep.find((job) => job.n === "Yard cleanup, large").p, "40");
   assert.ok(prep.some((job) => job.n === "Gutter leaves, from the ground"));
-  assert.ok(prep.some((job) => job.n === "Shovel walks and driveway"));
+  assert.equal(prep.some((job) => job.n === "Shovel walks and driveway"), false);
   assert.equal(starterServices("lawn", 1)[0].p, "10");
   assert.equal(starterServices("lawn", 5)[0].p, "15"); // softened curve (Steven, 2026-11-07): L5 = base x1.48
   const mixed = starterServices(["pet", "lawn"], 1);
