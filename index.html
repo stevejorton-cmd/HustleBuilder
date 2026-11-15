@@ -2616,16 +2616,29 @@ let savedRaw=null;
 let draftOwner="";
 let sessionEmail="";
 let draftDirty=false;
+let anonymousDraft=false;
+let draftRecoveryBlocked=false;
 try{const r=localStorage.getItem(LS); if(r)savedRaw=JSON.parse(r);}catch(e){}
 try{draftOwner=localStorage.getItem("hb-draft-owner")||"";}catch(e){}
+try{anonymousDraft=!draftOwner&&localStorage.getItem("hb-anonymous-draft")==="1";}catch(e){}
 hydrateDraft(null);
+// Restore only explicitly anonymous work before startup navigation can save.
+// Parent-owned and unmarked legacy drafts still require identity/recovery.
+if(anonymousDraft&&!draftOwner&&savedRaw&&typeof savedRaw==="object")hydrateDraft(savedRaw);
+function draftWriteAllowed(){return !draftRecoveryBlocked&&(!draftOwner||draftBelongsTo(draftOwner, sessionEmail));}
+function draftRecoveryNotice(){
+  const status=document.getElementById("saveState");
+  if(status){status.hidden=false;status.textContent="Your saved family draft is kept on this device. Connect and sign in with its parent email to restore it. Changes will not replace it while it is locked.";}
+}
 function save(){
+  if(typeof draftWriteAllowed==="function"&&!draftWriteAllowed()){draftRecoveryNotice();return false;}
+  if(typeof preserveUnknownDraft==="function"&&!preserveUnknownDraft())return false;
   const status=document.getElementById("saveState");
   draftDirty=true;
   try{
     localStorage.setItem(LS,JSON.stringify(S));
-    if(typeof sessionEmail!=="undefined"&&sessionEmail)localStorage.setItem("hb-draft-owner", sessionEmail);
-    else if(localStorage.removeItem)localStorage.removeItem("hb-draft-owner");
+    if(typeof sessionEmail!=="undefined"&&sessionEmail){localStorage.setItem("hb-draft-owner", sessionEmail);localStorage.removeItem("hb-anonymous-draft");draftOwner=sessionEmail;anonymousDraft=false;}
+    else if(localStorage.removeItem){localStorage.removeItem("hb-draft-owner");localStorage.setItem("hb-anonymous-draft","1");draftOwner="";anonymousDraft=true;}
     if(status){status.hidden=true;status.textContent="";}
     return true;
   }
@@ -3185,9 +3198,11 @@ function freshBoss(){return {goalAmount:1000,goalLabel:"My first $1,000",jobs:[]
 let B=freshBoss();
 let savedBoss=null;
 try{const r=localStorage.getItem(BK); if(r)savedBoss=JSON.parse(r); localStorage.setItem("hb-test","1");localStorage.removeItem("hb-test");}catch(e){storageOK=false;}
+if(anonymousDraft&&!draftOwner&&savedBoss&&typeof savedBoss==="object")B=Object.assign(freshBoss(),savedBoss);
+if(!Array.isArray(B.jobs))B.jobs=[];if(!Array.isArray(B.costs))B.costs=[];
 if(!Array.isArray(B.upcoming))B.upcoming=[];
 if(!B.missions)B.missions={};if(!B.mdone)B.mdone={};if(!B.mweeks)B.mweeks={};
-function saveB(){try{localStorage.setItem(BK,JSON.stringify(B));}catch(e){storageOK=false;}}
+function saveB(){if(!save())return;try{localStorage.setItem(BK,JSON.stringify(B));}catch(e){storageOK=false;}}
 const pad=n=>String(n).padStart(2,"0");
 const r2=n=>Math.round(n*100)/100;
 function money(n){n=r2(n);const neg=n<0;n=Math.abs(n);return (neg?"-":"")+"$"+n.toLocaleString("en-US",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});}
@@ -4202,7 +4217,7 @@ function heicToJpeg(file){
   return loadHeicLib().then(lib=>lib({blob:file,toType:"image/jpeg",quality:0.92})).then(out=>Array.isArray(out)?out[0]:out);
 }
 function processPhoto(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{try{const M=900;let w=img.naturalWidth,h=img.naturalHeight;const k=Math.min(1,M/Math.max(w,h));w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k));const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(cv.toDataURL("image/jpeg",.72));}catch(e){rej(e);}};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("bad image"));};img.src=url;});}
-function saveStrict(){try{localStorage.setItem(LS,JSON.stringify(S));return true;}catch(e){return false;}}
+function saveStrict(){return save();}
 function renderProof(){
   const list=$("#proofList");list.innerHTML="";
   S.proof.forEach((p,i)=>{
@@ -4785,6 +4800,9 @@ async function bkDecode(text){
 function bkValid(d){return !!(d&&typeof d==="object"&&d.app==="hustle-builder"&&d.format===1&&(d.build||d.boss));}
 function bkMerge(cur,inc){const add=(a,b)=>{const ids=new Set((a||[]).map(x=>x.id));return (a||[]).concat((b||[]).filter(x=>!ids.has(x.id)));};return Object.assign({},cur,{jobs:add(cur.jobs,inc.jobs),costs:add(cur.costs,inc.costs),upcoming:add(cur.upcoming,inc.upcoming)});}
 function bkApply(d,o){
+  if(!draftWriteAllowed()){draftRecoveryNotice();throw new Error("locked-draft");}
+  if(!preserveUnknownDraft())throw new Error("locked-draft");
+  if(!sessionEmail)localStorage.setItem("hb-anonymous-draft","1");
   if(o.build&&d.build)localStorage.setItem(LS,JSON.stringify(d.build));
   if(o.boss!=="skip"&&d.boss){const empty=!(B.jobs&&B.jobs.length)&&!(B.upcoming&&B.upcoming.length)&&!(B.costs&&B.costs.length);const nb=(o.boss==="combine"&&!empty)?bkMerge(B,d.boss):d.boss;localStorage.setItem(BK,JSON.stringify(nb));}
 }
@@ -5169,16 +5187,56 @@ function publishExtras(slug){
     tz:(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})()
   };
 }
-function clearDeviceDraft(){
-  const keys=[LS,"hb-draft-owner","hb-draft","hb-draft-code","hb-job-code","hb-local-drafts","hb-builds","hb-publish-pending",BK];
+function deviceDraftKeys(){
+  const keys=[LS,"hb-draft-owner","hb-anonymous-draft","hb-draft","hb-draft-code","hb-job-code","hb-local-drafts","hb-builds","hb-publish-pending",BK];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf("hb-boss-")===0)keys.push(k);}
+  return keys;
+}
+// Pre-fix ownerless data has no trustworthy anonymous marker. Keep a private
+// recovery copy before a new edit can replace it; never display it implicitly.
+function preserveUnknownDraft(){
+  if(!savedRaw||draftOwner||anonymousDraft)return true;
   try{
-    keys.forEach(k=>localStorage.removeItem(k));
-    for(let i=localStorage.length-1;i>=0;i--){
-      const k=localStorage.key(i);
-      if(k&&k.indexOf("hb-boss-")===0)localStorage.removeItem(k);
-    }
+    const data={};deviceDraftKeys().forEach(k=>{const v=localStorage.getItem(k);if(v!==null)data[k]=v;});
+    localStorage.setItem("hb-private-draft:legacy:"+Date.now(),JSON.stringify(data));
+    clearDeviceDraft(false);
+    return true;
+  }catch(e){draftRecoveryNotice();return false;}
+}
+function archiveDeviceDraft(){
+  if(!draftOwner)return true;
+  try{
+    const data={};deviceDraftKeys().forEach(k=>{const v=localStorage.getItem(k);if(v!==null)data[k]=v;});
+    localStorage.setItem("hb-private-draft:"+draftOwner.toLowerCase(),JSON.stringify(data));
+    clearDeviceDraft(false);
+    draftDirty=false;
+    resetBuilderToStock();
+    return true;
+  }catch(e){draftRecoveryNotice();return false;}
+}
+function restoreArchivedDraft(){
+  if(!sessionEmail||draftDirty||savedRaw)return true;
+  try{
+    const key="hb-private-draft:"+sessionEmail.toLowerCase(),raw=localStorage.getItem(key);
+    if(!raw)return true;
+    const data=JSON.parse(raw);
+    if(!draftBelongsTo(data["hb-draft-owner"],sessionEmail))return true;
+    draftRecoveryBlocked=true;
+    const allowed=new Set(deviceDraftKeys());
+    for(const [k,v] of Object.entries(data)){if(allowed.has(k)||k.indexOf("hb-boss-")===0)localStorage.setItem(k,v);}
+    savedRaw=JSON.parse(data[LS]||"null");savedBoss=JSON.parse(data[BK]||"null");draftOwner=sessionEmail;anonymousDraft=false;
+    localStorage.removeItem(key);
+    draftRecoveryBlocked=false;
+    return true;
+  }catch(e){draftRecoveryBlocked=true;draftRecoveryNotice();return false;}
+}
+function clearDeviceDraft(clearArchives=true){
+  try{
+    deviceDraftKeys().forEach(k=>localStorage.removeItem(k));
+    if(clearArchives)for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.indexOf("hb-private-draft:")===0)localStorage.removeItem(k);}
   }catch(e){}
-  savedRaw=null; savedBoss=null; draftOwner="";
+  savedRaw=null; savedBoss=null; draftOwner="";anonymousDraft=false;draftRecoveryBlocked=false;
+  const status=document.getElementById("saveState");if(status){status.hidden=true;status.textContent="";}
 }
 function resetBuilderToStock(){
   hydrateDraft(null);
@@ -5186,16 +5244,12 @@ function resetBuilderToStock(){
   if(typeof paintCurrentBuild==="function")paintCurrentBuild();
 }
 function forgetUnownedDraft(){
-  if(draftBelongsTo(draftOwner, sessionEmail))return;
-  try{
-    ["hb-draft","hb-draft-code","hb-job-code","hb-local-drafts","hb-builds"].forEach(k=>localStorage.removeItem(k));
-    if(!sessionEmail&&localStorage.removeItem)localStorage.removeItem("hb-draft-owner");
-  }catch(e){}
-  draftOwner="";
+  if(draftOwner&&!draftBelongsTo(draftOwner,sessionEmail))return archiveDeviceDraft();
+  return true;
 }
 function restoreOwnedDraft(){
   if(draftDirty)return;
-  if(draftBelongsTo(draftOwner, sessionEmail)&&savedRaw&&typeof savedRaw==="object"){
+  if((draftBelongsTo(draftOwner, sessionEmail)||(anonymousDraft&&!draftOwner))&&savedRaw&&typeof savedRaw==="object"){
     hydrateDraft(savedRaw);
     if(String(S.siteUrl||"").trim()&&!flyerUrlForDraft(S.siteUrl, currentDraftCode(), siteDraftsLoad(), legacySiteDraft(), (pubSession()&&pubSession().slug)||""))S.siteUrl="";
     if(savedBoss&&typeof savedBoss==="object"){
@@ -5208,26 +5262,28 @@ function restoreOwnedDraft(){
       if(!B.mweeks)B.mweeks={};
     }
     if(typeof paintCurrentBuild==="function")paintCurrentBuild();
+    const status=document.getElementById("saveState");if(status){status.hidden=true;status.textContent="";}
     return;
   }
-  clearDeviceDraft();
+  if(savedRaw)draftRecoveryNotice();
 }
 async function initPublish(){
   pubPlans();
   const origin=publishOrigin();
   const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
   const terms=$("#pubTerms"); if(terms)terms.href=(origin||"")+"/terms";
-  if(!origin){pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
+  if(!origin){restoreOwnedDraft();pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
   /* Signed-in state comes from the server now: the HttpOnly cookie (or a
      remembered token) answers /api/me, so a parent with no local cache is
      still recognised, and a stale cache alone is not enough. A draft on
      this device is shown only when it belongs to that parent. */
   let me=null;
-  try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){ return; }
-  if(!me.ok){pubSaveSession(null); sessionEmail=""; forgetUnownedDraft(); if(!draftDirty)restoreOwnedDraft(); return;}
+  try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){ restoreOwnedDraft(); return; }
+  if(!me.ok){pubSaveSession(null); sessionEmail=""; if(!draftDirty)restoreOwnedDraft(); return;}
   sessionEmail=String(me.email||"").trim().toLowerCase();
-  forgetUnownedDraft();
-  if(draftDirty){try{localStorage.setItem("hb-draft-owner", sessionEmail); localStorage.setItem(LS, JSON.stringify(S));}catch(e){}}
+  if(!forgetUnownedDraft())return;
+  if(!restoreArchivedDraft())return;
+  if(draftDirty)save();
   else restoreOwnedDraft();
   showHosting(me);
   pubSaveSession({email:me.email||"", slug:me.slug||""});
@@ -5261,7 +5317,10 @@ $("#pubVerify").onclick=async()=>{
     pubMemToken=data.token||"";
     sessionEmail=String(data.email||"").trim().toLowerCase();
     pubSaveSession({email:data.email, slug:data.slug||""});
-    try{localStorage.setItem("hb-draft-owner", sessionEmail); localStorage.setItem(LS, JSON.stringify(S));}catch(e){}
+    if(!forgetUnownedDraft())return;
+    if(!restoreArchivedDraft())return;
+    if(!draftDirty)restoreOwnedDraft();
+    save();
     showParentVerified(data);
     applyPublishState(data);
     const verified=$("#pubVerified"); if(verified)verified.scrollIntoView({block:"center"});
@@ -5602,6 +5661,7 @@ if(shareBox)shareBox.onchange=async()=>{
 };
 function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting"}[status]||"New";}
 async function loadMyJobs(){
+  if(!draftWriteAllowed())return;
   const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
   const session=pubSession();
   if(!code&&!pubToken()&&!session)return;
@@ -5716,6 +5776,7 @@ window.addEventListener("online", ()=>{showOffline(false); scheduleDraft();});
 if(typeof navigator!=="undefined"&&navigator.onLine===false)showOffline(true);
 if(typeof navigator!=="undefined"&&navigator.serviceWorker)window.addEventListener("load", ()=>{navigator.serviceWorker.register("/sw.js").catch(function(){});});
 async function saveDraft(){
+  if(!draftWriteAllowed())return;
   if(!publishOrigin()||!consentOn())return;
   try{
     const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
@@ -5776,17 +5837,18 @@ function buildsUpsert(list, entry){
   next.unshift({code,label:String((entry&&entry.label)||"").trim()||"Untitled page",updatedAt:Number(entry&&entry.updatedAt)||0});
   return next.slice(0,10);
 }
-function buildsList(){try{return buildsClean(JSON.parse(localStorage.getItem(BUILDS_KEY)||"[]"));}catch(e){return [];}}
-function buildsSave(list){try{localStorage.setItem(BUILDS_KEY,JSON.stringify(buildsClean(list)));}catch(e){}}
-function currentDraftCode(){try{return localStorage.getItem("hb-draft")||"";}catch(e){return "";}}
+function buildsList(){if(!draftWriteAllowed())return [];try{return buildsClean(JSON.parse(localStorage.getItem(BUILDS_KEY)||"[]"));}catch(e){return [];}}
+function buildsSave(list){if(!draftWriteAllowed())return;try{localStorage.setItem(BUILDS_KEY,JSON.stringify(buildsClean(list)));}catch(e){}}
+function currentDraftCode(){if(!draftWriteAllowed())return "";try{return localStorage.getItem("hb-draft")||"";}catch(e){return "";}}
 function noteCurrentBuild(){
   const code=currentDraftCode(); if(!code)return "";
   buildsSave(buildsUpsert(buildsList(),{code,label:buildLabelOf(S),updatedAt:Date.now()}));
   return code;
 }
 function bossKeyFor(code){return "hb-boss-"+code;}
-function stashBoss(code){if(!code)return; try{localStorage.setItem(bossKeyFor(code),JSON.stringify(B));}catch(e){}}
+function stashBoss(code){if(!code||!draftWriteAllowed())return; try{localStorage.setItem(bossKeyFor(code),JSON.stringify(B));}catch(e){}}
 function restoreBoss(code){
+  if(!draftWriteAllowed())return;
   let raw=null; try{raw=code?localStorage.getItem(bossKeyFor(code)):null;}catch(e){}
   B=freshBoss();
   if(raw){try{B=Object.assign(freshBoss(),JSON.parse(raw));}catch(e){}}
@@ -5796,8 +5858,9 @@ function restoreBoss(code){
   if(!B.missions)B.missions={}; if(!B.mdone)B.mdone={}; if(!B.mweeks)B.mweeks={};
   saveB(); renderBoss();
 }
-function localDrafts(){try{return JSON.parse(localStorage.getItem("hb-local-drafts")||"{}");}catch(e){return {};}}
+function localDrafts(){if(!draftWriteAllowed())return {};try{return JSON.parse(localStorage.getItem("hb-local-drafts")||"{}");}catch(e){return {};}}
 function rememberLocalBuild(){
+  if(!draftWriteAllowed()){draftRecoveryNotice();return "";}
   let code=currentDraftCode();
   if(!/^[a-z0-9]{8}$/.test(code)){code=Math.random().toString(36).slice(2,10).padEnd(8,"a").slice(0,8); try{localStorage.setItem("hb-draft",code);}catch(e){}}
   const all=localDrafts(); all[code]=draftPayload();
@@ -5806,6 +5869,7 @@ function rememberLocalBuild(){
   return code;
 }
 async function saveDraftChecked(){
+  if(!draftWriteAllowed()){draftRecoveryNotice();return false;}
   if(!publishOrigin())return false;
   if(!consentOn()){rememberLocalBuild();return true;}
   clearTimeout(draftTimer);

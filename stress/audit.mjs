@@ -32,7 +32,9 @@ async function parent(email='parent@example.com'){
  return {email,token:v.value.token,account:()=>JSON.parse(data.get('accounts/'+data.get('email/'+sha(email))+'.json'))};
 }
 async function publish(p,slug='sam-yard',paid=false){if(paid)await call('POST','/api/checkout',{plan:'year'},p.token);return call('POST','/api/publish',{slug,html:markup(slug)},p.token);}
-const booking=(slug='sam-yard',i=0)=>({slug,name:'Neighbor '+i,contact:'4025550199',service:'Mow',when:'Tomorrow',address:'123 Test Lane',t:5000,start:'2026-11-10T16:00'});
+// Keep booking fixtures safely in the future, including across UTC/local date boundaries.
+const bookingStart = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10) + 'T16:00';
+const booking=(slug='sam-yard',i=0)=>({slug,name:'Neighbor '+i,contact:'4025550199',service:'Mow',when:bookingStart,address:'123 Test Lane',t:5000,start:bookingStart});
 function jsonKey(k){return JSON.parse(data.get(k)||'null');}
 async function check(name,fn){reset();try{const result=await fn();findings.push({name,...result});console.log(JSON.stringify(findings.at(-1)));}catch(e){findings.push({name,harnessError:String(e)});console.log(JSON.stringify(findings.at(-1)));}}
 await check('400 simultaneous public page reads',async()=>{const p=await parent();await publish(p);let ops=0;const s=data;setStore({async get(k){ops++;await delay(2);return s.get(k)??null;},async put(k,v){s.set(k,v);},async del(k){s.delete(k);}});const start=performance.now();const times=[];const rs=await Promise.all(Array.from({length:400},async()=>{const t=performance.now();const r=await call('GET','/api/site/sam-yard');times.push(performance.now()-t);return r;}));times.sort((a,b)=>a-b);return {pass:rs.every(r=>r.status===200),requests:400,success:rs.filter(r=>r.status===200).length,totalMs:Math.round(performance.now()-start),p95Ms:Math.round(times[379]),storageReads:ops,scope:'synthetic async store, 2ms/read; not Vercel capacity'};});
