@@ -1170,14 +1170,49 @@ test("a draft is not stored until a parent consents", async () => {
   assert.equal(saved.body.ok, true);
   assert.match(saved.body.code, /^[a-z0-9]{8}$/);
   assert.match(saved.body.link, /draft=/);
-  const loaded = await json(await call("GET", "/api/draft/" + saved.body.code));
+  const loaded = await json(await call("GET", "/api/draft/" + saved.body.code, { token }));
   assert.equal(loaded.body.draft.first, "Riley");
+  const stranger = await json(await call("GET", "/api/draft/" + saved.body.code));
+  assert.equal(stranger.status, 404);
+  assert.equal(stranger.body.draft, undefined);
   const again = await json(await call("POST", "/api/draft", { token, body: { code: saved.body.code, draft: { type: "wash", first: "Riley", town: "Millard" } } }));
   assert.equal(again.body.code, saved.body.code);
   const missing = await json(await call("GET", "/api/draft/zzzzzzzz"));
   assert.equal(missing.status, 404);
   const me = await json(await call("GET", "/api/me", { token }));
   assert.equal(me.body.draftCode, saved.body.code);
+});
+
+test("a draft save cannot take over another family's draft or its page link", async () => {
+  const a = await parent("draft-owner-a@example.com");
+  const b = await parent("draft-owner-b@example.com");
+  await call("POST", "/api/consent", { token: a.token, body: { consent: true } });
+  await call("POST", "/api/consent", { token: b.token, body: { consent: true } });
+  const saved = await json(await call("POST", "/api/draft", { token: a.token, body: { draft: { first: "Henlee", bizName: "Henlee's Smooth Handsome Lawns", town: "Lincoln", phone: "4025550100" } } }));
+  assert.equal(saved.body.ok, true);
+  const stolen = await json(await call("POST", "/api/draft", { token: b.token, body: { code: saved.body.code, draft: { first: "Steve", bizName: "Sit, Stay, Play", siteUrl: "https://hustlebuilder.org/maryn" } } }));
+  assert.equal(stolen.body.ok, true);
+  assert.notEqual(stolen.body.code, saved.body.code);
+  const still = await json(await call("GET", "/api/draft/" + saved.body.code, { token: a.token }));
+  assert.equal(still.body.draft.first, "Henlee");
+  assert.equal(still.body.draft.bizName, "Henlee's Smooth Handsome Lawns");
+  assert.equal(JSON.stringify(still.body).includes("maryn"), false);
+  const theirs = await json(await call("GET", "/api/draft/" + stolen.body.code, { token: b.token }));
+  assert.equal(theirs.body.draft.first, "Steve");
+  assert.equal(theirs.body.draft.siteUrl, "https://hustlebuilder.org/maryn");
+  const peek = await json(await call("GET", "/api/draft/" + saved.body.code, { token: b.token }));
+  assert.equal(peek.status, 404);
+  assert.equal(JSON.stringify(peek.body).includes("Henlee"), false);
+  const file = path.join(dir, "drafts", saved.body.code + ".json");
+  const rec = JSON.parse(await readFile(file, "utf8"));
+  delete rec.accountId;
+  await writeFile(file, JSON.stringify(rec));
+  const claim = await json(await call("POST", "/api/draft", { token: b.token, body: { code: saved.body.code, draft: { first: "Taken" } } }));
+  assert.notEqual(claim.body.code, saved.body.code);
+  assert.equal(JSON.parse(await readFile(file, "utf8")).draft.first, "Henlee");
+  const touch = await json(await call("POST", "/api/draft", { token: a.token, body: { code: saved.body.code, draft: { first: "Henlee", town: "Lincoln" } } }));
+  assert.equal(touch.body.code, saved.body.code);
+  assert.equal((await json(await call("GET", "/api/draft/" + saved.body.code, { token: a.token }))).body.draft.town, "Lincoln");
 });
 
 test("a neighbor with an email gets a request note and a cancel link that tells the parent", async () => {
@@ -1440,7 +1475,7 @@ test("a free trial lasts TRIAL_DAYS, then the page takes a break and bookings ar
     const held = await json(await call("POST", "/api/book", { body: bookAt(1), headers: { "x-forwarded-for": "203.0.113.61" } }));
     assert.equal(held.status, 200);
     assert.equal(held.body.held, true);
-    const draft = await json(await call("GET", "/api/draft/" + saved.body.code));
+    const draft = await json(await call("GET", "/api/draft/" + saved.body.code, { token }));
     assert.equal(draft.body.draft.first, "Sam");
     const pay = await json(await call("POST", "/api/checkout", { token, body: { plan: "season" } }));
     assert.equal(pay.body.ok, true);
@@ -2011,8 +2046,8 @@ test("price rows stay with the job they were made under", async () => {
   assert.equal(svcRowsOwner(starterServices("both", 1), "pet"), "", "a lawn+snow tie proves nothing");
 
   // the load paths run the repair
-  assert.match(src, /fixSvcRows\(\);\nif\(!S\.svcEdited\)/);
-  assert.match(src, /if\(!PRESETS\[S\.type\]\)S\.type="lawn";\n  fixSvcRows\(\);/);
+  assert.match(src, /fixSvcRows\(\);\n\s*if\(!S\.svcEdited\)/);
+  assert.match(src, /if\(!PRESETS\[S\.type\]\)S\.type="lawn";\n\s*fixSvcRows\(\);/);
 });
 
 test("every job type has at least 12 name ideas and funny names", async () => {
@@ -3379,6 +3414,26 @@ function fnBody(src, name) {
   const next = rest.search(/\n(async )?function [A-Za-z]+\(/);
   return next < 0 ? rest : rest.slice(0, next);
 }
+
+test("a signed-out or other parent's draft stays off the screen, and a flyer link cannot come from a different page", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { draftBelongsTo, flyerUrlForDraft } = extractNamedFns(src, ["draftBelongsTo", "flyerUrlForDraft"]);
+  assert.equal(draftBelongsTo("", "steve@example.com"), false);
+  assert.equal(draftBelongsTo("henlee@example.com", "steve@example.com"), false);
+  assert.equal(draftBelongsTo("Steve@Example.com", "steve@example.com"), true);
+  assert.equal(draftBelongsTo("steve@example.com", ""), false);
+  const maryn = "https://hustlebuilder.org/maryn";
+  assert.equal(flyerUrlForDraft(maryn, "henleecode", { maryn: "maryncode" }, "", "maryn"), "");
+  assert.equal(flyerUrlForDraft(maryn, "maryncode", { maryn: "maryncode" }, "", "maryn"), maryn);
+  assert.equal(flyerUrlForDraft(maryn, "newcode", {}, "maryncode", "maryn"), "");
+  assert.equal(flyerUrlForDraft(maryn, "maryncode", {}, "maryncode", "maryn"), maryn);
+  assert.equal(flyerUrlForDraft("", "maryncode", {}, "", "maryn"), "");
+  const boot = src.slice(src.indexOf("let savedRaw"), src.indexOf("function save("));
+  assert.match(boot, /hydrateDraft\(null\)/);
+  assert.equal(/Object\.assign\(defaults\(\),savedRaw\)/.test(boot), false);
+  assert.match(src, /clearDeviceDraft\(\)/);
+  assert.match(src, /const slug=\(\$\("#pubSlug"\)\.value\|\|""\)\.trim\(\)\.toLowerCase\(\)/);
+});
 
 test("start a new page: build labels prefer the business name, then the kid's first name", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");

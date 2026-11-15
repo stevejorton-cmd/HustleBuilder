@@ -26,7 +26,7 @@ test("the season file is the one switch and ships fall", () => {
   assert.match(html, /const TYPES=seasonPicker\(\)/);
   assert.match(html, /if\(blankLawnDefault\(savedRaw\)\)S\.type=seasonDefaultType\(\)/);
   assert.match(html, /applySeasonCopy\(\);\nfunction shouldOpenIntro/);
-  assert.match(html, /Object\.assign\(defaults\(\),savedRaw\)/);
+  assert.match(html, /Object\.assign\(defaults\(\),savedRaw/);
   assert.match(html, /\$9\.99 for the season, never auto-renews/);
   assert.equal(html.includes("tonight"), false);
   assert.match(html, /\$19\.99 covers a full year/);
@@ -122,7 +122,7 @@ test("a new draft follows the season and a saved draft keeps its own type", () =
   const kept = Object.assign({ type: sandbox.seasonDefaultType(), services: [{ n: "prep", p: "15" }] }, saved);
   assert.equal(kept.type, "lawn");
   assert.equal(kept.services[0].p, "10");
-  assert.match(html, /Object\.assign\(defaults\(\),savedRaw\)/);
+  assert.match(html, /Object\.assign\(defaults\(\),savedRaw/);
 });
 
 test("fall wording keeps snow strings for snow mode and hides the shovel starter", () => {

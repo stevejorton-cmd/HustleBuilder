@@ -371,7 +371,7 @@ test("draft and job codes cannot be guessed without limit", async () => {
   const p = await parent("draftlimit@example.com");
   const made = await json(await call("POST", "/api/draft", { token: p.token, body: { draft: { first: "Sam" } }, headers }));
   assert.equal(made.body.ok, true);
-  assert.equal((await json(await call("GET", "/api/draft/" + made.body.code, { headers }))).body.ok, true, "a real code still opens for a limited address");
+  assert.equal((await json(await call("GET", "/api/draft/" + made.body.code, { token: p.token, headers }))).body.ok, true, "the parent who saved a real code can still open it");
 });
 
 test("one account cannot hold an unlimited number of pages", async () => {
