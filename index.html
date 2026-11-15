@@ -2622,6 +2622,9 @@ try{const r=localStorage.getItem(LS); if(r)savedRaw=JSON.parse(r);}catch(e){}
 try{draftOwner=localStorage.getItem("hb-draft-owner")||"";}catch(e){}
 try{anonymousDraft=!draftOwner&&localStorage.getItem("hb-anonymous-draft")==="1";}catch(e){}
 hydrateDraft(null);
+// Restore only explicitly anonymous work before startup navigation can save.
+// Parent-owned and unmarked legacy drafts still require identity/recovery.
+if(anonymousDraft&&!draftOwner&&savedRaw&&typeof savedRaw==="object")hydrateDraft(savedRaw);
 function draftWriteAllowed(){return !draftRecoveryBlocked&&(!draftOwner||draftBelongsTo(draftOwner, sessionEmail));}
 function draftRecoveryNotice(){
   const status=document.getElementById("saveState");
@@ -3195,6 +3198,8 @@ function freshBoss(){return {goalAmount:1000,goalLabel:"My first $1,000",jobs:[]
 let B=freshBoss();
 let savedBoss=null;
 try{const r=localStorage.getItem(BK); if(r)savedBoss=JSON.parse(r); localStorage.setItem("hb-test","1");localStorage.removeItem("hb-test");}catch(e){storageOK=false;}
+if(anonymousDraft&&!draftOwner&&savedBoss&&typeof savedBoss==="object")B=Object.assign(freshBoss(),savedBoss);
+if(!Array.isArray(B.jobs))B.jobs=[];if(!Array.isArray(B.costs))B.costs=[];
 if(!Array.isArray(B.upcoming))B.upcoming=[];
 if(!B.missions)B.missions={};if(!B.mdone)B.mdone={};if(!B.mweeks)B.mweeks={};
 function saveB(){if(!save())return;try{localStorage.setItem(BK,JSON.stringify(B));}catch(e){storageOK=false;}}

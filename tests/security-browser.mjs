@@ -45,7 +45,7 @@ try{
  // Parent-owned work is deliberately not shown without online identity validation.
  // It must be preserved, not silently overwritten by the empty offline shell.
  const owned=await browser.newPage();await owned.goto(base,{waitUntil:'networkidle0'});await dismissIntro(owned);
- await owned.waitForFunction(()=>typeof sessionEmail!=='undefined'&&sessionEmail==='parent@example.com');
+ await owned.waitForFunction(()=>{const el=document.getElementById('pubVerified');return el&&!el.hidden;});
  await owned.select('#stepJump','1');await owned.type('input[data-k="first"]','OwnedOfflineSam');
  await owned.waitForFunction(()=>localStorage.getItem('hb-draft-owner')==='parent@example.com'&&JSON.parse(localStorage.getItem('hustle-builder-v3')).first==='OwnedOfflineSam');
  await owned.setOfflineMode(true);await owned.reload({waitUntil:'domcontentloaded'});

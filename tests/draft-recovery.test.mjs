@@ -59,3 +59,14 @@ test('unknown legacy ownerless data is backed up without being shown before an e
  const {c,data}=harness();await c.initPublish();assert.equal(c.S.first,'');c.S.first='New public draft';assert.equal(c.save(),true);
  const key=[...data.keys()].find(k=>k.startsWith('hb-private-draft:legacy:'));assert.ok(key);assert.match(data.get(key),/Saved Alex/);assert.equal(JSON.parse(data.get('draft')).first,'New public draft');
 });
+
+for(const owned of [false,true])test(`startup navigation ${owned?'cannot overwrite locked owner work':'saves restored anonymous work, not blank defaults'}`,()=>{
+ const data=new Map([['draft',JSON.stringify({first:'OfflineSam',builderStep:1})],...(owned?[['hb-draft-owner','parent@example.com']]:[['hb-anonymous-draft','1']])]);
+ const el={hidden:true,textContent:'',value:'',disabled:false};const c=vm.createContext({LS:'draft',defaults:()=>({first:''}),document:{getElementById:()=>el,querySelectorAll:()=>[]},$ :()=>el,localStorage:{getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)},step:0,STEPS:8,seg:{querySelectorAll:()=>[],setAttribute(){}},window:{scrollTo(){}},updateLaunch(){}});
+ vm.runInContext('function hydrateDraft(raw){S=Object.assign(defaults(),raw||{});}',c);
+ vm.runInContext(part('function draftBelongsTo(', '/* The flyer link'),c);
+ vm.runInContext(part('let S=defaults();','function resolve('),c);
+ vm.runInContext(part('function go(n){','$("#stepJump").onchange='),c);
+ vm.runInContext('go(Number.isInteger(S.builderStep)?S.builderStep:0)',c);
+ assert.equal(JSON.parse(data.get('draft')).first,'OfflineSam');assert.equal(vm.runInContext('S.first',c),owned?'':'OfflineSam');
+});
