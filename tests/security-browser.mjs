@@ -29,7 +29,8 @@ try{
   await p.select('#stepJump','0');await p.click(selector);for(let step=0;step<7;step++){await p.click('#next');}
   await p.waitForSelector('#pubEmail');assert.equal(errors.length,0,errors.join('\n'));const width=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));assert.ok(width.scroll<=width.client+2,type+' overflow');results.push({name:'phone builder step sweep: '+type,pass:true});await p.close();
  }
- const offline=await browser.newPage();await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
+ const anonymousContext=await browser.createBrowserContext();
+ const offline=await anonymousContext.newPage();await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
  await offline.evaluate(()=>navigator.serviceWorker.ready);
  await offline.select('#stepJump','1');await offline.type('input[data-k="first"]','OfflineSam');
  await offline.waitForFunction(()=>Object.keys(localStorage).some(k=>String(localStorage.getItem(k)).includes('OfflineSam')));
@@ -38,6 +39,20 @@ try{
  assert.ok(cached.every(url=>!new URL(url).pathname.startsWith('/api/')));results.push({name:'service worker never caches private API responses',pass:true});
  await offline.setOfflineMode(true);await offline.reload({waitUntil:'domcontentloaded'});
  assert.match(await offline.$eval('input[data-k="first"]',el=>el.value),/OfflineSam/);results.push({name:'v4 builder reopens saved progress offline',pass:true});
- await offline.setOfflineMode(false);await offline.close();
+ await offline.setOfflineMode(false);await offline.close();await anonymousContext.close();
+ // Parent-owned work is deliberately not shown without online identity validation.
+ // It must be preserved, not silently overwritten by the empty offline shell.
+ const owned=await browser.newPage();await owned.goto(base,{waitUntil:'networkidle0'});await dismissIntro(owned);
+ await owned.waitForFunction(()=>typeof sessionEmail!=='undefined'&&sessionEmail==='parent@example.com');
+ await owned.select('#stepJump','1');await owned.type('input[data-k="first"]','OwnedOfflineSam');
+ await owned.waitForFunction(()=>localStorage.getItem('hb-draft-owner')==='parent@example.com'&&JSON.parse(localStorage.getItem('hustle-builder-v3')).first==='OwnedOfflineSam');
+ await owned.setOfflineMode(true);await owned.reload({waitUntil:'domcontentloaded'});
+ await owned.waitForFunction(()=>/saved family draft/.test(document.getElementById('saveState').textContent));
+ assert.equal(await owned.$eval('input[data-k="first"]',el=>el.value),'');
+ assert.equal(await owned.evaluate(()=>JSON.parse(localStorage.getItem('hustle-builder-v3')).first),'OwnedOfflineSam');
+ results.push({name:'offline parent draft stays private and is preserved',pass:true});
+ await owned.setOfflineMode(false);await owned.reload({waitUntil:'domcontentloaded'});
+ await owned.waitForFunction(()=>document.querySelector('input[data-k="first"]').value==='OwnedOfflineSam');
+ results.push({name:'parent draft restores after online identity verification',pass:true});await owned.close();
  console.log(JSON.stringify(results,null,2));
 }finally{if(browser)await browser.close();child.kill('SIGTERM');await rm(dir,{recursive:true,force:true});await writeFile(new URL('../stress/browser-security-results.json',import.meta.url),JSON.stringify(results,null,2));}

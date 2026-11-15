@@ -34,7 +34,7 @@ test('readiness: signup, consent, publish, duplicate booking, confirm and parent
   await json('POST',action,{status:'confirmed',json:true},token);
   assert.equal((await inbox(neighbor)).filter(m=>m.subject==='Your booking is confirmed').length,1);
   const before=(await inbox(neighbor)).length;
-  await json('POST',action,{status:'cancelled',json:true},token);
+  await Promise.all([1,2].map(()=>json('POST',action,{status:'cancelled',json:true},token)));
   assert.equal((await inbox(neighbor)).length,before+1);
   const notice=(await inbox(neighbor)).find(m=>m.subject==='Your booking has been cancelled');
   assert.ok(notice);
@@ -63,15 +63,18 @@ test('readiness: signup, consent, publish, duplicate booking, confirm and parent
   assert.equal((await inbox(neighbor)).filter(m=>m.subject.includes('finished')).length,doneCount);
   // Change only this synthetic account to the expiry boundary, then recover it
   // through test-mode checkout. No Stripe charge is attempted.
+  const customerMailBeforeTrialChange=(await inbox(neighbor)).length;
   const storage=await store(),accountKey=(await storage.list('accounts/'))[0];
   const account=JSON.parse(await storage.get(accountKey));
   account.trialEndsAt=new Date(Date.now()-1000).toISOString();
   await storage.put(accountKey,JSON.stringify(account));
   assert.match((await call('GET','/api/site/test-yard')).body,/Taking a break/);
   assert.equal((await json('GET','/api/me',undefined,token)).exportAllowed,false);
+  assert.equal((await inbox(neighbor)).length,customerMailBeforeTrialChange,'Family trial expiry must not cancel or email a customer booking');
   await json('POST','/api/checkout',{plan:'year'},token);
   assert.match((await call('GET','/api/site/test-yard')).body,/<h1>Alex<\/h1>/);
   assert.equal((await json('GET','/api/me',undefined,token)).exportAllowed,true);
+  assert.equal((await inbox(neighbor)).length,customerMailBeforeTrialChange,'Family plan checkout must not send a customer booking cancellation');
   const screen=(await call('GET',action)).body;
   assert.doesNotMatch(screen,/These buttons only update/);
   assert.match(screen,/emails a cancellation to customers with an email/);
