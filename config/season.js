@@ -23,10 +23,11 @@ const LAWN_SNAPSHOT = {
 const SEASON_PACKS = {
   fall: {
     defaultType: "prep",
-    picker: ["prep", "snow", "lawn", "both", "pet"],
+    picker: ["prep", "lawn", "pet", "snow", "both"],
+    prepCard: { name: "Yard cleanup", blurb: "Leaves. Gutters. Garden cleanup.", img: "assets/jobs/prep.webp" },
     parentsBiz: "Sam's Yard Cleanup",
     parentsTown: "Elkhorn",
-    rates: [{ n: "Yard cleanup / winter prep, small", p: "15" }, { n: "Leaf raking", p: "15" }],
+    rates: [{ n: "Yard cleanup, small", p: "15" }, { n: "Leaf raking", p: "15" }],
     kicker: "NEIGHBORHOOD YARD CLEANUP",
     biz: "Taylor’s Yard Cleanup",
     bizHtml: "Taylor’s<br>Yard Cleanup",
@@ -39,6 +40,7 @@ const SEASON_PACKS = {
   snow: {
     defaultType: "snow",
     picker: ["snow", "lawn", "both", "pet", "prep"],
+    prepCard: { name: "Winter prep", blurb: "Yard cleanup and snow" },
     parentsBiz: "Sam's Snow Removal",
     parentsTown: "Elkhorn",
     rates: [{ n: "Shovel the driveway", p: "10" }, { n: "Shovel driveway and walk", p: "12" }],

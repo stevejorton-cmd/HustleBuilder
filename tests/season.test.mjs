@@ -24,6 +24,7 @@ test("the season file is the one switch and ships fall", () => {
   assert.match(html, /src="\/config\/season\.js"/);
   assert.match(html, /function seasonDefaultType\(/);
   assert.match(html, /const TYPES=seasonPicker\(\)/);
+  assert.match(html, /if\(blankLawnDefault\(savedRaw\)\)S\.type=seasonDefaultType\(\)/);
   assert.match(html, /applySeasonCopy\(\);\nfunction shouldOpenIntro/);
   assert.match(html, /Object\.assign\(defaults\(\),savedRaw\)/);
   assert.match(html, /\$9\.99 for the whole winter/);
@@ -35,12 +36,15 @@ test("the season file is the one switch and ships fall", () => {
 test("fall leads with yard cleanup and snow is second", () => {
   const fall = seasonView("fall");
   assert.equal(fall.defaultType, "prep");
-  assert.equal(fall.picker.join(","), "prep,snow,lawn,both,pet");
+  assert.equal(fall.picker.join(","), "prep,lawn,pet,snow,both");
   assert.equal(fall.picker[0], "prep");
-  assert.equal(fall.picker[1], "snow");
+  assert.equal(fall.prepCard.name, "Yard cleanup");
+  assert.equal(fall.prepCard.blurb, "Leaves. Gutters. Garden cleanup.");
+  assert.equal(fall.prepCard.blurb.toLowerCase().includes("snow"), false);
+  assert.match(fall.prepCard.img, /prep\.webp/);
   assert.equal(fall.parentsBiz, "Sam's Yard Cleanup");
   assert.equal(fall.parentsTown, "Elkhorn");
-  assert.equal(fall.rates[0].n, "Yard cleanup / winter prep, small");
+  assert.equal(fall.rates[0].n, "Yard cleanup, small");
   assert.equal(fall.rates[0].p, "15");
   assert.match(fall.rates[1].n, /Leaf/);
   assert.equal(fall.rates[1].p, "15");
@@ -56,6 +60,8 @@ test("snow leads with shoveling and keeps every other job", () => {
   const snow = seasonView("snow");
   assert.equal(snow.defaultType, "snow");
   assert.equal(snow.picker[0], "snow");
+  assert.equal(snow.prepCard.name, "Winter prep");
+  assert.equal(snow.prepCard.blurb, "Yard cleanup and snow");
   assert.equal(snow.picker.slice().sort().join(","), "both,lawn,pet,prep,snow");
   assert.equal(snow.parentsBiz, "Sam's Snow Removal");
   assert.equal(snow.rates[0].n, "Shovel the driveway");
@@ -81,6 +87,23 @@ test("the lawn-first wording from before the switch is saved in the season file"
   assert.equal(LAWN_SNAPSHOT.payAmount, "+$20.00");
   assert.equal(LAWN_SNAPSHOT.payNote, "“Thanks for mowing!”");
   assert.equal(LAWN_SNAPSHOT.flyerLabel, "Example flyer for Taylor’s Yard Crew: mowing $20, leaf cleanup $15, with a sample QR code");
+});
+
+test("a blank saved lawn draft follows the season, and a named draft stays", () => {
+  const start = html.indexOf("function blankLawnDefault(");
+  const end = html.indexOf("function defaults(", start);
+  assert.ok(start > 0 && end > start);
+  const sandbox = { PRESETS: { lawn: 1, snow: 1, prep: 1 }, HB_SEASON_FILE: { SEASON: "fall", seasonView } };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(html.slice(html.indexOf("function seasonDefaultType("), end), sandbox);
+  assert.equal(sandbox.blankLawnDefault({ type: "lawn", first: "", svcEdited: false, services: [{ n: "Mow a small yard", p: "10" }] }), true);
+  assert.equal(sandbox.blankLawnDefault({ type: "lawn", first: "Will", svcEdited: false }), false);
+  assert.equal(sandbox.blankLawnDefault({ type: "snow", first: "", svcEdited: false }), false);
+  assert.equal(sandbox.blankLawnDefault({ type: "lawn", first: "", svcEdited: true }), false);
+  const kept = { type: "lawn" };
+  if (sandbox.blankLawnDefault({ type: "lawn", first: "" })) kept.type = sandbox.seasonDefaultType();
+  assert.equal(kept.type, "prep");
 });
 
 test("a new draft follows the season and a saved draft keeps its own type", () => {

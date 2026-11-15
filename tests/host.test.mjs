@@ -1679,6 +1679,7 @@ test("a long hero word scales down so it fits a phone, and hyphenation is only t
   assert.ok(neighborhood > 15);
   assert.ok(neighborhood * 12 * 0.75 <= 346);
   assert.equal(heroFitPx("Sam's Lawn Co.", 346), 84);
+  assert.ok(heroFitPx("Taylor\u2019s Yard Cleanup", 220) < heroFitPx("Taylor Yard", 220), "a curly apostrophe stays in the word so the S is counted");
   assert.equal(heroFitPx("N".repeat(80), 346), 15);
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /function heroFitPx\(name, boxPx\)/);
@@ -1932,9 +1933,9 @@ test("each business type preloads starter jobs", async () => {
   assert.ok(lawn.includes("Mow a small yard"));
   assert.ok(lawn.includes("Weeding"));
   const prep = starterServices("prep", 1);
-  assert.equal(prep.find((job) => job.n === "Yard cleanup / winter prep, small").p, "15");
-  assert.equal(prep.find((job) => job.n === "Yard cleanup / winter prep, medium").p, "25");
-  assert.equal(prep.find((job) => job.n === "Yard cleanup / winter prep, large").p, "40");
+  assert.equal(prep.find((job) => job.n === "Yard cleanup, small").p, "15");
+  assert.equal(prep.find((job) => job.n === "Yard cleanup, medium").p, "25");
+  assert.equal(prep.find((job) => job.n === "Yard cleanup, large").p, "40");
   assert.ok(prep.some((job) => job.n === "Gutter leaves, from the ground"));
   assert.ok(prep.some((job) => job.n === "Shovel walks and driveway"));
   assert.equal(starterServices("lawn", 1)[0].p, "10");
@@ -2154,7 +2155,7 @@ test("the home screen app can install and keep the builder offline", async () =>
   assert.ok(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512"));
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
-  assert.match(sw, /hustle-shell-3/);
+  assert.match(sw, /hustle-shell-4/);
   assert.match(sw, /\/config\/season\.js/);
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /rel="manifest"/);
@@ -2858,7 +2859,7 @@ function extractBuilderParts(src, fontData) {
     return null;
   };
   const consts = ["RIGS", "TAGS", "PET_ART", "FONT_META", "FONT_ORDER", "SITE_THEMES", "SPAL", "SVGH"];
-  const fns = ["heroFitPx", "genSite", "bannerArt", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
+  const fns = ["heroFitPx", "genSite", "bannerArt", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "jobSrc", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
   let code = "";
   for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
   for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }
@@ -3111,12 +3112,14 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
     biz: "Taylor's Yard Cleanup",
     tagline: "Hand tools only. No ladders or roofs.",
     services: [
-      { n: "Yard cleanup / winter prep, small", p: "15" },
-      { n: "Yard cleanup / winter prep, medium", p: "25" },
-      { n: "Yard cleanup / winter prep, large", p: "40" }
+      { n: "Yard cleanup, small", p: "15" },
+      { n: "Yard cleanup, medium", p: "25" },
+      { n: "Yard cleanup, large", p: "40" }
     ]
   }));
-  assert.match(html, /Yard cleanup \/ winter prep, small/);
+  assert.match(html, /Yard cleanup, small/);
+  assert.match(html, /assets\/jobs\/prep\.webp/);
+  assert.match(html, /content="Yard cleanup/);
   assert.match(html, />\$15</);
   assert.match(html, />\$25</);
   assert.match(html, />\$40</);
@@ -3129,18 +3132,20 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
   const published = await json(await call("POST", "/api/publish", { token, body: { slug: "taylor-prep", html } }));
   assert.equal(published.body.ok, true);
   const live = await call("GET", "/api/site/taylor-prep");
-  assert.match(live.body, /Yard cleanup \/ winter prep, medium/);
+  assert.match(live.body, /Yard cleanup, medium/);
+  assert.match(live.body, /<h2>Yard cleanup<\/h2>/);
+  assert.equal(live.body.includes("Yard cleanup / winter prep"), false);
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "taylor-prep", name: "Dana", contact: "dana-prep@example.com",
-    service: "Yard cleanup / winter prep, medium", price: "25",
+    service: "Yard cleanup, medium", price: "25",
     when: "Sat Nov 21 10:00 AM", address: "123 Test St, Lincoln, NE",
     note: "front walk", start: "2026-11-21T10:00", t: 5000
   } }));
   assert.equal(book.body.ok, true, JSON.stringify(book.body));
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   const msg = box.body.messages.find((m) => /Booking request/.test(m.subject));
-  assert.equal(msg.subject, "Booking request: Yard cleanup / winter prep, medium");
-  assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /SUMMARY:Taylor: Yard cleanup \/ winter prep\\, medium - Dana/);
+  assert.equal(msg.subject, "Booking request: Yard cleanup, medium");
+  assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /SUMMARY:Taylor: Yard cleanup\\, medium - Dana/);
 });
 
 test("pilot fixes: sticky preview offset survives, pet hero spans full width, friendly tag is solid", async () => {
