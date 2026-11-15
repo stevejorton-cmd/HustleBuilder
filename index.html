@@ -2162,6 +2162,7 @@ function genSite(c){
   return `<!DOCTYPE html>
 <html lang="en"${th?` data-theme="${th}"`:""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(c.biz)}${c.town?" - "+esc(c.town):""}</title>
+<link rel="icon" href="https://hustlebuilder.org/favicon.svg?v=hustle-slashes-1" type="image/svg+xml" sizes="any">
 <!-- hb-public -->
 <!-- This website was made with Hustle Builder. It embeds the Barlow fonts under the SIL Open Font License 1.1; the notice and license text are in the style block below. -->
 <meta name="description" content="${esc(type)}${c.town?" in "+esc(c.town):""}. ${esc(c.first||"I")} can help. Book a day online.">
