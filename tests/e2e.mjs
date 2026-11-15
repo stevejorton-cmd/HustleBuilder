@@ -71,6 +71,11 @@ try {
   await page.screenshot({ path: path.join(out, "publish_desktop.png") });
   await page.type("#pubEmail", "parent@example.com");
   await clickControl(page, "#parentHere > summary");
+  // Exercise the real parent acknowledgement instead of bypassing its gate.
+  await clickControl(page, "#pubSend");
+  check("sign-in requires parent acknowledgement", /Check the box/.test(await page.$eval("#pubCodeMsg", el => el.textContent)));
+  await clickControl(page, "#parentOwner");
+  check("parent acknowledgement is checked", await page.$eval("#parentOwner", el => el.checked));
   await clickControl(page, "#pubSend");
   try {
     await page.waitForFunction(() => /code is \d{6}/.test(document.getElementById("pubCodeMsg").textContent));
