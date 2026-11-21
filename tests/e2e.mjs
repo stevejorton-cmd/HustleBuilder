@@ -169,6 +169,37 @@ try {
   const tag = await site.$eval(".tag", (e) => e.textContent);
   check("republish content", /Fresh cut/.test(tag), tag);
   check("console", logs.length === 0, logs.join(" | "));
+  // Exercise the two complete business styles at narrow phone and desktop widths.
+  const styled = await browser.newPage();
+  for (const theme of ["hustle", "neighbor"]) {
+    await page.evaluate(theme => chooseBrandStyle(theme), theme);
+    for (const type of ["lawn", "snow", "prep", "wash", "help", "tutor", "other", "pet"]) {
+      const html = await page.evaluate(type => {
+        const c = resolve(true); c.type = type;
+        c.biz = "Taylor's Neighborhood Services";
+        c.services = [{n:"A longer neighborhood service name",p:"25"}];
+        return genSite(c);
+      }, type);
+      for (const width of [320, 390, 1366]) {
+        await styled.setViewport({ width, height: 844 });
+        await styled.goto(base + "/");
+        await styled.setContent(html, { waitUntil: "networkidle0" });
+        const result = await styled.evaluate(() => ({
+          theme: document.documentElement.dataset.theme,
+          overflow: document.documentElement.scrollWidth > innerWidth + 2,
+          image: !!document.querySelector(".hero img")?.naturalWidth,
+          booking: !!document.querySelector("#cal") && !!document.querySelector("#sendHost"),
+          title: document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2
+        }));
+        check("style " + theme + " " + type + " " + width, result.theme === theme && !result.overflow && result.image && result.booking && result.title, JSON.stringify(result));
+      }
+    }
+    await page.evaluate(() => save());
+    await page.reload({waitUntil:"domcontentloaded"});
+    check("saved style " + theme, await page.evaluate(theme => S.theme === theme, theme));
+  }
+  await styled.close();
+
 } finally {
   await browser.close();
   child.kill("SIGTERM");

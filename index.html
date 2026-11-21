@@ -933,11 +933,11 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 
     <section class="step" data-step="5">
       <h2>Choose your look.</h2>
-      <p class="lead">Pick your brand color, then pick how your website feels. Choose the ones that look like you.</p>
+      <p class="lead">Choose Hustle or Neighbor. Your website, color flyers, and sharing image will carry the same style.</p>
+      <div class="mf"><label>Your business style</label><div class="themes" id="themes"></div><small class="help2" id="themeHelp"></small></div>
+      <details class="help"><summary>Customize your style</summary>
       <div class="rigs" id="rigs"></div>
-      <div class="mf" style="margin-top:26px"><label>Website look</label><div class="chips" id="looks"></div><small class="help2" id="lookHelp"></small></div>
-      <div class="mf" style="margin-top:18px"><label>Page design</label><div class="themes" id="themes"></div><small class="help2" id="themeHelp">The layout of your page, not just colors.</small></div>
-      <details class="help"><summary>More style choices</summary>
+      <div class="mf" style="margin-top:26px"><label>Scene lighting</label><div class="chips" id="looks"></div><small class="help2" id="lookHelp"></small></div>
       <div class="mf" style="margin-top:18px"><label>Pictures</label><div class="chips" id="skies"></div><small class="help2" id="skyHelp"></small></div>
       <div class="mf" style="margin-top:18px"><label>Website font</label><div class="chips" id="siteFonts"></div><small class="help2">The big headings on your website.</small></div>
       </details>
@@ -1705,6 +1705,7 @@ function priceTooHigh(v){return v!==null&&v>999;}
 function priceNeedsConfirm(v){return v!==null&&v>200&&v<=999;}
 const RIGS={
   ember:{name:"Ember",c:"#FF5B14"},
+  forest:{name:"Forest",c:"#245B45"},
   gold:{name:"Gold",c:"#F5B800"},
   cobalt:{name:"Cobalt",c:"#3E8BFF"},
   crimson:{name:"Crimson",c:"#FF3B30"},
@@ -1722,6 +1723,8 @@ const NOISE="url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/sv
    state with no theme (or an unknown one handled by siteTheme) renders
    exactly as it always has. */
 const SITE_THEMES={
+  hustle:{name:"Hustle",blurb:"Bold orange, charcoal, and a get-it-done attitude.",dark:true},
+  neighbor:{name:"Neighbor",blurb:"Warm cream, forest green, and a welcoming feel.",dark:false},
   bold:{name:"Bold Block",blurb:"The original. Big, blocky, slashed lines.",dark:true},
   clean:{name:"Clean",blurb:"Light and calm, with room to breathe.",dark:false},
   paper:{name:"Paper",blurb:"A classic printed flyer. Serif headlines, neat prices.",dark:false},
@@ -1731,6 +1734,8 @@ const SITE_THEMES={
   retro:{name:"Retro Badge",blurb:"Vintage sign-painter style, like a badge.",dark:false}
 };
 const THEME_PREVIEWS={
+  hustle:{bg:"#14171A",bar:"#F1EFEA",line:"#39424C",rad:"0px",btnRad:"0px"},
+  neighbor:{bg:"#FBF8F2",bar:"#203B30",line:"#D7DED3",rad:"12px",btnRad:"999px"},
   bold:{bg:"#14171A",bar:"#F1EFEA",line:"#39424C",rad:"0px",btnRad:"0px"},
   clean:{bg:"#FFFFFF",bar:"#191C1E",line:"#DFDFD8",rad:"8px",btnRad:"8px"},
   paper:{bg:"#F7F1E3",bar:"#2B2118",line:"#D8CBB0",rad:"2px",btnRad:"2px"},
@@ -2005,6 +2010,19 @@ input,select,textarea{border-radius:4px;background:#FFF9EA}
 .season .p{font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:700;font-size:26px;color:var(--accent)}
 .sent{border-radius:4px}`
   };
+  if(id==="neighbor")return "\n/* hb-theme:neighbor */"+dayCss(acc)+`
+:root{--bg:#FBF8F2;--bg2:#EDF1E8;--card:#FFFFFF;--line:#D7DED3;--bone:#203B30;--mute:#53665B;--ink:#203B30;--on:#FFFFFF}
+.hero{min-height:0;background:var(--bg)}
+.hero img.scene{position:relative;inset:auto;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center;-webkit-mask-image:none;mask-image:none;z-index:0}
+.hero::after{display:none}.hero-in{position:relative;margin:0 auto;padding:28px 22px 32px;width:100%}
+.hero h1{color:var(--bone);text-shadow:none;font-size:clamp(32px,8vw,72px);line-height:1.05}
+.hero .tag,.hero .meta{color:var(--mute);text-shadow:none}.hero .tag{margin:14px 0 22px}
+.hero.pethead,.hero.pethead .hero-in,.petbar{background:var(--bg)}
+.hero.pethead h1,.hero.pethead .tag,.petbar .meta{color:var(--bone)}
+.btn,.venmo{color:#FFFFFF}.btn.alt{color:var(--bg)}
+.hazard{height:3px}.rates .n{min-width:0;overflow-wrap:anywhere}.rates .p{font-size:30px}
+@media(max-width:480px){.hero-in{padding:24px 20px}.rates .p{font-size:26px}}
+`;
   return "\n/* hb-theme:"+id+" */"+(blocks[id]||"");
 }
 function typeInfo(type){
@@ -2076,7 +2094,15 @@ function jobHero(type, publicUrl){
   const h=JOB_HERO[type]; if(!h)return "";
   return `<img class="scene" src="${esc(jobSrc(h[0], publicUrl))}" alt="${h[1]}" width="1280" height="720" decoding="async">`;
 }
-function bannerArt(type, art, pets, publicUrl){
+function brandArt(type,mode,publicUrl){
+  if(mode&&mode!=="hustle"&&mode!=="neighbor")return "";
+  const key=({snow:"snow",both:"snow",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[type];
+  if(!key)return "";
+  const alt=({snow:"A manual snow shovel beside a hand-cleared driveway",prep:"A leaf rake, work gloves and gathered autumn leaves",wash:"Car washing bucket, sponge and hose",help:"Grocery bags and practical neighborhood supplies",tutor:"School books, a notebook and pencils",other:"A work bag, gloves and hand tools for neighborhood jobs"})[key];
+  return `<img class="scene" src="${esc((publicUrl?new URL(publicUrl).origin:"")+"/assets/hustle/"+key+".webp")}" alt="${alt}" width="1280" height="720" decoding="async">`;
+}
+function bannerArt(type, art, pets, publicUrl, mode){
+  const branded=brandArt(type,mode,publicUrl);if(branded)return branded;
   if(type==="pet")return petHero(publicUrl);
   if(type==="prep"){
     const file=globalThis.HB_SEASON_FILE;
@@ -2101,7 +2127,7 @@ function genSite(c){
   const day=c.look==="day";
   const rig=RIGS[c.palette]||RIGS.ember;
   const th=siteTheme(c.theme);
-  const metaBg=({clean:"#FFFFFF",paper:"#F7F1E3",friendly:"#FFFBF5",retro:"#F6EDD8",midnight:"#060809"})[th]||(day?"#FBF8F2":"#0E1012");
+  const metaBg=({clean:"#FFFFFF",paper:"#F7F1E3",friendly:"#FFFBF5",neighbor:"#FBF8F2",retro:"#F6EDD8",midnight:"#060809"})[th]||(day?"#FBF8F2":"#0E1012");
   const sched=(Array.isArray(c.sched)&&c.sched.length===7)?c.sched:c.days.map((on,i)=>Object.assign({on:!!on},defHours(i)));
   const cfg={first:c.first,biz:c.biz,venmo:c.venmo||"",phoneDigits:"",email:"",days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",theme:th,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
@@ -2290,6 +2316,10 @@ footer a{color:var(--bone);font-weight:800;text-decoration:underline;text-underl
 .promise{margin:0;border-left:5px solid var(--accent);background:var(--card);padding:18px;font-size:19px;line-height:1.45}
 ${th?themeCss(th,rig.c):(day?dayCss(rig.c):"")}
 ${siteFontCss(c.font)}
+${(!th||th==="hustle"||th==="bold")?`
+@media(max-width:759px){.hero{min-height:0;background:var(--bg)}.hero img.scene{position:relative;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center;-webkit-mask-image:none;mask-image:none;z-index:0}.hero::after{display:none}.hero-in{position:relative;padding:26px 20px 30px;width:100%}.hero .tag{margin:14px 0 22px}}
+.rates .n{min-width:0;overflow-wrap:anywhere}.rates li{gap:16px}
+`:""}
 ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
 .hero.pethead .hero-in{grid-area:2/1;position:relative;z-index:2;width:100%;max-width:none;margin:0;padding:24px 24px 12px;background:#e7f6ea}
@@ -2303,10 +2333,11 @@ ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr)
 .petrow figure{margin:0;width:92px}
 .petrow img,.petrow .petemoji{width:92px;height:92px;aspect-ratio:1/1;object-fit:cover;object-position:center;border-radius:16px}
 .petrow figcaption{font-size:13px;font-weight:700;margin-top:4px}`:""}
+${th==="hustle"&&c.type==="pet"?`.hero.pethead,.hero.pethead .hero-in,.petbar{background:#0E1012}.hero.pethead h1,.hero.pethead .tag,.petbar .meta{color:#F1EFEA}`:""}
 </style></head>
 <body>
 <header class="hero${c.type==="pet"?" pethead":""}">
-  ${bannerArt(c.type,c.art,c.pets,(c.publish&&c.publish.url)||c.publicUrl||"")}
+  ${bannerArt(c.type,c.art,c.pets,(c.publish&&c.publish.url)||c.publicUrl||"",c.theme)}
   <div class="hero-in">
     <h1 style="font-size:${heroFitPx(c.biz,346)}px">${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
@@ -2721,7 +2752,7 @@ function tileHtml(t){
   const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
   const art=t.id==="pet"?`<img class="scene pthero" src="assets/pets/pet-hero.webp" alt="" width="1280" height="720">`:scene;
   const fit=String(t.name||"").length>10?" fit":"";
-  return art+`<span class="cap"><strong class="${fit.trim()}">${t.name}</strong><span>${t.blurb}</span></span>`+tick;
+  return (brandArt(t.id,S.theme,"")||art)+`<span class="cap"><strong class="${fit.trim()}">${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
 function renderTiles(){
   const fill=(box,list)=>{
@@ -3076,15 +3107,21 @@ function renderHours(){
 function paintThemeCards(w,help){
   if(!w)return; w.innerHTML="";
   const acc=(RIGS[S.palette]||RIGS.ember).c;
-  Object.keys(SITE_THEMES).forEach(k=>{
+  ["hustle","neighbor"].forEach(k=>{
     const t=SITE_THEMES[k], p=THEME_PREVIEWS[k];
     const b=document.createElement("button"); b.type="button"; b.className="themecard";
-    b.setAttribute("aria-pressed",String(!!S.theme&&siteTheme(S.theme)===k));
-    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${acc};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}${k==="bold"?" · current":""}</span><span class="tb">${t.blurb}</span>`;
-    b.onclick=()=>{S.theme=k;S.look=t.dark?"night":"day";renderRigs();paintThemeCards(w,help);queue();};
+    b.setAttribute("aria-pressed",String((S.theme||"hustle")===k));
+    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${k==="neighbor"?"#245B45":"#FF5B14"};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}</span><span class="tb">${t.blurb}</span>`;
+    b.onclick=()=>{chooseBrandStyle(k);renderRigs();renderTiles();queue();};
     w.appendChild(b);
   });
-  if(help)help.textContent=S.theme?("Your page will use the "+SITE_THEMES[siteTheme(S.theme)].name+" design when you publish."):"The layout of your page, not just colors. Right now your page uses the original look — tap a design to switch.";
+  if(help)help.textContent=S.theme?("Your page will use the "+SITE_THEMES[siteTheme(S.theme)].name+" design when you publish."):"Hustle is the original bold look. Choose either style to coordinate your website and marketing materials.";
+}
+function chooseBrandStyle(k){
+  if(k!=="hustle"&&k!=="neighbor")return;
+  const neighbor=k==="neighbor";
+  Object.assign(S,{theme:k,look:neighbor?"day":"night",palette:neighbor?"forest":"ember",paletteTouched:true,sky:neighbor?"sunny":"dusk",art:neighbor?"cine-day":"cine-dusk",siteFont:neighbor?"fredoka":"",flyerStyle:"bold"});
+  if(S.studio)Object.assign(S.studio,{rig:S.palette,bg:neighbor?"light":"dark",font:S.siteFont,nameStyle:neighbor?"plain":"heavy",trim:neighbor?"bar":"stripes",sky:neighbor?"sunny":"dusk",art:"brand-"+k});
 }
 function renderThemes(){
   paintThemeCards($("#themes"),$("#themeHelp"));
@@ -3102,7 +3139,7 @@ function renderRigs(){
   const lw=$("#looks");lw.innerHTML="";
   [["night","Night"],["day","Day"]].forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String((S.look||"night")===it[0]));b.onclick=()=>{S.look=it[0];renderRigs();queue();};lw.appendChild(b);});
   const sk=$("#skies");sk.innerHTML="";{const ab=document.createElement("button");ab.type="button";ab.className="btn ghost";ab.textContent="Change the pictures ("+artName()+")";ab.onclick=()=>openArt();sk.appendChild(ab);}
-  $("#skyHelp").textContent="Ten picture styles. They show on the front page, your website, and your Skyline poster.";
+  $("#skyHelp").textContent="Choose the lighting for your scene. Your business style coordinates the finished page.";
   const sf=$("#siteFonts");if(sf)fontChips(sf,S.siteFont||"workwear",v=>{S.siteFont=v==="workwear"?"":v;renderRigs();queue();});
   $("#lookHelp").textContent=(S.look==="day")?"Light and bright, with a sunny scene and softer shapes.":"Dark and cinematic, with a scene at dusk.";
   renderThemes();
@@ -3878,8 +3915,8 @@ function paintPetRow(ctx,x,y,w,h,pets){
     }
   });
 }
-function flyerTheme(c){const bold=c.style==="bold";const pet=c.type==="pet";if(!bold)return {bold:false,bg:"#FFFFFF",ink:"#111111",mute:"#333333",acc:"#111111",pcol:"#111111",line:"#111111",hz2:"#FFFFFF",paw:""};return {bold:true,bg:"#0E1012",ink:"#F1EFEA",mute:"#A3AAB1",acc:pet?"#F6C14B":c.accent,pcol:pet?"#0F6E6A":c.accent,line:"#3A4046",hz2:"#0B0C0D",paw:pet?"#F6C14B":""};}
-function drawHeadline(ctx,hl,x,y,col){ctx.fillStyle=col;fnt(ctx,900,hl.size,FFD,true);ctx.textAlign="left";let yy=y+hl.size*.82;hl.lines.forEach(l=>{ctx.fillText(l,x,yy);yy+=hl.size*.9;});return yy-hl.size*.9+hl.size*.12;}
+function flyerTheme(c){const bold=c.style==="bold";const pet=c.type==="pet";if(bold&&c.theme==="neighbor")return {bold:true,bg:"#FBF8F2",ink:"#203B30",mute:"#53665B",acc:c.accent,pcol:"#203B30",line:"#D7DED3",hz2:"#EDF1E8",paw:""};if(!bold)return {bold:false,bg:"#FFFFFF",ink:"#111111",mute:"#333333",acc:"#111111",pcol:"#111111",line:"#111111",hz2:"#FFFFFF",paw:""};return {bold:true,bg:"#0E1012",ink:"#F1EFEA",mute:"#A3AAB1",acc:pet?"#F6C14B":c.accent,pcol:pet?"#0F6E6A":c.accent,line:"#3A4046",hz2:"#0B0C0D",paw:pet?"#F6C14B":""};}
+function drawHeadline(ctx,hl,x,y,col){ctx.fillStyle=col;fnt(ctx,DF.w,hl.size,FFD,DF.italic);ctx.textAlign="left";let yy=y+hl.size*.82;hl.lines.forEach(l=>{ctx.fillText(l,x,yy);yy+=hl.size*.9;});return yy-hl.size*.9+hl.size*.12;}
 
 function flyerFull(ctx,c,t){
   const M=56,W=850,iw=W-2*M;
@@ -4055,7 +4092,8 @@ function flyerSocial(ctx,c,t,W,H,story){
   }
 }
 
-function drawFlyer(ctx,c){
+function drawFlyer(ctx,c){setPosterFont(c.font||"workwear");try{drawFlyerStyled(ctx,c);}finally{setPosterFont("workwear");}}
+function drawFlyerStyled(ctx,c){
   const t=flyerTheme(c),d=pageDims(c.fmt);
   ctx.fillStyle="#fff";ctx.fillRect(0,0,d.w,d.h);ctx.textBaseline="alphabetic";ctx.textAlign="left";
   if(c.fmt==="hanger"){
@@ -4089,7 +4127,7 @@ function flyerCfg(){
     if(url){qrText=url;urlText=url.replace(/^https?:\/\//i,"").replace(/\/$/,"");ok=true;}
     else why=S.siteUrl.trim()?"That link doesn’t look right. It should look like hustlebuilder.org/sam.":"Publish your website at step 8, or choose “Text my parent” to make a free flyer now.";
   }
-  return {fmt:S.flyerFmt,style:S.flyerStyle,qrMode:S.flyerQr,type:c.type,pets:c.pets||[],biz:c.biz,tagline:c.tagline,town:S.town.trim(),first:c.first,services:c.services.slice(),accent:(RIGS[S.palette]||RIGS.ember).c,qrText,urlText,ok,why,showPhone:!!(S.flyerPhone&&S.phone.trim()),phone:S.phone.trim(),parentName:c.parentName};
+  return {fmt:S.flyerFmt,style:S.flyerStyle,theme:S.theme,font:S.siteFont||"",qrMode:S.flyerQr,type:c.type,pets:c.pets||[],biz:c.biz,tagline:c.tagline,town:S.town.trim(),first:c.first,services:c.services.slice(),accent:(RIGS[S.palette]||RIGS.ember).c,qrText,urlText,ok,why,showPhone:!!(S.flyerPhone&&S.phone.trim()),phone:S.phone.trim(),parentName:c.parentName};
 }
 function renderFlyer(scale){const d=pageDims(S.flyerFmt),cv=document.createElement("canvas");cv.width=Math.round(d.w*scale);cv.height=Math.round(d.h*scale);const ctx=cv.getContext("2d");ctx.scale(scale,scale);drawFlyer(ctx,flyerCfg());return cv;}
 function ensureFonts(){try{return Promise.all(['italic 900 40px "Barlow Condensed"','italic 800 40px "Barlow Condensed"','400 24px Barlow','600 24px Barlow','700 24px Barlow'].map(f=>document.fonts.load(f))).catch(()=>{});}catch(e){return Promise.resolve();}}
@@ -4181,12 +4219,12 @@ function renderFlyerChips(){
   const mk=(id,key,items)=>{const w=$(id);w.innerHTML="";items.forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String(S[key]===it[0]));b.onclick=()=>{S[key]=it[0];save();renderFlyerChips();refreshFlyers();updateLaunch();};w.appendChild(b);});};
   mk("#fFmt","flyerFmt",[["full","Flyer"],["hanger","Door hanger"],["tabs","Tear-off tabs"],["cards","Business cards"],["refer","Neighbor card"],["sign","Yard sign"]]);
   mk("#fFmt2","flyerFmt",[["post","Social post"],["story","Story"]]);
-  mk("#fStyle","flyerStyle",[["ink","Ink saver"],["bold","Bold"]]);
+  mk("#fStyle","flyerStyle",[["ink","Ink saver"],["bold","My business style"]]);
   mk("#fQr","flyerQr",[["web","My website"],["sms","Text my parent"]]);
   $("#fUrlWrap").hidden=S.flyerQr!=="web";
   $("#fSmsHelp").hidden=S.flyerQr!=="sms";
   $("#fFmtHelp").textContent={full:"One big flyer for a window, a bulletin board, or a hand-off.",hanger:"Two door hangers per sheet. Cut them out and hang them on doorknobs.",tabs:"A flyer with eight tear-off tabs. Neighbors rip one off and scan it later.",cards:"Ten business cards per sheet. Cut along the dotted lines. Hand one to every customer.",refer:"Ten cards per sheet that say Tell a neighbor. Hand one to every happy customer and ask them to pass it on.",sign:"A letter-size sign with a huge QR code. Tape it up, or have a print shop make it big for a real yard sign.",post:"A square graphic for Instagram, Facebook, or a group chat. Saves as an image.",story:"A tall graphic sized for stories. Saves as an image."}[S.flyerFmt];
-  $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Ink saver is on: white page, black lettering, thin black lines.":"Bold keeps the dark background and your color. It uses more ink.";
+  $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Ink saver is on: white page, black lettering, thin black lines.":"Uses your "+(S.theme==="neighbor"?"Neighbor":"Hustle")+" colors. Choose Ink saver for economical black-and-white printing.";
 }
 $("#fUrl").value=S.siteUrl||"";
 syncLiveUrlFields();
@@ -4460,7 +4498,7 @@ function svcFor(type){if(type===S.type)return resolve(true).services;const parke
 const pImgs={};
 function pPhoto(){const pr=S.proof.find(x=>x.a)||S.proof.find(x=>x.b);if(!pr)return null;const src=pr.a||pr.b,key=src.length+":"+src.slice(-24);let im=pImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen)drawStudio();};im.src=src;pImgs[key]=im;}return im._ok?im:null;}
 const pSceneImgs={};
-function pSceneImg(kind,id){const key=kind+":"+id;let im=pSceneImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen){drawStudio();if(stTab===0)renderPanel();}};if(id&&id.indexOf("cine-")===0){im.src=cineUrl(kind,id.slice(5));pSceneImgs[key]=im;return im._ok?im:null;}const svg=sceneArt(kind,id).replace('<svg class="scene"','<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460"').replace(/class="flake"/g,'fill="#fff" opacity=".9"');im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);pSceneImgs[key]=im;}return im._ok?im:null;}
+function pSceneImg(kind,id){const key=kind+":"+id;let im=pSceneImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen){drawStudio();if(stTab===0)renderPanel();}};if(id&&id.indexOf("brand-")===0){const asset=({snow:"snow",both:"snow",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[kind];im.src=asset?"/assets/hustle/"+asset+".webp":kind==="pet"?"/assets/pets/pet-hero.webp":cineUrl(kind,id==="brand-neighbor"?"day":"dusk");pSceneImgs[key]=im;return im._ok?im:null;}if(id&&id.indexOf("cine-")===0){im.src=cineUrl(kind,id.slice(5));pSceneImgs[key]=im;return im._ok?im:null;}const svg=sceneArt(kind,id).replace('<svg class="scene"','<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460"').replace(/class="flake"/g,'fill="#fff" opacity=".9"');im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);pSceneImgs[key]=im;}return im._ok?im:null;}
 function pHasPhoto(){return S.proof.some(x=>x.a||x.b);}
 function pkgInfo(svcs,names){const seen={};const picked=[];(names||[]).forEach(function(nm){if(!nm||seen[nm])return;seen[nm]=1;const s=(svcs||[]).find(function(x){return x.n===nm;});if(s)picked.push(s);});if(!picked.length)return null;let total=0;picked.forEach(function(s){total+=num(s.p);});return {names:picked.map(function(s){return s.n;}),label:picked.map(function(s){return s.n;}).join(" + "),total:total};}
 function rateRowsFor(p){if(!p.rates)return [];const rows=p.services.slice(0,4).map(function(s){return {n:s.n,p:fmtPrice(s.p)};});if(p.pkg)rows.push({n:p.pkg.label,p:money(p.pkg.total)});return rows;}
@@ -4469,7 +4507,7 @@ function pcfg(over){
   const type=(st.kind==="lawn"||st.kind==="snow"||st.kind==="both")?st.kind:(PRESETS[S.type]?S.type:"lawn"),same=type===S.type,hs=HEADS[type]||HEADS.lawn;
   const biz=(st.name||"").trim()||(same?c.biz:autoBiz(type,c.first));
   const tagline=(st.tagText||"").trim()||(same?c.tagline:TAGS[type]);
-  return {type,layout:st.layout,biz,tagline,town:c.town,first:c.first,services:same?c.services:svcFor(type),qrText:c.qrText,urlText:c.urlText,ok:c.ok,why:c.why,qrMode:c.qrMode,phone:c.phone,parentName:c.parentName,showPhone:!!(st.phone&&c.phone),accent:r.c,trim:st.trim||"stripes",font:(st.font||(typeof LOOK!=="undefined"&&LOOK.font)||"workwear"),art:(ART.some(a=>a[0]===st.art)?st.art:artStyle()),nameStyle:st.nameStyle,bg:st.bg,sky:st.sky,flip:!!st.flip,rates:!!st.rates,pkg:pkgInfo(c.services,st.pkg||[]),tag:!!st.tag,badge:BADGES[st.badge]?BADGES[st.badge][0]:"none",headText:(st.custom||"").trim()||hs[st.head%hs.length],photo:st.photo?pPhoto():null};
+  return {type,layout:st.layout,biz,tagline,town:c.town,first:c.first,services:same?c.services:svcFor(type),qrText:c.qrText,urlText:c.urlText,ok:c.ok,why:c.why,qrMode:c.qrMode,phone:c.phone,parentName:c.parentName,showPhone:!!(st.phone&&c.phone),accent:r.c,trim:st.trim||"stripes",font:(st.font||(typeof LOOK!=="undefined"&&LOOK.font)||"workwear"),art:(st.art&&st.art.indexOf("brand-")===0?st.art:ART.some(a=>a[0]===st.art)?st.art:artStyle()),nameStyle:st.nameStyle,bg:st.bg,sky:st.sky,flip:!!st.flip,rates:!!st.rates,pkg:pkgInfo(c.services,st.pkg||[]),tag:!!st.tag,badge:BADGES[st.badge]?BADGES[st.badge][0]:"none",headText:(st.custom||"").trim()||hs[st.head%hs.length],photo:st.photo?pPhoto():null};
 }
 function pTheme(p){const a=p.accent;
   if(p.bg==="ink")return {bg:"#FFFFFF",ink:"#111111",mute:"#333333",line:"#111111",acc:"#111111",onAcc:"#111111",panel:"#FFFFFF",pInk:"#111111",price:"#111111",pPrice:"#111111",accText:"#111111",hz:["#111111","#FFFFFF"],dark:false,inkSaver:true};
@@ -5196,6 +5234,7 @@ function publishExtras(slug){
     cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Taylor"),
     cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c,
+    theme:S.theme,
     pets:S.type==="pet"?petList():[],
     venmo:(S.venmo||"").trim().replace(/^@+/,""),
     tz:(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})()

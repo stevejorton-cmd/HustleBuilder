@@ -16,7 +16,9 @@ import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
 let dir;
-test.beforeEach(async () => {
+test.beforeEach(async (ctx) => {
+  // Booking fixtures are in November 2026; keep their clock fixed as time passes.
+  ctx.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-13T15:00:00Z") });
   dir = await mkdtemp(path.join(tmpdir(), "hb-"));
   setStore(fileStore(dir));
   process.env.PUBLISH_TEST_MODE = "1";
@@ -3011,7 +3013,7 @@ function extractBuilderParts(src, fontData) {
     return null;
   };
   const consts = ["RIGS", "TAGS", "PET_ART", "FONT_META", "FONT_ORDER", "SITE_THEMES", "SPAL", "SVGH"];
-  const fns = ["heroFitPx", "genSite", "bannerArt", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "jobSrc", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
+  const fns = ["heroFitPx", "genSite", "brandArt", "bannerArt", "cineUrl", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "jobSrc", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
   let code = "";
   for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
   for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }
@@ -3036,7 +3038,7 @@ test("page reskins: every theme stamps its marker and keeps the booking widget i
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { genSite, SITE_THEMES } = extractBuilderParts(src);
   const ids = Object.keys(SITE_THEMES);
-  assert.deepEqual(ids, ["bold", "clean", "paper", "sport", "friendly", "midnight", "retro"]);
+  assert.deepEqual(ids, ["hustle", "neighbor", "bold", "clean", "paper", "sport", "friendly", "midnight", "retro"]);
   const seen = new Set();
   for (const id of ids) {
     const html = genSite(demoCfg({ theme: id }));
@@ -3272,7 +3274,7 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
     ]
   }));
   assert.match(html, /Yard cleanup, small/);
-  assert.match(html, /assets\/jobs\/prep\.webp/);
+  assert.match(html, /assets\/hustle\/prep\.webp/);
   assert.match(html, /content="Yard cleanup/);
   assert.match(html, />\$15</);
   assert.match(html, />\$25</);
@@ -3793,5 +3795,21 @@ test("created sites use the current slash favicon without rewriting saved family
     const served = await call("GET", "/api/site/" + slug);
     assert.equal((served.body.match(/rel="icon"/g) || []).length, 1);
     assert.ok(served.body.includes(markup.match(/<link[^>]+>/)[0]));
+  }
+});
+
+
+test("Hustle and Neighbor keep accurate service images and full booking controls", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite } = extractBuilderParts(src);
+  for (const theme of ["hustle", "neighbor"]) {
+    for (const type of ["lawn", "snow", "both", "prep", "wash", "help", "tutor", "odd", "other", "pet"]) {
+      const html = genSite(demoCfg({ theme, type, art: theme === "hustle" ? "cine-dusk" : "cine-day", palette: theme === "hustle" ? "ember" : "forest" }));
+      assert.match(html, new RegExp('data-theme="' + theme + '"'));
+      for (const id of ["cal", "svc", "nm", "sendHost"]) assert.ok(html.includes('id="' + id + '"'), theme + " " + type + " " + id);
+      assert.equal(/golden star trophy|confetti/i.test(html), false);
+      if (["snow", "both"].includes(type)) assert.match(html, /assets\/hustle\/snow\.webp/);
+      if (theme === "neighbor") assert.match(html, /--bg:#FBF8F2/);
+    }
   }
 });

@@ -2709,7 +2709,8 @@ async function routeRequest(req) {
     const pets = Array.isArray(body.pets) ? [...new Set(body.pets.map((v) => String(v)))].filter((v) => petIds.has(v)).slice(0, 5) : [];
     const indexable = body.indexable === true;
     const pageUrl = (origin || "") + "/" + slug;
-    const image = pets.length ? petOgImage(origin) : (origin || "") + "/api/card/" + slug + ".png";
+    const theme = body.theme === "neighbor" ? "neighbor" : body.theme === "hustle" ? "hustle" : "";
+    const image = pets.length && !theme ? petOgImage(origin) : (origin || "") + "/api/card/" + slug + ".png";
     let stored = decoratePage(htmlIn, { title: cardTitle, description: cardLine, image, url: pageUrl, indexable });
     if (body.showPhone !== true) stored = hidePhone(stored, body.phone || "");
     stored = stripParentContact(stored);
@@ -2718,7 +2719,7 @@ async function routeRequest(req) {
     const keptStatus = existing && ["paused","review"].includes(existing.status) ? existing.status : "live";
     await writeJson("pages/" + slug + ".json", {
       ...existing, slug, accountId: account.id, status: keptStatus, updatedAt: new Date().toISOString(), bytes: stored.length,
-      indexable, card: { title: cardTitle, line: cardLine, accent, pets },
+      indexable, card: { title: cardTitle, line: cardLine, accent, pets, theme },
       names: { first: pageNames.first, biz: pageNames.biz }, legacyInbox: pageNames.legacyInbox
     });
     addAccountSlug(account, slug);

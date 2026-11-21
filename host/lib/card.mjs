@@ -158,13 +158,14 @@ export function homeOgPng() {
   return pngFromRgb(buf, w, h);
 }
 
-export function cardPng({ title, line, accent } = {}) {
+export function cardPng({ title, line, accent, theme } = {}) {
   const w = 1200, h = 630;
   const buf = Buffer.alloc(w * h * 3, 0);
   const bar = hexColor(accent);
-  const ink = [241, 239, 234];
-  const mute = [210, 206, 198];
-  fill(buf, w, 0, 0, w, h, [27, 30, 33], h);
+  const neighbor = theme === "neighbor";
+  const ink = neighbor ? [32, 59, 48] : [241, 239, 234];
+  const mute = neighbor ? [83, 102, 91] : [210, 206, 198];
+  fill(buf, w, 0, 0, w, h, neighbor ? [251, 248, 242] : [27, 30, 33], h);
   fill(buf, w, 0, 0, w, 28, bar, h);
   const titleMax = 1040;
   const lineMax = 1040;
