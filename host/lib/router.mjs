@@ -7,6 +7,7 @@ import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, familyVenmo, hidePhone, stripParentContact, withSiteFavicon } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
+import {bookingExpiry} from "./retention.mjs";
 import QRCode from "qrcode";
 
 export const PLANS = {
@@ -554,13 +555,25 @@ async function removeRequestArtifacts(row,accountId) {
 }
 async function loadRequests(accountId) {
   const rows=(await readJson('requests/'+accountId+'.json'))||[],keep=[];
-  for(const row of rows){if(Date.parse(row.createdAt)>Date.now()-REQUEST_KEEP_MS)keep.push(row);else await removeRequestArtifacts(row,accountId);}
+  for(const row of rows){if(bookingExpiry(row)>Date.now())keep.push(row);else await removeRequestArtifacts(row,accountId);}
   if(keep.length!==rows.length)await saveRequests(accountId,keep);
   return keep;
 }
 
 async function saveRequests(accountId, rows) {
   await writeJson("requests/" + accountId + ".json", rows);
+}
+
+async function activeCancel(token){
+  const rec=await readJson('cancels/'+token+'.json');
+  if(!rec)return null;
+  // Older links used an arrival-based expiry. Follow the request itself
+  // so an existing customer can still cancel an upcoming job.
+  if(rec.accountId&&rec.requestId){
+    const row=(await loadRequests(rec.accountId)).find(r=>r.id===rec.requestId);
+    return row?rec:null;
+  }
+  return Number(rec.expiresAt||0)>Date.now()?rec:null;
 }
 
 function kidJob(row, account) {
@@ -1158,12 +1171,13 @@ async function savePublicEvent(row, account) {
     sequence: 0,
     createdAt: new Date().toISOString()
   };
+  rec.expiresAt=bookingExpiry(rec,60);
   await writeJson("events/" + token + ".json", rec);
   row.eventToken = token;
   row.publicEvent = rec;
 }
-// Cancel removes the public file immediately. The 60-day sweep only
-// clears a file that was never cancelled.
+// Cancel removes the public file immediately. Housekeeping also removes
+// files with their request, or at most 60 days after the scheduled work.
 async function dropPublicEvent(row) {
   if (!row || !row.eventToken) return;
   const token = String(row.eventToken).toLowerCase();
@@ -1338,7 +1352,7 @@ function privacyPage() {
 <p>Each page has a “Report this page” link. If a few people report a page, it is hidden until we check it.</p>
 
 <h2>Booking requests from neighbors</h2>
-<p>When a neighbor asks for a job, we keep what they typed: their name, how to reach them, the address, the job, the day and time, and a short note. It goes to the parent by email, to the parent’s private family calendar link, and to the parent’s account. We delete the request about 30 days after it arrives. The family calendar drops a job about 30 days after the job date. A public calendar file for that one booking is deleted as soon as the booking is cancelled, and otherwise about 60 days after it was saved. A gate code or key note stays in the parent’s email and is not put in the public calendar file. It is not a customer list and we do not use it for anything else.</p>
+<p>When a neighbor asks for a job, we keep what they typed: their name, how to reach them, the address, the job, the day and time, and a short note. It goes to the parent by email, to the parent’s private family calendar link, and to the parent’s account. We delete the request about 30 days after the scheduled job, or after it arrives if no job date was supplied. The family calendar drops a job about 30 days after the job date. A public calendar file for that one booking is deleted as soon as the booking is cancelled, and otherwise with its request or at most about 60 days after the scheduled job. A gate code or key note stays in the parent’s email and is not put in the public calendar file. It is not a customer list and we do not use it for anything else.</p>
 <p>If the neighbor leaves an email address, we send one note saying the request arrived, with a link to cancel it. That note does not include the parent’s email or phone, and it does not include a gate code or key note.</p>
 <p>The kid’s “My jobs” list shows the job, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on, and even then it shows the street name without the house number.</p>
 
@@ -1358,7 +1372,7 @@ function privacyPage() {
 <p>Vercel hosts the site, Neon stores the database, Resend sends email, and Stripe takes payments. They handle the information above only to provide those services to us. We do not sell personal information, and we do not share it with advertisers or other companies for their own use. There is no separate consent for that kind of sharing because we do not do it.</p>
 
 <h2>Free trial and plans</h2>
-<p>${trialBlurb()} One trial belongs to the parent’s email and is shared by every page on that account. It does not start over with a new link. When the trial ends, the public link shows a taking-a-break page. The page and, after consent, the kid’s draft stay saved. New requests are saved and held until a parent picks a plan, and each request is deleted about 30 days after it arrives. Plans and prices are on the <a href="/terms">Terms</a> page.</p>
+<p>${trialBlurb()} One trial belongs to the parent’s email and is shared by every page on that account. It does not start over with a new link. When the trial ends, the public link shows a taking-a-break page. The page and, after consent, the kid’s draft stay saved. New requests are saved and held until a parent picks a plan, and each request is deleted about 30 days after the scheduled job, or after it arrives if no job date was supplied. Plans and prices are on the <a href="/terms">Terms</a> page.</p>
 
 <h2>Taking a page down, or deleting everything</h2>
 <p>A parent can pause the page, take it offline, or delete the account from the account screen at any time. Taking a page offline does not delete calendar jobs. Deleting the account removes the email, the consent record, every page on the account, the booking requests, the calendar jobs, the public calendar files, and the calendar link. Two scrambled markers can stay so the free trial cannot be restarted: one for the email, and one for the card if a card was used. Neither marker is the email address or the card number.</p>
@@ -1450,7 +1464,7 @@ function retentionPage() {
 <p>An “ask my parent” note keeps the parent’s email, the child’s first name, and the business name. If the parent does not agree, it is deleted after 7 days.</p>
 <h2>After a parent agrees</h2>
 <p>The published page stays up until the parent takes it offline or deletes the account. Deleting the account removes the page, the booking requests, the calendar, and the public calendar files.</p>
-<p>A booking request is deleted about 30 days after it arrives. The family calendar drops a job about 30 days after the job date. A public calendar file for one booking is deleted as soon as the booking is cancelled, and otherwise about 60 days after it was saved.</p>
+<p>A booking request is deleted about 30 days after the scheduled job, or after it arrives if no job date was supplied. The family calendar drops a job about 30 days after the job date. A public calendar file for one booking is deleted as soon as the booking is cancelled, and otherwise with its request or at most about 60 days after the scheduled job.</p>
 <p>A cloud draft is deleted about 90 days after its last save, or when the account is deleted.</p>
 <h2>What can remain</h2>
 <p>Two scrambled markers can stay after an account is deleted, so the free trial cannot be restarted: one for the email, and one for the card if a card was used. Neither is the email address or the card number.</p>
@@ -1751,7 +1765,7 @@ ${searchForm}${pager}
 <tbody>${body || `<tr><td colspan="8" style="padding:8px">${rows.length ? "Nothing matches that search." : "No accounts yet."}</td></tr>`}</tbody>
 </table>
 ${pages > 1 ? pager : ""}
-<p style="color:#5a6672">Bookings are the requests still stored per family (each is deleted after about 30 days). Reports are the reports on a page right now; three hide a page automatically. “Restore” or “Clear reports” puts it back and clears them. “Take down” removes a page from public view and stops the family republishing it until you “Put back”. “Make free” puts a family on the friends &amp; family plan: no payment, no trial clock, no renewal emails. “Remove free” hands the account back to whatever its trial or paid dates say. “Refund” shows on a paid family’s latest payment: it asks you to confirm, sends the money back through Stripe, and ends the plan that payment bought. The terms promise a full refund within ${REFUND_DAYS} days.</p>
+<p style="color:#5a6672">Bookings are the requests still stored per family (each is deleted about 30 days after the scheduled job, or arrival if undated). Reports are the reports on a page right now; three hide a page automatically. “Restore” or “Clear reports” puts it back and clears them. “Take down” removes a page from public view and stops the family republishing it until you “Put back”. “Make free” puts a family on the friends &amp; family plan: no payment, no trial clock, no renewal emails. “Remove free” hands the account back to whatever its trial or paid dates say. “Refund” shows on a paid family’s latest payment: it asks you to confirm, sends the money back through Stripe, and ends the plan that payment bought. The terms promise a full refund within ${REFUND_DAYS} days.</p>
 </main></body></html>`);
 }
 
@@ -2099,6 +2113,7 @@ function draftCode() {
 }
 async function notifyNeighbor({ origin, reply, fields, account, requestId, slug, event, venmo }) {
   const cancel = rand(18);
+  const rows=await loadRequests(account.id),row=rows.find(r=>r.id===requestId);
   await writeJson("cancels/" + cancel + ".json", {
     accountId: account.id,
     parentEmail: account.email,
@@ -2106,9 +2121,10 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
     customer: fields.name,
     service: fields.service,
     when: fields.when,
-    used: false, createdAt:new Date().toISOString(), expiresAt:Date.now()+30*864e5
+    used: false, createdAt:new Date().toISOString(), expiresAt:row?bookingExpiry(row):Date.now()+30*864e5,
+    retentionVersion:2
   });
-  if(requestId){const rows=await loadRequests(account.id);const row=rows.find(r=>r.id===requestId);if(row){row.cancelToken=cancel;await saveRequests(account.id,rows);}}
+  if(row){row.cancelToken=cancel;await saveRequests(account.id,rows);}
   const url = (origin || "") + "/api/cancel/" + cancel;
 
   const support = supportReply();
@@ -2329,7 +2345,7 @@ async function routeRequest(req) {
 
   const cancelGet = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
   if (method === "GET" && cancelGet) {
-    const rec = await readJson("cancels/" + cancelGet[1] + ".json");
+    const rec = await activeCancel(cancelGet[1]);
     return cancelPage(cancelGet[1], !!(rec && rec.used), !rec);
   }
 
@@ -2407,7 +2423,7 @@ async function routeRequest(req) {
       origin,
       subject: "Your Hustle Builder code",
       expiresAt:account.verifyExpires,
-      text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name and a town. A booked job’s name, address, and time are saved for the family calendar for about 30 days." + unread,
+      text: "Your code is " + code + ".\n\nIt expires in 20 minutes. If you did not ask for this, ignore this email.\n\nPublishing a page shows a child’s first name and a town. A booked job’s name, address, and time are saved until about 30 days after the scheduled job for the family calendar." + unread,
       html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">Your code is <b>" + code + "</b>. It expires in 20 minutes.</p>" + (reply ? "" : "<p style=\"font:18px/1.45 system-ui,sans-serif\">Replies to this email aren't read.</p>")
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
@@ -2881,8 +2897,8 @@ async function routeRequest(req) {
 
   const cancelPost = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
   if (method === "POST" && cancelPost) {
-    const rec = await readJson("cancels/" + cancelPost[1] + ".json");
-    if (!rec || rec.expiresAt && rec.expiresAt<Date.now()) return cancelPage(cancelPost[1], false, true);
+    const rec = await activeCancel(cancelPost[1]);
+    if (!rec) return cancelPage(cancelPost[1], false, true);
     if (!rec.used) {
       rec.used = true;
       rec.cancelledAt = new Date().toISOString();
@@ -2995,7 +3011,7 @@ async function routeRequest(req) {
     const account = parts[0] ? await readJson("accounts/" + parts[0] + ".json") : null;
     const rows = account ? await loadRequests(account.id) : [];
     const row = rows.find((item) => item.id === parts[1]);
-    if (!account || !row) return finishedPage("This request is no longer stored. Requests are deleted about 30 days after they arrive.");
+    if (!account || !row) return finishedPage("This request is no longer stored. Requests are deleted about 30 days after the scheduled job, or arrival if undated.");
     if (method === "POST") {
       const next = String(body.status || "");
       if (next !== "confirmed" && next !== "done" && next !== "cancelled") return json(400, { ok: false, error: "status" });
@@ -3222,7 +3238,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       "Address: " + fields.address,
       "Note: " + (fields.note || "none"),
       "",
-      "We keep the name, address, and time for the family calendar for about 30 days. It is not a customer list."
+      "We keep the name, address, and time until about 30 days after the scheduled job for the family calendar. It is not a customer list."
     ].filter((line, i, arr) => line !== "" && !(line === "" && arr[i - 1] === "")).join("\n");
     const link = (href, label) => href ? "<a href=\"" + mailEscape(href) + "\" style=\"font-weight:700\">" + mailEscape(label) + "</a>" : "";
     const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\">"
@@ -3232,7 +3248,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
       + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(titled) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
       + (petBits.length ? "<br>" + petBits.map(mailEscape).join("<br>") : "") + "</p>"
-      + "<p>We keep the name, address, and time for the family calendar for about 30 days.</p>"
+      + "<p>We keep the name, address, and time until about 30 days after the scheduled job for the family calendar.</p>"
       + "</div>";
     if (!account.renewToken) account.renewToken = rand(16);
     await (await store()).put("renew/" + account.renewToken, account.id);
@@ -3862,13 +3878,10 @@ async function sweepExpired() {
     for(const legacy of LEGACY_COUNTER_PREFIXES)for(const key of await s.list(legacy))await s.del(key);
     // Admin sessions that simply ran out (nobody came back to trip the check).
     for(const key of await s.list('adminsessions/')){const rec=await readJson(key);if(!rec||Number(rec.exp)<=Date.now())await s.del(key);}
-    const eventKeep=60*864e5, mailKeep=400*864e5;
+    const mailKeep=400*864e5;
     for(const key of await s.list('events/')){
       const rec=await readJson(key);
-      const created=Date.parse(rec&&rec.createdAt||"");
-      const start=rec&&rec.start?jobInstant(rec.start, rec.tz):null;
-      const age=Number.isFinite(created)?created:start;
-      if(age!=null&&age+eventKeep<Date.now())await s.del(key);
+      if(bookingExpiry(rec,60)<Date.now())await s.del(key);
     }
     for(const key of await s.list('sentmail/')){
       const at=Number(await s.get(key));
@@ -3876,7 +3889,7 @@ async function sweepExpired() {
     }
     for(const prefix of ['cancels/','asks/','drafts/','bookingids/'])for(const key of await s.list(prefix)){
       const rec=await readJson(key);if(!rec)continue;
-      const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;
+      const expiry=prefix==='asks/'?Date.parse(rec.expires):prefix==='drafts/'?Date.parse(rec.updatedAt)+DRAFT_MS:prefix==='cancels/'&&rec.retentionVersion!==2?Date.parse(rec.createdAt)+150*864e5:rec.expiresAt||Date.parse(rec.createdAt)+REQUEST_KEEP_MS;
       if(!Number.isFinite(expiry)||expiry<Date.now()){
         await s.del(key);
         if(prefix==='asks/'&&rec.email)await s.del('askby/'+sha(rec.email)+'/'+key.slice(5,-5));

@@ -38,7 +38,8 @@ export function postgresStore(connectionString, injectedPool) {
     // Expired housekeeping in one statement, by each row's last write time —
     // no record is read back. Ages mirror the app's own rules: sign-in and
     // abuse counters a day, admin sessions 12 hours, ask links 7 days,
-    // cancel links and booking de-duplication 30 days, drafts 90 days. (A
+    // booking de-duplication 30 days, drafts 90 days. Booking action and
+    // cancel links follow the request's scheduled date. (A
     // row's clock restarts if it is rewritten, e.g. by a restore; records
     // are also checked against their own dates when they are read.)
     async sweep({keepFrom}){
@@ -47,9 +48,16 @@ export function postgresStore(connectionString, injectedPool) {
         OR EXISTS (SELECT 1 FROM unnest($2::text[]) AS legacy(prefix) WHERE starts_with(hb_kv.key,legacy.prefix))
         OR (starts_with(key,'adminsessions/') AND updated_at < now() - interval '12 hours')
         OR ((starts_with(key,'asks/') OR starts_with(key,'askby/')) AND updated_at < now() - interval '7 days')
-        OR ((starts_with(key,'cancels/') OR starts_with(key,'bookingids/')) AND updated_at < now() - interval '30 days')
+        OR (starts_with(key,'bookingids/') AND updated_at < now() - interval '30 days')
+        OR (starts_with(key,'cancels/') AND CASE WHEN value::jsonb->>'retentionVersion'='2'
+          THEN to_timestamp((value::jsonb->>'expiresAt')::numeric/1000)<now()
+          ELSE updated_at < now() - interval '150 days' END)
         OR ((starts_with(key,'drafts/') OR starts_with(key,'draftby/')) AND updated_at < now() - interval '90 days')
-        OR (starts_with(key,'events/') AND updated_at < now() - interval '60 days')
+        OR (starts_with(key,'events/') AND CASE WHEN (value::jsonb->>'expiresAt') ~ '^[0-9]+$'
+          THEN to_timestamp((value::jsonb->>'expiresAt')::numeric/1000)<now()
+          ELSE GREATEST(updated_at,CASE WHEN (value::jsonb->>'start') ~ '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$'
+            THEN (value::jsonb->>'start')::timestamp AT TIME ZONE COALESCE(value::jsonb->>'tz','America/Chicago')
+            ELSE updated_at END) < now() - interval '60 days' END)
         OR (starts_with(key,'sentmail/') AND updated_at < now() - interval '400 days')`,['counters/'+keepFrom,LEGACY_COUNTERS]);
       return r.rowCount||0;
     }
