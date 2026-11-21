@@ -169,17 +169,18 @@ try {
   const tag = await site.$eval(".tag", (e) => e.textContent);
   check("republish content", /Fresh cut/.test(tag), tag);
   check("console", logs.length === 0, logs.join(" | "));
-  // Exercise the two complete business styles at narrow phone and desktop widths.
+  // Exercise the actual builder controls; builder state is intentionally private.
   const styled = await browser.newPage();
   for (const theme of ["hustle", "neighbor"]) {
-    await page.evaluate(theme => chooseBrandStyle(theme), theme);
+    await page.select("#stepJump", "5");
+    await page.click(theme === "hustle" ? "#themes button:nth-child(1)" : "#themes button:nth-child(2)");
+    await page.waitForFunction(theme => document.querySelector("#frame").srcdoc.includes('data-theme="' + theme + '"'), {}, theme);
     for (const type of ["lawn", "snow", "prep", "wash", "help", "tutor", "other", "pet"]) {
-      const html = await page.evaluate(type => {
-        const c = resolve(true); c.type = type;
-        c.biz = "Taylor's Neighborhood Services";
-        c.services = [{n:"A longer neighborhood service name",p:"25"}];
-        return genSite(c);
-      }, type);
+      await page.select("#stepJump", "0");
+      const previous = await page.$eval("#frame", e => e.srcdoc);
+      await clickControl(page, '.tile[data-type="' + type + '"]');
+      await page.waitForFunction(previous => document.querySelector("#frame").srcdoc !== previous, {}, previous);
+      const html = await page.$eval("#frame", e => e.srcdoc);
       for (const width of [320, 390, 1366]) {
         await styled.setViewport({ width, height: 844 });
         await styled.goto(base + "/");
@@ -188,15 +189,14 @@ try {
           theme: document.documentElement.dataset.theme,
           overflow: document.documentElement.scrollWidth > innerWidth + 2,
           image: !!document.querySelector(".hero img")?.naturalWidth,
-          booking: !!document.querySelector("#cal") && !!document.querySelector("#sendHost"),
+          booking: !!document.querySelector("#cal") && !!document.querySelector("#svc"),
           title: document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2
         }));
         check("style " + theme + " " + type + " " + width, result.theme === theme && !result.overflow && result.image && result.booking && result.title, JSON.stringify(result));
       }
     }
-    await page.evaluate(() => save());
     await page.reload({waitUntil:"domcontentloaded"});
-    check("saved style " + theme, await page.evaluate(theme => S.theme === theme, theme));
+    check("saved style " + theme, await page.evaluate(theme => JSON.parse(localStorage.getItem("hustle-builder-v3")).theme === theme, theme));
   }
   await styled.close();
 
