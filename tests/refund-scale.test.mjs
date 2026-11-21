@@ -358,7 +358,7 @@ test("PostgreSQL: expired housekeeping is one statement, bulk reads skip page HT
     await old("drafts/old.json", "{}", "91 days"); await old("drafts/new.json", "{}", "89 days");
     await old("draftby/a/old", "1", "91 days");
     await old("asks/old.json", "{}", "8 days"); await old("asks/new.json", "{}", "6 days");
-    await old("cancels/old.json", "{}", "31 days"); await old("bookingids/a/old", "{}", "31 days"); await old("bookingids/a/new", "{}", "2 days");
+    await old("cancels/old.json", JSON.stringify({retentionVersion:2,expiresAt:Date.now()-864e5}), "31 days"); await old("bookingids/a/old", "{}", "31 days"); await old("bookingids/a/new", "{}", "2 days");
     await old("adminsessions/old.json", "{}", "13 hours"); await old("adminsessions/new.json", "{}", "1 hour");
     await old("counters/2020-01-01/book-x", "3", "1 hour"); await old("counters/2999-01-01/book-y", "3", "1 hour");
     await old("iplimit/legacy", "3", "1 hour");

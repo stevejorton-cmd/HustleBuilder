@@ -23,8 +23,8 @@ test.afterEach(async () => {
   for (const key of Object.keys(process.env)) if (!(key in env)) delete process.env[key];
   Object.assign(process.env, env); await rm(dir, { recursive: true, force: true });
 });
-test('mail cron runs once an hour without changing the daily renewal schedule', () => {
-  assert.equal(config.crons.find(c => c.path === '/api/cron/mail').schedule, '0 * * * *');
+test('mail cron retries before sign-in codes expire without changing daily renewals', () => {
+  assert.equal(config.crons.find(c => c.path === '/api/cron/mail').schedule, '*/10 * * * *');
   assert.equal(config.crons.find(c => c.path === '/api/cron/renewals').schedule, '0 14 * * *');
 });
 test('new sign-in mail sends in the originating request, without waiting for cron', async () => {

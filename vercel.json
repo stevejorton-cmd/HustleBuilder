@@ -116,7 +116,7 @@
     },
     {
       "path": "/api/cron/mail",
-      "schedule": "0 * * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }

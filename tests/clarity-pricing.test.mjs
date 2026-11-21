@@ -20,7 +20,8 @@ test('hosted booking has one send action and contact labels match their destinat
   assert.doesNotMatch(html,/<button[^>]*id="sendMail"/);
   assert.match(html,/href="#book">Open request form/);
   const downloaded=genSite(demoCfg({publish:null}));
-  assert.match(downloaded,/<button[^>]*id="sendMail"/);
+  assert.doesNotMatch(downloaded,/<button[^>]*id="sendMail"/);
+  assert.match(downloaded,/This is a draft preview/);
 });
 test('fall yard cleanup omits snowfall recurrence and snow removal retains it',()=>{
   assert.doesNotMatch(genSite(demoCfg({type:'prep'})),/<option>Every snowfall this winter<\/option>/);

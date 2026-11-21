@@ -9,7 +9,7 @@ function harness({owner='',anonymous=false,offline=false,email='',first='Saved A
  if(owner)data.set('hb-draft-owner',owner);if(anonymous)data.set('hb-anonymous-draft','1');
  const els=new Map();const el=k=>{if(!els.has(k))els.set(k,{hidden:true,textContent:'',value:''});return els.get(k);};
  const localStorage={getItem:k=>data.get(k)??null,setItem(k,v){if(failArchive&&k.startsWith('hb-private-draft:'))throw Error('quota');data.set(k,String(v));},removeItem:k=>data.delete(k),key:i=>[...data.keys()][i],get length(){return data.size;}};
- const c=vm.createContext({LS:'draft',BK:'boss',savedRaw:JSON.parse(data.get('draft')),savedBoss:JSON.parse(data.get('boss')),draftOwner:owner,anonymousDraft:anonymous,sessionEmail:'',draftDirty:false,draftRecoveryBlocked:false,S:{first:'',siteUrl:''},B:{jobs:[]},localStorage,document:{getElementById:el},$:el,
+ const c=vm.createContext({privateViewEpoch:0,LS:'draft',BK:'boss',savedRaw:JSON.parse(data.get('draft')),savedBoss:JSON.parse(data.get('boss')),draftOwner:owner,anonymousDraft:anonymous,sessionEmail:'',draftDirty:false,draftRecoveryBlocked:false,S:{first:'',siteUrl:''},B:{jobs:[]},localStorage,document:{getElementById:el},$:el,
   freshBoss:()=>({jobs:[]}),hydrateDraft:raw=>{c.S={first:'',siteUrl:'',...raw};},paintCurrentBuild(){},flyerUrlForDraft:()=>'',currentDraftCode:()=>'',siteDraftsLoad:()=>({}),legacySiteDraft:()=>'',pubSession:()=>null,
   pubPlans(){},publishOrigin:()=> 'https://test.invalid',pubErr(){},pubApi:async()=>{if(offline)throw Error('offline');return email?{ok:true,email,verified:true}:{ok:false};},pubSaveSession(){},showHosting(){},showParentVerified(){},settleGoLive(){},applyPublishState(){},planHelp:()=>'',showCalendar(){},syncCalUpcoming(){},applySavedVenmo(){}});
  vm.runInContext(part('function draftBelongsTo(', '/* The flyer link'),c);
@@ -69,4 +69,22 @@ for(const owned of [false,true])test(`startup navigation ${owned?'cannot overwri
  vm.runInContext(part('function go(n){','$("#stepJump").onchange='),c);
  vm.runInContext('go(Number.isInteger(S.builderStep)?S.builderStep:0)',c);
  assert.equal(JSON.parse(data.get('draft')).first,'OfflineSam');assert.equal(vm.runInContext('S.first',c),owned?'':'OfflineSam');
+});
+
+// A server response started before sign-out may finish afterwards.
+test('a late identity check cannot restore signed-out family data',async()=>{
+ const {c}=harness({owner:'parent@example.com'});let resolve;c.pubApi=()=>new Promise(done=>resolve=done);
+ const pending=c.initPublish();c.privateViewEpoch++;c.sessionEmail='';
+ resolve({ok:true,email:'parent@example.com',verified:true});await pending;
+ assert.equal(c.sessionEmail,'');assert.equal(c.S.first,'');assert.deepEqual(c.B.jobs,[]);
+});
+
+test('opening Go live after sign-out does not block the owner archive from restoring',async()=>{
+ const {c,data}=harness({owner:'parent@example.com',email:'parent@example.com'});
+ c.sessionEmail='parent@example.com';assert.equal(c.archiveDeviceDraft(),true);
+ c.document.querySelectorAll=()=>[];c.seg={querySelectorAll:()=>[],setAttribute(){}};
+ c.STEPS=8;c.step=0;c.updateLaunch=()=>{};c.window={scrollTo(){}};
+ vm.runInContext(part('function go(n){','$("#stepJump").onchange='),c);c.go(7);
+ assert.equal(c.draftDirty,false);assert.equal(data.has('draft'),false);
+ await c.initPublish();assert.equal(c.S.first,'Saved Alex');assert.equal(c.B.jobs[0].id,'private-job');
 });

@@ -41,7 +41,7 @@ test("ink saver is the default flyer and poster look for every job", () => {
   assert.match(src, /flyerStyle:"ink"/);
   assert.match(src, /bg:"ink"/);
   assert.match(src, /\["ink","Ink saver"\]/);
-  assert.match(src, /S\.flyerStyle="ink";if\(S\.studio\)S\.studio\.bg="ink"/);
+  assert.match(src, /if\(!S\.flyerStyle\)S\.flyerStyle="ink"/);
   assert.match(src, /style:"ink"/);
   assert.match(src, /--accent:#FF5B14/);
 });

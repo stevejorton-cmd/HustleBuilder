@@ -618,8 +618,6 @@ a.addr.map span{overflow-wrap:anywhere}
 .jobmap .links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:0 0 8px}
 .jobmap .links a.addr.map{flex:1 1 auto;margin:0;min-width:min(100%,12em)}
 .jobmap .links a.dir,.finishmap .links a.dir{color:var(--ink);font-weight:700;text-decoration:underline;font-size:15px;padding:8px 0;min-height:44px;display:inline-flex;align-items:center;white-space:nowrap}
-.jobmap iframe{display:block;width:100%;height:180px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
-.jobmap iframe:not([src]){display:none}
 .finishmap{margin:0 0 12px}
 .finishmap a.addr.map{margin-top:0}
 .finishmap .links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px}
@@ -966,8 +964,9 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
       <div class="mf"><label>Your business style</label><div class="themes" id="themes"></div><small class="help2" id="themeHelp"></small></div>
       <details class="help"><summary>Customize your style</summary>
       <div class="rigs" id="rigs"></div>
-      <div class="mf" style="margin-top:26px"><label>Scene lighting</label><div class="chips" id="looks"></div><small class="help2" id="lookHelp"></small></div>
-      <div class="mf" style="margin-top:18px"><label>Pictures</label><div class="chips" id="skies"></div><small class="help2" id="skyHelp"></small></div>
+      <p class="small2" id="brandArtHelp" hidden>Hustle uses a dark background; Neighbor uses a light background. Each style includes artwork for the work you offer. Add your own before-and-after photos on the Photos step.</p>
+      <div class="mf" id="lookControls" style="margin-top:26px"><label>Scene lighting</label><div class="chips" id="looks"></div><small class="help2" id="lookHelp"></small></div>
+      <div class="mf" id="artControls" style="margin-top:18px"><label>Pictures</label><div class="chips" id="skies"></div><small class="help2" id="skyHelp"></small></div>
       <div class="mf" style="margin-top:18px"><label>Website font</label><div class="chips" id="siteFonts"></div><small class="help2">The big headings on your website.</small></div>
       </details>
     </section>
@@ -1165,6 +1164,8 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
             </div>
           </div>
           <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent marks them confirmed or done.</p>
+          <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
+          <p class="status" id="jobStatus" role="status" aria-live="polite"></p>
           <div id="jobList"></div>
         </div>
 </div><div id="bossBody"></div><p class="small2" style="margin:4px 20px 0"><button type="button" class="link" id="watchIntroBoss" data-intro>See examples</button></p></section>
@@ -1595,14 +1596,23 @@ function siteMain(){
     if(!nm){err.textContent="Add your first name so I know who’s asking.";return null;}
     if(!addr){err.textContent="Add the address for the job.";return null;}
     if(needContact&&!ct){err.textContent="Add a phone number or email so my parent can reach you.";return null;}
+    if(C.pet){
+      var count=Number(val("petCount"));
+      if(!Number.isInteger(count)||count<1||count>20){err.textContent="Enter a whole number of pets from 1 to 20.";return null;}
+      if($("freq").value==="While I'm away"){
+        var from=val("awayFrom"),to=val("awayTo");
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)){err.textContent="Add the first and last day you are away.";return null;}
+        if(to<from){err.textContent="The last day away must be on or after the first day.";return null;}
+      }
+    }
     if(otherOn()&&!note){err.textContent="Add a note that says what you need. The first words become the job name.";var box=$("note");if(box)box.focus();return null;}
     var m="Hi "+C.first+"! This is "+nm+". I’d like to book: "+sel.value+" on "+longDate(picked)+(($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value))+"."+petLine()+" "+($("sz")&&$("sz").value?"Size: "+$("sz").value+". ":"")+"How often: "+$("freq").value+". Address: "+addr+"."+(note?" Note: "+note:"")+(ct?" Reply to: "+ct+".":"")+" (Sent from the "+C.biz+" website)"+calLine(nm,addr,sel.value);
     $("out").value=m; $("outWrap").hidden=false;
     return m;
   }
-  var t=$("sendText"), e=$("sendMail");
+  var t=$("sendText");
   if(t){t.onclick=function(){var m=build(); if(m){window.location.href="sms:"+C.phoneDigits+"?&body="+encodeURIComponent(m);}};}
-  if(e){e.onclick=function(){var m=build(true); if(!m)return; if(C.publish&&C.publish.book&&shost){shost.click();return;} window.location.href="mailto:bookings@hustlebuilder.org?subject="+encodeURIComponent("Booking request: "+C.biz)+"&body="+encodeURIComponent(m);};}
+
   var ph=$("ph");
   if(ph){ph.onchange=function(){var f=ph.files&&ph.files[0];photoData="";$("phPrev").hidden=true;if(!f)return;if(f.size>20*1024*1024){$("phNote").textContent="That photo is too big. Please try a different one.";return;}shrink(f,function(u){if(u&&u.length<580000){photoData=u;$("phPrev").src=u;$("phPrev").hidden=false;}else{$("phNote").textContent="That photo could not be used. Please try a different one.";}});};}
   var si=$("sendInbox");
@@ -1633,7 +1643,7 @@ function siteMain(){
     var ct=$("ct")?$("ct").value.trim():"";
     var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
     var price="";(C.services||[]).forEach(function(s){if(s&&s.n===sel.value)price=String(s.p||"").replace(/[^0-9.]/g,"");});
-    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,price:price,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:val("awayFrom"),awayTo:val("awayTo"),access:val("access")};
+    var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,price:price,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:$("freq").value==="While I'm away"?val("awayFrom"):"",awayTo:$("freq").value==="While I'm away"?val("awayTo"):"",access:val("access")};
     var fingerprint=JSON.stringify(Object.assign({},payload,{t:0}));
     if(fingerprint!==bookingFingerprint){bookingFingerprint=fingerprint;bookingKey=Array.from(crypto.getRandomValues(new Uint8Array(16)),function(b){return b.toString(16).padStart(2,"0");}).join("");}
     payload.requestId=bookingKey;
@@ -1646,7 +1656,8 @@ function siteMain(){
       else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
       else if(r&&r.message){box.textContent=r.message;}
       else{box.textContent="I couldn’t send that. Please try again in a minute.";}
-    }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t send that. Try again in a minute, or use another contact option if one is shown."; $("outWrap").hidden=false;});
+      if(!(r&&r.ok)){showCopy(true);$("outWrap").hidden=false;}
+    }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t confirm that your request arrived. Try again, or copy your request below to share with the family.";showCopy(true);$("outWrap").hidden=false;});
   };}
   if($("freq")&&$("awayWrap")){$("freq").onchange=function(){$("awayWrap").hidden=$("freq").value!=="While I'm away";};}
   function venmoHref(){
@@ -2189,7 +2200,7 @@ function genSite(c){
   const offersPrep=c.type==="prep"||(c.services||[]).some(s=>/yard cleanup|trim (?:hedges, hand clippers|small hedges)|clear dead plants/i.test(s.n||""));
   const prepTitle=(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?"Yard cleanup and winter prep":"Yard cleanup";
   const prepSafe=offersPrep?`<section id="prepsafe"><h2>${prepTitle}</h2><p class="promise">Leaf cleanup, weeding, and seasonal yard work. My parent confirms the tasks before we start.</p></section>`:"";
-  const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
+  const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Preferred time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
   const sizeField=["pet","tutor","help","other"].includes(c.type)?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
   const jobNote=({lawn:"Gate access, pets, or areas to avoid",snow:"Where to put the snow or any buried obstacles",both:"Gate access, pets, or where to put snow",prep:"Gate access, cleanup tasks, or where to put yard waste",wash:"Vehicle size, water access, or anything to avoid",help:"Tasks, how long you need help, or anything the parent should know",tutor:"Reading level, school subject, or what to practice",odd:"The tasks, time needed, or access instructions",other:"Describe the job and what you would like done"})[c.type]||"Anything else about this job";
   const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:`<label>${esc(jobNote)}<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
@@ -2197,7 +2208,7 @@ function genSite(c){
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
   const publicPhone=false;
-  const canEmail=!!(c.email||(c.publish&&c.publish.book));
+  const canEmail=hostOn||inboxOn;
   const contactHTML=`<section id="contact">
   <h2>Contact my parent</h2>
   <p class="small">${esc(c.parentName||"My parent")} helps run this business. Add questions about the job in your request note. A parent replies before confirming.</p>
@@ -2205,7 +2216,6 @@ function genSite(c){
 </section>`;
   const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Snow service package</strong><p>I clear your driveway every time it snows this winter. My parent confirms which visits and tasks the package includes.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
   const pay=c.venmo?`<a class="venmo" id="venmoPay" href="https://venmo.com/${encodeURIComponent(c.venmo)}?txn=pay&amp;note=${encodeURIComponent((c.first?c.first+": ":"")+c.biz)}" target="_blank" rel="noopener">Pay with Venmo</a><p class="small">Pay @${esc(c.venmo)} after the job. Neighbors see this Venmo name. Confirm it in the Venmo app.</p>`:`<p>My parent will confirm how to pay after the job.</p>`;
-  const buttons=canEmail&&!hostOn?`<button type="button" class="btn" id="sendMail">Email my request</button>`:"";
   const info=typeInfo(c.type);
   const type=info.label;
   const target=info.target;
@@ -2444,7 +2454,7 @@ ${promiseHTML}
       <div class="hp" aria-hidden="true"><label>Company<input id="hp" name="company" tabindex="-1" autocomplete="off"></label></div>
       ${inboxOn?`<label>A photo of the ${target}, if you want (optional)<input type="file" id="ph" accept="image/*"></label><p class="small" id="phNote" style="margin:-6px 0 12px">Photos of your yard or driveway only, please. No people. It goes to my parent only.</p><img id="phPrev" alt="Your photo" hidden style="max-width:100%;max-height:180px;border-radius:8px;margin:0 0 12px">`:""}
       <div class="q"><b>3</b><span>Send it</span></div>
-      ${(hasContact||inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:(inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`:"")}${hostOn?"":inboxOn?buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">This is a draft preview. A parent publishes the website at Go live to enable booking requests.</p>`}
+      ${(inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:`<button type="button" class="btn" id="sendInbox">Send my request</button>`}</div>`:`<p class="small">This is a draft preview. A parent publishes the website at Go live to enable booking requests.</p>${c.publicUrl?`<p><a class="btn" href="${esc(c.publicUrl)}" target="_blank" rel="noopener">Request on my live website</a></p>`:""}`}
       <p class="err" id="err" role="alert"></p>
       <div id="sentBox" class="sent" hidden role="status"></div>
       <button type="button" id="copyBook" hidden>Copy job</button>
@@ -2886,7 +2896,10 @@ function go(n){
   $("#plabel").textContent="Step "+(step+1)+" of "+STEPS;
   $("#stepJump").value=String(step);
   $("#next").textContent="Next: "+["Your work","Name","Prices","Schedule","Parent & payment","Style","Photos","Go live"][Math.min(step+1,STEPS-1)];
-  S.builderStep=step;save();
+  S.builderStep=step;
+  // Moving through an empty shell is navigation, not a replacement draft.
+  // In particular, opening Go live after sign-out must allow owner recovery.
+  if(draftDirty||savedRaw||draftOwner||anonymousDraft)save();
   $("#back").disabled=step===0;
   $("#next").hidden=step===STEPS-1;
   if(step===STEPS-1)updateLaunch();
@@ -3199,6 +3212,11 @@ function renderThemes(){
 }
 
 function renderRigs(){
+  const coordinated=["hustle","neighbor"].includes(siteTheme(S.theme));
+  const lookControls=$("#lookControls"),artControls=$("#artControls"),artHelp=$("#brandArtHelp");
+  if(lookControls)lookControls.hidden=coordinated;
+  if(artControls)artControls.hidden=coordinated;
+  if(artHelp)artHelp.hidden=!coordinated;
   const w=$("#rigs"); w.innerHTML="";
   Object.keys(RIGS).forEach(k=>{
     const g=RIGS[k];
@@ -3313,7 +3331,11 @@ if(anonymousDraft&&!draftOwner&&savedBoss&&typeof savedBoss==="object")B=Object.
 if(!Array.isArray(B.jobs))B.jobs=[];if(!Array.isArray(B.costs))B.costs=[];
 if(!Array.isArray(B.upcoming))B.upcoming=[];
 if(!B.missions)B.missions={};if(!B.mdone)B.mdone={};if(!B.mweeks)B.mweeks={};
-function saveB(){if(!save())return;try{localStorage.setItem(BK,JSON.stringify(B));}catch(e){storageOK=false;}}
+function saveB(){
+  if(!save())return false;
+  try{localStorage.setItem(BK,JSON.stringify(B));storageOK=true;return true;}
+  catch(e){storageOK=false;const status=document.getElementById("saveState");if(status){status.hidden=false;status.textContent="This device could not save your job and money records. Keep this page open and export a backup before leaving.";}return false;}
+}
 const pad=n=>String(n).padStart(2,"0");
 const r2=n=>Math.round(n*100)/100;
 function money(n){n=r2(n);const neg=n<0;n=Math.abs(n);return (neg?"-":"")+"$"+n.toLocaleString("en-US",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});}
@@ -3476,10 +3498,26 @@ function renderBoss(){
 /* ---- modal + toast ---- */
 const modalEl=$("#modal"), mbody=$("#mbody");
 let modalDismiss=null;
-function openModal(html){closeModal();document.getElementById("toast").classList.remove("show");mbody.innerHTML=html;modalEl.classList.add("open");const f=mbody.querySelector("input,button");if(f&&window.matchMedia("(min-width:700px)").matches)f.focus();}
-function closeModal(){const dismiss=modalDismiss;modalDismiss=null;modalEl.classList.remove("open");mbody.innerHTML="";if(dismiss)dismiss();}
+let modalReturnFocus=null;
+function openModal(html){const target=modalEl.classList.contains("open")?modalReturnFocus:document.activeElement;closeModal();modalReturnFocus=target;document.getElementById("toast").classList.remove("show");mbody.innerHTML=html;modalEl.classList.add("open");const f=mbody.querySelector("input,button");if(f&&window.matchMedia("(min-width:700px)").matches)f.focus();}
+function closeModal(){const dismiss=modalDismiss,target=modalReturnFocus;modalDismiss=null;modalReturnFocus=null;modalEl.classList.remove("open");mbody.innerHTML="";if(dismiss)dismiss();if(target&&target.isConnected)target.focus();}
 modalEl.addEventListener("click",e=>{if(e.target===modalEl)closeModal();});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modalEl.classList.contains("open"))closeModal();});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&modalEl.classList.contains("open")){closeModal();return;}
+  const dialog=modalEl.classList.contains("open")?modalEl:(typeof stOpen!=="undefined"&&stOpen?document.getElementById("studio"):null);
+  if(e.key!=="Tab"||!dialog)return;
+  const items=Array.from(dialog.querySelectorAll('a[href],summary,button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')).filter(el=>{
+    if(!el.getClientRects().length||el.closest("[hidden]"))return false;
+    for(let p=el.parentElement;p&&p!==dialog;p=p.parentElement){
+      if(p.tagName==="DETAILS"&&!p.open){const summary=Array.from(p.children).find(child=>child.tagName==="SUMMARY");if(!summary||!summary.contains(el))return false;}
+    }
+    return true;
+  });
+  if(!items.length)return;
+  const first=items[0],last=items[items.length-1],active=document.activeElement;
+  if(e.shiftKey&&(active===first||!dialog.contains(active))){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&(active===last||!dialog.contains(active))){e.preventDefault();first.focus();}
+});
 let toastT;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 async function copyText(text,ok){
@@ -3553,7 +3591,6 @@ function mapQuery(a){
 }
 function mapsSearchUrl(q){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q);}
 function mapsDirUrl(q){return "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(q);}
-function mapsEmbedUrl(q){return "https://maps.google.com/maps?q="+encodeURIComponent(q)+"&z=16&output=embed";}
 function addrLink(a){
   const raw=String(a==null?"":a).replace(/\s+/g," ").trim();
   if(!raw)return "";
@@ -3567,34 +3604,13 @@ function dirAnchor(a){
   return '<a class="dir" href="'+esc(mapsDirUrl(q))+'" target="_blank" rel="noopener" title="Directions in Google Maps">Directions</a>';
 }
 function bindJobMap(input, box){
-  let shown="", timer;
-  function paint(now){
+  function paint(){
     const q=mapQuery(input.value);
-    if(!q){shown="";clearTimeout(timer);box.hidden=true;box.innerHTML="";return;}
-    box.hidden=false;
-    let link=box.querySelector("a.addr"), dir=box.querySelector("a.dir"), frame=box.querySelector("iframe");
-    if(!link||!dir||!frame){
-      box.innerHTML='<div class="links">'+addrLink(q)+dirAnchor(q)+'</div><iframe title="Map preview" loading="lazy" referrerpolicy="no-referrer"></iframe>';
-      link=box.querySelector("a.addr");dir=box.querySelector("a.dir");frame=box.querySelector("iframe");
-    }else{
-      link.href=mapsSearchUrl(q);
-      link.setAttribute("aria-label","Show "+q+" on Google Maps. Opens in a new tab.");
-      const span=link.querySelector("span");if(span)span.textContent=q;
-      dir.href=mapsDirUrl(q);
-    }
-    const apply=()=>{
-      if(mapQuery(input.value)!==q)return;
-      const src=mapsEmbedUrl(q);
-      if(frame.getAttribute("src")!==src){frame.title="Map of "+q;frame.src=src;}
-      shown=q;
-    };
-    if(now){clearTimeout(timer);apply();return;}
-    if(shown===q&&frame.getAttribute("src"))return;
-    clearTimeout(timer);
-    timer=setTimeout(apply,400);
+    box.hidden=!q;
+    box.innerHTML=q?'<div class="links">'+addrLink(q)+dirAnchor(q)+'</div>':"";
   }
-  input.addEventListener("input",()=>paint(false));
-  paint(true);
+  input.addEventListener("input",paint);
+  paint();
 }
 function digitsOf(p){return String(p||"").replace(/[^\d+]/g,"");}
 function elapsed(ms){const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+":"+pad(m%60);}
@@ -3691,7 +3707,7 @@ function openSched(id){
    +(svcs.length?'<div class="chips" id="sf-sc">'+svcs.map(s=>'<button type="button" data-v="'+esc(s.n)+'" data-p="'+esc(s.p)+'">'+esc(s.n)+'</button>').join("")+'</div>':"")+'</div>'
    +'<div class="mf"><div class="row2"><label>Price ($)<input type="text" inputmode="decimal" id="sf-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Time (optional)<input type="time" id="sf-t" value="'+esc(j.time)+'"></label></div></div>'
    +'<div class="mf"><label for="sf-d">Date</label><input type="date" id="sf-d" value="'+esc(j.date)+'"></div>'
-   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Saved on this device. If you enter an address, a map preview sends that address to Google.</small><div id="sf-map" class="jobmap" hidden></div></div>'
+   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Saved on this device. Open a map or directions to send the address to Google.</small><div id="sf-map" class="jobmap" hidden></div></div>'
    +'<div class="mf"><label for="sf-p">Customer phone (optional)</label><input type="tel" inputmode="tel" id="sf-p" value="'+esc(j.phone)+'" autocomplete="off"><small class="help2">Only used to text “on my way” and “done.” Ask a parent before you text a customer.</small></div>'
    +'<div class="mf"><label for="sf-n">Notes</label><input type="text" id="sf-n" value="'+esc(j.note)+'" autocomplete="off" placeholder="Gate code, pets, where to put the snow"></div>'
    +(ex?'<div class="mbtns" style="margin:0 0 6px"><button type="button" class="btn ghost" id="sf-confirm">Confirmation details</button><button type="button" class="btn ghost" id="sf-ics">Add to calendar</button><button type="button" class="btn ghost" id="sf-gcal">Google Calendar</button><button type="button" class="btn outline" id="sf-del">Remove from schedule</button></div>':"")
@@ -3900,7 +3916,7 @@ function setMode(m){
   $("#mFlyers").setAttribute("aria-pressed",String(fl));
   $("#mBoss").setAttribute("aria-pressed",String(boss));
   if(boss){lastProfit=0;renderBoss();loadMyJobs();}
-  if(fl){S.flyerStyle="ink";if(S.studio)S.studio.bg="ink";save();syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
+  if(fl){if(!S.flyerStyle)S.flyerStyle="ink";save();syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
   window.scrollTo(0,0);
 }
 $("#mBuild").onclick=()=>setMode("build");
@@ -4543,7 +4559,7 @@ function openAbout(){
    +'<li><b>Building stays on your device.</b> What you type is saved in your browser on this device. There are no ads and no tracking, and a kid never makes an account.</li>'
    +'<li><b>Three things send your page to our server,</b> and only when you choose them: saving a draft to open on another device, asking a parent to publish, and a parent publishing the page. Publishing needs a parent’s email.</li>'
    +'<li><b>A published page is public.</b> It shows what you entered: first name, town, prices, photos, and reviews. A parent’s email and phone stay off the page.</li>'
-   +'<li><b>Booking requests</b> from neighbors go to the parent by email and are kept for about 30 days.</li>'
+   +'<li><b>Booking requests</b> from neighbors go to the parent by email and are kept until about 30 days after the scheduled job, or arrival if undated.</li>'
    +'<li>The full details are in the <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</li>'
    +'<li><b>Photos</b> are resized on your device and hidden location data is removed.</li>'
    +'<li><b>Deleting:</b> clearing your browser data, or tapping Erase job records in My jobs, removes the records on this device. Export first if you want a copy. A parent can delete the online account and page from Go live.</li>'
@@ -5023,6 +5039,27 @@ const PUB_KEY="hb-parent-session";
    an older version may still sit in localStorage and is sent as a fallback so
    nobody gets signed out by the switch, but new sign-ins never save it. */
 let pubMemToken="";
+let privateViewEpoch=0,accountLoadId=0;
+function privateViewKey(){
+  const session=pubSession();
+  let code="";try{code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";}catch(e){}
+  return [sessionEmail||(session&&session.email)||"",pubToken(),code].join("|");
+}
+function clearPrivateViews(){
+  privateViewEpoch++;accountLoadId++;
+  if(typeof jobsLoadPending!=="undefined"){jobsLoadPending=false;jobsLoadKey="";}
+  if(typeof jobsActionPending!=="undefined")jobsActionPending=false;
+  const refresh=$("#refreshJobs");if(refresh)refresh.disabled=false;
+  if(modalEl.classList.contains("open"))closeModal();
+  ["#jobList","#accountSites","#buildsBox"].forEach(id=>{const el=$(id);if(el)el.innerHTML="";});
+  ["#jobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#accountVenmoField"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  ["#jobCalGoogle","#jobCalApple","#calGoogle","#calApple"].forEach(id=>{const el=$(id);if(el)el.removeAttribute("href");});
+  ["#calLink","#jobStatus","#venmoMsg"].forEach(id=>{const el=$(id);if(el)el.textContent="";});
+  const venmo=$("#acctVenmo");if(venmo)venmo.value="";
+  const empty=$("#jobEmpty");if(empty){empty.hidden=false;empty.textContent="Sign in with the parent account to see booking requests. Your local job log is below.";}
+  const signIn=$("#jobSignIn");if(signIn)signIn.hidden=false;
+  clearParentVerified();
+}
 function publishOrigin(){
   const custom=String(window.HB_PUBLISH_ORIGIN||"").trim().replace(/\/$/,"");
   if(custom)return custom;
@@ -5044,10 +5081,12 @@ function pubSaveSession(s){
 }
 function pubToken(){const s=pubSession(); return pubMemToken||(s&&s.token)||"";}
 async function pubSignOut(){
-  try{await pubApi("/api/auth/logout",{body:{}});}catch(e){}
+  try{const result=await pubApi("/api/auth/logout",{body:{}});if(!result.ok&&result.httpStatus!==401)return false;}catch(e){return false;}
   pubMemToken="";
-  pubSaveSession(null);
-  setConsentOn(false);
+  try{pubSaveSession(null);}catch(e){}
+  try{setConsentOn(false);}catch(e){}
+  clearPrivateViews();
+  return true;
 }
 function calSyncOn(){return !!(publishOrigin()&&pubSession()&&localStorage.getItem("hb-cal-sync")!=="0");}
 function calJobBody(j){return {id:j.id,service:j.service||"",customer:j.customer||"",address:j.address||"",start:(j.date||"")+"T"+(j.time||"09:00"),note:j.note||"",amount:j.amount?String(j.amount):""};}
@@ -5346,6 +5385,7 @@ function archiveDeviceDraft(){
     const data={};deviceDraftKeys().forEach(k=>{const v=localStorage.getItem(k);if(v!==null)data[k]=v;});
     localStorage.setItem("hb-private-draft:"+draftOwner.toLowerCase(),JSON.stringify(data));
     clearDeviceDraft(false);
+    if(typeof clearPrivateViews==="function")clearPrivateViews();
     draftDirty=false;
     resetBuilderToStock();
     return true;
@@ -5405,6 +5445,7 @@ function restoreOwnedDraft(){
   if(savedRaw)draftRecoveryNotice();
 }
 async function initPublish(){
+  const epoch=privateViewEpoch;
   pubPlans();
   const origin=publishOrigin();
   const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
@@ -5415,8 +5456,13 @@ async function initPublish(){
      still recognised, and a stale cache alone is not enough. A draft on
      this device is shown only when it belongs to that parent. */
   let me=null;
-  try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){ restoreOwnedDraft(); return; }
-  if(!me.ok){pubSaveSession(null); sessionEmail=""; if(!draftDirty)restoreOwnedDraft(); return;}
+  try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){if(epoch===privateViewEpoch)restoreOwnedDraft();return;}
+  if(epoch!==privateViewEpoch)return;
+  if(!me.ok){
+    if(me.httpStatus===401||me.error==="auth"){pubSaveSession(null);sessionEmail="";if(typeof clearPrivateViews==="function")clearPrivateViews();}
+    else pubErr("Could not check your account. Check your connection and try again.");
+    if(!draftDirty)restoreOwnedDraft();return;
+  }
   sessionEmail=String(me.email||"").trim().toLowerCase();
   if(!forgetUnownedDraft())return;
   if(!restoreArchivedDraft())return;
@@ -5436,17 +5482,23 @@ async function initPublish(){
   applySavedVenmo(me.venmo);
 }
 $("#pubSend").onclick=async()=>{
+  const button=$("#pubSend");if(button.disabled)return;
   pubErr(""); $("#pubCode").value="";
   const owner=$("#parentOwner");
   if(owner&&!owner.checked){$("#pubCodeMsg").textContent="Check the box: you are the parent or guardian and you run this page with your kid."; return;}
   $("#pubCodeMsg").textContent="Sending...";
+  button.disabled=true;
   try{
     const data=await pubApi("/api/auth/start", {body:{email:$("#pubEmail").value.trim()}});
-    if(!data.ok)$("#pubCodeMsg").textContent=data.error==="mail"?"Email is not set up yet.":"Enter a parent’s email.";
+    if(!data.ok)$("#pubCodeMsg").textContent=data.message||(data.error==="limit"?"Too many code requests today. Use the latest valid code if you have it, or try again tomorrow.":data.error==="mail"?"Email is not set up yet.":"Enter a parent’s email.");
     else $("#pubCodeMsg").textContent=data.devCode?("Test mode. The code is "+data.devCode+". A real setup emails it to the parent only."):"Code sent. Check the parent’s inbox and spam folder. The code expires in 20 minutes.";
   }catch(e){ $("#pubCodeMsg").textContent=e.message==="no-host"?"Publish is not set up on this link yet.":"Could not reach the host. Try again."; }
+  finally{button.disabled=false;}
 };
 $("#pubVerify").onclick=async()=>{
+  const button=$("#pubVerify");if(button.disabled)return;
+  if(!$("#pubCode").value.trim()){pubErr("Enter the code from the parent’s email first.");return;}
+  button.disabled=true;
   pubErr("");
   try{
     const data=await pubApi("/api/auth/verify", {body:{email:$("#pubEmail").value.trim(), code:$("#pubCode").value.trim()}});
@@ -5458,13 +5510,15 @@ $("#pubVerify").onclick=async()=>{
     if(!restoreArchivedDraft())return;
     if(!draftDirty)restoreOwnedDraft();
     save();
+    const epoch=privateViewEpoch;
     showParentVerified(data);
     applyPublishState(data);
     const verified=$("#pubVerified"); if(verified)verified.scrollIntoView({block:"center"});
-    try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
+    try{const me=await pubApi("/api/me",{method:"GET"});if(epoch!==privateViewEpoch)return;if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
-    try{const me=await pubApi("/api/me",{method:"GET"}); if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
+    try{const me=await pubApi("/api/me",{method:"GET"});if(epoch!==privateViewEpoch)return;if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
   }catch(e){pubErr("Could not verify. Try again.");}
+  finally{button.disabled=false;}
 };
 async function pollPaid(ms){
   const start=Date.now();
@@ -5564,6 +5618,10 @@ function recordSiteDraft(slug){
   }catch(e){}
 }
 async function pubPush(){
+  const button=$("#pubGo");
+  if(button&&button.disabled)return;
+  if(button)button.disabled=true;
+  try{
   pubErr("");
   if(missing().length){updateLaunch(); pubErr("Add the items still needed above, then try Publish again."); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
   const steep=(S.services||[]).some(s=>priceTooHigh(priceNum(s.p)))||(S.seasonOn&&priceTooHigh(priceNum(S.seasonPrice)));
@@ -5622,6 +5680,7 @@ async function pubPush(){
     $("#pubOk").textContent=data.added?"Published. This page is covered by your family plan.":data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
     try{const now=await pubApi("/api/me",{method:"GET"}); if(now&&now.ok){showHosting(now); settleGoLive(now);}}catch(e){}
   }catch(e){pubErr("Could not publish. Try again.");}
+  }finally{if(button)button.disabled=false;}
 }
 async function buyPlanFirst(plan){
   pubErr("");
@@ -5669,27 +5728,31 @@ function accountWords(site){
   return "Free trial · "+days+" · website, bookings, and flyers";
 }
 function statusWord(status){return {live:"Live",paused:"Paused",offline:"Offline",down:"Taken down"}[status]||"Not up";}
-async function showAccount(){
+async function showAccount(message){
+  const loadId=++accountLoadId,epoch=privateViewEpoch;
   $("#parentHere").open=true;
   $("#pubBox").hidden=false;
   $("#askInviteNotice").hidden=true;
   const screen=$("#accountScreen"); if(!screen)return;
   screen.hidden=false;
   const lead=$("#accountLead"), box=$("#accountSites"), msg=$("#accountMsg");
-  if(msg)msg.textContent="";
+  if(msg)msg.textContent=typeof message==="string"?message:"Loading your account…";
   const venmoField=$("#accountVenmoField");if(venmoField)venmoField.hidden=true;
   const session=pubSession();
   const hadHint=!!(session||pubMemToken);
   renderBuildsBox();
   const builds=$("#buildsBox");if(builds)builds.hidden=true;
   const outBtn=$("#acctSignOut"); if(outBtn)outBtn.hidden=true;
-  let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(msg)msg.textContent="Could not open the account. Try again."; return;}
+  let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(loadId===accountLoadId&&epoch===privateViewEpoch&&msg)msg.textContent="Could not open the account. Check your connection and try again.";return;}
+  if(loadId!==accountLoadId||epoch!==privateViewEpoch)return;
   if(!data.ok){
+    clearParentVerified();
     if(lead)lead.textContent=hadHint?"Sign in again with the parent email to manage your pages.":"Use your parent email and the emailed code to open your saved pages. Kids can build a draft without signing in.";
     if(box)box.innerHTML="";
-    if(msg)msg.textContent=hadHint?"Sign in again with a new code.":"";
+    if(msg)msg.textContent=typeof message==="string"?message:hadHint?"Sign in again with a new code.":"";
     return;
   }
+  if(msg)msg.textContent=typeof message==="string"?message:"";
   if(lead)lead.textContent="Your published pages, booking requests, and plan are listed below.";
   if(venmoField)venmoField.hidden=false;
   if(builds)builds.hidden=false;
@@ -5738,17 +5801,27 @@ async function showAccount(){
     const year=payBtn("year","year");
     const pause=document.createElement("button"); pause.type="button"; pause.className="btn outline"; pause.textContent=site.status==="paused"?"Turn the page back on":"Pause the page";
     pause.onclick=async()=>{
+      pause.disabled=true;
       const path=site.status==="paused"?"/api/account/resume":"/api/account/pause";
-      const res=await pubApi(path,{body:{slug:site.slug}});
-      if(msg)msg.textContent=res.ok?(site.status==="paused"?"The page is back on.":"The page is paused. Neighbors see a short note."):"Could not change the page.";
-      showAccount();
+      try{
+        const res=await pubApi(path,{body:{slug:site.slug}});
+        if(epoch!==privateViewEpoch)return;
+        if(!res.ok){if(msg)msg.textContent=res.message||"Could not change the page. Try again.";return;}
+        await showAccount(site.status==="paused"?"The page is back on.":"The page is paused. Neighbors see a short note.");
+      }catch(e){if(epoch===privateViewEpoch&&msg)msg.textContent="Could not change the page. Check your connection and try again.";}
+      finally{pause.disabled=false;}
     };
     const down=document.createElement("button"); down.type="button"; down.className="btn outline"; down.textContent="Take the page offline";
     down.onclick=async()=>{
       if(down.dataset.arm!=="1"){down.dataset.arm="1"; down.textContent="Tap again to take it offline"; return;}
-      const res=await pubApi("/api/unpublish",{body:{slug:site.slug}});
-      if(msg)msg.textContent=res.ok?"The page is offline. Update puts it back on the same link.":"Could not take it offline.";
-      showAccount();
+      down.disabled=true;
+      try{
+        const res=await pubApi("/api/unpublish",{body:{slug:site.slug}});
+        if(epoch!==privateViewEpoch)return;
+        if(!res.ok){if(msg)msg.textContent=res.message||"Could not take the page offline. Try again.";return;}
+        await showAccount("The page is offline. Update puts it back on the same link.");
+      }catch(e){if(epoch===privateViewEpoch&&msg)msg.textContent="Could not take the page offline. Check your connection and try again.";}
+      finally{down.disabled=false;}
     };
     /* One plan covers the whole family, so the pay buttons sit on the first
        card only, and only when there is something to buy: no plan yet, a
@@ -5783,18 +5856,32 @@ const openAccountBtn=$("#openAccount");
 if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);};
 const acctOutBtn=$("#acctSignOut");
 if(acctOutBtn)acctOutBtn.onclick=async()=>{
-  await pubSignOut();
+  if(acctOutBtn.disabled)return;
+  acctOutBtn.disabled=true;
+  const message=$("#accountMsg");
+  try{
+  if(!saveB()||!archiveDeviceDraft()){
+    if(message)message.textContent="Your work could not be saved, so you are still signed in. Back it up before leaving.";
+    return;
+  }
+  if(!await pubSignOut()){
+    restoreArchivedDraft();restoreOwnedDraft();renderBoss();
+    if(message)message.textContent="Could not sign out. You are still signed in. Check your connection and try again.";
+    return;
+  }
   sessionEmail="";
   draftDirty=false;
-  clearDeviceDraft();
+  clearDeviceDraft(false);
   resetBuilderToStock();
+  renderBoss();
   clearParentVerified();
   const ready=$("#pubReady"); if(ready)ready.hidden=true;
   const manage=$("#pubManage"); if(manage)manage.hidden=true;
   const wrap=$("#pubUrlWrap"); if(wrap)wrap.hidden=true;
   const goBtn=$("#pubGo"); if(goBtn)goBtn.hidden=false;
   const ok=$("#pubOk"); if(ok)ok.textContent="Signed out on this device.";
-  showAccount();
+  await showAccount("Signed out. Your saved work will restore when this parent signs back in.");
+  }finally{acctOutBtn.disabled=false;}
 };
 const shareBox=$("#shareStreet");
 if(shareBox)shareBox.onchange=async()=>{
@@ -5802,45 +5889,87 @@ if(shareBox)shareBox.onchange=async()=>{
   if(!data.ok)pubErr("Could not save that setting.");
 };
 function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting"}[status]||"New";}
-async function loadMyJobs(){
-  if(!draftWriteAllowed())return;
+let jobsLoadKey="",jobsLoadPending=false,jobsActionPending=false;
+async function loadMyJobs(options){
+  options=options||{};
+  if(!draftWriteAllowed()){clearPrivateViews();return;}
   const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
   const session=pubSession();
-  if(!code&&!pubToken()&&!session)return;
+  if(!code&&!pubToken()&&!session){clearPrivateViews();return;}
+  const key=privateViewKey(),epoch=privateViewEpoch;
+  if(jobsLoadPending&&jobsLoadKey===key)return;
+  jobsLoadPending=true;jobsLoadKey=key;
+  const status=$("#jobStatus"),refresh=$("#refreshJobs");
+  if(refresh)refresh.disabled=true;
+  if(!options.quiet&&status)status.textContent="Loading requests…";
   try{
     const data=await pubApi("/api/my-jobs"+(code?"?code="+encodeURIComponent(code):""),{method:"GET"});
-    if(!data.ok)return;
-    const list=$("#jobList"); if(!list)return;
-    const jobs=data.jobs||[];
+    if(epoch!==privateViewEpoch||key!==privateViewKey())return;
+    if(!data.ok){
+      if(data.httpStatus===401||data.error==="auth"){clearPrivateViews();if(status)status.textContent="Sign in again with the parent email to see requests.";}
+      else if(status)status.textContent=data.message||"Could not refresh requests. Your last loaded list is still shown. Try again.";
+      return;
+    }
+    const list=$("#jobList");if(!list)return;
+    const jobs=data.jobs||[],canManage=jobs.some(j=>j.action)||!!session;
+    const signIn=$("#jobSignIn");if(signIn)signIn.hidden=canManage;
+    if(status)status.textContent=canManage?"Up to date. Contact phone-only customers directly about changes.":"A parent signs in to confirm, finish, or cancel requests.";
     list.innerHTML=jobs.map(j=>{
-      const pay=j.venmoUrl?'<a class="venmo-pay" href="'+esc(j.venmoUrl)+'" target="_blank" rel="noopener">Pay with Venmo</a><p class="small2 venmo-note">'+(j.status==="done"?"The job is done. This opens Venmo with the amount filled in.":"Pay after the job.")+'</p>':'';
-      const acts=j.action?'<div class="mbtns"><button type="button" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button><button type="button" data-job="'+esc(j.action)+'" data-st="done">Done</button><button type="button" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel</button></div>'+pay:'';
-      return '<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+'</div>';
+      const terminal=j.status==="done"||j.status==="cancelled";
+      const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button>':'';
+      const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done">Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
+      const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
+      return '<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+pay+'</div>';
     }).join("");
     if(!list.dataset.bound){
       list.dataset.bound="1";
       list.addEventListener("click",async function(ev){
+        const pay=ev.target.closest("button[data-pay-link]");
+        if(pay){copyText(pay.getAttribute("data-pay-link"),"Payment link copied. Share it with the customer.");return;}
         const btn=ev.target.closest("button[data-job]");
-        if(!btn)return;
-        btn.disabled=true;
-        try{
-          const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:btn.getAttribute("data-st"),json:true}});
-          if(!data.ok){btn.disabled=false; return;}
-        }catch(err){btn.disabled=false; return;}
-        loadMyJobs();
+        if(btn)await updateMyJob(btn);
       });
     }
-    const empty=$("#jobEmpty"); if(empty)empty.hidden=jobs.length>0;
-    const badge=$("#jobBadge");
-    if(badge){badge.hidden=!data.fresh; if(data.fresh)badge.textContent=String(data.fresh);}
-    const btn=$("#myJobsBtn");
-    if(btn){btn.hidden=false; btn.textContent=data.fresh?("My jobs ("+data.fresh+" new)"):"My jobs";}
-  }catch(e){}
+    const empty=$("#jobEmpty");if(empty){empty.hidden=jobs.length>0;empty.textContent="No booking requests yet. Share your published website link so neighbors can request a job.";}
+    const badge=$("#jobBadge");if(badge){badge.hidden=!data.fresh;if(data.fresh)badge.textContent=String(data.fresh);}
+    const btn=$("#myJobsBtn");if(btn){btn.hidden=false;btn.textContent=data.fresh?("My jobs ("+data.fresh+" new)"):"My jobs";}
+  }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not refresh requests. Check your connection and tap Refresh requests.";}
+  finally{if(jobsLoadKey===key){jobsLoadPending=false;if(refresh)refresh.disabled=false;}}
 }
+async function updateMyJob(btn){
+  if(jobsActionPending)return;
+  const next=btn.getAttribute("data-st"),key=privateViewKey(),epoch=privateViewEpoch;
+  if(next==="cancelled"){
+    const yes=await confirmModal('<h3>Cancel this booking request?</h3><p class="small2">It will leave the family calendar. Customers with an email receive a cancellation notice. Contact phone-only customers directly.</p>',"Cancel request");
+    if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
+  }
+  if(jobsActionPending)return;
+  jobsActionPending=true;
+  const buttons=Array.from($("#jobList").querySelectorAll("button[data-job]"));buttons.forEach(b=>b.disabled=true);
+  const status=$("#jobStatus");if(status)status.textContent="Saving request…";
+  try{
+    const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:next,json:true}});
+    if(epoch!==privateViewEpoch||key!==privateViewKey())return;
+    if(!data.ok){if(status)status.textContent=data.message||"Could not save that change. Refresh requests and try again.";return;}
+    jobsActionPending=false;
+    await loadMyJobs();
+    if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Saved: "+jobLabel(data.status||next)+". Contact phone-only customers directly about changes.";
+  }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not confirm whether that change saved. Tap Refresh requests before trying again.";}
+  finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);}
+}
+function refreshVisibleJobs(){
+  if(document.hidden||!document.body.classList.contains("boss-on")||jobsActionPending||modalEl.classList.contains("open"))return;
+  if(document.activeElement&&document.activeElement.closest("#jobList"))return;
+  loadMyJobs({quiet:true});
+}
+const refreshJobsBtn=$("#refreshJobs");if(refreshJobsBtn)refreshJobsBtn.onclick=()=>loadMyJobs();
+const jobSignInBtn=$("#jobSignIn");if(jobSignInBtn)jobSignInBtn.onclick=()=>{setMode("build");go(7);showAccount();};
+setInterval(refreshVisibleJobs,30000);
+document.addEventListener("visibilitychange",refreshVisibleJobs);
+window.addEventListener("online",refreshVisibleJobs);
 const jobsBtn=$("#myJobsBtn");
 if(jobsBtn)jobsBtn.onclick=()=>setMode("boss");
-loadMyJobs();
-setInterval(loadMyJobs, 8000);
+
 $("#pubUpdate").onclick=pubPush;
 async function checkNewAddress(){
   const name=($("#newSlug").value||"").trim().toLowerCase();
@@ -5867,30 +5996,42 @@ async function saveNewAddress(){
 }
 const checkNewBtn=$("#checkNewSlug"); if(checkNewBtn)checkNewBtn.onclick=checkNewAddress;
 const saveNewBtn=$("#saveNewSlug"); if(saveNewBtn)saveNewBtn.onclick=saveNewAddress;
-let pubDownArmed=false, pubDelArmed=false;
+let pubDownArmed=false;
 $("#pubDown").onclick=async()=>{
   const b=$("#pubDown");
   if(!pubDownArmed){pubDownArmed=true; b.textContent="Tap again to take it offline"; return;}
   pubDownArmed=false; b.textContent="Take the page offline";
-  const data=await pubApi("/api/unpublish", {body:{slug:ownSlug()}});
-  if(data.ok){$("#pubOk").textContent="The page is offline. Update puts it back on the same link."; $("#pubUrlWrap").hidden=true;}
-  else pubErr("Could not take the page offline.");
+  b.disabled=true;
+  try{
+    const data=await pubApi("/api/unpublish", {body:{slug:ownSlug()}});
+    if(data.ok){$("#pubOk").textContent="The page is offline. Update puts it back on the same link."; $("#pubUrlWrap").hidden=true;}
+    else pubErr("Could not take the page offline.");
+  }catch(e){pubErr("Could not take the page offline. Check your connection and try again.");}
+  finally{b.disabled=false;}
 };
 $("#pubDelete").onclick=async()=>{
   const b=$("#pubDelete");
-  if(!pubDelArmed){pubDelArmed=true; b.textContent="Tap again to delete the account"; return;}
+  if(b.disabled)return;
+  const yes=await confirmModal('<h3>Delete the parent account?</h3><p class="small2">This removes every child’s live page on this account, saved cloud drafts, booking requests, and the family calendar. Saved family work on this device is also removed. This cannot be undone. Download a backup first if you want to keep your work.</p>',"Delete parent account");
+  if(!yes||b.disabled)return;
+  b.disabled=true;
+  try{
   const data=await pubApi("/api/account", {method:"DELETE"});
   if(!data.ok){pubErr("Could not delete the account."); return;}
   pubMemToken="";
   pubSaveSession(null);
   sessionEmail="";
   draftDirty=false;
+  setConsentOn(false);
+  clearPrivateViews();
   clearDeviceDraft();
   resetBuilderToStock();
   clearParentVerified();
   $("#pubManage").hidden=true; $("#pubUrlWrap").hidden=true; $("#pubGo").hidden=false;
   const calBox=$("#calBox"); if(calBox)calBox.hidden=true;
-  $("#pubSlug").readOnly=false; $("#pubOk").textContent="Deleted. The page, the calendar, and the parent email are gone.";
+  $("#pubSlug").readOnly=false; $("#pubOk").textContent="Deleted. All family pages, booking requests, the calendar, and the parent email are gone.";
+  }catch(e){pubErr("Could not delete the account. Check your connection and try again.");}
+  finally{b.disabled=false;}
 };
 const calCopyBtn=$("#calCopy");
 if(calCopyBtn)calCopyBtn.onclick=()=>{const t=$("#calLink")&&$("#calLink").textContent;if(t)copyText(t,"Link copied.");};
@@ -5921,7 +6062,9 @@ async function saveDraft(){
   if(!draftWriteAllowed())return;
   if(!publishOrigin()||!consentOn())return;
   try{
-    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    const epoch=privateViewEpoch,code=localStorage.getItem("hb-draft")||"";
+    const data=await pubApi("/api/draft",{body:{code,draft:draftPayload()}});
+    if(epoch!==privateViewEpoch||code!==(localStorage.getItem("hb-draft")||""))return;
     if(data.ok&&data.code)localStorage.setItem("hb-draft",data.code);
   }catch(e){}
 }
@@ -5980,15 +6123,15 @@ function buildsUpsert(list, entry){
   return next.slice(0,10);
 }
 function buildsList(){if(!draftWriteAllowed())return [];try{return buildsClean(JSON.parse(localStorage.getItem(BUILDS_KEY)||"[]"));}catch(e){return [];}}
-function buildsSave(list){if(!draftWriteAllowed())return;try{localStorage.setItem(BUILDS_KEY,JSON.stringify(buildsClean(list)));}catch(e){}}
+function buildsSave(list){if(!draftWriteAllowed())return false;try{localStorage.setItem(BUILDS_KEY,JSON.stringify(buildsClean(list)));return true;}catch(e){return false;}}
 function currentDraftCode(){if(!draftWriteAllowed())return "";try{return localStorage.getItem("hb-draft")||"";}catch(e){return "";}}
 function noteCurrentBuild(){
   const code=currentDraftCode(); if(!code)return "";
-  buildsSave(buildsUpsert(buildsList(),{code,label:buildLabelOf(S),updatedAt:Date.now()}));
+  if(!buildsSave(buildsUpsert(buildsList(),{code,label:buildLabelOf(S),updatedAt:Date.now()})))return "";
   return code;
 }
 function bossKeyFor(code){return "hb-boss-"+code;}
-function stashBoss(code){if(!code||!draftWriteAllowed())return; try{localStorage.setItem(bossKeyFor(code),JSON.stringify(B));}catch(e){}}
+function stashBoss(code){if(!code||!draftWriteAllowed())return false;try{localStorage.setItem(bossKeyFor(code),JSON.stringify(B));return true;}catch(e){return false;}}
 function restoreBoss(code){
   if(!draftWriteAllowed())return;
   let raw=null; try{raw=code?localStorage.getItem(bossKeyFor(code)):null;}catch(e){}
@@ -6004,19 +6147,22 @@ function localDrafts(){if(!draftWriteAllowed())return {};try{return JSON.parse(l
 function rememberLocalBuild(){
   if(!draftWriteAllowed()){draftRecoveryNotice();return "";}
   let code=currentDraftCode();
-  if(!/^[a-z0-9]{8}$/.test(code)){code=Math.random().toString(36).slice(2,10).padEnd(8,"a").slice(0,8); try{localStorage.setItem("hb-draft",code);}catch(e){}}
-  const all=localDrafts(); all[code]=draftPayload();
-  try{localStorage.setItem("hb-local-drafts",JSON.stringify(all));}catch(e){}
-  noteCurrentBuild();
+  if(!/^[a-z0-9]{8}$/.test(code))code=Math.random().toString(36).slice(2,10).padEnd(8,"a").slice(0,8);
+  // Local builds retain photos. The smaller cloud payload may omit them.
+  const all=localDrafts();all[code]=JSON.parse(JSON.stringify(S));
+  try{localStorage.setItem("hb-local-drafts",JSON.stringify(all));localStorage.setItem("hb-draft",code);}catch(e){return "";}
+  if(!noteCurrentBuild())return "";
   return code;
 }
 async function saveDraftChecked(){
   if(!draftWriteAllowed()){draftRecoveryNotice();return false;}
   if(!publishOrigin())return false;
-  if(!consentOn()){rememberLocalBuild();return true;}
+  if(!consentOn())return !!rememberLocalBuild();
   clearTimeout(draftTimer);
   try{
-    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    const epoch=privateViewEpoch,code=localStorage.getItem("hb-draft")||"";
+    const data=await pubApi("/api/draft",{body:{code,draft:draftPayload()}});
+    if(epoch!==privateViewEpoch||code!==(localStorage.getItem("hb-draft")||""))return false;
     if(data.ok&&data.code){localStorage.setItem("hb-draft",data.code);return true;}
   }catch(e){}
   return false;
@@ -6024,11 +6170,11 @@ async function saveDraftChecked(){
 async function stashCurrentBuild(){
   const ok=await saveDraftChecked();
   if(!ok)return false;
-  const code=noteCurrentBuild();
-  if(code)stashBoss(code);
-  return true;
+  const code=rememberLocalBuild();
+  return !!code&&stashBoss(code);
 }
 function clearBuildLeftovers(){
+  clearPrivateViews();
   try{localStorage.removeItem("hb-draft");localStorage.removeItem("hb-job-code");localStorage.removeItem("hb-draft-code");localStorage.removeItem("hb-ask");localStorage.removeItem("hb-ask-link");}catch(e){}
   clearPending();
 }
@@ -6061,14 +6207,13 @@ async function startNewPage(){
 async function openBuild(code){
   const msg=$("#accountMsg");
   if(code===currentDraftCode()){if(msg)msg.textContent="That build is already open."; return;}
-  let target=null;
-  if(consentOn()){
+  let target=localDrafts()[code]||null;
+  if(!target&&consentOn()){
     try{
       const data=await pubApi("/api/draft/"+encodeURIComponent(code),{method:"GET"});
       if(data.ok&&data.draft)target=data.draft;
     }catch(e){}
   }
-  if(!target){const saved=localDrafts()[code]; if(saved)target=saved;}
   if(!target){if(msg)msg.textContent="That saved build could not be opened. Its 90 days may be up. The build you have open was not changed."; return;}
   const ok=await stashCurrentBuild();
   if(!ok){if(msg)msg.textContent="Could not save the current build, so nothing was changed. Check your connection and try again."; return;}
@@ -6125,17 +6270,19 @@ if(otherBtn)otherBtn.onclick=async()=>{
   if(!consentOn()){if(st)st.textContent="This page stays on this phone until a parent agrees. Then you can open it on another device.";return;}
   if(st)st.textContent="Saving…";
   try{
-    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    const draft=draftPayload(),photosOmitted=!!(S.proof.length&&!draft.proof.length);
+    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft}});
     if(!data.ok){if(st)st.textContent="Could not save. Try again.";return;}
     localStorage.setItem("hb-draft",data.code);
     if(st)st.textContent="Saved. Use this code on the other device.";
-    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, sign in with the same parent email, then open the link. Or type the code here later.</p><p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
+    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, sign in with the same parent email, then open the link. Or type the code here later.</p><p class="small2">This link opens your website draft. Job and money records stay on this device. To move everything, use a backup file and include photos.</p>'+(photosOmitted?'<p class="merr" role="status">Your photo set is too large for this draft link. The photos stay on this device. Use a backup file with photos to move them.</p>':'')+'<p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button><button type="button" class="btn outline" id="draftBackup">Back up my business</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
     const codeEl=mbody.querySelector("#draftCode"); if(codeEl)codeEl.textContent=data.code;
     const linkEl=mbody.querySelector("#draftLink"); if(linkEl)linkEl.textContent=data.link;
     drawQr(mbody.querySelector("#draftQr"), data.link);
     mbody.querySelector("#draftCopy").onclick=()=>copyText(data.link,"Link copied.");
     mbody.querySelector("#draftText").onclick=()=>{location.href="sms:?&body="+encodeURIComponent("Open my Hustle Builder page: "+data.link);};
     mbody.querySelector("#draftClose").onclick=closeModal;
+    mbody.querySelector("#draftBackup").onclick=openBackup;
   }catch(e){if(st)st.textContent="Could not save. Try again.";}
 };
 let askPoll=0;
@@ -6199,7 +6346,7 @@ async function openAsk(token){
       return;
     }
     if(data.requiresVerification){
-      await pubSignOut();clearPending();
+      if(await pubSignOut()===false){$("#askStatus").textContent="Could not switch parent accounts. Check your connection and try again.";return;}clearPending();
       if($("#pubSlug")){$("#pubSlug").value="";$("#pubSlug").readOnly=false;}
       if($("#pubGo"))$("#pubGo").hidden=false;
       showPublished("");

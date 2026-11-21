@@ -427,7 +427,7 @@ test("a priced booking opens Venmo with the parent handle, amount, and note", as
   assert.equal(src.includes("id=\"skipLive\""), false);
   assert.match(src, /\.kidjob \.venmo-pay\{[^}]*margin:14px 0 0[^}]*min-height:48px[^}]*text-decoration:none[^}]*clip-path:none/);
   assert.match(src, /\.kidjob \.mbtns\{display:flex;gap:8px;margin-top:14px\}/);
-  assert.match(src, /class="venmo-pay"/);
+  assert.match(src, /Copy customer payment link/);
 });
 
 test("a booking invite names the kid and the neighbor, and a cancel removes that same event", async () => {
@@ -1058,7 +1058,7 @@ test("the builder hides the phone unless the parent turns it on", async () => {
   assert.match(src, /const publicPhone=false/);
   assert.equal(src.includes("mailto:${esc(c.email)}"), false);
   assert.match(src, /href="#book">Open request form</);
-  assert.match(src, /mailto:bookings@hustlebuilder\.org/);
+  assert.doesNotMatch(src, /mailto:bookings@hustlebuilder\.org/);
   assert.equal(src.includes("app.netlify.com"), false);
   assert.equal(src.includes("Manage deployments"), false);
 });
@@ -1883,8 +1883,8 @@ test("a parent can confirm, finish, or cancel a booking from My jobs", async () 
   assert.equal(cancelled.body.status, "cancelled");
   const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(home, /data-st="confirmed">Confirm/);
-  assert.match(home, /data-st="done">Done/);
-  assert.match(home, /data-st="cancelled">Cancel/);
+  assert.match(home, /data-st="done">Mark done/);
+  assert.match(home, /data-st="cancelled">Cancel request/);
   assert.match(home, /settleGoLive\(me\)/);
   assert.match(home, /id="askCopy"/);
   assert.match(home, /id="fUrlHelp"/);
