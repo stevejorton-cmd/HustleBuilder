@@ -169,36 +169,50 @@ try {
   const tag = await site.$eval(".tag", (e) => e.textContent);
   check("republish content", /Fresh cut/.test(tag), tag);
   check("console", logs.length === 0, logs.join(" | "));
-  // Exercise the actual builder controls; builder state is intentionally private.
+  // Expose generators only in the test browser, never in shipped source.
+  const styleSource = (await import("fs/promises")).readFile(new URL("../index.html", import.meta.url), "utf8");
+  const styleBuilder = await browser.newPage();
+  await styleBuilder.setRequestInterception(true);
+  styleBuilder.on("request", async req => {
+    if(req.isNavigationRequest() && req.url() === base + "/") {
+      const source = (await styleSource)
+        .replace("function chooseBrandStyle(", "window.__chooseBrandStyle=chooseBrandStyle;function chooseBrandStyle(")
+        .replace("function resolve(", "window.__resolve=resolve;function resolve(")
+        .replace("function genSite(", "window.__genSite=genSite;function genSite(")
+        .replace("function save(", "window.__saveStyle=save;function save(");
+      await req.respond({status:200,contentType:"text/html",body:source});
+    } else await req.continue();
+  });
+  await styleBuilder.goto(base + "/",{waitUntil:"networkidle0"});
+  await styleBuilder.waitForFunction(() => typeof window.__chooseBrandStyle === "function");
   const styled = await browser.newPage();
   for (const theme of ["hustle", "neighbor"]) {
-    await page.select("#stepJump", "5");
-    await page.click(theme === "hustle" ? "#themes button:nth-child(1)" : "#themes button:nth-child(2)");
-    await page.waitForFunction(theme => document.querySelector("#frame").srcdoc.includes('data-theme="' + theme + '"'), {}, theme);
+    await styleBuilder.evaluate(theme => window.__chooseBrandStyle(theme),theme);
     for (const type of ["lawn", "snow", "prep", "wash", "help", "tutor", "other", "pet"]) {
-      await page.select("#stepJump", "0");
-      const previous = await page.$eval("#frame", e => e.srcdoc);
-      await clickControl(page, '.tile[data-type="' + type + '"]');
-      await page.waitForFunction(previous => document.querySelector("#frame").srcdoc !== previous, {}, previous);
-      const html = await page.$eval("#frame", e => e.srcdoc);
-      // Use a quiet same-origin document so builder startup cannot alter the fixture.
+      const html = await styleBuilder.evaluate(type => {
+        const c = window.__resolve(true); c.type = type;
+        c.biz = "Taylor's Neighborhood Services";
+        c.services = [{n:"A longer neighborhood service name",p:"25"}];
+        return window.__genSite(c);
+      },type);
       await styled.goto(base + "/privacy");
-      await styled.setContent(html, { waitUntil: "networkidle0" });
-      for (const width of [320, 390, 1366]) {
-        await styled.setViewport({ width, height: 844 });
+      await styled.setContent(html,{waitUntil:"networkidle0"});
+      for(const width of [320,390,1366]) {
+        await styled.setViewport({width,height:844});
         const result = await styled.evaluate(() => ({
-          theme: document.documentElement.dataset.theme,
-          overflow: document.documentElement.scrollWidth > innerWidth + 2,
-          image: !!document.querySelector(".hero img")?.naturalWidth,
-          booking: !!document.querySelector("#cal") && !!document.querySelector("#svc"),
-          title: document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2
+          theme:document.documentElement.dataset.theme,
+          overflow:document.documentElement.scrollWidth > innerWidth + 2,
+          image:!!document.querySelector(".hero img")?.naturalWidth,
+          booking:!!document.querySelector("#cal") && !!document.querySelector("#svc"),
+          title:document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2
         }));
-        check("style " + theme + " " + type + " " + width, result.theme === theme && !result.overflow && result.image && result.booking && result.title, JSON.stringify(result));
+        check("style " + theme + " " + type + " " + width,result.theme === theme && !result.overflow && result.image && result.booking && result.title,JSON.stringify(result));
       }
     }
-    await page.reload({waitUntil:"domcontentloaded"});
-    check("saved style " + theme, await page.evaluate(theme => JSON.parse(localStorage.getItem("hustle-builder-v3")).theme === theme, theme));
+    await styleBuilder.evaluate(() => window.__saveStyle());
+    check("saved style " + theme, await styleBuilder.evaluate(theme => JSON.parse(localStorage.getItem("hustle-builder-v3")).theme === theme,theme));
   }
+  await styleBuilder.close();
   await styled.close();
 
 } finally {
