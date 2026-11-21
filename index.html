@@ -804,7 +804,6 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
       <p data-example-line>Leaf raking · $15</p>
       <button type="button" class="parents-preview-link" onclick="hbCloseParents(false)">Make a website like this</button>
     </article>
-    <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
 </div></div>
     <h2>Kept small on purpose</h2>
     <ul>
@@ -870,7 +869,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
       <details class="petfront" id="prepFront" hidden><summary>Tips for yard cleanup</summary>
         <div class="callout">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
-          <div><b>Safety for kids.</b><br>Hand tools only, rakes and clippers. A parent says which tools are OK. <span data-prep-snow hidden>Snow removal is walks and driveways.</span></div>
+          <div><b>Safety for kids.</b><br>A parent approves the tools for each job. <span data-prep-snow hidden>Snow removal is walks and driveways.</span></div>
         </div>
       </details>
       <h3 class="h3">More ways to earn</h3>
@@ -2065,7 +2064,7 @@ function typeInfo(type){
     wash:{label:"Car washing",target:"car",right:"Soap, rinse, and a dry towel.",emoji:"🚗",color:"#1D4E89",biz:"Car Wash",tag:"Clean cars. Careful hands."},
     help:{label:"Parent’s helper",target:"family",right:"A parent is home and in charge. I help with the little jobs.",emoji:"🤝",color:"#8E3A56",biz:"Helper",tag:"I help while a parent is home."},
     tutor:{label:"Reading buddy",target:"reader",right:"We read together. A parent stays nearby.",emoji:"📚",color:"#4C3A8A",biz:"Reading Buddy",tag:"Let’s read. A parent is nearby."},
-    prep:{label:"Yard Cleanup / Winter Prep",target:"yard",right:"Hand tools only, rakes and clippers.",emoji:"🍂",color:"#3E5C3A",biz:"Yard Cleanup",tag:"Hand tools only, rakes and clippers."},
+    prep:{label:"Yard Cleanup / Winter Prep",target:"yard",right:"Leaves cleared and edges tidied.",emoji:"🍂",color:"#3E5C3A",biz:"Yard Cleanup",tag:"Leaves cleared. Yard refreshed."},
     other:{label:"Neighborhood help",target:"job",right:"I show up, do the job, and a parent confirms it.",emoji:"✨",color:"#3D6B16",biz:"Help",tag:"Tell me the job. I’ll show up."}
   };
   const info=all[type]||all.other;
@@ -2187,13 +2186,13 @@ function genSite(c){
   const petLabels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird",small:"Small animal"};
   const petRoot=(c.publish&&c.publish.url)||c.publicUrl||"";
   const petSafe=c.type==="pet"?`<section id="petsafe"><h2>Pets I can help</h2><div class="petrow">${(c.pets&&c.pets.length?c.pets:["dog","cat","fish","bird"]).map(k=>petPortrait(k,petLabels[k]||"Pet",{lazy:true,root:petRoot})).join("")}</div><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
-  const offersPrep=c.type==="prep"||(c.services||[]).some(s=>/yard cleanup|trim hedges, hand clippers|clear dead plants/i.test(s.n||""));
+  const offersPrep=c.type==="prep"||(c.services||[]).some(s=>/yard cleanup|trim (?:hedges, hand clippers|small hedges)|clear dead plants/i.test(s.n||""));
   const prepTitle=(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?"Yard cleanup and winter prep":"Yard cleanup";
-  const prepSafe=offersPrep?`<section id="prepsafe"><h2>${prepTitle}</h2><p class="promise">This covers leaf raking and clearing dead plants. Hand tools only, rakes and clippers.</p></section>`:"";
+  const prepSafe=offersPrep?`<section id="prepsafe"><h2>${prepTitle}</h2><p class="promise">Leaf cleanup, weeding, and seasonal yard work. My parent confirms the tasks before we start.</p></section>`:"";
   const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
   const sizeField=["pet","tutor","help","other"].includes(c.type)?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
   const jobNote=({lawn:"Gate access, pets, or areas to avoid",snow:"Where to put the snow or any buried obstacles",both:"Gate access, pets, or where to put snow",prep:"Gate access, cleanup tasks, or where to put yard waste",wash:"Vehicle size, water access, or anything to avoid",help:"Tasks, how long you need help, or anything the parent should know",tutor:"Reading level, school subject, or what to practice",odd:"The tasks, time needed, or access instructions",other:"Describe the job and what you would like done"})[c.type]||"Anything else about this job";
-  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:c.type==="prep"?`<label>${esc(jobNote)}<textarea id="note"></textarea></label><p class="small">Hand tools only, rakes and clippers.</p>`:`<label>${esc(jobNote)}<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
+  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:`<label>${esc(jobNote)}<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
@@ -2409,7 +2408,6 @@ ${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">R
   <h2>Rates</h2>
   <ul class="rates">${rows}</ul>
   <p class="small">${esc(({pet:"Prices are per walk or visit, for the time listed. A parent confirms the number of pets and care needed.",tutor:"Prices are per session. A parent confirms the session length and subject before we start.",help:"Prices are per listed task or session. A parent stays home and confirms the time and tasks.",wash:"Prices are per vehicle. A parent confirms its size, condition, and what cleaning is included.",snow:"Prices are per clearing unless a season plan is listed. Depth, ice, and driveway size can change the quote.",both:"Prices are per listed job. Yard size, snow depth, and extra tasks can change the quote."})[c.type]||"Prices are per listed job. Yard size, condition, and cleanup time can change the quote.")} A parent confirms the final price before work starts.</p>
-  ${offersPrep&&c.type!=="prep"?`<p class="small">${prepTitle} uses hand tools only, rakes and clippers.</p>`:""}
   ${snowPlan}
   ${seasonHTML}
 </section>
@@ -2487,7 +2485,7 @@ const PRESETS={
   wash:[["Wash the outside",[10,11,12,14,15]],["Wash and vacuum",[15,17,19,20,22]],["Rims and windows",[8,9,10,11,12]],["Dry and shine",[6,7,7,8,9]],["Vacuum the inside",[8,9,10,11,12]]],
   help:[["Playtime helper, 1 hour",[10,11,12,14,15]],["Tidy toys",[6,7,7,8,9]],["Snack helper",[5,6,6,7,7]],["Reading together",[8,9,10,11,12]],["Set the table",[4,4,5,5,6]],["Bring in the mail",[3,3,4,4,4]]],
   tutor:[["Reading together, 30 minutes",[10,11,12,14,15]],["Homework helper, 30 minutes",[12,13,15,16,18]],["Practice spelling",[8,9,10,11,12]],["Read a chapter",[8,9,10,11,12]],["Flash cards",[6,7,7,8,9]]],
-  prep:[["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Leaf raking, whole yard",[15,17,19,20,22]],["Trim hedges, hand clippers",[12,13,15,17,18]],["Clear dead plants",[12,13,15,17,18]],["Cover outdoor faucets",[8,9,10,11,12]],["Put away hoses and furniture",[10,11,12,14,15]],["Shovel walks and driveway",[15,17,19,21,22]]],
+  prep:[["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Leaf raking, whole yard",[15,17,19,20,22]],["Trim small hedges",[12,13,15,17,18]],["Clear dead plants",[12,13,15,17,18]],["Cover outdoor faucets",[8,9,10,11,12]],["Put away hoses and furniture",[10,11,12,14,15]],["Shovel walks and driveway",[15,17,19,21,22]]],
   other:[["My service",[10,11,12,14,15]]]
 };
 PRESETS.both=PRESETS.lawn.concat(PRESETS.snow).filter((row,i,all)=>all.findIndex(x=>x[0].toLowerCase()===row[0].toLowerCase())===i);
@@ -2616,7 +2614,7 @@ function fixSvcRows(){
     S.svcEdited=false;
   }
 }
-const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",prep:"Hand tools only, rakes and clippers.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
+const TAGS={lawn:"Straight lines. Clean edges. Done right.",snow:"Up before the sun. Your driveway’s clear before you are.",both:"Every season. Handled.",pet:"Walks, water, and a note when I’m done.",prep:"Leaves cleared. Yard refreshed.",odd:"Odd jobs. Done right.",wash:"Clean cars. Careful hands.",help:"I help while a parent is home.",tutor:"Let’s read. A parent is nearby.",other:"Tell me the job. I’ll show up."};
 function autoBiz(type,first){const f=first||"Taylor";const info=typeInfo(type);return type==="snow"?f+"’s Snow Removal":type==="both"?f+"’s Yard and Snow Co.":f+"’s "+info.biz;}
 /* Where did the business name come from? A name the app supplied (a name-idea
    pick, or exactly the built-in default for the job picked) is only a
@@ -3076,11 +3074,11 @@ renderLevel();
 /* ---- add more jobs ---- */
 const JOBS=[
  {g:"Pet jobs",t:"pet",items:[["Dog walk, 15 minutes",[5,6,6,7,7]],["Dog walk, 30 minutes",[8,9,10,11,12]],["Pet feeding drop-in",[6,7,7,8,9]],["Pet sitting visit",[8,9,10,11,12]],["Pet sitting, full day",[10,11,12,14,15]],["Poop scoop, one time",[10,11,12,14,15]],["Poop scoop, weekly",[8,9,10,11,12]],["Fresh water and food bowls",[4,4,5,5,6]],["Litter box cleaning",[5,6,6,7,7]],["Pet playtime",[6,7,7,8,9]],["Mail and pet check",[5,6,6,7,7]],["Small animal care",[6,7,7,8,9]],["Dog brushing",[5,6,6,7,7]],["Water the plants",[4,4,5,5,6]]]},
- {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,3,4,4,4]],["Leaf raking, whole yard",[15,17,19,20,22]],["Weeding flower beds",[8,9,10,11,12]],["Spread mulch (by hand)",[15,17,19,20,22]],["Trim small bushes (hand clippers)",[8,9,10,11,12]],["Pick up sticks and yard cleanup",[8,9,10,11,12]],["Sweep driveway and patio",[5,6,6,7,7]],["Plant flowers",[10,11,12,14,15]],["Water plants (per visit)",[4,4,5,5,6]],["Pick up dog mess in the yard",[4,4,5,5,6]],["Move patio furniture and hoses",[5,6,6,7,7]]]},
+ {g:"Yard jobs",t:"lawn",items:[["Leaf raking, per bag",[3,3,4,4,4]],["Leaf raking, whole yard",[15,17,19,20,22]],["Weeding flower beds",[8,9,10,11,12]],["Spread mulch (by hand)",[15,17,19,20,22]],["Trim small bushes",[8,9,10,11,12]],["Pick up sticks and yard cleanup",[8,9,10,11,12]],["Sweep driveway and patio",[5,6,6,7,7]],["Plant flowers",[10,11,12,14,15]],["Water plants (per visit)",[4,4,5,5,6]],["Pick up dog mess in the yard",[4,4,5,5,6]],["Move patio furniture and hoses",[5,6,6,7,7]]]},
  {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,4,5,5,6]],["Clear the end of the driveway (plow pile)",[5,6,6,7,7]],["Clear around the mailbox",[3,3,4,4,4]],["Clear the back door and patio",[5,6,6,7,7]],["Clear a path to the trash cans",[3,3,4,4,4]],["Brush off and clear the car",[4,4,5,5,6]]]},
  {g:"Car jobs",t:"wash",items:[["Wash the outside",[8,9,10,11,12]],["Wash and vacuum",[12,13,15,16,18]],["Rims and windows",[6,7,7,8,9]],["Dry and shine",[5,6,6,7,7]],["Vacuum the inside",[6,7,7,8,9]],["Wash the car",[6,7,7,8,9]]]},
  {g:"Reading jobs",t:"tutor",items:[["Reading together, 30 minutes",[8,9,10,11,12]],["Homework helper, 30 minutes",[10,11,12,14,15]],["Practice spelling",[6,7,7,8,9]],["Read a chapter",[6,7,7,8,9]],["Flash cards",[5,6,6,7,7]]]},
- {g:"Winter prep jobs",t:"prep",items:[["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Trim hedges, hand clippers",[12,13,15,17,18]],["Clear dead plants",[12,13,15,17,18]],["Cover outdoor faucets",[8,9,10,11,12]],["Put away hoses and furniture",[10,11,12,14,15]],["Shovel walks and driveway",[15,17,19,21,22]]]},
+ {g:"Winter prep jobs",t:"prep",items:[["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Trim small hedges",[12,13,15,17,18]],["Clear dead plants",[12,13,15,17,18]],["Cover outdoor faucets",[8,9,10,11,12]],["Put away hoses and furniture",[10,11,12,14,15]],["Shovel walks and driveway",[15,17,19,21,22]]]},
  {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,2,2,3,3]],["Bring in mail and packages (per day)",[2,2,2,3,3]],["Playtime helper, 1 hour",[8,9,10,11,12]],["Tidy toys",[5,6,6,7,7]]]}];
 /* leftover sections stay in this order after the ones the kid picked */
 const JOB_SECTION_ORDER=["lawn","snow","prep","pet","wash","tutor","any"];
@@ -4422,7 +4420,7 @@ const TAG_IDEAS={
   snow:["Up before the sun. Your driveway’s clear before you are.","Snow cleared with care.","Snow doesn’t stop us.","Down to the pavement.","First one out. Last one done.","Cold work. Clean results.","Edge to edge. Curb to garage.","Shoveled like we mean it.","We beat the plow truck.","Dawn patrol. Driveways cleared.","Cleared. Salted. Done.","Wake up to a clear driveway.","Bring on the blizzard.","Zero snow. Zero stress.","Safe steps. Clean drive.","Weather happens. We handle it.","Cold hands. Warm customers.","Snow day for you. Work day for us.","We don’t wait for the thaw.","Be home. We’ve got the snow.","Nothing but pavement."],
   both:["Every season. Handled.","Mowing in the summer. Shoveling in the winter.","Sun or snow, we show.","Four seasons. One crew.","Rain, shine, or blizzard.","Year-round hustle.","Grass to glacier.","Your yard, all year.","Spring to snowfall.","No off-season.","Seasons change. Standards don’t.","Hot or cold, we’re on it.","All year. All in.","Cut it in June. Clear it in January.","Your yard never takes a day off. Neither do we.","Handled from thaw to freeze.","Boots on the ground, all year.","Work ethic that runs all year."],
   pet:["Walks, water, and a note when I’m done.","Gentle hands. On time.","A parent knows about every visit.","Pets I know. Care I mean.","Fed, walked, and checked on.","Home safe. Note sent.","Kind to the pet. Clear with the parent.","Every visit, a parent is in the loop."],
-  prep:["Hand tools only, rakes and clippers.","Yard cleanup and winter prep.","Leaves, hedges, and a clear walk.","Ready before the first freeze.","Rakes and clippers.","Walks and driveways, cleared.","A parent says which tools are OK.","Winter prep, done by hand."],
+  prep:["Leaves cleared. Yard refreshed.","Yard cleanup and winter prep.","Leaves, hedges, and a clear walk.","Ready before the first freeze.","A tidy yard, ready for the season.","Walks and driveways, cleared.","A parent says which tools are OK.","Seasonal yard work, done right."],
   odd:["Odd jobs. Done right.","You name the chore. I show up.","Small jobs. Serious effort.","Tidy when I leave.","The chore you asked for, finished.","Helpful hands. Clean finish."],
   wash:["Clean cars. Careful hands.","Soap, rinse, dry towel.","Shiny, not sloppy.","Your driveway. My bucket.","Clean glass. Soft towels.","A careful wash, every time."],
   help:["I help while a parent is home.","A parent is in charge. I help.","Little jobs, done carefully.","Extra hands when you need them.","Help at home. A parent nearby.","I show up. A parent stays in charge."],
@@ -4567,7 +4565,7 @@ document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[da
 /* ============ Poster Studio ============ */
 const PW=850,PH=1100,PM=56;
 const LAYOUT_NAMES=["Billboard","Worksite","Skyline","Split","Notice","Scoreboard","Sideline","Blueprint","Tape","Clean"];
-const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Snow cleared with care.","Snow day? We’re on it.","Book your driveway.","Careful shoveling. Clear paths.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."],prep:["Now booking.","Yard cleanup and winter prep.","Hand tools only.","Walks and driveways.","Rakes and clippers.","Ready for winter."]};
+const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Snow cleared with care.","Snow day? We’re on it.","Book your driveway.","Careful shoveling. Clear paths.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."],prep:["Now booking.","Yard cleanup and winter prep.","Yard cleanup, done right.","Walks and driveways.","A tidy yard, ready for the season.","Ready for winter."]};
 const BADGES=[["none","No sticker"],["owned","Kid-owned"],["quote","Free quotes"],["parent","Parent-backed"],["early","Book early"],["local","Local"],["fast","Fast and reliable"],["pay","Pay after the job"]];
 const BG_OPTS=[["ink","Ink saver"],["dark","Dark"],["light","Light"],["concrete","Concrete"],["accent","Color"]];
 const NS_OPTS=[["heavy","Heavy"],["bold","Bold"],["plain","Plain"]];

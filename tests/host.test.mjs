@@ -3210,10 +3210,11 @@ test("pilot fixes: small animal has real art like the other pets", async () => {
   assert.equal(html.includes("🐹"), false, "no emoji stand-in left on the page");
 });
 
-test("yard cleanup and winter prep is a bookable job with hand-tool safety", async () => {
+test("yard cleanup and winter prep is a bookable job with parent-approved tools", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /\{id:"prep",name:"Winter prep"/);
-  assert.match(src, /Hand tools only, rakes and clippers\./);
+  assert.match(src, /A parent approves the tools for each job\./);
+  assert.doesNotMatch(src, /hand tools only/i);
   assert.equal(/gutter/i.test(src), false);
   assert.equal(/ladder/i.test(src), false);
   assert.match(src, /flyerStyle:"ink"/);
@@ -3221,7 +3222,7 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
   const html = genSite(demoCfg({
     type: "prep",
     biz: "Taylor's Yard Cleanup",
-    tagline: "Hand tools only, rakes and clippers.",
+    tagline: "Leaves cleared. Yard refreshed.",
     services: [
       { n: "Yard cleanup, small", p: "15" },
       { n: "Yard cleanup, medium", p: "25" },
@@ -3235,7 +3236,8 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
   assert.match(html, />\$25</);
   assert.match(html, />\$40</);
   assert.match(html, /id="prepsafe"/);
-  assert.match(html, /Hand tools only, rakes and clippers/);
+  assert.match(html, /My parent confirms the tasks before we start/);
+  assert.doesNotMatch(html, /hand tools only/i);
   assert.equal(/gutter|ladder/i.test(html), false);
   assert.doesNotMatch(html, /<option>Every snowfall this winter<\/option>/);
   const { token, email } = await parent("prep@example.com");
