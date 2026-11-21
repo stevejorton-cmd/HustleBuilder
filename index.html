@@ -2335,6 +2335,12 @@ ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr)
 .petrow img,.petrow .petemoji{width:92px;height:92px;aspect-ratio:1/1;object-fit:cover;object-position:center;border-radius:16px}
 .petrow figcaption{font-size:13px;font-weight:700;margin-top:4px}`:""}
 ${th==="hustle"&&c.type==="pet"?`.hero.pethead,.hero.pethead .hero-in,.petbar{background:#0E1012}.hero.pethead h1,.hero.pethead .tag,.petbar .meta{color:#F1EFEA}`:""}
+${(th==="neighbor"||(th==="hustle"&&c.type==="pet"))?`
+@media(min-width:1000px){
+.hero,.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:36px;max-width:1280px;margin:0 auto;padding:40px 28px;min-height:520px}
+.hero img.scene,.hero.pethead .scene{grid-area:auto;grid-column:2;grid-row:1;position:relative;inset:auto;width:100%;height:auto;aspect-ratio:16/9;object-fit:contain;border-radius:18px;z-index:0}
+.hero .hero-in,.hero.pethead .hero-in{grid-area:auto;grid-column:1;grid-row:1;padding:0;margin:0;max-width:none;width:100%}
+}`:""}
 </style></head>
 <body>
 <header class="hero${c.type==="pet"?" pethead":""}">
