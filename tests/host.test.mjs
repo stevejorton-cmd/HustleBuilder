@@ -2311,7 +2311,7 @@ test("the home screen app can install and keep the builder offline", async () =>
   assert.ok(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512"));
   const sw = await readFile(new URL("../sw.js", import.meta.url), "utf8");
   assert.match(sw, /pathname\.startsWith\("\/api\/"\)/);
-  assert.match(sw, /hustle-shell-4/);
+  assert.match(sw, /hustle-shell-5/);
   assert.match(sw, /\/config\/season\.js/);
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(html, /rel="manifest"/);

@@ -37,9 +37,19 @@ try{
  await offline.waitForFunction(async()=>!!(await caches.match('/')));
  const cached=await offline.evaluate(async()=>{const urls=[];for(const name of await caches.keys())for(const request of await (await caches.open(name)).keys())urls.push(request.url);return urls;});
  assert.ok(cached.every(url=>!new URL(url).pathname.startsWith('/api/')));results.push({name:'service worker never caches private API responses',pass:true});
+ // Reopening offline must retain the welcome poster, all service cards, and generated-page artwork.
+ await offline.waitForFunction(async()=>!!(await caches.match('/assets/refresh/prep.webp')));
  await offline.setOfflineMode(true);await offline.reload({waitUntil:'domcontentloaded'});
  // Recovery follows the failed identity request, not DOMContentLoaded.
  try{await offline.waitForFunction(()=>document.querySelector('input[data-k="first"]').value==='OfflineSam');}catch(error){console.log('offline recovery diagnostic',await offline.evaluate(()=>({online:navigator.onLine,anonymous:typeof anonymousDraft==='undefined'?'undefined':anonymousDraft,saved:typeof savedRaw==='undefined'?'undefined':!!savedRaw,owner:!!localStorage.getItem('hb-draft-owner'),marker:localStorage.getItem('hb-anonymous-draft'),storedFirst:JSON.parse(localStorage.getItem('hustle-builder-v3')||'{}').first,stateFirst:typeof S==='undefined'?'undefined':S.first,input:document.querySelector('input[data-k="first"]').value,status:document.getElementById('saveState').textContent,origin:typeof publishOrigin==='function'?publishOrigin():'undefined'})),offlineErrors);throw error;}
+ await offline.select('#stepJump','0');
+ await offline.waitForFunction(()=>Array.from(document.querySelectorAll('#tiles img, #moreTiles img')).every(img=>img.complete&&img.naturalWidth>0));
+ await offline.click('button.tile[data-type="prep"]');
+ await offline.waitForFunction(()=>document.querySelector('#frame').srcdoc.includes('data:image/webp;base64,'));
+ const previewFrame=offline.frames().find(frame=>frame.url()==='about:srcdoc');
+ await previewFrame.waitForFunction(()=>{const img=document.querySelector('img.scene');return img&&img.complete&&img.naturalWidth>0;});
+ results.push({name:'offline reopening keeps service photos and embedded website artwork visible',pass:true});
+ await offline.select('#stepJump','1');
  assert.match(await offline.$eval('input[data-k="first"]',el=>el.value),/OfflineSam/);results.push({name:'v4 builder reopens saved progress offline',pass:true});
  await offline.setOfflineMode(false);await offline.close();await anonymousContext.close();
  // Parent-owned work is deliberately not shown without online identity validation.
