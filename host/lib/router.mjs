@@ -1326,7 +1326,7 @@ async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forPa
   return queueMail({to,subject:sub,text:clean,html:markup,ics:icsText,replyTo:reply,ownerId:ownerId||'',expiresAt:expiresAt||null});
 }
 
-export const LEGAL_UPDATED = "November 10, 2026";
+export const LEGAL_UPDATED = "November 21, 2026";
 function privacyPage() {
   return shell(200, "Privacy", `<h1>Privacy</h1>
 <p>Last updated ${LEGAL_UPDATED}.</p>
