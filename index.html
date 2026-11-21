@@ -212,7 +212,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 
 .tile{position:relative;display:block;width:100%;height:136px;border:0;border-radius:10px;overflow:hidden;padding:0;cursor:pointer;background:#111;text-align:left;outline-offset:3px;filter:saturate(.7) brightness(.78);transition:filter .2s,transform .2s}
 .tile .scene{position:absolute;inset:0;width:100%;height:100%}
 img.scene{object-fit:cover;object-position:62% 62%;display:block}
-.scene.pthero{object-position:22% 15%}
+.scene.pthero{object-position:50% 35%}
 .tile::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,8,10,.82),rgba(6,8,10,.1) 70%)}
 .tile .cap{position:absolute;left:18px;bottom:14px;z-index:2;color:#fff}
 .tile .cap strong{display:block;font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;text-transform:uppercase}
@@ -469,7 +469,7 @@ body.hf-wide .st-title{font-size:18px}
 .fold{margin:0 0 14px}
 .fold>summary{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;list-style:none;padding:12px 14px;min-height:54px;border:2px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:24px;line-height:1}
 .fold>summary::-webkit-details-marker{display:none}
-.fold>summary::after{content:"Show \25BE";font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;text-transform:none;font-size:15px;color:var(--muted)}
+.fold>summary::after{flex:0 0 auto;margin-left:4px;content:"Show \25BE";font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;text-transform:none;font-size:15px;color:var(--muted)}
 .fold[open]>summary::after{content:"Hide \25B4"}
 .fold[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0;border-color:var(--accent)}
 .fold-body{border:2px solid var(--accent);border-top:0;border-radius:0 0 8px 8px;padding:12px 14px 14px;background:var(--surface)}
@@ -748,19 +748,55 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
 #parentsKid{margin-top:18px}
 html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,html.parents-only #boss,html.parents-only #flyers,html.parents-only #intro,html.parents-only #offlineNote{display:none !important}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
+#accountScreen:not([hidden])~#missing,#accountScreen:not([hidden])~#launchPitch,#accountScreen:not([hidden])~#pubBox #askCopy{display:none !important}
+/* Disclosure labels wrap while the caret keeps its own space. */
+details.help>summary,.lg>summary{display:flex;align-items:center;gap:12px;list-style:none;overflow-wrap:anywhere;min-height:44px}
+details.help>summary::-webkit-details-marker,.lg>summary::-webkit-details-marker{display:none}
+details.help>summary::before,.lg>summary::before{content:"";flex:0 0 8px;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin:0 4px 0 2px}
+details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45deg)}
+.fold>summary{overflow-wrap:anywhere;line-height:1.15}
+
+
+#forParents .parents-wrap{max-width:1100px}
+.parents-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px;align-items:start;margin-bottom:42px}
+.parents-hero h1{font-size:clamp(36px,4vw,54px)}
+.parents-demo h2{margin-top:0}.parents-demo .parents-example-photo{aspect-ratio:16/10}
+@media(max-width:760px){.parents-hero{grid-template-columns:1fr;gap:24px}.parents-demo .parents-example-photo{aspect-ratio:16/7}}
+/* Shared image framing and a clear product demonstration for parents. */
+.scene{object-position:50% 40%}
+#moreTiles .tile{min-height:132px}
+#moreTiles .tile .cap strong{font-size:26px}
+#moreTiles .tile .cap span{font-size:14px}
+.parents-example{overflow:hidden}
+.parents-example-photo{display:block;height:auto;max-height:280px;width:calc(100% + 36px);max-width:none;margin:-18px -18px 20px;aspect-ratio:16/7;object-fit:cover;object-position:center 40%}
+.parents-preview-link{display:inline-flex;align-items:center;min-height:48px;margin-top:12px;padding:12px 20px;background:#ff5b14;color:#101214;font-weight:800;border:0;border-radius:6px;cursor:pointer}
+.intro-motion{width:100%;height:100%;object-fit:cover;display:block}
+.intro-motion-toggle{font:700 13px Barlow,system-ui;min-height:44px;background:transparent;border:1px solid #b8beb4;border-radius:8px;padding:8px 12px;color:#26352b;margin-top:10px;cursor:pointer}
+@media(max-width:699px){.example-art{height:82px}.example-site-body{padding:8px 16px}.example-site h3{font-size:22px}.example-site,.example-paper,.example-payment{height:310px}}
 </style>
 </head>
 <body>
 <h1 class="sr-only">Your kid's first neighborhood business</h1>
 <section id="forParents" aria-label="For parents">
   <div class="parents-wrap">
-    <p class="parents-kicker">For parents</p>
+    <div class="parents-hero"><div class="parents-pitch">    <p class="parents-kicker">For parents</p>
     <h1>Your kid's first business, live this weekend.</h1>
     <p class="parents-note">A parent owns the account and runs the page. Your kid can help build it.</p>
     <p class="parents-price" id="parentsPrice">$9.99 for the season, never auto-renews.</p>
     <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
-    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
+    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Build a free draft</button>
+    <p class="parents-note"><a class="link" href="/?account=1">Already started? Sign in to your parent account</a></p>
     <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
+</div><div class="parents-demo">    <h2>A website they can make their own</h2>
+    <article class="parents-example"><img class="parents-example-photo" src="/assets/refresh/prep.webp" alt="Rake and leaf bag ready for a neighborhood yard cleanup" width="1280" height="720">
+      <b id="parentsExampleName">Sam's Yard Cleanup</b>
+      <p id="parentsExampleTown">Elkhorn</p>
+      <p data-example-line>Yard cleanup, small · $15</p>
+      <p data-example-line>Leaf raking · $15</p>
+      <button type="button" class="parents-preview-link" onclick="hbCloseParents(false)">Make a website like this</button>
+    </article>
+    <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
+</div></div>
     <h2>Three steps</h2>
     <ol>
       <li><b>Your kid can help build.</b> They pick the work, the prices, and the look of the page.</li>
@@ -773,14 +809,6 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <li>Your email and phone stay off the page. Neighbors use the booking form.</li>
       <li>Every booking request comes to you.</li>
     </ul>
-    <h2>A made-up example</h2>
-    <article class="parents-example">
-      <b id="parentsExampleName">Sam's Yard Cleanup</b>
-      <p id="parentsExampleTown">Elkhorn</p>
-      <p data-example-line>Yard cleanup, small · $15</p>
-      <p data-example-line>Leaf raking · $15</p>
-    </article>
-    <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
     <h2>Questions</h2>
     <details>
       <summary>Is it safe?</summary>
@@ -828,8 +856,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 
     <section class="step on" data-step="0">
       <h2>Pick your work.</h2>
-      <p class="lead">Pick what you do. You can change it any time.</p>
-      <div class="tiles" id="tiles"></div>
+<p class="lead">Choose your main type of work, then add individual services on the Prices step. Kids can build a draft without an account. A parent signs in to approve and publish it.</p>      <div class="tiles" id="tiles"></div>
       <details class="petfront" id="petFront" hidden><summary>Tips for pet care jobs</summary>
         <div class="petart" id="petGallery"></div>
         <div class="callout">
@@ -864,11 +891,11 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         <label class="field"><span>Kid’s first name</span><input type="text" data-k="first" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor"></label>
         <label class="field"><span>Town or neighborhood</span><input type="text" data-k="town" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Elkhorn"></label>
       </div>
-      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor's Lawn Co."><small>Leave it blank and we’ll build one from your name. Or pick one below.</small></label>
+      <label class="field"><span>Business name</span><input type="text" data-k="bizName" id="bizName" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Taylor's Lawn Co."><small>Leave it blank and we’ll build one from your name. Or open Name ideas below.</small></label>
       <details class="fold" id="foldNames"><summary>Name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleNames">Shuffle</button></div><div class="chips" id="nameChips"></div><p class="help2" id="nameHint"></p><p class="help2">Before you pick one, search it online to make sure no business near you already uses it.</p></div></details>
       <details class="fold" id="funnyIdeas"><summary>Funny name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleFunny">Shuffle</button></div><div id="funnyCats"></div></div></details>
       <label class="field"><span>Your short slogan (optional)</span><input type="text" data-k="tagline" id="tagline" maxlength="120" autocomplete="off"></label>
-      <details class="fold" id="foldTags"><summary>Tagline ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleTags">Shuffle</button></div><div id="tagList"></div></div></details>
+      <details class="fold" id="foldTags"><summary>Slogan ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleTags">Shuffle</button></div><div id="tagList"></div></div></details>
     </section>
 
     <section class="step" data-step="2">
@@ -876,24 +903,24 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <p class="lead" id="rateLead">Starter prices to work from. Change them for the jobs you offer.</p>
       <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Pick a fair starting price.</b><br>These are example prices. Ask a parent to help you cover your time and supplies, then agree on the price before each job. A price over $200 asks you to confirm it. A price over $999 cannot be published.</div></div>
       <details class="help price-level"><summary>Help me choose starter prices</summary><div class="lvl" id="lvlBox">
-        <label class="lvl-q" for="lvl">How good are you at this job?</label>
+        <label class="lvl-q" for="lvl">Choose your starter-price level</label>
         <div class="lvl-name" id="lvlName"></div>
         <input type="range" id="lvl" min="1" max="5" step="1" value="1">
         <div class="lvl-ticks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
-        <p class="lvl-say" id="lvlSay" aria-live="polite"></p>
+        <p class="lvl-say" id="lvlSay" aria-live="polite"></p><p class="small2">This changes suggested prices, not your qualifications. Prices you type yourself stay the same. A parent should check the job size, time, supplies, and local prices.</p>
       </div>
-      <div class="callout" id="extrasTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div id="extrasTipText">Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer.</div></div>
+      <div class="callout" id="extrasTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div id="extrasTipText">Price tip: agree on what the base job includes. Charge for an extra only when it adds work.</div></div>
       </details>
       <div id="petArtBox" hidden style="margin:0 0 16px">
-        <label class="lvl-q" id="petArtLabel">Pets on your pictures</label>
+        <label class="lvl-q" id="petArtLabel">Choose your pet pictures</label>
         <div class="chips" id="petArt"></div>
         <p class="small2">These show on your page, your flyers, and the picture people see when you share the link.</p>
       </div>
       <p class="small2" id="priceRepairNote" role="status" hidden></p>
       <div id="svcList"></div>
-      <p class="small2" style="margin:0 0 16px">Use the arrows to change the order. Your website and flyers list them top to bottom, and posters show the first four.</p>
+      <p class="small2" style="margin:0 0 16px">Use the arrows to change the order. Your website uses this order. Flyers and posters show the services that fit.</p>
       <div class="mbtns"><button type="button" class="btn" id="moreJobs">Add more jobs</button><button type="button" class="btn ghost" id="addSvc">Add your own</button></div>
-      <div class="mf seasonbox" id="seasonBox" hidden style="margin-top:24px"><label>Season plan (optional)</label><div class="chips" id="seasonChips"></div><div id="seasonField" hidden><label class="field"><span>Price for the whole winter ($)</span><input type="text" inputmode="decimal" id="seasonPrice" autocomplete="off"><small id="seasonHint"></small></label></div><small class="help2">Customers like one flat price, so they do not have to ask every time it snows.</small></div>
+      <div class="mf seasonbox" id="seasonBox" hidden style="margin-top:24px"><label>Snow service package (optional)</label><div class="chips" id="seasonChips"></div><div id="seasonField" hidden><label class="field"><span>Price for the whole winter ($)</span><input type="text" inputmode="decimal" id="seasonPrice" autocomplete="off"><small id="seasonHint"></small></label></div><small class="help2">This is what customers pay you for snow removal, separate from your Hustle Builder hosting plan.</small></div>
     </section>
 
     <section class="step" data-step="3">
@@ -903,7 +930,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <p class="small2" id="daysHint" aria-live="polite"></p>
       <div id="hoursBox"></div>
       <label class="field" style="margin-top:22px"><span>Anything else about your hours? (optional)</span><input type="text" data-k="hours" autocomplete="off" placeholder="Like: Not free during football games"></label>
-      <div class="mf" id="snowPlanBox" hidden style="margin-top:6px"><label>When do you start shoveling?</label><div class="chips" id="snowPlan"></div><small class="help2">Customers like knowing this up front. Most people start at 2 inches.</small></div>
+      <div class="mf" id="snowPlanBox" hidden style="margin-top:6px"><label>When do you start shoveling?</label><div class="chips" id="snowPlan"></div><small class="help2">Choose the amount of snow that triggers a visit.</small></div>
     </section>
 
     <section class="step" data-step="4">
@@ -913,12 +940,12 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
         <div>Booking requests go to the email your parent verifies at Go live. Phone and payment details below are optional.</div>
       </div>
-      <label class="field"><span>Parent or guardian name</span><input type="text" data-k="parentName" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Jordan"></label>
+      <label class="field"><span>Parent or guardian first name (optional)</span><input type="text" data-k="parentName" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Jordan"></label>
       <div class="two">
         <label class="field"><span>Parent’s phone (optional)</span><input type="tel" data-k="phone" autocomplete="off" inputmode="tel" placeholder="402-555-0123"></label>
-        <label class="field"><span>Public contact email (optional)</span><input type="email" data-k="email" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com"><small>This adds a public Email button. Leave it blank to use the private booking form.</small></label>
+        <input type="hidden" data-k="email">
       </div>
-      <p class="small2">Your email and phone stay off the public page. Neighbors use the booking form.</p>
+      <p class="small2">Your parent’s first name may appear on the website. Their email and phone stay private unless you choose to share the phone on a flyer.</p>
       <input type="checkbox" id="showPhone" hidden>
       <details class="lg" style="margin:4px 0 16px"><summary>Backup parent or guardian (optional)</summary>
         <label class="field"><span>Their first name</span><input type="text" data-k="parent2" autocomplete="off" placeholder="Pat"></label>
@@ -963,11 +990,11 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <section class="step" data-step="7">
       <h2>Ready to share?</h2>
       <p class="lead">Review your website with a parent. They approve it before neighbors can see it or request a job.</p>
-      <button type="button" class="btn ghost" id="openAccount">Your account</button>
+      <button type="button" class="btn ghost" id="openAccount">Parent account &amp; saved pages</button>
       <section id="accountScreen" hidden>
         <h3 class="h3">Your account</h3>
         <p class="lead" id="accountLead">This account belongs to the parent. Sign in with the parent email. Then each page shows here.</p>
-        <label class="field" for="acctVenmo"><span>Family Venmo</span><input type="text" id="acctVenmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small>Neighbors will see this Venmo name. Enter it once. Pay links use it on every job.</small></label>
+        <label class="field" id="accountVenmoField" for="acctVenmo" hidden><span>Family Venmo</span><input type="text" id="acctVenmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small>Neighbors will see this Venmo name. Enter it once. Pay links use it on every job.</small></label>
         <p class="status" id="venmoMsg" role="status"></p>
         <div id="accountSites"></div>
         <div id="buildsBox"></div>
@@ -975,14 +1002,13 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         <p><button type="button" class="btn ghost" id="acctSignOut" hidden>Sign out on this device</button></p>
       </section>
       <div class="missing" id="missing" hidden></div>
-      <div class="launch-price" id="launchPitch"><b>One 14-day trial for your business.</b><p>Your website, booking requests, and flyer downloads are included for 14 days from first publication. After that, choose a plan to continue. Your saved work stays available. After that: $9.99 per season or $19.99 per year. Plans never renew automatically.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
-      <div id="askInviteNotice" class="launch-price" role="status" hidden></div>
+      <div class="launch-price" id="launchPitch"><b>Publish free for 14 days.</b><p>The trial starts when your first page goes live and covers your family’s websites, bookings, and flyer downloads. Then choose $9.99 per season or $19.99 per year to continue. Your saved work stays available. Plans never renew automatically.</p></div>      <div id="askInviteNotice" class="launch-price" role="status" hidden></div>
       <div id="pubBox">
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
         <div id="askCopy">
         <button type="button" class="btn block" id="askParent">Email my parent an invitation</button>
-        <p class="small2">Your draft stays on this device until a parent agrees. The invitation includes your first name and business name, and asks your parent to review the page here with you.</p>
-        <p class="small2">Have your parent use “I’m the parent — continue here” below on this device to review and publish. <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
+        <p class="small2">The invitation shares only your first name and business name. Your parent will need this device to review your draft.</p>
+        <p class="small2">Parent here now? Open “I’m the parent — continue here” below. <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
         </div>
         <p class="status" id="askStatus" role="status"></p>
         <div id="askWait" hidden>
@@ -1013,7 +1039,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
           <p class="small2" id="cardCheckNote">Or start the free 14-day trial. We charge 50¢ on a card, Stripe emails a receipt, and we refund it right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
-            <p class="lead" id="trialPitch">Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.</p>
+            <p class="lead" id="trialPitch">The 14-day trial starts at your first publication. A paid plan is optional and never renews automatically.</p>
             <p class="status" id="trialCount" hidden></p>
           </div>
           <p class="status" id="graceBanner" hidden></p>
@@ -1025,7 +1051,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
             <p class="status" id="playtestMsg" role="status"></p>
           </div>
           <label class="check"><input type="checkbox" id="shareStreet"><span>On My jobs, show the street name. House numbers, email, and phone stay hidden.</span></label>
-          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Your first name plus your business name works great, like josie-josies-pet-care. It is harder for strangers to guess than a first name alone.</small><p class="small2" id="slugStatus" role="status"></p></label>
+          <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Choose a short address such as josies-pet-care. Do not include a last name, school, or home address.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
           <button type="button" class="btn ghost block" id="pubGo" disabled>Start the free 14-day trial with a 50¢ refunded check</button>
@@ -1096,12 +1122,12 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <h3 class="h3">Before you go live</h3>
       <p class="lead" style="margin-bottom:14px">Go through these with a parent.</p>
       <label class="check"><input type="checkbox"><span>A parent read the whole site and said yes.</span></label>
-      <label class="check"><input type="checkbox"><span>The phone and email on the site belong to a parent.</span></label>
+      <label class="check"><input type="checkbox"><span>A parent owns the publishing account and receives booking emails.</span></label>
       <label class="check"><input type="checkbox"><span>There’s no last name, street address, school, or photo of my face.</span></label>
       <label class="check"><input type="checkbox"><span>A parent knows where and when every job happens.</span></label>
       <label class="check"><input type="checkbox"><span>I know how to use my equipment safely, and I take breaks in heat or cold.</span></label>
-      <label class="check"><input type="checkbox"><span>Hand tools only, rakes and clippers. A parent says which tools are OK.</span></label>
-      <label class="check"><input type="checkbox"><span>I checked the rules for my age, and I only use equipment a parent says is OK.</span></label>
+
+      <label class="check"><input type="checkbox"><span>A parent checked the rules for my age and approved the tools and equipment I will use.</span></label>
       </details>
       <details class="help"><summary>Backups &amp; downloads</summary>
       <p class="small2" style="margin-top:22px"><button type="button" class="link" data-about>About and legal</button> &nbsp;&nbsp; <button type="button" class="link" data-backup>Back up or load my business</button></p>
@@ -1109,7 +1135,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <p class="small2" style="margin-top:28px">Backup, if Publish is not available.</p>
       <p class="small2"><button type="button" class="link" id="download" disabled>Download my site</button> · <button type="button" class="link" id="openSite" disabled>Open the file</button></p>
       <p class="status" id="dlStatus" role="status"></p>
-      <p class="small2" id="openSiteHelp">This is a backup file. Use your published link for bookings.</p>
+      <p class="small2" id="openSiteHelp">Downloaded files are backup previews. Use your published link to receive booking requests.</p>
       </details>
     </section>
   </main>
@@ -1143,11 +1169,11 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 
 <section id="flyers" aria-label="Flyers">
   <h2>Print and post.</h2>
-  <p class="lead">Pick a format, connect your website or a parent’s text number, then save or print. Your QR code helps neighbors reach you.</p>
+  <p class="lead">Pick a format, connect your website or a parent’s text number, then save or print. The QR code opens your website or a text message to your parent.</p>
 
   <div class="flyer-workbench"><div class="flyer-controls">
   <details class="help"><summary>Want more poster designs?</summary>
-  <button type="button" class="studio-card" id="openStudio"><span class="sc-top"><b>Poster Studio</b><span class="sc-tag">New</span></span><span class="sc-sub">Pick from 10 poster layouts for lawn, snow, or both, then make it yours. Change the colors, words, stickers, and more.</span></button>
+  <button type="button" class="studio-card" id="openStudio"><span class="sc-top"><b>Poster Studio</b><span class="sc-tag">New</span></span><span class="sc-sub">Choose from 10 layouts. Change the colors, words, and stickers, then save or print.</span></button>
   </details>
 
   <div class="mf"><label>Print it</label><div class="chips" id="fFmt"></div></div>
@@ -1287,7 +1313,7 @@ function siteFontCss(id){
   if(typeof FONT_DATA==="undefined"||!id||id==="workwear"||!FONT_DATA[id])return "";
   const m=FONT_META[id],sel='h1,h2,h3,.btn,.venmo,.q b,.q span,.mono,.rates .p,.cal-head strong,.rwho,.how b,.season .p,.ba .tg,.std h3,.hero h1';
   let css='@font-face{font-family:"HB-'+id+'";font-weight:'+m.w+';font-style:normal;font-display:swap;src:url(data:font/woff2;base64,'+FONT_DATA[id]+') format("woff2")}\n/* Display font: '+m.copy+'. Licensed under the SIL Open Font License 1.1 (full text above). */\n:root{--display:'+m.fb+'}\n'+sel+'{font-family:var(--display)!important;font-style:normal!important;font-weight:'+m.w+'!important;'+(m.caps?'':'text-transform:none!important;')+'}\n';
-  if(m.wide)css+='.hero h1{font-size:clamp(15px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:normal;word-break:normal;hyphens:manual}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
+  if(m.wide)css+='.hero h1{font-size:clamp(15px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:anywhere;word-break:normal;hyphens:manual}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
   return css;
 }
 function fontChips(wrap,cur,fn,opts){
@@ -1400,7 +1426,7 @@ function artRetro(kind){
 }
 const ART=[["cine-dusk","Cinematic dusk"],["cine-day","Cinematic day"]];
 function artStyle(){if(S.art&&ART.some(a=>a[0]===S.art))return S.art;return skyMood()==="sunny"?"cine-day":"cine-dusk";}
-function cineUrl(kind,mood){var use=mood==="day"?"day":"dusk";var name=kind==="prep"?"both":(kind==="snow"||kind==="both"||kind==="lawn"?kind:"lawn");return "/assets/scenes/"+use+"-"+name+".jpg";}
+function cineUrl(kind,mood){if(kind==="prep")return "/assets/refresh/prep.webp";if(kind==="snow")return "/assets/refresh/snow.webp";var use=mood==="day"?"day":"dusk";var name=kind==="prep"?"both":(kind==="snow"||kind==="both"||kind==="lawn"?kind:"lawn");return "/assets/scenes/"+use+"-"+name+".jpg";}
 function artName(id){const a=ART.find(x=>x[0]===(id||artStyle()));return a?a[1]:"Dusk";}
 function sceneArt(kind,id){
   if(id&&id.indexOf("cine-")===0)return '<img class="scene" alt="" aria-hidden="true" decoding="async" loading="lazy" src="'+cineUrl(kind,id.slice(5))+'">';
@@ -1656,7 +1682,7 @@ function siteMain(){
   }
   var rt=$("sendRvText"), re=$("sendRvMail");
   if(rt){rt.onclick=function(){var m=rvBuild(); if(m){window.location.href="sms:"+C.phoneDigits+"?&body="+encodeURIComponent(m);}};}
-  if(re){re.onclick=function(){var m=rvBuild(); if(m){window.location.href="mailto:bookings@hustlebuilder.org?subject="+encodeURIComponent("Review for "+C.biz)+"&body="+encodeURIComponent(m);}};}
+  if(re){re.onclick=function(){var m=rvBuild(); if(m)copyPlain(m,re);};}
   var dock=$("dock"), heroCta=$("heroCta"), booking=$("book");
   function upd(){
     var heroRect=heroCta.getBoundingClientRect(), bookRect=booking.getBoundingClientRect();
@@ -1705,6 +1731,7 @@ function priceTooHigh(v){return v!==null&&v>999;}
 function priceNeedsConfirm(v){return v!==null&&v>200&&v<=999;}
 const RIGS={
   ember:{name:"Ember",c:"#FF5B14"},
+  mower:{name:"Mower red",c:"#D94B3D"},
   forest:{name:"Forest",c:"#245B45"},
   gold:{name:"Gold",c:"#F5B800"},
   cobalt:{name:"Cobalt",c:"#3E8BFF"},
@@ -1723,7 +1750,7 @@ const NOISE="url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/sv
    state with no theme (or an unknown one handled by siteTheme) renders
    exactly as it always has. */
 const SITE_THEMES={
-  hustle:{name:"Hustle",blurb:"Bold orange, charcoal, and a get-it-done attitude.",dark:true},
+  hustle:{name:"Hustle",blurb:"Mower red, charcoal, and a get-it-done attitude.",dark:true},
   neighbor:{name:"Neighbor",blurb:"Warm cream, forest green, and a welcoming feel.",dark:false},
   bold:{name:"Bold Block",blurb:"The original. Big, blocky, slashed lines.",dark:true},
   clean:{name:"Clean",blurb:"Light and calm, with room to breathe.",dark:false},
@@ -2054,10 +2081,10 @@ function petSrc(file, publicUrl){
     try{
       const host=new URL(publicUrl).hostname;
       const origin=/(^|\.)hustlebuilder\.org$/i.test(host)?"https://hustlebuilder.org":new URL(publicUrl).origin;
-      return origin+"/assets/pets/"+file;
+      return origin+(file==="pet-hero.webp"?"/assets/refresh/pet.webp":"/assets/pets/"+file);
     }catch(e){}
   }
-  return "assets/pets/"+file;
+  return file==="pet-hero.webp"?"assets/refresh/pet.webp":"assets/pets/"+file;
 }
 function petFace(kind, label, opt){
   opt=opt||{};
@@ -2070,10 +2097,12 @@ function petPortrait(kind, label, opt){
   return `<figure>${petFace(kind, label, opt)}<figcaption>${esc(label)}</figcaption></figure>`;
 }
 function petHero(publicUrl){
-  const alt="A golden retriever wearing a red collar and leash, standing on a lawn at sunset with a tennis ball in the air";
+  const alt="A golden retriever sitting beside a walking leash and water bowl in a garden";
   return `<img class="scene pthero" src="${esc(petSrc("pet-hero.webp", publicUrl))}" alt="${alt}" width="1280" height="720" decoding="async">`;
 }
 function jobSrc(file, publicUrl){
+  const refreshed={"prep.webp":"prep","wash.webp":"wash","wash-hero.webp":"wash","help.webp":"help","help-hero.webp":"help","tutor.webp":"tutor","tutor-hero.webp":"tutor","other.webp":"other","other-hero.webp":"other"}[file];
+  if(refreshed){let root="";try{root=publicUrl?new URL(publicUrl).origin:"";}catch(e){}return root+"/assets/refresh/"+refreshed+".webp";}
   if(publicUrl){
     try{
       const host=new URL(publicUrl).hostname;
@@ -2085,10 +2114,10 @@ function jobSrc(file, publicUrl){
 }
 const JOB_HERO={
   odd:["odd-hero.webp","A red toolbox with a wrench and hammer on a workbench at sunset"],
-  wash:["wash-hero.webp","A red car covered in soap foam during a car wash at sunset"],
+  wash:["wash-hero.webp","Car-washing supplies beside a hatchback on a driveway"],
   help:["help-hero.webp","A paper grocery bag full of groceries on a front porch at sunset"],
-  tutor:["tutor-hero.webp","An open book with golden light rising from its pages at sunset"],
-  other:["other-hero.webp","A golden star trophy with gold confetti falling at sunset"]
+  tutor:["tutor-hero.webp","An open book and notebook on a reading table beside a window"],
+  other:["other-hero.webp","Work gloves, a tote and simple household tools on a garden bench"]
 };
 function jobHero(type, publicUrl){
   const h=JOB_HERO[type]; if(!h)return "";
@@ -2097,9 +2126,9 @@ function jobHero(type, publicUrl){
 function brandArt(type,mode,publicUrl){
   if(mode&&mode!=="hustle"&&mode!=="neighbor")return "";
   if(type==="lawn"&&(mode==="hustle"||mode==="neighbor"))return `<img class="scene" src="${esc((publicUrl?new URL(publicUrl).origin:"")+"/assets/scenes/dusk-lawn.jpg")}" alt="A push mower on a neatly cut neighborhood lawn at sunset" width="960" height="540" decoding="async">`;
-  const key=({snow:"snow",both:"snow",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[type];
+  const key=({snow:"snow",both:"both",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[type];
   if(!key)return "";
-  const alt=({snow:"A manual snow shovel beside a hand-cleared driveway",prep:"A leaf rake, work gloves and gathered autumn leaves",wash:"Car washing bucket, sponge and hose",help:"Grocery bags and practical neighborhood supplies",tutor:"School books, a notebook and pencils",other:"A work bag, gloves and hand tools for neighborhood jobs"})[key];
+  const alt=({snow:"A manual snow shovel beside a hand-cleared driveway",both:"A push lawn mower and manual snow shovel for lawn care and snow removal",prep:"A leaf rake, work gloves and gathered autumn leaves",wash:"Car washing bucket, sponge and hose",help:"Grocery bags and practical neighborhood supplies",tutor:"School books, a notebook and pencils",other:"A work bag, gloves and hand tools for neighborhood jobs"})[key];
   return `<img class="scene" src="${esc((publicUrl?new URL(publicUrl).origin:"")+"/assets/hustle/"+key+".webp")}" alt="${alt}" width="1280" height="720" decoding="async">`;
 }
 function bannerArt(type, art, pets, publicUrl, mode){
@@ -2142,7 +2171,7 @@ function genSite(c){
   const howHTML=`<section id="how">
   <h2>How it works</h2>
   <ol class="how">
-    <li><b>1</b><div><strong>Pick a day.</strong><p>Choose a day and a time below. I only show days I’m free.</p></div></li>
+    <li><b>1</b><div><strong>Pick a day.</strong><p>Choose a working day and a preferred start time below.</p></div></li>
     <li><b>2</b><div><strong>A parent confirms.</strong><p>Your request goes to my parent first, so we can check the day, the time, and the price.</p></div></li>
     <li><b>3</b><div><strong>I show up and get it done.</strong><p>${c.venmo?"You pay after the job is done. A parent arranges cash or an eligible Venmo payment.":"You pay after the job is done. My parent will confirm how to pay."}</p></div></li>
   </ol>
@@ -2151,7 +2180,7 @@ function genSite(c){
   <h2>My promise</h2>
   <p class="promise">${esc(c.promise)}</p>
 </section>`:"";
-  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"||c.type==="prep"?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
+  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"||(c.type==="prep"&&globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
   const petLabels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird",small:"Small animal"};
   const petRoot=(c.publish&&c.publish.url)||c.publicUrl||"";
   const petSafe=c.type==="pet"?`<section id="petsafe"><h2>Pets I can help</h2><div class="petrow">${(c.pets&&c.pets.length?c.pets:["dog","cat","fish","bird"]).map(k=>petPortrait(k,petLabels[k]||"Pet",{lazy:true,root:petRoot})).join("")}</div><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
@@ -2159,21 +2188,22 @@ function genSite(c){
   const prepTitle=(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?"Yard cleanup and winter prep":"Yard cleanup";
   const prepSafe=offersPrep?`<section id="prepsafe"><h2>${prepTitle}</h2><p class="promise">This covers leaf raking and clearing dead plants. Hand tools only, rakes and clippers.</p></section>`:"";
   const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
-  const sizeField=c.type==="pet"?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
-  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:c.type==="prep"?`<label>Anything I should know? Gate code, pets, or where to put the snow.<textarea id="note"></textarea></label><p class="small">Hand tools only, rakes and clippers.</p>`:`<label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
+  const sizeField=["pet","tutor","help","other"].includes(c.type)?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
+  const jobNote=({lawn:"Gate access, pets, or areas to avoid",snow:"Where to put the snow or any buried obstacles",both:"Gate access, pets, or where to put snow",prep:"Gate access, cleanup tasks, or where to put yard waste",wash:"Vehicle size, water access, or anything to avoid",help:"Tasks, how long you need help, or anything the parent should know",tutor:"Reading level, school subject, or what to practice",odd:"The tasks, time needed, or access instructions",other:"Describe the job and what you would like done"})[c.type]||"Anything else about this job";
+  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:c.type==="prep"?`<label>${esc(jobNote)}<textarea id="note"></textarea></label><p class="small">Hand tools only, rakes and clippers.</p>`:`<label>${esc(jobNote)}<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
   const publicPhone=false;
   const canEmail=!!(c.email||(c.publish&&c.publish.book));
   const contactHTML=`<section id="contact">
-  <h2>Questions?</h2>
-  <p class="small">${esc(c.parentName||"My parent")} helps run this business. ${canEmail?"Use the booking form to send a question.":"Use the booking form to send your request or question."}</p>
-  <div class="btns">${canEmail?`<a class="btn alt" href="#book">Email</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
+  <h2>Contact my parent</h2>
+  <p class="small">${esc(c.parentName||"My parent")} helps run this business. Add questions about the job in your request note. A parent replies before confirming.</p>
+  <div class="btns">${canEmail?`<a class="btn alt" href="#book">Open request form</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
 </section>`;
-  const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Season plan</strong><p>I clear your driveway every time it snows this winter. Pick “Every snowfall this winter” below.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
+  const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Snow service package</strong><p>I clear your driveway every time it snows this winter. My parent confirms which visits and tasks the package includes.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
   const pay=c.venmo?`<a class="venmo" id="venmoPay" href="https://venmo.com/${encodeURIComponent(c.venmo)}?txn=pay&amp;note=${encodeURIComponent((c.first?c.first+": ":"")+c.biz)}" target="_blank" rel="noopener">Pay with Venmo</a><p class="small">Pay @${esc(c.venmo)} after the job. Neighbors see this Venmo name. Confirm it in the Venmo app.</p>`:`<p>My parent will confirm how to pay after the job.</p>`;
-  const buttons=canEmail?`<button type="button" class="btn" id="sendMail">Email my request</button>`:"";
+  const buttons=canEmail&&!hostOn?`<button type="button" class="btn" id="sendMail">Email my request</button>`:"";
   const info=typeInfo(c.type);
   const type=info.label;
   const target=info.target;
@@ -2185,7 +2215,7 @@ function genSite(c){
   const star=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>`;
   const proofHTML=(c.proof&&c.proof.length)?`<section id="work"><h2>The work</h2><div class="work">${c.proof.map(p=>`<figure class="fig"><div class="ba"><img src="${esc(p.a)}" alt="After"><div class="bef"><img src="${esc(p.b)}" alt="Before"></div><span class="tg l">Before</span><span class="tg r">After</span><i class="ln"></i><i class="kn">${arrows}</i><input type="range" min="0" max="100" value="50" aria-label="Slide to compare before and after"></div>${p.cap?`<figcaption class="capt">${esc(p.cap)}</figcaption>`:""}</figure>`).join("")}</div></section>`:"";
   const revHTML=(c.reviews&&c.reviews.length)?`<section id="reviews"><h2>What neighbors say</h2><div class="revs">${c.reviews.map(r=>`<div class="rev"><div class="stars" role="img" aria-label="${r.r||5} out of 5 stars">${star.repeat(r.r||5)}</div><q>${esc(r.q)}</q><div class="rwho">${esc(r.n)}</div></div>`).join("")}</div></section>`:"";
-  const revForm=canEmail?`<section id="review"><h2>Been a customer?</h2><p>Tell me how I did. Your review helps the next neighbor decide.</p><div class="panel"><label>Your first name<input id="rvName" autocomplete="given-name"></label><label>How did I do?<select id="rvStars"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option></select></label><label>Your review<textarea id="rvText"></textarea></label><div class="btns"><button type="button" class="btn" id="sendRvMail">Email my review</button></div><p class="err" id="rvErr" role="alert"></p><div id="rvOutWrap" hidden><label>Copy these job details to share with ${esc(c.parentName||"my parent")}<textarea id="rvOut" readonly></textarea></label></div></div></section>`:"";
+  const revForm=canEmail?`<section id="review"><h2>Been a customer?</h2><p>Write a review, then copy it to share with my parent using the contact details you arranged for the job. This form does not send or publish it.</p><div class="panel"><label>Your first name<input id="rvName" autocomplete="given-name"></label><label>How did I do?<select id="rvStars"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option></select></label><label>Your review<textarea id="rvText"></textarea></label><div class="btns"><button type="button" class="btn" id="sendRvMail" data-label="Copy my review">Copy my review</button></div><p class="err" id="rvErr" role="alert"></p><div id="rvOutWrap" hidden><label>Your review to share with ${esc(c.parentName||"my parent")}<textarea id="rvOut" readonly></textarea></label></div></div></section>`:"";
   return `<!DOCTYPE html>
 <html lang="en"${th?` data-theme="${th}"`:""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(c.biz)}${c.town?" - "+esc(c.town):""}</title>
@@ -2220,7 +2250,7 @@ img.scene{object-fit:cover;object-position:63% 56%;display:block;height:62%;-web
 .flake{fill:#fff;opacity:.9;animation:fall linear infinite}
 @keyframes fall{from{transform:translate(0,-30px)}to{transform:translate(26px,420px)}}
 .hero-in{position:relative;z-index:2;width:100%;max-width:820px;margin:0 auto;padding:0 22px 66px}
-  .hero h1{font-weight:900;font-size:clamp(15px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:normal;word-break:normal;hyphens:manual}
+  .hero h1{max-width:100%;font-weight:900;font-size:clamp(15px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:anywhere;word-break:normal;hyphens:manual}
 .hero .tag{margin:20px 0 28px;font-size:clamp(19px,4.6vw,24px);font-weight:500;max-width:30ch;color:#E4E1DB;border-left:5px solid var(--accent);padding-left:14px;overflow-wrap:anywhere}
 .cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .btn{display:inline-flex;align-items:center;justify-content:center;border:0;background:var(--accent);color:var(--on);font-family:var(--display);font-style:italic;font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.02em;padding:0 34px;min-height:60px;cursor:pointer;text-decoration:none;clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);transition:filter .15s,transform .08s}
@@ -2324,7 +2354,7 @@ ${(!th||th==="hustle"||th==="bold")?`
 ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
 .hero.pethead .hero-in{grid-area:2/1;position:relative;z-index:2;width:100%;max-width:none;margin:0;padding:24px 24px 12px;background:#e7f6ea}
-.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(15px,8.4vw,64px);line-height:1.02;overflow-wrap:normal;word-break:normal;hyphens:manual}
+.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(15px,8.4vw,64px);line-height:1.02;overflow-wrap:anywhere;word-break:normal;hyphens:manual}
 .hero.pethead .tag{color:#1d3b32;text-shadow:none;margin:14px 0 0;font-size:clamp(16px,4vw,22px)}
 .hero.pethead .cta,.hero.pethead .meta{display:none}
 .petbar{background:#e7f6ea;padding:8px 24px 24px}
@@ -2354,13 +2384,13 @@ section{padding-left:18px;padding-right:18px}section h2{font-size:44px}
 <header class="hero${c.type==="pet"?" pethead":""}">
   ${bannerArt(c.type,c.art,c.pets,(c.publish&&c.publish.url)||c.publicUrl||"",c.theme)}
   <div class="hero-in">
-    <h1 style="font-size:${heroFitPx(c.biz,346)}px">${esc(c.biz)}</h1>
+    <h1 style="font-size:min(${heroFitPx(c.biz,346)}px,11vw)">${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
-    ${c.type==="pet"?"":`<div class="cta"><a class="btn" id="heroCta" href="#book">Book a day</a></div>`}
+    ${c.type==="pet"?"":`<div class="cta"><a class="btn" id="heroCta" href="#book">Request a job</a></div>`}
     <p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p>
   </div>
 </header>
-${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">Book a day</a><p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p></div>`:""}
+${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">Request a job</a><p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p></div>`:""}
 <div class="hazard"></div>
 
 <section id="standard">
@@ -2368,14 +2398,14 @@ ${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">B
   <div class="std">
     <div><h3>Show up.</h3><p>When I say Tuesday, I mean Tuesday.</p></div>
     <div><h3>Do it right.</h3><p>${esc(rightLine)}</p></div>
-    <div><h3>Leave it better.</h3><p>You’ll notice the difference when you pull in.</p></div>
+    <div><h3>${["pet","help","tutor"].includes(c.type)?"Keep you informed.":"Leave it better."}</h3><p>${esc(({pet:"I tell a parent how each visit went.",help:"A parent stays home and in charge while I help.",tutor:"I tell a parent what we practiced and what to work on next.",wash:"A clean car, with care taken around your belongings."})[c.type]||"I leave the work area tidy when I finish.")}</p></div>
   </div>
 </section>
 
 <section id="rates">
   <h2>Rates</h2>
   <ul class="rates">${rows}</ul>
-  <p class="small">Very large or overgrown jobs may cost more. I’ll confirm the price before I start.</p>
+  <p class="small">${esc(({pet:"Prices are per walk or visit, for the time listed. A parent confirms the number of pets and care needed.",tutor:"Prices are per session. A parent confirms the session length and subject before we start.",help:"Prices are per listed task or session. A parent stays home and confirms the time and tasks.",wash:"Prices are per vehicle. A parent confirms its size, condition, and what cleaning is included.",snow:"Prices are per clearing unless a season plan is listed. Depth, ice, and driveway size can change the quote.",both:"Prices are per listed job. Yard size, snow depth, and extra tasks can change the quote."})[c.type]||"Prices are per listed job. Yard size, condition, and cleanup time can change the quote.")} A parent confirms the final price before work starts.</p>
   ${offersPrep&&c.type!=="prep"?`<p class="small">${prepTitle} uses hand tools only, rakes and clippers.</p>`:""}
   ${snowPlan}
   ${seasonHTML}
@@ -2392,14 +2422,14 @@ ${revHTML}
 ${promiseHTML}
 
 <section id="book">
-  <h2>Book a day</h2>
+  <h2>Request a job</h2>
   <div class="panel">
     <div class="q"><b>1</b><span>Pick a day</span></div>
     <p class="small" style="margin:0 0 14px">${schedText?"I’m free: "+esc(schedText)+" ":(workDays?"I work "+esc(workDays)+". ":"")}${c.hours?esc(c.hours):""}</p>
     <div class="cal-head"><button type="button" id="prev" aria-label="Previous month">&lsaquo;</button><strong id="calTitle"></strong><button type="button" id="next" aria-label="Next month">&rsaquo;</button></div>
     <div id="cal"></div>
     <p class="picked" id="picked" aria-live="polite"></p>
-    <div id="timeWrap" hidden><label>What time should I show up?<select id="tm"></select></label></div>
+    <div id="timeWrap" hidden><label>Preferred start time<select id="tm"></select></label></div>
     <form onsubmit="return false">
       <div class="q"><b>2</b><span>Tell me the job</span></div>
       <label>What do you need?<select id="svc"></select></label>
@@ -2413,7 +2443,7 @@ ${promiseHTML}
       <div class="hp" aria-hidden="true"><label>Company<input id="hp" name="company" tabindex="-1" autocomplete="off"></label></div>
       ${inboxOn?`<label>A photo of the ${target}, if you want (optional)<input type="file" id="ph" accept="image/*"></label><p class="small" id="phNote" style="margin:-6px 0 12px">Photos of your yard or driveway only, please. No people. It goes to my parent only.</p><img id="phPrev" alt="Your photo" hidden style="max-width:100%;max-height:180px;border-radius:8px;margin:0 0 12px">`:""}
       <div class="q"><b>3</b><span>Send it</span></div>
-      ${(hasContact||inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:(inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`:"")}${(hostOn||inboxOn)?buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">Booking buttons show up here once a parent adds a phone number or email.</p>`}
+      ${(hasContact||inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:(inboxOn?`<button type="button" class="btn" id="sendInbox">Send my request</button>`:"")}${hostOn?"":inboxOn?buttons.replace(/class="btn"/g,'class="btn alt"').replace(">Text my request<",">Text it instead<").replace(">Email my request<",">Email it instead<"):buttons}</div>`:`<p class="small">This is a draft preview. A parent publishes the website at Go live to enable booking requests.</p>`}
       <p class="err" id="err" role="alert"></p>
       <div id="sentBox" class="sent" hidden role="status"></div>
       <button type="button" id="copyBook" hidden>Copy job</button>
@@ -2438,7 +2468,7 @@ ${promiseHTML}
 
 <footer><div class="hazard"></div><p>${esc(c.biz)}${c.town?", "+esc(c.town):""}. Kid-owned. Parent-backed.</p><p class="small"><a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/retention">Retention</a> · <a href="/terms">Terms</a></p>${c.publish&&c.publish.slug?`<p class="small"><a href="/api/report/${esc(c.publish.slug)}">Report this page</a></p>`:""}</footer>
 
-<div class="dock" id="dock"><a class="btn" href="#book">Book a day</a></div>
+<div class="dock" id="dock"><a class="btn" href="#book">Request a job</a></div>
 <script>window.__C=${cfgJson};<\/script>
 <script>(${siteMain.toString()})();<\/script>
 </body></html>`;
@@ -2618,7 +2648,7 @@ function blankLawnDefault(raw){
 function defaults(){
   const type=seasonDefaultType();
   return {type:type,first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices(type,1),svcEdited:false,svcSets:{},
-    palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
+    palette:"mower",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 function draftBelongsTo(ownerEmail, sessionEmail){
   const owner=String(ownerEmail||"").trim().toLowerCase();
@@ -2703,7 +2733,7 @@ function resolve(preview, opt){
   const parentName=S.parentName.trim(), phone=S.phone.trim(), phoneDigits=phone.replace(/[^\d+]/g,""), email=S.email.trim();
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=typeInfo(S.type).target;
-  const about=`I’m ${first||"Taylor"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I leave your ${target} better than I found it. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
+  const about=`I’m ${first||"Taylor"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I check that you are happy with the work. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
   return {type:S.type,look:S.look==="day"?"day":"night",theme:siteTheme(S.theme),sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:cleanPrice(S.seasonPrice),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:cleanPrice(s.p)})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()).map(r=>({...r,n:r.n.trim().slice(0,40)})),publish:opt.publish||null};
@@ -2738,10 +2768,10 @@ function seasonPicker(){
 const TYPES=seasonPicker();
 const MORE_TYPES=[
   {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",img:"assets/jobs/odd.webp",color:"#8A5A12"},
-  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",img:"assets/jobs/wash.webp",color:"#1D4E89"},
-  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",img:"assets/jobs/help.webp",color:"#8E3A56"},
-  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",img:"assets/jobs/tutor.webp",color:"#4C3A8A"},
-  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",img:"assets/jobs/other.webp",color:"#3D6B16"}
+  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",img:"assets/refresh/wash.webp",color:"#1D4E89"},
+  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",img:"assets/refresh/help.webp",color:"#8E3A56"},
+  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",img:"assets/refresh/tutor.webp",color:"#4C3A8A"},
+  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",img:"assets/refresh/other.webp",color:"#3D6B16"}
 ];
 const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
@@ -2764,8 +2794,8 @@ function pickType(id){
 }
 function tileHtml(t){
   const tick='<span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>';
-  const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
-  const art=t.id==="pet"?`<img class="scene pthero" src="assets/pets/pet-hero.webp" alt="" width="1280" height="720">`:scene;
+  const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.id==="prep"?"assets/refresh/prep.webp":t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
+  const art=t.id==="pet"?`<img class="scene pthero" src="assets/refresh/pet.webp" alt="" width="1280" height="720">`:scene;
   const fit=String(t.name||"").length>10?" fit":"";
   return (brandArt(t.id,S.theme,"")||art)+`<span class="cap"><strong class="${fit.trim()}">${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
@@ -2773,7 +2803,7 @@ function renderTiles(){
   const fill=(box,list)=>{
     const w=$(box); if(!w)return; w.innerHTML="";
     list.forEach(t=>{
-      const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
+      const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji&&!t.img?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
       b.innerHTML=tileHtml(t);
       b.onclick=()=>pickType(t.id);
       w.appendChild(b);
@@ -2830,7 +2860,7 @@ function renderPetPicks(){
 function syncTypeCopy(){
   const lead=$("#rateLead");
   const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
-  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?(snowSeason?"Starter prices for yard cleanup and winter prep. Small is about $15, medium about $25, and large about $40. Change any price.":"Starter prices for yard cleanup. Small is about $15, medium about $25, and large about $40. Change any price."):"Starter prices to work from. Change them for the jobs you offer.";
+  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?(snowSeason?"Starter prices for yard cleanup and winter prep. Agree on the yard size and tasks with a parent before setting your price.":"Starter prices for yard cleanup. Agree on the yard size and tasks with a parent before setting your price."):"Starter prices to work from. Change them for the jobs you offer.";
   const prepFront=$("#prepFront");
   if(prepFront){
     const sum=prepFront.querySelector("summary");
@@ -2839,7 +2869,7 @@ function syncTypeCopy(){
   }
   const tip=$("#extrasTipText");
   if(tip){const ex={lawn:"like bagging or edging",both:"like bagging, edging, or salting",snow:"like clearing the walk or salting",pet:"like a longer visit or an extra pet",prep:"like hedge trimming or a larger yard",wash:"like vacuuming the inside or a dry and shine"}[S.type];
-    tip.textContent="Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer"+(ex?", "+ex:"")+".";}
+    tip.textContent="Price tip: agree on what the base job includes. Charge for an extra only when it adds work"+(ex?", "+ex:"")+".";}
   renderPetPicks();
 }
 function syncOther(){
@@ -2854,7 +2884,7 @@ function go(n){
   seg.setAttribute("aria-valuenow",String(step+1));
   $("#plabel").textContent="Step "+(step+1)+" of "+STEPS;
   $("#stepJump").value=String(step);
-  $("#next").textContent="Next: "+["Your work","Name","Prices","Schedule","Parent","Style","Photos","Go live"][Math.min(step+1,STEPS-1)];
+  $("#next").textContent="Next: "+["Your work","Name","Prices","Schedule","Parent & payment","Style","Photos","Go live"][Math.min(step+1,STEPS-1)];
   S.builderStep=step;save();
   $("#back").disabled=step===0;
   $("#next").hidden=step===STEPS-1;
@@ -2900,7 +2930,32 @@ async function saveFamilyVenmo(raw){
   }catch(e){if(msg)msg.textContent="Could not save that Venmo name.";}
 }
 function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{if(document.activeElement&&document.activeElement.matches("#svcList input"))return;refresh();updateLaunch();scheduleDraft();},250);}
-function refresh(){frame.srcdoc=genSite(resolve(true));}
+// Sandboxed srcdoc frames cannot send the preview deployment's sign-in cookie.
+// Load our artwork in the builder, then embed it only in the local preview.
+// Published and downloaded websites keep their normal image URLs.
+const previewArtCache=new Map();
+let previewRevision=0;
+function previewArtData(src){
+  const url=new URL(src,location.href);
+  if(url.origin!==location.origin||!/^\/assets\/(hustle|refresh|scenes|jobs|pets)\/[a-z0-9.-]+\.(webp|jpg|png)$/.test(url.pathname))return Promise.resolve(src);
+  if(!previewArtCache.has(url.href))previewArtCache.set(url.href,
+    fetch(url.href,{credentials:"same-origin"}).then(r=>{
+      if(!r.ok||!/^image\//.test(r.headers.get("content-type")||""))throw new Error("image unavailable");
+      return r.blob();
+    }).then(blob=>new Promise((resolve,reject)=>{
+      const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);
+    })).catch(()=>{previewArtCache.delete(url.href);return src;})
+  );
+  return previewArtCache.get(url.href);
+}
+async function refresh(){
+  const revision=++previewRevision,html=genSite(resolve(true));
+  const sources=[...new Set([...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map(m=>m[1]))];
+  const embedded=await Promise.all(sources.map(async src=>[src,await previewArtData(src)]));
+  if(revision!==previewRevision)return;
+  const images=new Map(embedded);
+  frame.srcdoc=html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g,(_,before,src,after)=>before+(images.get(src)||src)+after);
+}
 
 document.querySelectorAll("[data-k]").forEach(el=>{
   el.value=S[el.dataset.k]||"";
@@ -2957,12 +3012,12 @@ $("#addSvc").onclick=()=>{
 
 /* ---- price level slider ---- */
 const LEVELS=[
-  {n:"Beginner",say:"You are just starting out. Use low prices so people want to try you.",m:1},
-  {n:"Rising Star",say:"You are getting better. Raise your prices a little.",m:1.2},
-  {n:"Skilled",say:"People like your work. Charge a fair price.",m:1.4},
-  {n:"Expert",say:"You are fast and you do great work. You can charge more.",m:1.7},
-  {n:"Legend",say:"People ask for you by name. You can charge top prices.",m:2}];
-/* prices for the starter services at each level (Beginner to Legend) */
+  {n:"Beginner",say:"New to this work? Start with a small job you can do well. Cover your time and supplies."},
+  {n:"Practicing",say:"You have done this job a few times. Review a small price increase with a parent."},
+  {n:"Skilled",say:"You do careful, consistent work. Check that the suggested price fits this job."},
+  {n:"Experienced",say:"You have repeat customers and reliable results. Agree on the scope and price first."},
+  {n:"Proven",say:"Neighbors recommend your work. These are still starter examples, not professional rates."}];
+/* Moderate starter-price suggestions, from Beginner to Proven. */
 const PRICE_TABLE={"full mow, front and back":[15,17,19,20,22],"front yard mow":[10,11,12,14,15],"trim and edge":[5,6,6,7,7],"leaf cleanup":[20,22,25,27,30],"bag grass clippings":[3,3,4,4,4],"driveway":[10,11,12,14,15],"shovel driveway":[10,11,12,14,15],"driveway and walk":[12,13,15,16,18],"shovel driveway and walk":[12,13,15,16,18],"walk and steps":[5,6,6,7,7],"salt":[3,3,4,4,4]};
 Object.keys(PRESETS).forEach(k=>(PRESETS[k]||[]).forEach(row=>{if(Array.isArray(row[1]))PRICE_TABLE[row[0].toLowerCase()]=row[1];}));
 function niceP(v){return v>=25?Math.round(v/5)*5:Math.max(1,Math.round(v));}
@@ -3085,14 +3140,14 @@ function renderDays(){
 function renderSeason(){
   const box=$("#seasonBox");if(!box)return;box.hidden=!(S.type==="snow"||S.type==="both");if(box.hidden)return;
   const w=$("#seasonChips");w.innerHTML="";
-  [[false,"No season plan"],[true,"Offer a season plan"]].forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String(!!S.seasonOn===it[0]));b.onclick=()=>{S.seasonOn=it[0];renderSeason();queue();};w.appendChild(b);});
+  [[false,"No snow package"],[true,"Offer a snow package"]].forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String(!!S.seasonOn===it[0]));b.onclick=()=>{S.seasonOn=it[0];renderSeason();queue();};w.appendChild(b);});
   $("#seasonField").hidden=!S.seasonOn;
   const dv=S.services.find(x=>/driveway/i.test(x.n)&&!/walk|end|plow/i.test(x.n)),pv=dv?parseFloat(String(dv.p).replace(/[^0-9.]/g,"")):0;
   $("#seasonHint").textContent=pv>0?"A starting idea: about 6 times your driveway price ($"+Math.round(pv*6/5)*5+"). Raise it if it snows a lot where you live.":"Think about how many times it usually snows, then pick one flat price.";
   const inp=$("#seasonPrice");if(document.activeElement!==inp)inp.value=S.seasonPrice||"";
 }
 $("#seasonPrice").addEventListener("input",()=>{S.seasonPrice=$("#seasonPrice").value;queue();});
-$("#seasonPrice").addEventListener("blur",async()=>{const inp=$("#seasonPrice"),v=priceNum(inp.value);if(v!==null&&(v<0||priceTooHigh(v))){S.seasonPrice="";inp.value="";toast(v<0?"Enter a price of $0 or more.":"A season price over $999 cannot be published.");queue();return;}if(priceNeedsConfirm(v)){const yes=await confirmModal('<h3>That price is over $200</h3><p class="small2">The winter plan would be listed at $'+v+'. Use that price?</p>',"Use this price");if(!yes){S.seasonPrice="";inp.value="";}}queue();});
+$("#seasonPrice").addEventListener("blur",async()=>{const inp=$("#seasonPrice"),v=priceNum(inp.value);if(v!==null&&(v<0||priceTooHigh(v))){S.seasonPrice="";inp.value="";toast(v<0?"Enter a price of $0 or more.":"A season price over $999 cannot be published.");queue();return;}if(priceNeedsConfirm(v)){const yes=await confirmModal('<h3>That price is over $200</h3><p class="small2">The snow service package would be listed at $'+v+'. Use that price?</p>',"Use this price");if(!yes){S.seasonPrice="";inp.value="";}}queue();});
 function renderSnowPlan(){
   const box=$("#snowPlanBox"),w=$("#snowPlan");if(!box||!w)return;
   box.hidden=!(S.type==="snow"||S.type==="both");w.innerHTML="";
@@ -3126,7 +3181,7 @@ function paintThemeCards(w,help){
     const t=SITE_THEMES[k], p=THEME_PREVIEWS[k];
     const b=document.createElement("button"); b.type="button"; b.className="themecard";
     b.setAttribute("aria-pressed",String((S.theme||"hustle")===k));
-    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${k==="neighbor"?"#245B45":"#FF5B14"};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}</span><span class="tb">${t.blurb}</span>`;
+    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${k==="neighbor"?"#245B45":"#D94B3D"};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}</span><span class="tb">${t.blurb}</span>`;
     b.onclick=()=>{chooseBrandStyle(k);renderRigs();renderTiles();queue();};
     w.appendChild(b);
   });
@@ -3135,7 +3190,7 @@ function paintThemeCards(w,help){
 function chooseBrandStyle(k){
   if(k!=="hustle"&&k!=="neighbor")return;
   const neighbor=k==="neighbor";
-  Object.assign(S,{theme:k,look:neighbor?"day":"night",palette:neighbor?"forest":"ember",paletteTouched:true,sky:neighbor?"sunny":"dusk",art:neighbor?"cine-day":"cine-dusk",siteFont:neighbor?"fredoka":"",flyerStyle:"bold"});
+  Object.assign(S,{theme:k,look:neighbor?"day":"night",palette:neighbor?"forest":"mower",paletteTouched:true,sky:neighbor?"sunny":"dusk",art:neighbor?"cine-day":"cine-dusk",siteFont:neighbor?"fredoka":"",flyerStyle:"bold"});
   if(S.studio)Object.assign(S.studio,{rig:S.palette,bg:neighbor?"light":"dark",font:S.siteFont,nameStyle:neighbor?"plain":"heavy",trim:neighbor?"bar":"stripes",sky:neighbor?"sunny":"dusk",art:"brand-"+k});
 }
 function renderThemes(){
@@ -3373,18 +3428,18 @@ function renderBoss(){
       <div><b>${st.streak} wk</b><span>Job streak</span></div>
     </div>
     ${st.hourly===null?`<p class="small2">Add hours when you log a job and your real hourly rate shows up here.</p>`:""}
-    ${regulars?`<p class="small2"><b>Your regulars:</b> ${regulars}</p><button type="button" class="link" data-act="seasonMsg">Copy a season-start message</button>`:""}
+    ${regulars?`<p class="small2"><b>Your regulars:</b> ${regulars}</p><button type="button" class="link" data-act="seasonMsg">Copy a customer check-in</button>`:""}
   </div>
 
   <div class="bcard">
     <h3>Jobs</h3>
-    ${jobRows||`<p class="empty">No jobs yet. Log your first one and start your record. Every pro has a log.</p>`}
+    ${jobRows||`<p class="empty">No completed jobs recorded yet. Use Log a job after you finish work.</p>`}
     ${jobsSorted.length>8?`<button type="button" class="link" data-act="more">${showAll?"Show fewer":"Show all "+jobsSorted.length+" jobs"}</button>`:""}
   </div>
 
   <div class="bcard">
     <h3>Costs</h3>
-    ${costRows||`<p class="empty">Gas, salt, trimmer line. Log what you spend so you know your real profit.</p>`}
+    ${costRows||`<p class="empty">Record supplies, travel, and other business expenses to track what you keep.</p>`}
   </div>
 
   <div class="bcard">
@@ -3395,13 +3450,13 @@ function renderBoss(){
       <label>Your rate per hour<input type="text" inputmode="decimal" id="pj-r" value="${PJ.r}" autocomplete="off"></label>
       <label>Costs ($)<input type="text" inputmode="decimal" id="pj-c" value="${PJ.c}" autocomplete="off"></label>
     </div>
-    <div class="pjout"><b id="pj-out">${money(sugg)}</b><span>Suggested price. Round up, not down.</span></div>
+    <div class="pjout"><b id="pj-out">${money(sugg)}</b><span>Estimated price: hours × hourly rate, plus costs.</span></div>
   </div>
 
   <div class="bcard">
     <h3>Your records</h3>
-    <p class="sub">Your numbers stay on this device. Use first names only. Ask a parent about taxes if you start earning a lot.</p>
-    <div class="mbtns"><button type="button" class="btn ghost" data-act="export">Export records</button><button type="button" class="btn ghost" data-act="icsall">Export my jobs calendar</button><button type="button" class="btn outline" data-act="reset">Erase everything</button></div>
+    <p class="sub">Job and money records stay on this device; back them up before switching devices. Synced calendar jobs are also saved online. Use first names only.</p>
+    <div class="mbtns"><button type="button" class="btn ghost" data-act="export">Export records</button><button type="button" class="btn ghost" data-act="icsall">Export my jobs calendar</button><button type="button" class="btn outline" data-act="reset">Erase job records</button></div>
     <p class="status" id="bstatus" role="status"></p>
     ${legalLink()}
   </div>`;
@@ -3419,8 +3474,9 @@ function renderBoss(){
 
 /* ---- modal + toast ---- */
 const modalEl=$("#modal"), mbody=$("#mbody");
-function openModal(html){document.getElementById("toast").classList.remove("show");mbody.innerHTML=html;modalEl.classList.add("open");const f=mbody.querySelector("input,button");if(f&&window.matchMedia("(min-width:700px)").matches)f.focus();}
-function closeModal(){modalEl.classList.remove("open");mbody.innerHTML="";}
+let modalDismiss=null;
+function openModal(html){closeModal();document.getElementById("toast").classList.remove("show");mbody.innerHTML=html;modalEl.classList.add("open");const f=mbody.querySelector("input,button");if(f&&window.matchMedia("(min-width:700px)").matches)f.focus();}
+function closeModal(){const dismiss=modalDismiss;modalDismiss=null;modalEl.classList.remove("open");mbody.innerHTML="";if(dismiss)dismiss();}
 modalEl.addEventListener("click",e=>{if(e.target===modalEl)closeModal();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modalEl.classList.contains("open"))closeModal();});
 let toastT;
@@ -3592,7 +3648,7 @@ function todayHTML(){
       +'<div class="tjb'+(one?" one":"")+'">'+prim+'</div>'
       +'<div class="links">'+dirAnchor(j.address)
       +(j.phone?'<a href="tel:'+digitsOf(j.phone)+'">Call</a>':"")
-      +'<button type="button" data-act="cal" data-id="'+j.id+'">Add to calendar</button><button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button>'+(j.confirmed?'<span class="okc">Confirmed</span>':'<button type="button" data-act="confirm" data-id="'+j.id+'">Confirm by text</button>')+'<button type="button" data-act="editSched" data-id="'+j.id+'">Edit</button></div></div>';
+      +'<button type="button" data-act="cal" data-id="'+j.id+'">Add to calendar</button><button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button>'+(j.confirmed?'<span class="okc">Confirmed</span>':'<button type="button" data-act="confirm" data-id="'+j.id+'">Confirm details</button>')+'<button type="button" data-act="editSched" data-id="'+j.id+'">Edit</button></div></div>';
   };
   const row=(j,miss)=>{
     const hit='<div class="who"><b>'+esc(j.customer)+'</b><span>'+dayLabel(j.date)+(j.time?" at "+fmtTime(j.time):"")+" / "+esc(j.service||"Job")+'</span></div><div class="amt">'+(j.amount?money(j.amount):"Quote")+'</div>'+(miss?'<span class="chip owed" aria-hidden="true">Missed</span>':(j.confirmed?'<span class="chip ok" aria-hidden="true">Confirmed</span>':""));
@@ -3600,13 +3656,25 @@ function todayHTML(){
     return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+(link||"")+dirAnchor(j.address)+'<button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button></div></div>';
   };
   return '<div class="bcard"><div class="thead"><h3>Today</h3><span class="tdate">'+parseISO(t).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})+'</span></div>'
-    +(today.length?today.map(card).join(""):'<p class="empty">Nothing on the schedule today. Line up your next job and get after it.</p>')
+    +(today.length?today.map(card).join(""):'<p class="empty">No jobs scheduled for today. Add a job once you and your parent agree on the details.</p>')
     +'<button type="button" class="btn ghost" data-act="schedule" style="width:100%;margin-top:6px">Schedule a job</button>'
     +(missed.length?'<h4 class="h4">Missed</h4>'+missed.map(j=>row(j,true)).join(""):"")
     +(later.length?'<h4 class="h4">Coming up</h4>'+later.map(j=>row(j,false)).join(""):"")+'</div>';
 }
 let ticker=null;
 function startTicker(){if(ticker)return;ticker=setInterval(()=>{document.querySelectorAll("[data-start]").forEach(e=>{e.textContent=elapsed(Date.now()-Number(e.dataset.start));});},15000);}
+
+// Opening Messages only prepares a request; a person records the customer's reply.
+function openJobConfirmation(id){
+  const job=B.upcoming.find(x=>x.id===id);if(!job)return;
+  openModal('<h3>Confirm this job</h3><p class="small2">Send the details to '+esc(job.customer)+'. Opening Messages or copying a message does not confirm the job. Mark it confirmed only after the customer agrees.</p><div class="mbtns"><button type="button" class="btn ghost" id="jc-message">'+(job.phone?'Prepare text message':'Copy confirmation request')+'</button><button type="button" class="btn" id="jc-agreed">Customer agreed — mark confirmed</button><button type="button" class="btn outline" id="jc-close">Close</button></div>');
+  mbody.querySelector('#jc-message').onclick=()=>sendSMS(job.phone,confirmMsg(job));
+  mbody.querySelector('#jc-agreed').onclick=()=>{
+    const current=B.upcoming.find(x=>x.id===id);if(!current){closeModal();return;}
+    current.confirmed=true;saveB();closeModal();renderBoss();toast('Job marked confirmed.');
+  };
+  mbody.querySelector('#jc-close').onclick=closeModal;
+}
 
 function openSched(id){
   const ex=id?B.upcoming.find(x=>x.id===id):null;
@@ -3622,10 +3690,10 @@ function openSched(id){
    +(svcs.length?'<div class="chips" id="sf-sc">'+svcs.map(s=>'<button type="button" data-v="'+esc(s.n)+'" data-p="'+esc(s.p)+'">'+esc(s.n)+'</button>').join("")+'</div>':"")+'</div>'
    +'<div class="mf"><div class="row2"><label>Price ($)<input type="text" inputmode="decimal" id="sf-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Time (optional)<input type="time" id="sf-t" value="'+esc(j.time)+'"></label></div></div>'
    +'<div class="mf"><label for="sf-d">Date</label><input type="date" id="sf-d" value="'+esc(j.date)+'"></div>'
-   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Saved on this device. If you add a street, a map shows up and Google sees that address.</small><div id="sf-map" class="jobmap" hidden></div></div>'
+   +'<div class="mf"><label for="sf-ad">Address</label><input type="text" id="sf-ad" value="'+esc(j.address)+'" autocomplete="off"><small class="help2">Saved on this device. If you enter an address, a map preview sends that address to Google.</small><div id="sf-map" class="jobmap" hidden></div></div>'
    +'<div class="mf"><label for="sf-p">Customer phone (optional)</label><input type="tel" inputmode="tel" id="sf-p" value="'+esc(j.phone)+'" autocomplete="off"><small class="help2">Only used to text “on my way” and “done.” Ask a parent before you text a customer.</small></div>'
    +'<div class="mf"><label for="sf-n">Notes</label><input type="text" id="sf-n" value="'+esc(j.note)+'" autocomplete="off" placeholder="Gate code, pets, where to put the snow"></div>'
-   +(ex?'<div class="mbtns" style="margin:0 0 6px"><button type="button" class="btn ghost" id="sf-confirm">Text to confirm</button><button type="button" class="btn ghost" id="sf-ics">Add to calendar</button><button type="button" class="btn ghost" id="sf-gcal">Google Calendar</button><button type="button" class="btn outline" id="sf-del">Remove from schedule</button></div>':"")
+   +(ex?'<div class="mbtns" style="margin:0 0 6px"><button type="button" class="btn ghost" id="sf-confirm">Confirmation details</button><button type="button" class="btn ghost" id="sf-ics">Add to calendar</button><button type="button" class="btn ghost" id="sf-gcal">Google Calendar</button><button type="button" class="btn outline" id="sf-del">Remove from schedule</button></div>':"")
    +'<div class="mfoot"><p class="merr" id="sf-e" role="alert"></p><div class="mbtns"><button type="button" class="btn" id="sf-save">Save job</button><button type="button" class="btn outline" id="sf-cancel">Cancel</button></div></div>');
   const $m=q=>mbody.querySelector(q);
   mbody.querySelectorAll("#sf-rc button").forEach(b=>b.onclick=()=>{$m("#sf-c").value=b.dataset.v;});
@@ -3634,7 +3702,7 @@ function openSched(id){
   bindJobMap($m("#sf-ad"),$m("#sf-map"));
   if($m("#sf-ics"))$m("#sf-ics").onclick=()=>{const jj=B.upcoming.find(x=>x.id===id);if(jj)saveFile("job-"+jj.date+".ics",icsCalendar([jj]),"text/calendar");};
   if($m("#sf-gcal"))$m("#sf-gcal").onclick=()=>{const jj=B.upcoming.find(x=>x.id===id);if(jj)window.open(jobGcal(jj),"_blank","noopener");};
-  if($m("#sf-confirm"))$m("#sf-confirm").onclick=()=>{const jj=B.upcoming.find(x=>x.id===id);if(jj){jj.confirmed=true;saveB();closeModal();renderBoss();sendSMS(jj.phone,confirmMsg(jj));}};
+  if($m("#sf-confirm"))$m("#sf-confirm").onclick=()=>openJobConfirmation(id);
   if($m("#sf-fill"))$m("#sf-fill").onclick=()=>{
     const r=parseBooking($m("#sf-paste").value),pe=$m("#sf-pe");
     if(!r){pe.textContent="Couldn’t read that. Check you pasted the whole message, or fill it in by hand.";return;}
@@ -3664,7 +3732,7 @@ function openFinish(id){
    +'<div class="mf"><div class="row3"><label>Amount ($)<input type="text" inputmode="decimal" id="ff-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Tip ($)<input type="text" inputmode="decimal" id="ff-t" autocomplete="off"></label><label>Hours<input type="text" inputmode="decimal" id="ff-h" value="'+hrs+'" autocomplete="off"></label></div></div>'
    +'<div class="mf"><label>Payment</label><div class="chips" id="ff-p"><button type="button" data-p="1" aria-pressed="true">Paid</button><button type="button" data-p="0" aria-pressed="false">Not paid yet</button></div></div>'
    +'<label class="check"><input type="checkbox" id="ff-sms" checked><span>'+(j.phone?"Text them a done message":"Copy a done message")+'</span></label>'
-   +'<label class="check"><input type="checkbox" id="ff-photo" checked><span>I’ll send an after photo too. Lawn or driveway only, no people.</span></label>'
+   +'<label class="check"><input type="checkbox" id="ff-photo" checked><span>I’ll send an after photo too. Finished work only, no people or identifying details.</span></label>'
    +'<div class="mfoot"><p class="merr" id="ff-e" role="alert"></p><div class="mbtns"><button type="button" class="btn" id="ff-save">Save and finish</button><button type="button" class="btn outline" id="ff-cancel">Not yet</button></div></div>');
   const $m=q=>mbody.querySelector(q);
   mbody.querySelectorAll("#ff-p button").forEach(b=>b.onclick=()=>{paid=b.dataset.p==="1";mbody.querySelectorAll("#ff-p button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));});
@@ -3676,7 +3744,7 @@ function openFinish(id){
     const sms=$m("#ff-sms").checked,ph=$m("#ff-photo").checked;
     const before=rankIndex(B.jobs.length);
     B.jobs.push(rec);B.upcoming=B.upcoming.filter(x=>x.id!==j.id);saveB();unsyncCalJob(j.id);closeModal();renderBoss();
-    if(sms){sendSMS(j.phone,doneMsg(rec,r2(rec.amount+rec.tip),paid,ph));if(ph)setTimeout(()=>toast("Now attach your after photo. Lawn or driveway only."),1500);}
+    if(sms){sendSMS(j.phone,doneMsg(rec,r2(rec.amount+rec.tip),paid,ph));if(ph)setTimeout(()=>toast("Attach a photo of the finished work, with no people or identifying details."),1500);}
     const after=rankIndex(B.jobs.length);
     if(after>before)setTimeout(()=>openRankUp(after),sms?900:0);else if(!sms)toast("Job finished and logged.");
   };
@@ -3787,7 +3855,7 @@ async function exportCSV(){
   B.costs.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(x=>rows.push(["Cost",x.date,"",x.label,x.amount,"","",""]));
   const csv=rows.map(r=>r.map(csvEsc).join(",")).join("\n");
   const st=$("#bstatus");
-  const r=await saveFile("boss-mode-records.csv",csv,"text/csv");
+  const r=await saveFile("my-job-records.csv",csv,"text/csv");
   st.textContent=r.ok?(r.how==="browser"?"Saved to your downloads folder.":"Saved."):(r.declined?"No problem.":r.copied?"Downloads aren’t available here, so your records were copied. Paste them into a spreadsheet.":"Couldn’t save the file. Try again.");
 }
 
@@ -3803,7 +3871,7 @@ $("#boss").addEventListener("click",e=>{
   if(act==="editSched"){openSched(id);return;}
   if(act==="omw"){const j=B.upcoming.find(x=>x.id===id);if(j){j.omw=true;saveB();renderBoss();sendSMS(j.phone,omwMsg(j));}return;}
   if(act==="cal"){const j=B.upcoming.find(x=>x.id===id);if(j)saveFile("job-"+j.date+".ics",icsCalendar([j]),"text/calendar");return;}
-  if(act==="confirm"){const j=B.upcoming.find(x=>x.id===id);if(j){j.confirmed=true;saveB();renderBoss();sendSMS(j.phone,confirmMsg(j));}return;}
+  if(act==="confirm"){openJobConfirmation(id);return;}
   if(act==="start"){const j=B.upcoming.find(x=>x.id===id);if(j){j.status="working";j.omw=true;j.startedAt=Date.now();saveB();renderBoss();toast("Timer started. Do it right.");}return;}
   if(act==="finish"){openFinish(id);return;}
   if(act==="logJob")openJob();
@@ -3814,11 +3882,11 @@ $("#boss").addEventListener("click",e=>{
   else if(act==="more"){showAll=!showAll;renderBoss();}
   else if(act==="export")exportCSV();
   else if(act==="icsall"){const up=B.upcoming.slice().sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));if(!up.length){toast("No scheduled jobs yet.");}else saveFile("my-jobs-calendar.ics",icsCalendar(up),"text/calendar");}
-  else if(act==="seasonMsg"){const c=resolve(true),names=stats().reps.map(r=>r.name);copyText(`Hey ${names.join(", ")}, it’s ${c.first} from ${c.biz}. ${S.type==="snow"?"Snow season is coming.":"Mowing season is back."} Want me on your calendar? Book here: ${linkOrPlaceholder()}`,"Message copied.");}
+  else if(act==="seasonMsg"){const c=resolve(true),names=stats().reps.map(r=>r.name);copyText(`Hey ${names.join(", ")}, it’s ${c.first} from ${c.biz}. I’m taking new requests for ${typeInfo(S.type).label.toLowerCase()}. Need a hand? Request a job here: ${linkOrPlaceholder()}`,"Message copied.");}
   else if(act==="reset"){
-    if(!resetArmed){resetArmed=true;el.textContent="Tap again to erase";el.classList.add("danger");setTimeout(()=>{resetArmed=false;},4000);return;}
+    if(!resetArmed){resetArmed=true;el.textContent="Tap again to erase job records";el.classList.add("danger");setTimeout(()=>{resetArmed=false;},4000);return;}
     const gone=(B.upcoming||[]).map(j=>j.id);
-    resetArmed=false;B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};saveB();gone.forEach(unsyncCalJob);lastProfit=0;renderBoss();toast("Everything erased.");
+    resetArmed=false;B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};saveB();gone.forEach(unsyncCalJob);lastProfit=0;renderBoss();toast("Job and money records erased.");
   }
 });
 $("#boss").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".job, .jobhit")){e.preventDefault();e.target.click();}});
@@ -4212,7 +4280,7 @@ async function saveFlyer(kind){
   }catch(e){st.textContent="Couldn’t build the file. Try again.";return;}
   const r=await saveFile(file,blob);
   if(r.ok){st.textContent=r.how==="browser"?(asPdf?"Saved to your downloads folder. Open it and print.":"Saved to your downloads folder."):(asPdf?"Saved. Open it, then tap Share and Print.":d.print?"Saved. Open it in Photos and print from there.":"Saved. Open it in Photos and post it.");}
-  else st.textContent=r.declined?"No problem. Tap the button when you’re ready.":"Saving isn’t available in this view. Open Hustle Builder in the Claude app, on claude.ai, or as a web page to save your file.";
+  else st.textContent=r.declined?"No problem. Tap the button when you’re ready.":"Saving isn’t available in this view. Open Hustle Builder in Safari or Chrome, then try saving again.";
 }
 async function printFlyer(){
   if(!await allowBusinessExport($("#fStatus")))return;
@@ -4348,7 +4416,7 @@ const NAME_IDEAS={
 };
 const TAG_IDEAS={
   lawn:["Straight lines. Clean edges. Done right.","Your lawn, dialed in.","Every stripe on purpose.","Cut clean. Leave clean.","The sharpest lawn on the block.","Stripes you can see from the street.","Mowed like we mean it.","Fresh cut. Zero excuses.","Edges you could set a ruler to.","Built on straight lines.","Green, clean, done.","The neighborhood standard.","Work hard. Mow harder.","Precision in every pass.","Respect the edge.","Lawns done like it matters.","Quality cut. Fair price.","Starts at the curb. Ends at the fence.","We show up. The grass stays down.","Your neighbors will ask who does your lawn.","Done before the grill is hot.","Small crew. Big standards."],
-  snow:["Up before the sun. Your driveway’s clear before you are.","Clear by sunrise.","Snow doesn’t stop us.","Down to the pavement.","First one out. Last one done.","Cold work. Clean results.","Edge to edge. Curb to garage.","Shoveled like we mean it.","We beat the plow truck.","Dawn patrol. Driveways cleared.","Cleared. Salted. Done.","Wake up to a clear driveway.","Bring on the blizzard.","Zero snow. Zero stress.","Safe steps. Clean drive.","Weather happens. We handle it.","Cold hands. Warm customers.","Snow day for you. Work day for us.","We don’t wait for the thaw.","Be home. We’ve got the snow.","Nothing but pavement."],
+  snow:["Up before the sun. Your driveway’s clear before you are.","Snow cleared with care.","Snow doesn’t stop us.","Down to the pavement.","First one out. Last one done.","Cold work. Clean results.","Edge to edge. Curb to garage.","Shoveled like we mean it.","We beat the plow truck.","Dawn patrol. Driveways cleared.","Cleared. Salted. Done.","Wake up to a clear driveway.","Bring on the blizzard.","Zero snow. Zero stress.","Safe steps. Clean drive.","Weather happens. We handle it.","Cold hands. Warm customers.","Snow day for you. Work day for us.","We don’t wait for the thaw.","Be home. We’ve got the snow.","Nothing but pavement."],
   both:["Every season. Handled.","Mowing in the summer. Shoveling in the winter.","Sun or snow, we show.","Four seasons. One crew.","Rain, shine, or blizzard.","Year-round hustle.","Grass to glacier.","Your yard, all year.","Spring to snowfall.","No off-season.","Seasons change. Standards don’t.","Hot or cold, we’re on it.","All year. All in.","Cut it in June. Clear it in January.","Your yard never takes a day off. Neither do we.","Handled from thaw to freeze.","Boots on the ground, all year.","Work ethic that runs all year."],
   pet:["Walks, water, and a note when I’m done.","Gentle hands. On time.","A parent knows about every visit.","Pets I know. Care I mean.","Fed, walked, and checked on.","Home safe. Note sent.","Kind to the pet. Clear with the parent.","Every visit, a parent is in the loop."],
   prep:["Hand tools only, rakes and clippers.","Yard cleanup and winter prep.","Leaves, hedges, and a clear walk.","Ready before the first freeze.","Rakes and clippers.","Walks and driveways, cleared.","A parent says which tools are OK.","Winter prep, done by hand."],
@@ -4477,11 +4545,11 @@ function openAbout(){
    +'<li><b>Booking requests</b> from neighbors go to the parent by email and are kept for about 30 days.</li>'
    +'<li>The full details are in the <a class="link" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</li>'
    +'<li><b>Photos</b> are resized on your device and hidden location data is removed.</li>'
-   +'<li><b>Deleting:</b> clearing your browser data, or tapping Erase everything in Boss, removes the records on this device. Export first if you want a copy. A parent can delete the online account and page from Go live.</li>'
+   +'<li><b>Deleting:</b> clearing your browser data, or tapping Erase job records in My jobs, removes the records on this device. Export first if you want a copy. A parent can delete the online account and page from Go live.</li>'
    +'</ul></details>'
    +'<details class="lg"><summary>Important notes</summary><ul>'
    +'<li>Students under 18 should have a parent or guardian approve the business, the website, and every job.</li>'
-   +'<li>Use equipment safely and take breaks in heat and cold.</li>'
+   +'<li>Use parent-approved equipment safely and take breaks in heat and cold.</li>'
    +'<li>You may need to follow local rules, like permits or taxes. Ask a parent. This app does not give legal, tax, or financial advice.</li>'
    +'<li>Check that no business near you already uses your business name.</li>'
    +'<li>Hustle Builder does not handle money between you and a customer. Venmo has its own age rules and terms.</li>'
@@ -4496,7 +4564,7 @@ document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[da
 /* ============ Poster Studio ============ */
 const PW=850,PH=1100,PM=56;
 const LAYOUT_NAMES=["Billboard","Worksite","Skyline","Split","Notice","Scoreboard","Sideline","Blueprint","Tape","Clean"];
-const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Clear by sunrise.","Snow day? We’re on it.","Book your driveway.","Shoveled before you wake.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."],prep:["Now booking.","Yard cleanup and winter prep.","Hand tools only.","Walks and driveways.","Rakes and clippers.","Ready for winter."]};
+const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Snow cleared with care.","Snow day? We’re on it.","Book your driveway.","Careful shoveling. Clear paths.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."],prep:["Now booking.","Yard cleanup and winter prep.","Hand tools only.","Walks and driveways.","Rakes and clippers.","Ready for winter."]};
 const BADGES=[["none","No sticker"],["owned","Kid-owned"],["quote","Free quotes"],["parent","Parent-backed"],["early","Book early"],["local","Local"],["fast","Fast and reliable"],["pay","Pay after the job"]];
 const BG_OPTS=[["ink","Ink saver"],["dark","Dark"],["light","Light"],["concrete","Concrete"],["accent","Color"]];
 const NS_OPTS=[["heavy","Heavy"],["bold","Bold"],["plain","Plain"]];
@@ -4513,7 +4581,7 @@ function svcFor(type){if(type===S.type)return resolve(true).services;const parke
 const pImgs={};
 function pPhoto(){const pr=S.proof.find(x=>x.a)||S.proof.find(x=>x.b);if(!pr)return null;const src=pr.a||pr.b,key=src.length+":"+src.slice(-24);let im=pImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen)drawStudio();};im.src=src;pImgs[key]=im;}return im._ok?im:null;}
 const pSceneImgs={};
-function pSceneImg(kind,id){const key=kind+":"+id;let im=pSceneImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen){drawStudio();if(stTab===0)renderPanel();}};if(id&&id.indexOf("brand-")===0){const asset=({snow:"snow",both:"snow",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[kind];im.src=asset?"/assets/hustle/"+asset+".webp":kind==="pet"?"/assets/pets/pet-hero.webp":cineUrl(kind,"dusk");pSceneImgs[key]=im;return im._ok?im:null;}if(id&&id.indexOf("cine-")===0){im.src=cineUrl(kind,id.slice(5));pSceneImgs[key]=im;return im._ok?im:null;}const svg=sceneArt(kind,id).replace('<svg class="scene"','<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460"').replace(/class="flake"/g,'fill="#fff" opacity=".9"');im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);pSceneImgs[key]=im;}return im._ok?im:null;}
+function pSceneImg(kind,id){const key=kind+":"+id;let im=pSceneImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen){drawStudio();if(stTab===0)renderPanel();}};if(id&&id.indexOf("brand-")===0){const asset=({snow:"snow",both:"both",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[kind];im.src=asset?"/assets/hustle/"+asset+".webp":kind==="pet"?"/assets/pets/pet-hero.webp":cineUrl(kind,"dusk");pSceneImgs[key]=im;return im._ok?im:null;}if(id&&id.indexOf("cine-")===0){im.src=cineUrl(kind,id.slice(5));pSceneImgs[key]=im;return im._ok?im:null;}const svg=sceneArt(kind,id).replace('<svg class="scene"','<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460"').replace(/class="flake"/g,'fill="#fff" opacity=".9"');im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);pSceneImgs[key]=im;}return im._ok?im:null;}
 function pHasPhoto(){return S.proof.some(x=>x.a||x.b);}
 function pkgInfo(svcs,names){const seen={};const picked=[];(names||[]).forEach(function(nm){if(!nm||seen[nm])return;seen[nm]=1;const s=(svcs||[]).find(function(x){return x.n===nm;});if(s)picked.push(s);});if(!picked.length)return null;let total=0;picked.forEach(function(s){total+=num(s.p);});return {names:picked.map(function(s){return s.n;}),label:picked.map(function(s){return s.n;}).join(" + "),total:total};}
 function rateRowsFor(p){if(!p.rates)return [];const rows=p.services.slice(0,4).map(function(s){return {n:s.n,p:fmtPrice(s.p)};});if(p.pkg)rows.push({n:p.pkg.label,p:money(p.pkg.total)});return rows;}
@@ -4758,21 +4826,21 @@ function renderPanel(){
     const names=shuffled(nameList(kind),ideaSeed),npg=Math.max(1,Math.ceil(names.length/6)),nshow=names.slice((stNamePg%npg)*6,(stNamePg%npg)*6+6);
     const nrow=mf("Name ideas",chips(nshow.map(n=>[n,n]),st.name,n=>stSet({name:n})));
     const nsh=document.createElement("button");nsh.type="button";nsh.className="link";nsh.textContent="Shuffle names";nsh.onclick=()=>{stNamePg++;renderPanel();};nrow.appendChild(nsh);foldify(nrow,"names");
-    const ti=document.createElement("input");ti.type="text";ti.maxLength=60;ti.value=st.tagText;ti.placeholder=pcfg().tagline;ti.autocomplete="off";ti.setAttribute("aria-label","Tagline for this poster");ti.oninput=()=>{S.studio.tagText=ti.value;save();drawStudio();};
-    mf("Tagline for this poster",ti);
+    const ti=document.createElement("input");ti.type="text";ti.maxLength=60;ti.value=st.tagText;ti.placeholder=pcfg().tagline;ti.autocomplete="off";ti.setAttribute("aria-label","Slogan for this poster");ti.oninput=()=>{S.studio.tagText=ti.value;save();drawStudio();};
+    mf("Slogan for this poster",ti);
     const fd=mf("Funny name ideas",document.createElement("div"));
     funnyFor(kind).forEach(g=>{const h=document.createElement("small");h.className="help2";h.style.cssText="font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-top:12px";h.textContent=g.cat;fd.appendChild(h);fd.appendChild(chips(funnyShow(g.names,funnyPage,3).map(n=>[n,n]),st.name,n=>stSet({name:n})));});
     const fsh=document.createElement("button");fsh.type="button";fsh.className="link";fsh.textContent="Shuffle funny names";fsh.onclick=()=>{funnyPage++;renderPanel();};fd.appendChild(fsh);foldify(fd,"funny");
     const tags=shuffled(tagList(kind),ideaSeed+7),tpg=Math.max(1,Math.ceil(tags.length/5)),tshow=tags.slice((stTagPg%tpg)*5,(stTagPg%tpg)*5+5);
-    const trow=mf("Tagline ideas",chips(tshow.map(t=>[t,t]),st.tagText,t=>stSet({tagText:t})));
+    const trow=mf("Slogan ideas",chips(tshow.map(t=>[t,t]),st.tagText,t=>stSet({tagText:t})));
     const tsh=document.createElement("button");tsh.type="button";tsh.className="link";tsh.textContent="Shuffle taglines";tsh.onclick=()=>{stTagPg++;renderPanel();};trow.appendChild(tsh);foldify(trow,"tags");
     mf("Sticker",chips(BADGES.map((b,i)=>[i,b[1]]),st.badge,i=>stSet({badge:i})));
-    onoff("Show my tagline","tag");onoff("Show my rates","rates");
-    if(S.phone.trim())onoff("Show my parent’s phone","phone");else mf("Parent’s phone",note("Add a parent’s phone in Build, step 5, to put it on a poster."));
+    onoff("Show my slogan","tag");onoff("Show my rates","rates");
+    if(S.phone.trim())onoff("Show my parent’s phone","phone");else mf("Parent’s phone",note("Add a parent’s phone in Website, step 5, to put it on a poster."));
   }else{
-    {const svcs=resolve(true).services||[];const box=document.createElement("div");box.appendChild(note("Tap services to bundle them into one package price. It shows on your poster with your rates."));if(!svcs.length){box.appendChild(note("Add jobs in Build, step 3, and they'll show up here to bundle."));}else{const cw=document.createElement("div");cw.className="chips";svcs.forEach(function(s){const b=document.createElement("button");b.type="button";b.textContent=s.n+" \u2014 "+(fmtPrice(s.p)||"$0");b.setAttribute("aria-pressed",String((S.studio.pkg||[]).includes(s.n)));b.onclick=function(){const pk=(S.studio.pkg||[]).slice();const ix=pk.indexOf(s.n);if(ix>=0)pk.splice(ix,1);else pk.push(s.n);stSet({pkg:pk});};cw.appendChild(b);});box.appendChild(cw);const pk=pkgInfo(svcs,S.studio.pkg||[]);box.appendChild(note(pk?("Package: "+pk.label+" = "+money(pk.total)):"No package yet \u2014 tap services above to build one."));}mf("Package price",box);}
-    if(pHasPhoto()){mf("Use my own photo",chips([["off","No photo"],["on","Use my photo"]],st.photo?"on":"off",v=>stSet({photo:v==="on"})));el.lastChild.appendChild(note("Shows up in Skyline and Split. Pick a photo of a lawn or driveway, never a person."));}
-    else mf("Use my own photo",note("Add an After photo in Build, step 7, and you can put it on a Skyline or Split poster."));
+    {const svcs=resolve(true).services||[];const box=document.createElement("div");box.appendChild(note("Tap services to bundle them into one package price. It shows on your poster with your rates."));if(!svcs.length){box.appendChild(note("Add services in Website, step 3, to create a package."));}else{const cw=document.createElement("div");cw.className="chips";svcs.forEach(function(s){const b=document.createElement("button");b.type="button";b.textContent=s.n+" \u2014 "+(fmtPrice(s.p)||"$0");b.setAttribute("aria-pressed",String((S.studio.pkg||[]).includes(s.n)));b.onclick=function(){const pk=(S.studio.pkg||[]).slice();const ix=pk.indexOf(s.n);if(ix>=0)pk.splice(ix,1);else pk.push(s.n);stSet({pkg:pk});};cw.appendChild(b);});box.appendChild(cw);const pk=pkgInfo(svcs,S.studio.pkg||[]);box.appendChild(note(pk?("Package: "+pk.label+" = "+money(pk.total)):"No package yet \u2014 tap services above to build one."));}mf("Package price",box);}
+    if(pHasPhoto()){mf("Use my own photo",chips([["off","No photo"],["on","Use my photo"]],st.photo?"on":"off",v=>stSet({photo:v==="on"})));el.lastChild.appendChild(note("Shows up in Skyline and Split. Use a photo of your finished work, with no people or identifying details."));}
+    else mf("Use my own photo",note("Add an After photo in Website, step 7, and you can put it on a Skyline or Split poster."));
     const u=document.createElement("input");u.type="text";u.value=S.siteUrl||"";u.placeholder="hustlebuilder.org/sam";u.autocomplete="off";u.autocapitalize="none";u.spellcheck=false;u.setAttribute("aria-label","Your website link");u.oninput=()=>{S.siteUrl=u.value;save();drawStudio();updateLaunch();};
     const d=mf("Your website link (for the QR code)",u);d.appendChild(note("Paste the link you got when you put your site online."));
     const row=document.createElement("div");row.className="mbtns";row.style.marginTop="8px";const b1=document.createElement("button");b1.type="button";b1.className="btn ghost";b1.textContent="Surprise me";b1.onclick=stSurprise;const b2=document.createElement("button");b2.type="button";b2.className="btn outline";b2.textContent="Start over";b2.onclick=()=>stSet(studioDefaults());row.appendChild(b1);row.appendChild(b2);el.appendChild(row);
@@ -4790,7 +4858,7 @@ async function saveStudio(kind){
   }catch(e){st.textContent="Couldn’t build the file. Try again.";return;}
   const r=await saveFile(file,blob);
   if(r.ok)st.textContent=r.how==="browser"?(asPdf?"Saved to your downloads folder. Open it and print.":"Saved to your downloads folder."):(asPdf?"Saved. Open it, then tap Share and Print.":"Saved. Open it in Photos and print from there.");
-  else st.textContent=r.declined?"No problem. Tap the button when you’re ready.":"Saving isn’t available in this view. Open Hustle Builder in the Claude app, on claude.ai, or as a web page to save your file.";
+  else st.textContent=r.declined?"No problem. Tap the button when you’re ready.":"Saving isn’t available in this view. Open Hustle Builder in Safari or Chrome, then try saving again.";
 }
 async function printStudio(){
   if(!await allowBusinessExport($("#pStatus")))return;
@@ -5006,7 +5074,7 @@ async function pubApi(path, opt){
   if(tok)headers.Authorization="Bearer "+tok;
   const res=await fetch(origin+path, {method:opt.method||"POST", headers, credentials:"same-origin", body:opt.body?JSON.stringify(opt.body):undefined});
   const data=await res.json().catch(()=>({ok:false,error:"json"}));
-  data.status=res.status;
+  data.httpStatus=res.status;
   return data;
 }
 function pubErr(msg){const e=$("#pubErr"); if(e)e.textContent=msg||""; }
@@ -5050,7 +5118,7 @@ function trialLine(me){
   const days=me&&typeof me.trialDaysLeft==="number"?me.trialDaysLeft:14;
   return days+" day"+(days===1?"":"s")+" left for your website, bookings, and flyer downloads.";
 }
-const TRIAL_WORDS="Your website, bookings, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan to continue. You are never charged automatically.";
+const TRIAL_WORDS="The 14-day trial starts at your first publication. A paid plan is optional and never renews automatically.";
 function setConsentOn(on){try{if(on)localStorage.setItem("hb-consent","1");else localStorage.removeItem("hb-consent");}catch(e){}}
 function consentOn(){try{return localStorage.getItem("hb-consent")==="1";}catch(e){return false;}}
 function planHelp(me){
@@ -5340,7 +5408,7 @@ async function initPublish(){
   const origin=publishOrigin();
   const privacy=$("#pubPrivacy"); if(privacy)privacy.href=(origin||"")+"/privacy";
   const terms=$("#pubTerms"); if(terms)terms.href=(origin||"")+"/terms";
-  if(!origin){restoreOwnedDraft();pubErr("Publish runs on the family website. Open that link, or set it up with the steps in SETUP."); return;}
+  if(!origin){restoreOwnedDraft();pubErr("Open hustlebuilder.org in a browser to publish with a parent."); return;}
   /* Signed-in state comes from the server now: the HttpOnly cookie (or a
      remembered token) answers /api/me, so a parent with no local cache is
      still recognised, and a stale cache alone is not enough. A draft on
@@ -5374,7 +5442,7 @@ $("#pubSend").onclick=async()=>{
   try{
     const data=await pubApi("/api/auth/start", {body:{email:$("#pubEmail").value.trim()}});
     if(!data.ok)$("#pubCodeMsg").textContent=data.error==="mail"?"Email is not set up yet.":"Enter a parent’s email.";
-    else $("#pubCodeMsg").textContent=data.devCode?("Test mode. The code is "+data.devCode+". A real setup emails it to the parent only."):"Code sent. Check the parent email.";
+    else $("#pubCodeMsg").textContent=data.devCode?("Test mode. The code is "+data.devCode+". A real setup emails it to the parent only."):"Code sent. Check the parent’s inbox and spam folder. The code expires in 20 minutes.";
   }catch(e){ $("#pubCodeMsg").textContent=e.message==="no-host"?"Publish is not set up on this link yet.":"Could not reach the host. Try again."; }
 };
 $("#pubVerify").onclick=async()=>{
@@ -5431,7 +5499,7 @@ async function payPlan(planId, say, slug){
   const pageSlug=(slug||($("#pubSlug").value||ownSlug()||"")).trim().toLowerCase();
   try{data=await pubApi("/api/checkout",{body:{plan:planId==="year"?"year":"season", slug:pageSlug}});}
   catch(e){say("Could not reach the host. Check your connection and try again."); return false;}
-  if(data.status===401){say("Sign in with the parent email first, then pay."); return false;}
+  if(data.httpStatus===401){say("Sign in with the parent email first, then pay."); return false;}
   if(data.alreadyPaid){say("You are already paid"+(data.paidUntil?" through "+niceDate(data.paidUntil):"")+". Nothing to pay yet."); return true;}
   if(data.pending){say("A payment is already going through. Give it a minute, then open your account again."); return false;}
   if(data.mode==="stripe"&&data.url){setPayReturn("account"); location.href=data.url; return false;}
@@ -5448,8 +5516,9 @@ if(pubPayBtn)pubPayBtn.onclick=async()=>{
 function confirmModal(html, yesLabel){
   return new Promise(res=>{
     openModal(html+'<div class="mbtns"><button type="button" class="btn" id="cfYes">'+(yesLabel||"Replace the live page")+'</button><button type="button" class="btn outline" id="cfNo">Cancel</button></div>');
-    mbody.querySelector("#cfYes").onclick=()=>{closeModal();res(true);};
-    mbody.querySelector("#cfNo").onclick=()=>{closeModal();res(false);};
+    modalDismiss=()=>res(false);
+    mbody.querySelector("#cfYes").onclick=()=>{modalDismiss=null;closeModal();res(true);};
+    mbody.querySelector("#cfNo").onclick=closeModal;
   });
 }
 /* Which build on this device published each live page. Under the family
@@ -5607,18 +5676,22 @@ async function showAccount(){
   screen.hidden=false;
   const lead=$("#accountLead"), box=$("#accountSites"), msg=$("#accountMsg");
   if(msg)msg.textContent="";
+  const venmoField=$("#accountVenmoField");if(venmoField)venmoField.hidden=true;
   const session=pubSession();
   const hadHint=!!(session||pubMemToken);
   renderBuildsBox();
+  const builds=$("#buildsBox");if(builds)builds.hidden=true;
   const outBtn=$("#acctSignOut"); if(outBtn)outBtn.hidden=true;
   let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(msg)msg.textContent="Could not open the account. Try again."; return;}
   if(!data.ok){
-    if(lead)lead.textContent=hadHint?"Each kid page is listed here.":"Sign in with the email code below. Then each kid page shows here.";
+    if(lead)lead.textContent=hadHint?"Sign in again with the parent email to manage your pages.":"Use your parent email and the emailed code to open your saved pages. Kids can build a draft without signing in.";
     if(box)box.innerHTML="";
     if(msg)msg.textContent=hadHint?"Sign in again with a new code.":"";
     return;
   }
-  if(lead)lead.textContent="Each kid page is listed here.";
+  if(lead)lead.textContent="Your published pages, booking requests, and plan are listed below.";
+  if(venmoField)venmoField.hidden=false;
+  if(builds)builds.hidden=false;
   if(outBtn)outBtn.hidden=false;
   if(box)box.innerHTML="";
   if(!data.sites||!data.sites.length){if(box){const p=document.createElement("p"); p.textContent="No page yet. Publish one below, and it will show up here."; box.appendChild(p);} return;}
@@ -6134,7 +6207,7 @@ async function openAsk(token){
     if($("#pubEmail"))$("#pubEmail").value=data.email||"";
     go(7);
     if($("#pubReady"))$("#pubReady").hidden=!!data.requiresVerification;
-    const st=$("#askStatus");if(st)st.textContent=data.requiresVerification?"Verify your parent email with a code before publishing. Tap Send code above.":"Your kid asked you to publish this page. Review it together, then check the consent box.";
+    const st=$("#askStatus");if(st)st.textContent=data.requiresVerification?"Verify your parent email before publishing. Select “Email me a code” below.":"Your kid asked you to publish this page. Review it together, then check the consent box.";
     if(!data.requiresVerification)initPublish();
   }catch(e){go(7);pubErr("Could not open that link.");}
 }
@@ -6192,7 +6265,7 @@ async function resumeHosting(kind){
   if(box)box.textContent="Payment received. Checking the plan…";
   const me=await pollPaid(kind==="cancel"?20000:45000);
   if(!me){
-    if(box)box.textContent="Payment is still processing. Tap Try again. Check your payment status before trying again.";
+    if(box)box.textContent="Payment is still processing. Tap Try again to check its status; do not start another payment.";
     let b=$("#pubRetry");
     if(!b&&box){b=document.createElement("button");b.type="button";b.className="btn";b.id="pubRetry";b.textContent="Try again";box.after(b);b.onclick=()=>resumeHosting("paid");}
     if(b)b.hidden=false;
@@ -6218,7 +6291,7 @@ function currentSeasonView(){
   return file&&typeof file.seasonView==="function"?file.seasonView(file.SEASON):null;
 }
 function exampleScene(type){
-  if(type==="prep")return "both";
+  if(type==="prep")return "prep";
   if(type==="snow"||type==="lawn"||type==="both")return type;
   return "lawn";
 }
@@ -6278,6 +6351,14 @@ function selectExample(n,focus){
 function drawExamples(){
   const view=currentSeasonView();
   const art=$("#exampleArt");if(art&&!art.childNodes.length)art.innerHTML=sceneArt(exampleScene(view?view.sampleType:"lawn"),"cine-dusk");
+  if(art&&view&&view.sampleType==="prep"&&typeof document!=="undefined"){
+    art.innerHTML='<video class="intro-motion" id="introMotion" muted playsinline preload="none" poster="/assets/refresh/prep.webp" aria-label="Five-second yard cleanup scene"><source src="/assets/refresh/yard-preview.mp4" type="video/mp4"></video>';
+    if(!document.getElementById("introMotionToggle")){
+      const button=document.createElement("button");button.type="button";button.id="introMotionToggle";button.className="intro-motion-toggle";button.textContent="Play 5-second preview";
+      art.closest(".example-card").appendChild(button);
+      button.onclick=()=>{const video=document.getElementById("introMotion");if(!video)return;if(video.paused){video.play().then(()=>{button.textContent="Pause preview";}).catch(()=>{button.textContent="Play preview";});}else{video.pause();button.textContent="Play 5-second preview";}video.onended=()=>{button.textContent="Replay 5-second preview";};};
+    }
+  }
   const cv=$("#exampleFlyer");
   const rates=view&&view.rates?view.rates:EXAMPLE_RATES;
   const example={fmt:"full",style:"ink",qrMode:"web",type:view?view.sampleType:"lawn",pets:[],biz:view?view.biz:"Taylor’s Yard Crew",tagline:view?view.tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:rates.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
@@ -6294,6 +6375,7 @@ function openIntro(){
   $("#introSkip").focus({preventScroll:true});
 }
 function closeIntro(){
+  const motion=$("#introMotion");if(motion&&typeof motion.pause==="function")motion.pause();
   const box=$("#intro");if(!box||box.hidden)return;
   try{sessionStorage.setItem(INTRO_KEY,"seen");if($("#introRemember").checked)localStorage.setItem(INTRO_KEY,"skip");else localStorage.removeItem(INTRO_KEY);}catch(e){}
   box.hidden=true;document.body.classList.remove("intro-open");introBackground.forEach(el=>el.inert=false);introBackground=[];
@@ -6346,7 +6428,7 @@ async function resumeConsent(kind){
     await new Promise(r=>setTimeout(r,2000));
   }
   if(!ready){
-    if(box)box.textContent="The card check is still processing. Tap Try again in a minute. You will not be charged twice.";
+    if(box)box.textContent="The card check is still processing. Return to Go live in a minute to check your status. Do not start another card check.";
     return;
   }
   const pending=pendingPublish();
