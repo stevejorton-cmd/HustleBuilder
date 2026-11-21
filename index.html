@@ -469,7 +469,7 @@ body.hf-wide .st-title{font-size:18px}
 .fold{margin:0 0 14px}
 .fold>summary{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;list-style:none;padding:12px 14px;min-height:54px;border:2px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:24px;line-height:1}
 .fold>summary::-webkit-details-marker{display:none}
-.fold>summary::after{content:"Show \25BE";font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;text-transform:none;font-size:15px;color:var(--muted)}
+.fold>summary::after{flex:0 0 auto;margin-left:4px;content:"Show \25BE";font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:700;text-transform:none;font-size:15px;color:var(--muted)}
 .fold[open]>summary::after{content:"Hide \25B4"}
 .fold[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0;border-color:var(--accent)}
 .fold-body{border:2px solid var(--accent);border-top:0;border-radius:0 0 8px 8px;padding:12px 14px 14px;background:var(--surface)}
@@ -748,6 +748,13 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
 #parentsKid{margin-top:18px}
 html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,html.parents-only #boss,html.parents-only #flyers,html.parents-only #intro,html.parents-only #offlineNote{display:none !important}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
+/* Disclosure labels wrap while the caret keeps its own space. */
+details.help>summary,.lg>summary{display:flex;align-items:center;gap:12px;list-style:none;overflow-wrap:anywhere;min-height:44px}
+details.help>summary::-webkit-details-marker,.lg>summary::-webkit-details-marker{display:none}
+details.help>summary::before,.lg>summary::before{content:"";flex:0 0 8px;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin:0 4px 0 2px}
+details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45deg)}
+.fold>summary{overflow-wrap:anywhere;line-height:1.15}
+
 </style>
 </head>
 <body>
@@ -759,7 +766,8 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <p class="parents-note">A parent owns the account and runs the page. Your kid can help build it.</p>
     <p class="parents-price" id="parentsPrice">$9.99 for the season, never auto-renews.</p>
     <p class="parents-year">$19.99 covers a full year. Same promise: one payment, then it stops.</p>
-    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Start free</button>
+    <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Build a free draft</button>
+    <p class="parents-note"><a class="link" href="/?account=1">Already started? Sign in to your parent account</a></p>
     <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
     <h2>Three steps</h2>
     <ol>
@@ -828,7 +836,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
 
     <section class="step on" data-step="0">
       <h2>Pick your work.</h2>
-      <p class="lead">Pick what you do. You can change it any time.</p>
+      <p class="lead">Pick the work you offer, then build your page step by step. You do not need a kid account. A parent signs in to approve and publish it.</p>
       <div class="tiles" id="tiles"></div>
       <details class="petfront" id="petFront" hidden><summary>Tips for pet care jobs</summary>
         <div class="petart" id="petGallery"></div>
@@ -876,13 +884,13 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <p class="lead" id="rateLead">Starter prices to work from. Change them for the jobs you offer.</p>
       <div class="callout" id="priceTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div><b>Pick a fair starting price.</b><br>These are example prices. Ask a parent to help you cover your time and supplies, then agree on the price before each job. A price over $200 asks you to confirm it. A price over $999 cannot be published.</div></div>
       <details class="help price-level"><summary>Help me choose starter prices</summary><div class="lvl" id="lvlBox">
-        <label class="lvl-q" for="lvl">How good are you at this job?</label>
+        <label class="lvl-q" for="lvl">Choose your starter-price level</label>
         <div class="lvl-name" id="lvlName"></div>
         <input type="range" id="lvl" min="1" max="5" step="1" value="1">
         <div class="lvl-ticks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
-        <p class="lvl-say" id="lvlSay" aria-live="polite"></p>
+        <p class="lvl-say" id="lvlSay" aria-live="polite"></p><p class="small2">This changes suggested prices, not your qualifications. Prices you type yourself stay the same. A parent should check the job size, time, supplies, and local prices.</p>
       </div>
-      <div class="callout" id="extrasTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div id="extrasTipText">Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer.</div></div>
+      <div class="callout" id="extrasTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><div id="extrasTipText">Price tip: agree on what the base job includes. Charge for an extra only when it adds work.</div></div>
       </details>
       <div id="petArtBox" hidden style="margin:0 0 16px">
         <label class="lvl-q" id="petArtLabel">Pets on your pictures</label>
@@ -916,9 +924,9 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <label class="field"><span>Parent or guardian name</span><input type="text" data-k="parentName" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Jordan"></label>
       <div class="two">
         <label class="field"><span>Parent’s phone (optional)</span><input type="tel" data-k="phone" autocomplete="off" inputmode="tel" placeholder="402-555-0123"></label>
-        <label class="field"><span>Public contact email (optional)</span><input type="email" data-k="email" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com"><small>This adds a public Email button. Leave it blank to use the private booking form.</small></label>
+        <label class="field"><span>Parent’s contact email (optional)</span><input type="email" data-k="email" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com"><small>Published pages keep this private. If you download a website file, its Email button uses this address.</small></label>
       </div>
-      <p class="small2">Your email and phone stay off the public page. Neighbors use the booking form.</p>
+      <p class="small2">On your published page, your email and phone stay private. Booking requests go to the verified parent email.</p>
       <input type="checkbox" id="showPhone" hidden>
       <details class="lg" style="margin:4px 0 16px"><summary>Backup parent or guardian (optional)</summary>
         <label class="field"><span>Their first name</span><input type="text" data-k="parent2" autocomplete="off" placeholder="Pat"></label>
@@ -963,11 +971,11 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
     <section class="step" data-step="7">
       <h2>Ready to share?</h2>
       <p class="lead">Review your website with a parent. They approve it before neighbors can see it or request a job.</p>
-      <button type="button" class="btn ghost" id="openAccount">Your account</button>
+      <button type="button" class="btn ghost" id="openAccount">Parent account &amp; saved pages</button>
       <section id="accountScreen" hidden>
         <h3 class="h3">Your account</h3>
         <p class="lead" id="accountLead">This account belongs to the parent. Sign in with the parent email. Then each page shows here.</p>
-        <label class="field" for="acctVenmo"><span>Family Venmo</span><input type="text" id="acctVenmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small>Neighbors will see this Venmo name. Enter it once. Pay links use it on every job.</small></label>
+        <label class="field" id="accountVenmoField" for="acctVenmo" hidden><span>Family Venmo</span><input type="text" id="acctVenmo" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="parent-business"><small>Neighbors will see this Venmo name. Enter it once. Pay links use it on every job.</small></label>
         <p class="status" id="venmoMsg" role="status"></p>
         <div id="accountSites"></div>
         <div id="buildsBox"></div>
@@ -975,7 +983,7 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
         <p><button type="button" class="btn ghost" id="acctSignOut" hidden>Sign out on this device</button></p>
       </section>
       <div class="missing" id="missing" hidden></div>
-      <div class="launch-price" id="launchPitch"><b>One 14-day trial for your business.</b><p>Your website, booking requests, and flyer downloads are included for 14 days from first publication. After that, choose a plan to continue. Your saved work stays available. After that: $9.99 per season or $19.99 per year. Plans never renew automatically.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
+      <div class="launch-price" id="launchPitch"><b>One 14-day trial for your business.</b><p>Your website, booking requests, and flyer downloads are included for 14 days after first publish. Then a parent chooses a plan: $9.99 per season or $19.99 per year. Plans never renew automatically, and your saved work stays available.</p><p>A first-time parent verifies their email and completes a 50¢ card check, refunded right away.</p></div>
       <div id="askInviteNotice" class="launch-price" role="status" hidden></div>
       <div id="pubBox">
         <label class="field" for="pubEmail"><span>Parent’s email</span><input type="email" id="pubEmail" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="parent@email.com"></label>
@@ -2152,7 +2160,7 @@ function genSite(c){
   <h2>My promise</h2>
   <p class="promise">${esc(c.promise)}</p>
 </section>`:"";
-  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"||c.type==="prep"?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
+  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"||(c.type==="prep"&&globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
   const petLabels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird",small:"Small animal"};
   const petRoot=(c.publish&&c.publish.url)||c.publicUrl||"";
   const petSafe=c.type==="pet"?`<section id="petsafe"><h2>Pets I can help</h2><div class="petrow">${(c.pets&&c.pets.length?c.pets:["dog","cat","fish","bird"]).map(k=>petPortrait(k,petLabels[k]||"Pet",{lazy:true,root:petRoot})).join("")}</div><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
@@ -2160,21 +2168,22 @@ function genSite(c){
   const prepTitle=(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?"Yard cleanup and winter prep":"Yard cleanup";
   const prepSafe=offersPrep?`<section id="prepsafe"><h2>${prepTitle}</h2><p class="promise">This covers leaf raking and clearing dead plants. Hand tools only, rakes and clippers.</p></section>`:"";
   const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
-  const sizeField=c.type==="pet"?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
-  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:c.type==="prep"?`<label>Anything I should know? Gate code, pets, or where to put the snow.<textarea id="note"></textarea></label><p class="small">Hand tools only, rakes and clippers.</p>`:`<label>Anything I should know? Gate code, pets, where to put the snow.<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
+  const sizeField=["pet","tutor","help","other"].includes(c.type)?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
+  const jobNote=({lawn:"Gate access, pets, or areas to avoid",snow:"Where to put the snow or any buried obstacles",both:"Gate access, pets, or where to put snow",prep:"Gate access, cleanup tasks, or where to put yard waste",wash:"Vehicle size, water access, or anything to avoid",help:"Tasks, how long you need help, or anything the parent should know",tutor:"Reading level, school subject, or what to practice",odd:"The tasks, time needed, or access instructions",other:"Describe the job and what you would like done"})[c.type]||"Anything else about this job";
+  const noteField=(c.type==="pet"?`<label>Leash habits, allergies, or anything else<textarea id="note"></textarea></label><p class="small">Medicine stays with a parent. A kid does not give medicine.</p><label>How do we get in? Gate, key, or lockbox. This goes only to the parent.<textarea id="access"></textarea></label>`:c.type==="prep"?`<label>${esc(jobNote)}<textarea id="note"></textarea></label><p class="small">Hand tools only, rakes and clippers.</p>`:`<label>${esc(jobNote)}<textarea id="note"></textarea></label>`)+`<p class="small" id="otherHint" hidden>For something else, write what you need. The first words become the job name, like Dog walking.</p>`;
   const freqOpts=freqList.map(f=>`<option>${esc(f)}</option>`).join("");
   const inboxOn=!!c.inboxUrl;
   const hostOn=!!(c.publish&&c.publish.slug&&c.publish.book);
   const publicPhone=false;
   const canEmail=!!(c.email||(c.publish&&c.publish.book));
   const contactHTML=`<section id="contact">
-  <h2>Questions?</h2>
-  <p class="small">${esc(c.parentName||"My parent")} helps run this business. ${canEmail?"Use the booking form to send a question.":"Use the booking form to send your request or question."}</p>
-  <div class="btns">${canEmail?`<a class="btn alt" href="#book">Email</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
+  <h2>Contact my parent</h2>
+  <p class="small">${esc(c.parentName||"My parent")} helps run this business. Add questions about the job in your request note. A parent replies before confirming.</p>
+  <div class="btns">${canEmail?`<a class="btn alt" href="#book">Open request form</a>`:""}<button type="button" class="btn alt" id="shareSite">Share this page</button></div>
 </section>`;
   const seasonHTML=(c.seasonOn&&c.seasonPrice)?`<div class="season"><div><strong>Season plan</strong><p>I clear your driveway every time it snows this winter. Pick “Every snowfall this winter” below.</p></div><span class="p">${esc(fmtPrice(c.seasonPrice))}</span></div>`:"";
   const pay=c.venmo?`<a class="venmo" id="venmoPay" href="https://venmo.com/${encodeURIComponent(c.venmo)}?txn=pay&amp;note=${encodeURIComponent((c.first?c.first+": ":"")+c.biz)}" target="_blank" rel="noopener">Pay with Venmo</a><p class="small">Pay @${esc(c.venmo)} after the job. Neighbors see this Venmo name. Confirm it in the Venmo app.</p>`:`<p>My parent will confirm how to pay after the job.</p>`;
-  const buttons=canEmail?`<button type="button" class="btn" id="sendMail">Email my request</button>`:"";
+  const buttons=canEmail&&!hostOn?`<button type="button" class="btn" id="sendMail">Email my request</button>`:"";
   const info=typeInfo(c.type);
   const type=info.label;
   const target=info.target;
@@ -2369,14 +2378,14 @@ ${c.type==="pet"?`<div class="petbar"><a class="btn" id="heroCta" href="#book">B
   <div class="std">
     <div><h3>Show up.</h3><p>When I say Tuesday, I mean Tuesday.</p></div>
     <div><h3>Do it right.</h3><p>${esc(rightLine)}</p></div>
-    <div><h3>Leave it better.</h3><p>You’ll notice the difference when you pull in.</p></div>
+    <div><h3>${["pet","help","tutor"].includes(c.type)?"Keep you informed.":"Leave it better."}</h3><p>${esc(({pet:"I tell a parent how each visit went.",help:"A parent stays home and in charge while I help.",tutor:"I tell a parent what we practiced and what to work on next.",wash:"A clean car, with care taken around your belongings."})[c.type]||"I leave the work area tidy when I finish.")}</p></div>
   </div>
 </section>
 
 <section id="rates">
   <h2>Rates</h2>
   <ul class="rates">${rows}</ul>
-  <p class="small">Very large or overgrown jobs may cost more. I’ll confirm the price before I start.</p>
+  <p class="small">${esc(({pet:"Prices are per walk or visit, for the time listed. A parent confirms the number of pets and care needed.",tutor:"Prices are per session. A parent confirms the session length and subject before we start.",help:"Prices are per listed task or session. A parent stays home and confirms the time and tasks.",wash:"Prices are per vehicle. A parent confirms its size, condition, and what cleaning is included.",snow:"Prices are per clearing unless a season plan is listed. Depth, ice, and driveway size can change the quote.",both:"Prices are per listed job. Yard size, snow depth, and extra tasks can change the quote."})[c.type]||"Prices are per listed job. Yard size, condition, and cleanup time can change the quote.")} A parent confirms the final price before work starts.</p>
   ${offersPrep&&c.type!=="prep"?`<p class="small">${prepTitle} uses hand tools only, rakes and clippers.</p>`:""}
   ${snowPlan}
   ${seasonHTML}
@@ -2831,7 +2840,7 @@ function renderPetPicks(){
 function syncTypeCopy(){
   const lead=$("#rateLead");
   const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
-  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?(snowSeason?"Starter prices for yard cleanup and winter prep. Small is about $15, medium about $25, and large about $40. Change any price.":"Starter prices for yard cleanup. Small is about $15, medium about $25, and large about $40. Change any price."):"Starter prices to work from. Change them for the jobs you offer.";
+  if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?(snowSeason?"Starter prices for yard cleanup and winter prep. Agree on the yard size and tasks with a parent before setting your price.":"Starter prices for yard cleanup. Agree on the yard size and tasks with a parent before setting your price."):"Starter prices to work from. Change them for the jobs you offer.";
   const prepFront=$("#prepFront");
   if(prepFront){
     const sum=prepFront.querySelector("summary");
@@ -2840,7 +2849,7 @@ function syncTypeCopy(){
   }
   const tip=$("#extrasTipText");
   if(tip){const ex={lawn:"like bagging or edging",both:"like bagging, edging, or salting",snow:"like clearing the walk or salting",pet:"like a longer visit or an extra pet",prep:"like hedge trimming or a larger yard",wash:"like vacuuming the inside or a dry and shine"}[S.type];
-    tip.textContent="Price tip: keep the basic job at the suggested price — then add a few dollars more for each extra you offer"+(ex?", "+ex:"")+".";}
+    tip.textContent="Price tip: agree on what the base job includes. Charge for an extra only when it adds work"+(ex?", "+ex:"")+".";}
   renderPetPicks();
 }
 function syncOther(){
@@ -2983,12 +2992,12 @@ $("#addSvc").onclick=()=>{
 
 /* ---- price level slider ---- */
 const LEVELS=[
-  {n:"Beginner",say:"You are just starting out. Use low prices so people want to try you.",m:1},
-  {n:"Rising Star",say:"You are getting better. Raise your prices a little.",m:1.2},
-  {n:"Skilled",say:"People like your work. Charge a fair price.",m:1.4},
-  {n:"Expert",say:"You are fast and you do great work. You can charge more.",m:1.7},
-  {n:"Legend",say:"People ask for you by name. You can charge top prices.",m:2}];
-/* prices for the starter services at each level (Beginner to Legend) */
+  {n:"Beginner",say:"New to this work? Start with a small job you can do well. Cover your time and supplies."},
+  {n:"Practicing",say:"You have done this job a few times. Review a small price increase with a parent."},
+  {n:"Skilled",say:"You do careful, consistent work. Check that the suggested price fits this job."},
+  {n:"Experienced",say:"You have repeat customers and reliable results. Agree on the scope and price first."},
+  {n:"Proven",say:"Neighbors recommend your work. These are still starter examples, not professional rates."}];
+/* Moderate starter-price suggestions, from Beginner to Proven. */
 const PRICE_TABLE={"full mow, front and back":[15,17,19,20,22],"front yard mow":[10,11,12,14,15],"trim and edge":[5,6,6,7,7],"leaf cleanup":[20,22,25,27,30],"bag grass clippings":[3,3,4,4,4],"driveway":[10,11,12,14,15],"shovel driveway":[10,11,12,14,15],"driveway and walk":[12,13,15,16,18],"shovel driveway and walk":[12,13,15,16,18],"walk and steps":[5,6,6,7,7],"salt":[3,3,4,4,4]};
 Object.keys(PRESETS).forEach(k=>(PRESETS[k]||[]).forEach(row=>{if(Array.isArray(row[1]))PRICE_TABLE[row[0].toLowerCase()]=row[1];}));
 function niceP(v){return v>=25?Math.round(v/5)*5:Math.max(1,Math.round(v));}
@@ -5633,18 +5642,20 @@ async function showAccount(){
   screen.hidden=false;
   const lead=$("#accountLead"), box=$("#accountSites"), msg=$("#accountMsg");
   if(msg)msg.textContent="";
+  const venmoField=$("#accountVenmoField");if(venmoField)venmoField.hidden=true;
   const session=pubSession();
   const hadHint=!!(session||pubMemToken);
   renderBuildsBox();
   const outBtn=$("#acctSignOut"); if(outBtn)outBtn.hidden=true;
   let data; try{data=await pubApi("/api/account",{method:"GET"});}catch(e){if(msg)msg.textContent="Could not open the account. Try again."; return;}
   if(!data.ok){
-    if(lead)lead.textContent=hadHint?"Each kid page is listed here.":"Sign in with the email code below. Then each kid page shows here.";
+    if(lead)lead.textContent=hadHint?"Sign in again with the parent email to manage your pages.":"Use your parent email and the emailed code to open your saved pages. Kids can build a draft without signing in.";
     if(box)box.innerHTML="";
     if(msg)msg.textContent=hadHint?"Sign in again with a new code.":"";
     return;
   }
-  if(lead)lead.textContent="Each kid page is listed here.";
+  if(lead)lead.textContent="Your published pages, booking requests, and plan are listed below.";
+  if(venmoField)venmoField.hidden=false;
   if(outBtn)outBtn.hidden=false;
   if(box)box.innerHTML="";
   if(!data.sites||!data.sites.length){if(box){const p=document.createElement("p"); p.textContent="No page yet. Publish one below, and it will show up here."; box.appendChild(p);} return;}
