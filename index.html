@@ -2896,7 +2896,10 @@ function go(n){
   $("#plabel").textContent="Step "+(step+1)+" of "+STEPS;
   $("#stepJump").value=String(step);
   $("#next").textContent="Next: "+["Your work","Name","Prices","Schedule","Parent & payment","Style","Photos","Go live"][Math.min(step+1,STEPS-1)];
-  S.builderStep=step;save();
+  S.builderStep=step;
+  // Moving through an empty shell is navigation, not a replacement draft.
+  // In particular, opening Go live after sign-out must allow owner recovery.
+  if(draftDirty||savedRaw||draftOwner||anonymousDraft)save();
   $("#back").disabled=step===0;
   $("#next").hidden=step===STEPS-1;
   if(step===STEPS-1)updateLaunch();

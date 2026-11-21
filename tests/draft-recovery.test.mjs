@@ -78,3 +78,13 @@ test('a late identity check cannot restore signed-out family data',async()=>{
  resolve({ok:true,email:'parent@example.com',verified:true});await pending;
  assert.equal(c.sessionEmail,'');assert.equal(c.S.first,'');assert.deepEqual(c.B.jobs,[]);
 });
+
+test('opening Go live after sign-out does not block the owner archive from restoring',async()=>{
+ const {c,data}=harness({owner:'parent@example.com',email:'parent@example.com'});
+ c.sessionEmail='parent@example.com';assert.equal(c.archiveDeviceDraft(),true);
+ c.document.querySelectorAll=()=>[];c.seg={querySelectorAll:()=>[],setAttribute(){}};
+ c.STEPS=8;c.step=0;c.updateLaunch=()=>{};c.window={scrollTo(){}};
+ vm.runInContext(part('function go(n){','$("#stepJump").onchange='),c);c.go(7);
+ assert.equal(c.draftDirty,false);assert.equal(data.has('draft'),false);
+ await c.initPublish();assert.equal(c.S.first,'Saved Alex');assert.equal(c.B.jobs[0].id,'private-job');
+});
