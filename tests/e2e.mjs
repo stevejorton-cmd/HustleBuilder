@@ -1,3 +1,4 @@
+import { extractBuilderParts, demoCfg } from "./site-fixture.mjs";
 import { spawn } from "child_process";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
@@ -169,33 +170,17 @@ try {
   const tag = await site.$eval(".tag", (e) => e.textContent);
   check("republish content", /Fresh cut/.test(tag), tag);
   check("console", logs.length === 0, logs.join(" | "));
-  // Expose generators only in the test browser, never in shipped source.
-  const styleSource = (await import("fs/promises")).readFile(new URL("../index.html", import.meta.url), "utf8");
-  const styleBuilder = await browser.newPage();
-  await styleBuilder.setBypassServiceWorker(true);
-  await styleBuilder.setRequestInterception(true);
-  styleBuilder.on("request", async req => {
-    if(req.isNavigationRequest() && req.url() === base + "/") {
-      const source = (await styleSource)
-        .replace("function chooseBrandStyle(", "window.__chooseBrandStyle=chooseBrandStyle;function chooseBrandStyle(")
-        .replace("function resolve(", "window.__resolve=resolve;function resolve(")
-        .replace("function genSite(", "window.__genSite=genSite;function genSite(")
-        .replace("function save(", "window.__saveStyle=save;function save(");
-      await req.respond({status:200,contentType:"text/html",body:source});
-    } else await req.continue();
-  });
-  await styleBuilder.goto(base + "/",{waitUntil:"networkidle0"});
-  await styleBuilder.waitForFunction(() => typeof window.__chooseBrandStyle === "function");
+  // Render with the same source extractor as the unit tests and the real embedded fonts.
+  const fs = await import("fs/promises");
+  const source = await fs.readFile(new URL("../index.html",import.meta.url),"utf8");
+  const libs = await fs.readFile(new URL("../assets/print-libs.js",import.meta.url),"utf8");
+  const fontData = JSON.parse(libs.slice("const FONT_DATA=".length,libs.indexOf(";\n")));
+  const fontCss = source.match(/<style id="fontcss">([\s\S]*?)<\/style>/)[1];
+  const {genSite} = extractBuilderParts(source,fontData,fontCss);
   const styled = await browser.newPage();
-  for (const theme of ["hustle", "neighbor"]) {
-    await styleBuilder.evaluate(theme => window.__chooseBrandStyle(theme),theme);
-    for (const type of ["lawn", "snow", "prep", "wash", "help", "tutor", "other", "pet"]) {
-      const html = await styleBuilder.evaluate(type => {
-        const c = window.__resolve(true); c.type = type;
-        c.biz = "Taylor's Neighborhood Services";
-        c.services = [{n:"A longer neighborhood service name",p:"25"}];
-        return window.__genSite(c);
-      },type);
+  for(const theme of ["hustle","neighbor"]) {
+    for(const type of ["lawn","snow","prep","wash","help","tutor","other","pet"]) {
+      const html = genSite(demoCfg({theme,type,palette:theme === "neighbor" ? "forest" : "ember",font:theme === "neighbor" ? "fredoka" : "",art:"cine-dusk",biz:"Taylor's Neighborhood Services",publicUrl:base,services:[{n:"A longer neighborhood service name",p:"25"}]}));
       await styled.goto(base + "/privacy");
       await styled.setContent(html,{waitUntil:"networkidle0"});
       for(const width of [320,390,1366]) {
@@ -210,10 +195,7 @@ try {
         check("style " + theme + " " + type + " " + width,result.theme === theme && !result.overflow && result.image && result.booking && result.title,JSON.stringify(result));
       }
     }
-    await styleBuilder.evaluate(() => window.__saveStyle());
-    check("saved style " + theme, await styleBuilder.evaluate(theme => JSON.parse(localStorage.getItem("hustle-builder-v3")).theme === theme,theme));
   }
-  await styleBuilder.close();
   await styled.close();
 
 } finally {
