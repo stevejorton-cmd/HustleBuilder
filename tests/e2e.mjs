@@ -190,7 +190,8 @@ try {
           overflow:document.documentElement.scrollWidth > innerWidth + 2,
           image:!!document.querySelector(".hero img")?.naturalWidth,
           booking:!!document.querySelector("#cal") && !!document.querySelector("#svc"),
-          title:document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2
+          title:document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2,
+          offenders:document.documentElement.scrollWidth > innerWidth + 2 ? [...document.body.querySelectorAll("*")].filter(e=>e.getBoundingClientRect().right > innerWidth + 2).slice(0,6).map(e=>({tag:e.tagName,cls:e.className,right:Math.round(e.getBoundingClientRect().right)})) : []
         }));
         check("style " + theme + " " + type + " " + width,result.theme === theme && !result.overflow && result.image && result.booking && result.title,JSON.stringify(result));
       }
