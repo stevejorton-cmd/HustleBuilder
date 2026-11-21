@@ -172,6 +172,7 @@ try {
   // Expose generators only in the test browser, never in shipped source.
   const styleSource = (await import("fs/promises")).readFile(new URL("../index.html", import.meta.url), "utf8");
   const styleBuilder = await browser.newPage();
+  await styleBuilder.setBypassServiceWorker(true);
   await styleBuilder.setRequestInterception(true);
   styleBuilder.on("request", async req => {
     if(req.isNavigationRequest() && req.url() === base + "/") {
