@@ -16,7 +16,9 @@ import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
 let dir;
-test.beforeEach(async () => {
+test.beforeEach(async (context) => {
+  // Booking fixtures use November 2026 dates. Keep the clock stable as time passes.
+  context.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-10T12:00:00Z") });
   dir = await mkdtemp(path.join(tmpdir(), "hb-"));
   setStore(fileStore(dir));
   process.env.PUBLISH_TEST_MODE = "1";
