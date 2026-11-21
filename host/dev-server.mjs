@@ -123,6 +123,14 @@ const server = createServer(async (req, res) => {
       res.writeHead(404); res.end(); return;
     }
   }
+  if (req.method === "GET" && /^\/assets\/refresh\/[a-z-]+\.(webp|mp4)$/.test(url.pathname)) {
+    try {
+      const file = await readFile(new URL(url.pathname.slice(1), rootDir));
+      res.writeHead(200, {"content-type": url.pathname.endsWith(".mp4") ? "video/mp4" : "image/webp", "cache-control":"public, max-age=86400"});
+      res.end(file);
+      return;
+    } catch { /* fall through */ }
+  }
   if (req.method === "GET" && url.pathname.startsWith("/assets/jobs/")) {
     const name = path.basename(url.pathname);
     const type = assetTypes[path.extname(name).toLowerCase()];

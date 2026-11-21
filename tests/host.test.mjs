@@ -1828,7 +1828,7 @@ test("a long hero word scales down so it fits a phone, and hyphenation is only t
   const oldPage = stripParentContact(`<header class="hero"><h1>HANDSOME</h1></header><script>function fitHero(){var longest="";}</script></body>`);
   assert.match(oldPage, /function widest\(size\)/);
   assert.equal(stripParentContact(oldPage).match(/id="hb-hero-fit"/g).length, 1);
-  assert.match(src, /\.hero h1\{[^}]*overflow-wrap:normal;word-break:normal;hyphens:manual/);
+  assert.match(src, /\.hero h1\{[^}]*overflow-wrap:anywhere;word-break:normal;hyphens:manual/);
   assert.match(src, /hyphens","auto"/);
   assert.match(src, /for\(let size=minS-1;size>=8;size--\)/);
   const { breakWideWords } = extractNamedFns(src, ["breakWideWords"]);
@@ -2026,7 +2026,7 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(preview.body.ok, true);
   const shared = await call("GET", "/api/site/sam-pets");
   assert.match(shared.body, /property="og:image" content="http:\/\/sites\.test\/assets\/pets\/pet-og\.jpg"/);
-  assert.match(src, /assets\/pets\/pet-hero\.webp/);
+  assert.match(src, /assets\/refresh\/pet\.webp/);
   assert.match(src, /pet-dog\.webp/);
   assert.equal(src.includes("function petAnimal"), false);
 });
@@ -3272,7 +3272,7 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
     ]
   }));
   assert.match(html, /Yard cleanup, small/);
-  assert.match(html, /assets\/jobs\/prep\.webp/);
+  assert.match(html, /assets\/refresh\/prep\.webp/);
   assert.match(html, /content="Yard cleanup/);
   assert.match(html, />\$15</);
   assert.match(html, />\$25</);

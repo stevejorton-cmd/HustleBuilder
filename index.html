@@ -212,7 +212,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 
 .tile{position:relative;display:block;width:100%;height:136px;border:0;border-radius:10px;overflow:hidden;padding:0;cursor:pointer;background:#111;text-align:left;outline-offset:3px;filter:saturate(.7) brightness(.78);transition:filter .2s,transform .2s}
 .tile .scene{position:absolute;inset:0;width:100%;height:100%}
 img.scene{object-fit:cover;object-position:62% 62%;display:block}
-.scene.pthero{object-position:22% 15%}
+.scene.pthero{object-position:50% 35%}
 .tile::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,8,10,.82),rgba(6,8,10,.1) 70%)}
 .tile .cap{position:absolute;left:18px;bottom:14px;z-index:2;color:#fff}
 .tile .cap strong{display:block;font-family:var(--display);font-style:italic;font-weight:900;font-size:44px;line-height:.9;text-transform:uppercase}
@@ -748,6 +748,18 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
 #parentsKid{margin-top:18px}
 html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,html.parents-only #boss,html.parents-only #flyers,html.parents-only #intro,html.parents-only #offlineNote{display:none !important}
 @media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
+
+/* Shared image framing and a clear product demonstration for parents. */
+.scene{object-position:50% 40%}
+#moreTiles .tile{min-height:132px}
+#moreTiles .tile .cap strong{font-size:26px}
+#moreTiles .tile .cap span{font-size:14px}
+.parents-example{overflow:hidden}
+.parents-example-photo{display:block;width:calc(100% + 36px);max-width:none;margin:-18px -18px 20px;aspect-ratio:16/7;object-fit:cover;object-position:center 40%}
+.parents-preview-link{display:inline-flex;align-items:center;min-height:48px;margin-top:12px;padding:12px 20px;background:#ff5b14;color:#101214;font-weight:800;border:0;border-radius:6px;cursor:pointer}
+.intro-motion{width:100%;height:100%;object-fit:cover;display:block}
+.intro-motion-toggle{font:700 13px Barlow,system-ui;min-height:44px;background:transparent;border:1px solid #b8beb4;border-radius:8px;padding:8px 12px;color:#26352b;margin-top:10px;cursor:pointer}
+@media(max-width:699px){.example-art{height:82px}.example-site-body{padding:8px 16px}.example-site h3{font-size:22px}.example-site,.example-paper,.example-payment{height:310px}}
 </style>
 </head>
 <body>
@@ -773,12 +785,13 @@ html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,htm
       <li>Your email and phone stay off the page. Neighbors use the booking form.</li>
       <li>Every booking request comes to you.</li>
     </ul>
-    <h2>A made-up example</h2>
-    <article class="parents-example">
+    <h2>A website they can make their own</h2>
+    <article class="parents-example"><img class="parents-example-photo" src="/assets/refresh/prep.webp" alt="Rake and leaf bag ready for a neighborhood yard cleanup" width="1280" height="720">
       <b id="parentsExampleName">Sam's Yard Cleanup</b>
       <p id="parentsExampleTown">Elkhorn</p>
       <p data-example-line>Yard cleanup, small · $15</p>
       <p data-example-line>Leaf raking · $15</p>
+      <button type="button" class="parents-preview-link" onclick="hbCloseParents(false)">Make a website like this</button>
     </article>
     <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
     <h2>Questions</h2>
@@ -1287,7 +1300,7 @@ function siteFontCss(id){
   if(typeof FONT_DATA==="undefined"||!id||id==="workwear"||!FONT_DATA[id])return "";
   const m=FONT_META[id],sel='h1,h2,h3,.btn,.venmo,.q b,.q span,.mono,.rates .p,.cal-head strong,.rwho,.how b,.season .p,.ba .tg,.std h3,.hero h1';
   let css='@font-face{font-family:"HB-'+id+'";font-weight:'+m.w+';font-style:normal;font-display:swap;src:url(data:font/woff2;base64,'+FONT_DATA[id]+') format("woff2")}\n/* Display font: '+m.copy+'. Licensed under the SIL Open Font License 1.1 (full text above). */\n:root{--display:'+m.fb+'}\n'+sel+'{font-family:var(--display)!important;font-style:normal!important;font-weight:'+m.w+'!important;'+(m.caps?'':'text-transform:none!important;')+'}\n';
-  if(m.wide)css+='.hero h1{font-size:clamp(15px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:normal;word-break:normal;hyphens:manual}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
+  if(m.wide)css+='.hero h1{font-size:clamp(15px,8vw,48px)!important;line-height:1.05!important;overflow-wrap:anywhere;word-break:normal;hyphens:manual}\nsection h2{font-size:clamp(28px,8vw,44px)!important;overflow-wrap:break-word;word-break:normal}\n.btn,.venmo{font-size:18px!important}\n.rates .p{font-size:28px!important}\n';
   return css;
 }
 function fontChips(wrap,cur,fn,opts){
@@ -1400,7 +1413,7 @@ function artRetro(kind){
 }
 const ART=[["cine-dusk","Cinematic dusk"],["cine-day","Cinematic day"]];
 function artStyle(){if(S.art&&ART.some(a=>a[0]===S.art))return S.art;return skyMood()==="sunny"?"cine-day":"cine-dusk";}
-function cineUrl(kind,mood){var use=mood==="day"?"day":"dusk";var name=kind==="prep"?"both":(kind==="snow"||kind==="both"||kind==="lawn"?kind:"lawn");return "/assets/scenes/"+use+"-"+name+".jpg";}
+function cineUrl(kind,mood){if(kind==="prep")return "/assets/refresh/prep.webp";if(kind==="snow")return "/assets/refresh/snow.webp";var use=mood==="day"?"day":"dusk";var name=kind==="prep"?"both":(kind==="snow"||kind==="both"||kind==="lawn"?kind:"lawn");return "/assets/scenes/"+use+"-"+name+".jpg";}
 function artName(id){const a=ART.find(x=>x[0]===(id||artStyle()));return a?a[1]:"Dusk";}
 function sceneArt(kind,id){
   if(id&&id.indexOf("cine-")===0)return '<img class="scene" alt="" aria-hidden="true" decoding="async" loading="lazy" src="'+cineUrl(kind,id.slice(5))+'">';
@@ -2036,10 +2049,10 @@ function petSrc(file, publicUrl){
     try{
       const host=new URL(publicUrl).hostname;
       const origin=/(^|\.)hustlebuilder\.org$/i.test(host)?"https://hustlebuilder.org":new URL(publicUrl).origin;
-      return origin+"/assets/pets/"+file;
+      return origin+(file==="pet-hero.webp"?"/assets/refresh/pet.webp":"/assets/pets/"+file);
     }catch(e){}
   }
-  return "assets/pets/"+file;
+  return file==="pet-hero.webp"?"assets/refresh/pet.webp":"assets/pets/"+file;
 }
 function petFace(kind, label, opt){
   opt=opt||{};
@@ -2052,10 +2065,12 @@ function petPortrait(kind, label, opt){
   return `<figure>${petFace(kind, label, opt)}<figcaption>${esc(label)}</figcaption></figure>`;
 }
 function petHero(publicUrl){
-  const alt="A golden retriever wearing a red collar and leash, standing on a lawn at sunset with a tennis ball in the air";
+  const alt="A golden retriever sitting beside a walking leash and water bowl in a garden";
   return `<img class="scene pthero" src="${esc(petSrc("pet-hero.webp", publicUrl))}" alt="${alt}" width="1280" height="720" decoding="async">`;
 }
 function jobSrc(file, publicUrl){
+  const refreshed={"prep.webp":"prep","wash.webp":"wash","wash-hero.webp":"wash","help.webp":"help","help-hero.webp":"help","tutor.webp":"tutor","tutor-hero.webp":"tutor","other.webp":"other","other-hero.webp":"other"}[file];
+  if(refreshed){let root="";try{root=publicUrl?new URL(publicUrl).origin:"";}catch(e){}return root+"/assets/refresh/"+refreshed+".webp";}
   if(publicUrl){
     try{
       const host=new URL(publicUrl).hostname;
@@ -2067,10 +2082,10 @@ function jobSrc(file, publicUrl){
 }
 const JOB_HERO={
   odd:["odd-hero.webp","A red toolbox with a wrench and hammer on a workbench at sunset"],
-  wash:["wash-hero.webp","A red car covered in soap foam during a car wash at sunset"],
+  wash:["wash-hero.webp","Car-washing supplies beside a hatchback on a driveway"],
   help:["help-hero.webp","A paper grocery bag full of groceries on a front porch at sunset"],
-  tutor:["tutor-hero.webp","An open book with golden light rising from its pages at sunset"],
-  other:["other-hero.webp","A golden star trophy with gold confetti falling at sunset"]
+  tutor:["tutor-hero.webp","An open book and notebook on a reading table beside a window"],
+  other:["other-hero.webp","Work gloves, a tote and simple household tools on a garden bench"]
 };
 function jobHero(type, publicUrl){
   const h=JOB_HERO[type]; if(!h)return "";
@@ -2193,7 +2208,7 @@ img.scene{object-fit:cover;object-position:63% 56%;display:block;height:62%;-web
 .flake{fill:#fff;opacity:.9;animation:fall linear infinite}
 @keyframes fall{from{transform:translate(0,-30px)}to{transform:translate(26px,420px)}}
 .hero-in{position:relative;z-index:2;width:100%;max-width:820px;margin:0 auto;padding:0 22px 66px}
-  .hero h1{font-weight:900;font-size:clamp(15px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:normal;word-break:normal;hyphens:manual}
+  .hero h1{max-width:100%;font-weight:900;font-size:clamp(15px,11vw,84px);line-height:.9;letter-spacing:-.005em;text-shadow:0 6px 40px rgba(0,0,0,.5);overflow-wrap:anywhere;word-break:normal;hyphens:manual}
 .hero .tag{margin:20px 0 28px;font-size:clamp(19px,4.6vw,24px);font-weight:500;max-width:30ch;color:#E4E1DB;border-left:5px solid var(--accent);padding-left:14px;overflow-wrap:anywhere}
 .cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .btn{display:inline-flex;align-items:center;justify-content:center;border:0;background:var(--accent);color:var(--on);font-family:var(--display);font-style:italic;font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.02em;padding:0 34px;min-height:60px;cursor:pointer;text-decoration:none;clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);transition:filter .15s,transform .08s}
@@ -2293,7 +2308,7 @@ ${siteFontCss(c.font)}
 ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;aspect-ratio:auto;max-height:none;background:#e7f6ea}
 .hero.pethead .scene{grid-area:1/1;position:relative;inset:auto;z-index:0;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 18%;-webkit-mask-image:none;mask-image:none}
 .hero.pethead .hero-in{grid-area:2/1;position:relative;z-index:2;width:100%;max-width:none;margin:0;padding:24px 24px 12px;background:#e7f6ea}
-.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(15px,8.4vw,64px);line-height:1.02;overflow-wrap:normal;word-break:normal;hyphens:manual}
+.hero.pethead h1{color:#16352c;text-shadow:none;font-size:clamp(15px,8.4vw,64px);line-height:1.02;overflow-wrap:anywhere;word-break:normal;hyphens:manual}
 .hero.pethead .tag{color:#1d3b32;text-shadow:none;margin:14px 0 0;font-size:clamp(16px,4vw,22px)}
 .hero.pethead .cta,.hero.pethead .meta{display:none}
 .petbar{background:#e7f6ea;padding:8px 24px 24px}
@@ -2308,7 +2323,7 @@ ${c.type==="pet"?`.hero.pethead{display:grid;grid-template-columns:minmax(0,1fr)
 <header class="hero${c.type==="pet"?" pethead":""}">
   ${bannerArt(c.type,c.art,c.pets,(c.publish&&c.publish.url)||c.publicUrl||"")}
   <div class="hero-in">
-    <h1 style="font-size:${heroFitPx(c.biz,346)}px">${esc(c.biz)}</h1>
+    <h1 style="font-size:min(${heroFitPx(c.biz,346)}px,11vw)">${esc(c.biz)}</h1>
     <p class="tag">${esc(c.tagline)}</p>
     ${c.type==="pet"?"":`<div class="cta"><a class="btn" id="heroCta" href="#book">Book a day</a></div>`}
     <p class="meta">${c.town?`<span>${pin}Serving ${esc(c.town)}</span>`:""}<span>${shield}Parent-backed. Every job confirmed.</span></p>
@@ -2692,10 +2707,10 @@ function seasonPicker(){
 const TYPES=seasonPicker();
 const MORE_TYPES=[
   {id:"odd",name:"Odd jobs",blurb:"Yard help",emoji:"🧰",img:"assets/jobs/odd.webp",color:"#8A5A12"},
-  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",img:"assets/jobs/wash.webp",color:"#1D4E89"},
-  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",img:"assets/jobs/help.webp",color:"#8E3A56"},
-  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",img:"assets/jobs/tutor.webp",color:"#4C3A8A"},
-  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",img:"assets/jobs/other.webp",color:"#3D6B16"}
+  {id:"wash",name:"Cars",blurb:"Wash and dry",emoji:"🚗",img:"assets/refresh/wash.webp",color:"#1D4E89"},
+  {id:"help",name:"Helper",blurb:"A parent is home",emoji:"🤝",img:"assets/refresh/help.webp",color:"#8E3A56"},
+  {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",img:"assets/refresh/tutor.webp",color:"#4C3A8A"},
+  {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",img:"assets/refresh/other.webp",color:"#3D6B16"}
 ];
 const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
@@ -2718,8 +2733,8 @@ function pickType(id){
 }
 function tileHtml(t){
   const tick='<span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B0C0D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></span>';
-  const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
-  const art=t.id==="pet"?`<img class="scene pthero" src="assets/pets/pet-hero.webp" alt="" width="1280" height="720">`:scene;
+  const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.id==="prep"?"assets/refresh/prep.webp":t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
+  const art=t.id==="pet"?`<img class="scene pthero" src="assets/refresh/pet.webp" alt="" width="1280" height="720">`:scene;
   const fit=String(t.name||"").length>10?" fit":"";
   return art+`<span class="cap"><strong class="${fit.trim()}">${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
@@ -2727,7 +2742,7 @@ function renderTiles(){
   const fill=(box,list)=>{
     const w=$(box); if(!w)return; w.innerHTML="";
     list.forEach(t=>{
-      const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
+      const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji&&!t.img?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
       b.innerHTML=tileHtml(t);
       b.onclick=()=>pickType(t.id);
       w.appendChild(b);
@@ -6164,7 +6179,7 @@ function currentSeasonView(){
   return file&&typeof file.seasonView==="function"?file.seasonView(file.SEASON):null;
 }
 function exampleScene(type){
-  if(type==="prep")return "both";
+  if(type==="prep")return "prep";
   if(type==="snow"||type==="lawn"||type==="both")return type;
   return "lawn";
 }
@@ -6224,6 +6239,14 @@ function selectExample(n,focus){
 function drawExamples(){
   const view=currentSeasonView();
   const art=$("#exampleArt");if(art&&!art.childNodes.length)art.innerHTML=sceneArt(exampleScene(view?view.sampleType:"lawn"),"cine-dusk");
+  if(art&&view&&view.sampleType==="prep"&&typeof document!=="undefined"){
+    art.innerHTML='<video class="intro-motion" id="introMotion" muted playsinline preload="none" poster="/assets/refresh/prep.webp" aria-label="Five-second yard cleanup scene"><source src="/assets/refresh/yard-preview.mp4" type="video/mp4"></video>';
+    if(!document.getElementById("introMotionToggle")){
+      const button=document.createElement("button");button.type="button";button.id="introMotionToggle";button.className="intro-motion-toggle";button.textContent="Play 5-second preview";
+      art.closest(".example-card").appendChild(button);
+      button.onclick=()=>{const video=document.getElementById("introMotion");if(!video)return;if(video.paused){video.play().then(()=>{button.textContent="Pause preview";}).catch(()=>{button.textContent="Play preview";});}else{video.pause();button.textContent="Play 5-second preview";}video.onended=()=>{button.textContent="Replay 5-second preview";};};
+    }
+  }
   const cv=$("#exampleFlyer");
   const rates=view&&view.rates?view.rates:EXAMPLE_RATES;
   const example={fmt:"full",style:"ink",qrMode:"web",type:view?view.sampleType:"lawn",pets:[],biz:view?view.biz:"Taylor’s Yard Crew",tagline:view?view.tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:rates.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
@@ -6240,6 +6263,7 @@ function openIntro(){
   $("#introSkip").focus({preventScroll:true});
 }
 function closeIntro(){
+  const motion=$("#introMotion");if(motion&&typeof motion.pause==="function")motion.pause();
   const box=$("#intro");if(!box||box.hidden)return;
   try{sessionStorage.setItem(INTRO_KEY,"seen");if($("#introRemember").checked)localStorage.setItem(INTRO_KEY,"skip");else localStorage.removeItem(INTRO_KEY);}catch(e){}
   box.hidden=true;document.body.classList.remove("intro-open");introBackground.forEach(el=>el.inert=false);introBackground=[];
