@@ -758,9 +758,10 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
 
 
 #forParents .parents-wrap{max-width:1100px}
-.parents-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px;align-items:start;margin-bottom:42px}
+.parents-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px;align-items:start;margin-bottom:24px}
 .parents-hero h1{font-size:clamp(36px,4vw,54px)}
-.parents-demo h2{margin-top:0}.parents-demo .parents-example-photo{aspect-ratio:16/10}
+.parents-steps{margin-top:24px}#forParents .parents-steps h2{margin:0 0 8px}.parents-steps ol{margin-bottom:0}
+#forParents .parents-demo h2{margin-top:0}.parents-demo .parents-example-photo{aspect-ratio:16/10}
 @media(max-width:760px){.parents-hero{grid-template-columns:1fr;gap:24px}.parents-demo .parents-example-photo{aspect-ratio:16/7}}
 /* Shared image framing and a clear product demonstration for parents. */
 .scene{object-position:50% 40%}
@@ -787,6 +788,14 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
     <button type="button" class="btn block" id="parentsStart" onclick="hbCloseParents(false)">Build a free draft</button>
     <p class="parents-note"><a class="link" href="/?account=1">Already started? Sign in to your parent account</a></p>
     <p class="parents-note">Free for 14 days after the first publish. Then a parent picks a plan. You are never charged automatically.</p>
+    <section class="parents-steps" aria-labelledby="parentsStepsTitle">
+    <h2 id="parentsStepsTitle">Three steps</h2>
+    <ol>
+      <li><b>Your kid can help build.</b> They pick the work, the prices, and the look of the page.</li>
+      <li><b>You own it.</b> The account is yours. You check your email and say yes before it goes online.</li>
+      <li><b>Neighbors book.</b> A request comes to you first. Nothing is booked until you reply.</li>
+    </ol>
+    </section>
 </div><div class="parents-demo">    <h2>A website they can make their own</h2>
     <article class="parents-example"><img class="parents-example-photo" src="/assets/refresh/prep.webp" alt="Rake and leaf bag ready for a neighborhood yard cleanup" width="1280" height="720">
       <b id="parentsExampleName">Sam's Yard Cleanup</b>
@@ -797,12 +806,6 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
     </article>
     <p class="parents-note">Sam is made up. This is not a real family, and it is not a real address.</p>
 </div></div>
-    <h2>Three steps</h2>
-    <ol>
-      <li><b>Your kid can help build.</b> They pick the work, the prices, and the look of the page.</li>
-      <li><b>You own it.</b> The account is yours. You check your email and say yes before it goes online.</li>
-      <li><b>Neighbors book.</b> A request comes to you first. Nothing is booked until you reply.</li>
-    </ol>
     <h2>Kept small on purpose</h2>
     <ul>
       <li>The public page shows a first name and a town.</li>
