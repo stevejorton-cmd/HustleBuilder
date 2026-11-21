@@ -6,7 +6,6 @@ import { fileStore, setStore } from '../host/lib/store.mjs';
 import { handleRequest } from '../host/lib/router.mjs';
 
 const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
-const retryMinutes = Number(config.crons.find(c => c.path === '/api/cron/mail').schedule.match(/^\*\/(\d+) \* \* \* \*$/)[1]);
 let dir, base, now, originalNow, originalFetch, env;
 const call = (method, path, body = {}, auth = '') => handleRequest({
   method, path, body: JSON.stringify(body), origin: 'http://sites.test',
@@ -24,9 +23,8 @@ test.afterEach(async () => {
   for (const key of Object.keys(process.env)) if (!(key in env)) delete process.env[key];
   Object.assign(process.env, env); await rm(dir, { recursive: true, force: true });
 });
-test('retry polls are halved without changing the daily renewal schedule', () => {
-  assert.equal(retryMinutes, 10);
-  assert.equal(24 * 60 / retryMinutes, 144);
+test('mail cron runs once an hour without changing the daily renewal schedule', () => {
+  assert.equal(config.crons.find(c => c.path === '/api/cron/mail').schedule, '0 * * * *');
   assert.equal(config.crons.find(c => c.path === '/api/cron/renewals').schedule, '0 14 * * *');
 });
 test('new sign-in mail sends in the originating request, without waiting for cron', async () => {
@@ -35,14 +33,13 @@ test('new sign-in mail sends in the originating request, without waiting for cro
   assert.equal(response.status, 200); assert.equal(sends, 1);
   assert.deepEqual(await base.list('mailqueue/'), []);
 });
-test('failed sign-in survives durably and retries on the next poll before expiry', async () => {
+test('failed sign-in survives durably and retries when cron runs before expiry', async () => {
   let sends = 0; globalThis.fetch = async () => { sends++; return { ok: false, status: 503 }; };
   assert.equal((await call('POST', '/api/auth/start', { email: 'parent@example.com' })).status, 200);
   const [key] = await base.list('mailqueue/'); assert.ok(key);
   const queued = JSON.parse(await base.get(key)); assert.equal(queued.attempts, 1);
   assert.equal(queued.expiresAt - now, 20 * 60_000);
-  // Worst phase: failed immediate attempt just after the scheduled poll.
-  now += retryMinutes * 60_000;
+  now += 60_000;
   assert.ok(now < queued.expiresAt);
   globalThis.fetch = async () => { sends++; return { ok: true }; };
   assert.equal((await call('GET', '/api/cron/mail', {}, 'Bearer test-cron')).status, 200);
