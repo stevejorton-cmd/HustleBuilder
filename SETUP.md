@@ -196,19 +196,19 @@ Before real families:
 
 ## Background retries and database idle time
 
-`/api/cron/mail` runs every 10 minutes (144 polls/day instead of 288).
+`/api/cron/mail` runs once an hour, at the top of the hour (24 polls/day instead of 144).
 New mail still gets its first delivery attempt immediately after the originating
 request commits. The cron retries durable failed mail and resumes unfinished
 daily renewal passes; the daily renewal schedule remains 14:00 UTC.
 
-A retry that becomes due just after a poll can wait nearly 10 minutes for the
+A retry that becomes due just after a poll can wait nearly an hour for the
 next poll, plus provider delays or further backoff. Sign-in codes expire after
-20 minutes, so do not lengthen this schedule beyond that window without a
-separate timely retry mechanism. Expired codes are discarded, never sent.
-Renewal continuation batches may also wait up to 10 minutes between runs.
+20 minutes, so a code that misses its immediate send is not retried before it
+expires. Expired codes are discarded, never sent.
+Renewal continuation batches may also wait up to an hour between runs.
 
 The wider polling gap gives an idle Neon compute an opportunity to suspend.
 It does not guarantee a particular compute saving: normal traffic or other
 jobs can keep it active. After deployment, compare compute active time and
 CU-hours over a representative day and check mail failures/queue backlog.
-Rollback is restoring the mail schedule to `*/5 * * * *`.
+Rollback is restoring the mail schedule to `*/10 * * * *`.
