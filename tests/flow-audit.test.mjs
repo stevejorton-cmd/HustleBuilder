@@ -34,6 +34,16 @@ test('a late request response cannot refill private details after sign-out',asyn
  h.c.clearPrivateViews();h.c.sessionEmail='';p.resolve({ok:true,jobs:[{service:'Private job',firstName:'Casey',action:'secret',status:'new'}]});await loading;
  assert.equal(h.el('#jobList').innerHTML,'');assert.doesNotMatch(h.el('#jobStatus').textContent,/Up to date/);
 });
+test('a late cloud draft save cannot replace the code of another build or a signed-out view',async()=>{
+ for(const change of ['build','session','none']){
+  const pending=deferred(),data=new Map([['hb-draft','firstkid']]);
+  const c=vm.createContext({privateViewEpoch:0,draftWriteAllowed:()=>true,publishOrigin:()=>true,consentOn:()=>true,localStorage:{getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)},draftPayload:()=>({first:'Alex'}),pubApi:()=>pending.promise});
+  vm.runInContext(part('async function saveDraft(){','function applyDraft('),c);const saving=c.saveDraft();
+  if(change==='build')data.set('hb-draft','nextkid1');if(change==='session')c.privateViewEpoch++;
+  pending.resolve({ok:true,code:'returned'});await saving;
+  assert.equal(data.get('hb-draft'),change==='build'?'nextkid1':change==='session'?'firstkid':'returned');
+ }
+});
 test('polling waits for a visible jobs screen and overlapping refreshes share a request',async()=>{
  const h=inbox(),p=deferred();let calls=0;h.c.pubApi=()=>{calls++;return p.promise;};assert.ok(h.intervals[0].ms>=30000);
  h.setMode(false);h.intervals[0].fn();assert.equal(calls,0);

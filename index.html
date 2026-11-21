@@ -3503,7 +3503,13 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&modalEl.classList.contains("open")){closeModal();return;}
   const dialog=modalEl.classList.contains("open")?modalEl:(typeof stOpen!=="undefined"&&stOpen?document.getElementById("studio"):null);
   if(e.key!=="Tab"||!dialog)return;
-  const items=Array.from(dialog.querySelectorAll('a[href],summary,button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')).filter(el=>el.getClientRects().length&&!el.closest("[hidden]"));
+  const items=Array.from(dialog.querySelectorAll('a[href],summary,button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')).filter(el=>{
+    if(!el.getClientRects().length||el.closest("[hidden]"))return false;
+    for(let p=el.parentElement;p&&p!==dialog;p=p.parentElement){
+      if(p.tagName==="DETAILS"&&!p.open){const summary=Array.from(p.children).find(child=>child.tagName==="SUMMARY");if(!summary||!summary.contains(el))return false;}
+    }
+    return true;
+  });
   if(!items.length)return;
   const first=items[0],last=items[items.length-1],active=document.activeElement;
   if(e.shiftKey&&(active===first||!dialog.contains(active))){e.preventDefault();last.focus();}
@@ -6053,7 +6059,9 @@ async function saveDraft(){
   if(!draftWriteAllowed())return;
   if(!publishOrigin()||!consentOn())return;
   try{
-    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    const epoch=privateViewEpoch,code=localStorage.getItem("hb-draft")||"";
+    const data=await pubApi("/api/draft",{body:{code,draft:draftPayload()}});
+    if(epoch!==privateViewEpoch||code!==(localStorage.getItem("hb-draft")||""))return;
     if(data.ok&&data.code)localStorage.setItem("hb-draft",data.code);
   }catch(e){}
 }
@@ -6149,7 +6157,9 @@ async function saveDraftChecked(){
   if(!consentOn())return !!rememberLocalBuild();
   clearTimeout(draftTimer);
   try{
-    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    const epoch=privateViewEpoch,code=localStorage.getItem("hb-draft")||"";
+    const data=await pubApi("/api/draft",{body:{code,draft:draftPayload()}});
+    if(epoch!==privateViewEpoch||code!==(localStorage.getItem("hb-draft")||""))return false;
     if(data.ok&&data.code){localStorage.setItem("hb-draft",data.code);return true;}
   }catch(e){}
   return false;
@@ -6161,6 +6171,7 @@ async function stashCurrentBuild(){
   return !!code&&stashBoss(code);
 }
 function clearBuildLeftovers(){
+  clearPrivateViews();
   try{localStorage.removeItem("hb-draft");localStorage.removeItem("hb-job-code");localStorage.removeItem("hb-draft-code");localStorage.removeItem("hb-ask");localStorage.removeItem("hb-ask-link");}catch(e){}
   clearPending();
 }
