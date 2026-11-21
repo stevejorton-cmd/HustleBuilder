@@ -3503,7 +3503,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&modalEl.classList.contains("open")){closeModal();return;}
   const dialog=modalEl.classList.contains("open")?modalEl:(typeof stOpen!=="undefined"&&stOpen?document.getElementById("studio"):null);
   if(e.key!=="Tab"||!dialog)return;
-  const items=Array.from(dialog.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')).filter(el=>el.getClientRects().length&&!el.closest("[hidden]"));
+  const items=Array.from(dialog.querySelectorAll('a[href],summary,button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')).filter(el=>el.getClientRects().length&&!el.closest("[hidden]"));
   if(!items.length)return;
   const first=items[0],last=items[items.length-1],active=document.activeElement;
   if(e.shiftKey&&(active===first||!dialog.contains(active))){e.preventDefault();last.focus();}
