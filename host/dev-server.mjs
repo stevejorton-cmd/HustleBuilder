@@ -70,7 +70,7 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === "GET" && url.pathname.startsWith("/assets/hustle/")) {
     const name = path.basename(url.pathname);
-    if (/^(snow|prep|wash|help|tutor|other)\.webp$/.test(name)) {
+    if (/^(snow|both|prep|wash|help|tutor|other)\.webp$/.test(name)) {
       try {
         const file = await readFile(new URL("assets/hustle/" + name, rootDir));
         res.writeHead(200, { "content-type": "image/webp", "cache-control": "public, max-age=86400" });

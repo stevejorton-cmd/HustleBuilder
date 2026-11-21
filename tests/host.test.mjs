@@ -3762,7 +3762,7 @@ test("Hustle and Neighbor keep accurate service images and full booking controls
       assert.match(html, new RegExp('data-theme="' + theme + '"'));
       for (const id of ["cal", "svc", "nm", "sendHost"]) assert.ok(html.includes('id="' + id + '"'), theme + " " + type + " " + id);
       assert.equal(/golden star trophy|confetti/i.test(html), false);
-      if (["snow", "both"].includes(type)) assert.match(html, /assets\/hustle\/snow\.webp/);
+      if (["snow", "both"].includes(type)) assert.ok(html.includes("assets/hustle/" + type + ".webp"));
       if (theme === "neighbor") assert.match(html, /--bg:#FBF8F2/);
     }
   }

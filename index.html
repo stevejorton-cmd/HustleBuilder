@@ -1705,6 +1705,7 @@ function priceTooHigh(v){return v!==null&&v>999;}
 function priceNeedsConfirm(v){return v!==null&&v>200&&v<=999;}
 const RIGS={
   ember:{name:"Ember",c:"#FF5B14"},
+  mower:{name:"Mower red",c:"#D94B3D"},
   forest:{name:"Forest",c:"#245B45"},
   gold:{name:"Gold",c:"#F5B800"},
   cobalt:{name:"Cobalt",c:"#3E8BFF"},
@@ -1723,7 +1724,7 @@ const NOISE="url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/sv
    state with no theme (or an unknown one handled by siteTheme) renders
    exactly as it always has. */
 const SITE_THEMES={
-  hustle:{name:"Hustle",blurb:"Bold orange, charcoal, and a get-it-done attitude.",dark:true},
+  hustle:{name:"Hustle",blurb:"Mower red, charcoal, and a get-it-done attitude.",dark:true},
   neighbor:{name:"Neighbor",blurb:"Warm cream, forest green, and a welcoming feel.",dark:false},
   bold:{name:"Bold Block",blurb:"The original. Big, blocky, slashed lines.",dark:true},
   clean:{name:"Clean",blurb:"Light and calm, with room to breathe.",dark:false},
@@ -2097,9 +2098,9 @@ function jobHero(type, publicUrl){
 function brandArt(type,mode,publicUrl){
   if(mode&&mode!=="hustle"&&mode!=="neighbor")return "";
   if(type==="lawn"&&(mode==="hustle"||mode==="neighbor"))return `<img class="scene" src="${esc((publicUrl?new URL(publicUrl).origin:"")+"/assets/scenes/dusk-lawn.jpg")}" alt="A push mower on a neatly cut neighborhood lawn at sunset" width="960" height="540" decoding="async">`;
-  const key=({snow:"snow",both:"snow",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[type];
+  const key=({snow:"snow",both:"both",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[type];
   if(!key)return "";
-  const alt=({snow:"A manual snow shovel beside a hand-cleared driveway",prep:"A leaf rake, work gloves and gathered autumn leaves",wash:"Car washing bucket, sponge and hose",help:"Grocery bags and practical neighborhood supplies",tutor:"School books, a notebook and pencils",other:"A work bag, gloves and hand tools for neighborhood jobs"})[key];
+  const alt=({snow:"A manual snow shovel beside a hand-cleared driveway",both:"A push lawn mower and manual snow shovel for lawn care and snow removal",prep:"A leaf rake, work gloves and gathered autumn leaves",wash:"Car washing bucket, sponge and hose",help:"Grocery bags and practical neighborhood supplies",tutor:"School books, a notebook and pencils",other:"A work bag, gloves and hand tools for neighborhood jobs"})[key];
   return `<img class="scene" src="${esc((publicUrl?new URL(publicUrl).origin:"")+"/assets/hustle/"+key+".webp")}" alt="${alt}" width="1280" height="720" decoding="async">`;
 }
 function bannerArt(type, art, pets, publicUrl, mode){
@@ -2610,7 +2611,7 @@ function blankLawnDefault(raw){
 function defaults(){
   const type=seasonDefaultType();
   return {type:type,first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices(type,1),svcEdited:false,svcSets:{},
-    palette:"ember",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
+    palette:"mower",look:"night",theme:"",sky:"",art:"",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 function draftBelongsTo(ownerEmail, sessionEmail){
   const owner=String(ownerEmail||"").trim().toLowerCase();
@@ -2892,7 +2893,32 @@ async function saveFamilyVenmo(raw){
   }catch(e){if(msg)msg.textContent="Could not save that Venmo name.";}
 }
 function queue(){save();clearTimeout(timer);timer=setTimeout(()=>{if(document.activeElement&&document.activeElement.matches("#svcList input"))return;refresh();updateLaunch();scheduleDraft();},250);}
-function refresh(){frame.srcdoc=genSite(resolve(true));}
+// Sandboxed srcdoc frames cannot send the preview deployment's sign-in cookie.
+// Load our artwork in the builder, then embed it only in the local preview.
+// Published and downloaded websites keep their normal image URLs.
+const previewArtCache=new Map();
+let previewRevision=0;
+function previewArtData(src){
+  const url=new URL(src,location.href);
+  if(url.origin!==location.origin||!/^\/assets\/(hustle|scenes|jobs|pets)\/[a-z0-9.-]+\.(webp|jpg|png)$/.test(url.pathname))return Promise.resolve(src);
+  if(!previewArtCache.has(url.href))previewArtCache.set(url.href,
+    fetch(url.href,{credentials:"same-origin"}).then(r=>{
+      if(!r.ok||!/^image\//.test(r.headers.get("content-type")||""))throw new Error("image unavailable");
+      return r.blob();
+    }).then(blob=>new Promise((resolve,reject)=>{
+      const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);
+    })).catch(()=>{previewArtCache.delete(url.href);return src;})
+  );
+  return previewArtCache.get(url.href);
+}
+async function refresh(){
+  const revision=++previewRevision,html=genSite(resolve(true));
+  const sources=[...new Set([...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map(m=>m[1]))];
+  const embedded=await Promise.all(sources.map(async src=>[src,await previewArtData(src)]));
+  if(revision!==previewRevision)return;
+  const images=new Map(embedded);
+  frame.srcdoc=html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g,(_,before,src,after)=>before+(images.get(src)||src)+after);
+}
 
 document.querySelectorAll("[data-k]").forEach(el=>{
   el.value=S[el.dataset.k]||"";
@@ -3118,7 +3144,7 @@ function paintThemeCards(w,help){
     const t=SITE_THEMES[k], p=THEME_PREVIEWS[k];
     const b=document.createElement("button"); b.type="button"; b.className="themecard";
     b.setAttribute("aria-pressed",String((S.theme||"hustle")===k));
-    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${k==="neighbor"?"#245B45":"#FF5B14"};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}</span><span class="tb">${t.blurb}</span>`;
+    b.innerHTML=`<span class="tp" style="background:${p.bg}"><span class="tp-h" style="background:${p.bar};border-radius:${p.rad}"></span><span class="tp-l" style="background:${p.line}"></span><span class="tp-l short" style="background:${p.line}"></span><span class="tp-b" style="background:${k==="neighbor"?"#245B45":"#D94B3D"};border-radius:${p.btnRad}"></span></span><span class="tn">${t.name}</span><span class="tb">${t.blurb}</span>`;
     b.onclick=()=>{chooseBrandStyle(k);renderRigs();renderTiles();queue();};
     w.appendChild(b);
   });
@@ -3127,7 +3153,7 @@ function paintThemeCards(w,help){
 function chooseBrandStyle(k){
   if(k!=="hustle"&&k!=="neighbor")return;
   const neighbor=k==="neighbor";
-  Object.assign(S,{theme:k,look:neighbor?"day":"night",palette:neighbor?"forest":"ember",paletteTouched:true,sky:neighbor?"sunny":"dusk",art:neighbor?"cine-day":"cine-dusk",siteFont:neighbor?"fredoka":"",flyerStyle:"bold"});
+  Object.assign(S,{theme:k,look:neighbor?"day":"night",palette:neighbor?"forest":"mower",paletteTouched:true,sky:neighbor?"sunny":"dusk",art:neighbor?"cine-day":"cine-dusk",siteFont:neighbor?"fredoka":"",flyerStyle:"bold"});
   if(S.studio)Object.assign(S.studio,{rig:S.palette,bg:neighbor?"light":"dark",font:S.siteFont,nameStyle:neighbor?"plain":"heavy",trim:neighbor?"bar":"stripes",sky:neighbor?"sunny":"dusk",art:"brand-"+k});
 }
 function renderThemes(){
@@ -4505,7 +4531,7 @@ function svcFor(type){if(type===S.type)return resolve(true).services;const parke
 const pImgs={};
 function pPhoto(){const pr=S.proof.find(x=>x.a)||S.proof.find(x=>x.b);if(!pr)return null;const src=pr.a||pr.b,key=src.length+":"+src.slice(-24);let im=pImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen)drawStudio();};im.src=src;pImgs[key]=im;}return im._ok?im:null;}
 const pSceneImgs={};
-function pSceneImg(kind,id){const key=kind+":"+id;let im=pSceneImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen){drawStudio();if(stTab===0)renderPanel();}};if(id&&id.indexOf("brand-")===0){const asset=({snow:"snow",both:"snow",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[kind];im.src=asset?"/assets/hustle/"+asset+".webp":kind==="pet"?"/assets/pets/pet-hero.webp":cineUrl(kind,"dusk");pSceneImgs[key]=im;return im._ok?im:null;}if(id&&id.indexOf("cine-")===0){im.src=cineUrl(kind,id.slice(5));pSceneImgs[key]=im;return im._ok?im:null;}const svg=sceneArt(kind,id).replace('<svg class="scene"','<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460"').replace(/class="flake"/g,'fill="#fff" opacity=".9"');im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);pSceneImgs[key]=im;}return im._ok?im:null;}
+function pSceneImg(kind,id){const key=kind+":"+id;let im=pSceneImgs[key];if(!im){im=new Image();im.onload=()=>{im._ok=true;if(stOpen){drawStudio();if(stTab===0)renderPanel();}};if(id&&id.indexOf("brand-")===0){const asset=({snow:"snow",both:"both",prep:"prep",wash:"wash",help:"help",tutor:"tutor",odd:"other",other:"other"})[kind];im.src=asset?"/assets/hustle/"+asset+".webp":kind==="pet"?"/assets/pets/pet-hero.webp":cineUrl(kind,"dusk");pSceneImgs[key]=im;return im._ok?im:null;}if(id&&id.indexOf("cine-")===0){im.src=cineUrl(kind,id.slice(5));pSceneImgs[key]=im;return im._ok?im:null;}const svg=sceneArt(kind,id).replace('<svg class="scene"','<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460"').replace(/class="flake"/g,'fill="#fff" opacity=".9"');im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);pSceneImgs[key]=im;}return im._ok?im:null;}
 function pHasPhoto(){return S.proof.some(x=>x.a||x.b);}
 function pkgInfo(svcs,names){const seen={};const picked=[];(names||[]).forEach(function(nm){if(!nm||seen[nm])return;seen[nm]=1;const s=(svcs||[]).find(function(x){return x.n===nm;});if(s)picked.push(s);});if(!picked.length)return null;let total=0;picked.forEach(function(s){total+=num(s.p);});return {names:picked.map(function(s){return s.n;}),label:picked.map(function(s){return s.n;}).join(" + "),total:total};}
 function rateRowsFor(p){if(!p.rates)return [];const rows=p.services.slice(0,4).map(function(s){return {n:s.n,p:fmtPrice(s.p)};});if(p.pkg)rows.push({n:p.pkg.label,p:money(p.pkg.total)});return rows;}
