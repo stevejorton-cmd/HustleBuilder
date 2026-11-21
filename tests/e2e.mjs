@@ -181,10 +181,11 @@ try {
       await clickControl(page, '.tile[data-type="' + type + '"]');
       await page.waitForFunction(previous => document.querySelector("#frame").srcdoc !== previous, {}, previous);
       const html = await page.$eval("#frame", e => e.srcdoc);
+      // Use a quiet same-origin document so builder startup cannot alter the fixture.
+      await styled.goto(base + "/privacy");
+      await styled.setContent(html, { waitUntil: "networkidle0" });
       for (const width of [320, 390, 1366]) {
         await styled.setViewport({ width, height: 844 });
-        await styled.goto(base + "/");
-        await styled.setContent(html, { waitUntil: "networkidle0" });
         const result = await styled.evaluate(() => ({
           theme: document.documentElement.dataset.theme,
           overflow: document.documentElement.scrollWidth > innerWidth + 2,
