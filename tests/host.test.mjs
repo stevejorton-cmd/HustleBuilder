@@ -1,3 +1,4 @@
+import { extractBuilderParts, demoCfg } from "./site-fixture.mjs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
@@ -16,7 +17,9 @@ import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
 import { cardPng } from "../host/lib/card.mjs";
 
 let dir;
-test.beforeEach(async () => {
+test.beforeEach(async (ctx) => {
+  // Booking fixtures are in November 2026; keep their clock fixed as time passes.
+  ctx.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-13T15:00:00Z") });
   dir = await mkdtemp(path.join(tmpdir(), "hb-"));
   setStore(fileStore(dir));
   process.env.PUBLISH_TEST_MODE = "1";
@@ -2985,58 +2988,11 @@ test("admin view shows a zero legacy-inbox count when no page carries one", asyn
 });
 
 /* ---- page reskins: the theme system inside index.html's genSite ---- */
-function extractBuilderParts(src, fontData) {
-  const lines = src.split("\n");
-  const extractFn = (name) => {
-    const start = lines.findIndex((l) => new RegExp("^(async )?function " + name + "\\b").test(l));
-    if (start < 0) return null;
-    let depth = 0, begun = false;
-    for (let i = start; i < lines.length; i++) {
-      for (const ch of lines[i]) {
-        if (ch === "{") { depth++; begun = true; }
-        else if (ch === "}") { depth--; if (begun && depth === 0) return lines.slice(start, i + 1).join("\n"); }
-      }
-    }
-    return null;
-  };
-  const extractConst = (name) => {
-    const start = lines.findIndex((l) => new RegExp("^(const|let|var) " + name + "\\b").test(l));
-    if (start < 0) return null;
-    let depth = 0, seen = false;
-    for (let i = start; i < lines.length; i++) {
-      for (const ch of lines[i]) { if ("{[(".includes(ch)) { depth++; seen = true; } if ("}])".includes(ch)) depth--; }
-      if (seen && depth <= 0 && /;\s*$/.test(lines[i])) return lines.slice(start, i + 1).join("\n");
-      if (!seen && /;\s*$/.test(lines[i])) return lines.slice(start, i + 1).join("\n");
-    }
-    return null;
-  };
-  const consts = ["RIGS", "TAGS", "PET_ART", "FONT_META", "FONT_ORDER", "SITE_THEMES", "SPAL", "SVGH"];
-  const fns = ["heroFitPx", "genSite", "bannerArt", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "jobSrc", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
-  let code = "";
-  for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
-  for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }
-  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, SITE_THEMES, fmtPrice, cleanPrice, petFace, PET_ART, siteFontCss };")(fontData || {}, "", "");
-}
-function demoCfg(extra) {
-  const sched = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ on: i >= 1 && i <= 6, from: "16:00", to: "20:00" }));
-  return {
-    type: "lawn", look: "night", sky: "dusk", art: "dusk", font: "", pets: [], snowTrigger: "2",
-    inboxUrl: "", inboxKey: "", publicUrl: "", parent2: "", phone2Digits: "", email2: "",
-    seasonOn: false, seasonPrice: "", promise: "If something isn't right, tell my parent.",
-    first: "Taylor", town: "Lincoln", biz: "Taylor's Lawn Co.", tagline: "Straight lines. Clean edges. Done right.",
-    parentName: "Molly", phone: "", phoneDigits: "4025550100", showPhone: true,
-    email: "parent@example.com", venmo: "taylor-lawn", about: "I'm Taylor. I show up and do it right.",
-    services: [{ n: "Mow a small yard", p: "$25" }, { n: "Leaf raking", p: "$30" }],
-    palette: "ember", days: sched.map((x) => x.on), sched, hours: "", proof: [], reviews: [],
-    publish: { slug: "demo", book: "http://sites.test/api/book" }, ...(extra || {})
-  };
-}
-
 test("page reskins: every theme stamps its marker and keeps the booking widget intact", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { genSite, SITE_THEMES } = extractBuilderParts(src);
   const ids = Object.keys(SITE_THEMES);
-  assert.deepEqual(ids, ["bold", "clean", "paper", "sport", "friendly", "midnight", "retro"]);
+  assert.deepEqual(ids, ["hustle", "neighbor", "bold", "clean", "paper", "sport", "friendly", "midnight", "retro"]);
   const seen = new Set();
   for (const id of ids) {
     const html = genSite(demoCfg({ theme: id }));
@@ -3272,7 +3228,7 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
     ]
   }));
   assert.match(html, /Yard cleanup, small/);
-  assert.match(html, /assets\/jobs\/prep\.webp/);
+  assert.match(html, /assets\/hustle\/prep\.webp/);
   assert.match(html, /content="Yard cleanup/);
   assert.match(html, />\$15</);
   assert.match(html, />\$25</);
@@ -3793,5 +3749,21 @@ test("created sites use the current slash favicon without rewriting saved family
     const served = await call("GET", "/api/site/" + slug);
     assert.equal((served.body.match(/rel="icon"/g) || []).length, 1);
     assert.ok(served.body.includes(markup.match(/<link[^>]+>/)[0]));
+  }
+});
+
+
+test("Hustle and Neighbor keep accurate service images and full booking controls", async () => {
+  const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const { genSite } = extractBuilderParts(src);
+  for (const theme of ["hustle", "neighbor"]) {
+    for (const type of ["lawn", "snow", "both", "prep", "wash", "help", "tutor", "odd", "other", "pet"]) {
+      const html = genSite(demoCfg({ theme, type, art: theme === "hustle" ? "cine-dusk" : "cine-day", palette: theme === "hustle" ? "ember" : "forest" }));
+      assert.match(html, new RegExp('data-theme="' + theme + '"'));
+      for (const id of ["cal", "svc", "nm", "sendHost"]) assert.ok(html.includes('id="' + id + '"'), theme + " " + type + " " + id);
+      assert.equal(/golden star trophy|confetti/i.test(html), false);
+      if (["snow", "both"].includes(type)) assert.match(html, /assets\/hustle\/snow\.webp/);
+      if (theme === "neighbor") assert.match(html, /--bg:#FBF8F2/);
+    }
   }
 });

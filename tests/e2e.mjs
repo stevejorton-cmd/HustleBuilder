@@ -1,3 +1,4 @@
+import { extractBuilderParts, demoCfg } from "./site-fixture.mjs";
 import { spawn } from "child_process";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
@@ -68,7 +69,7 @@ try {
   const ov = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   check("desktop overflow", ov.sw <= ov.cw + 2, JSON.stringify(ov));
   await page.evaluate(() => document.getElementById("pubEmail").scrollIntoView({ block: "center", behavior: "instant" }));
-  await page.screenshot({ path: path.join(out, "publish_desktop.png") });
+  if(process.env.SHOTS) await page.screenshot({ path: path.join(out, "publish_desktop.png") });
   await page.type("#pubEmail", "parent@example.com");
   await clickControl(page, "#parentHere > summary");
   // Exercise the real parent acknowledgement instead of bypassing its gate.
@@ -115,7 +116,7 @@ try {
   check('v4 cookie alone authenticates in browser',cookieMe.status===200&&cookieMe.data.email==='parent@example.com');
   const url = await page.$eval("#pubUrl", (a) => a.href);
   check("stable url", url === base + "/sam-yard", url);
-  await page.screenshot({ path: path.join(out, "published_desktop.png") });
+  if(process.env.SHOTS) await page.screenshot({ path: path.join(out, "published_desktop.png") });
 
   const site = await browser.newPage();
   site.on("console",m=>{if(m.type()==="error")console.log("site console:",m.text());});
@@ -127,7 +128,7 @@ try {
   const phoneOv = await site.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   check("phone site overflow", phoneOv.sw <= phoneOv.cw + 2, JSON.stringify(phoneOv));
   await site.evaluate(() => document.getElementById("book").scrollIntoView({ block: "start", behavior: "instant" }));
-  await site.screenshot({ path: path.join(out, "live_phone_book.png") });
+  if(process.env.SHOTS) await site.screenshot({ path: path.join(out, "live_phone_book.png") });
   const day = await site.evaluate(() => {
     const b = [...document.querySelectorAll(".day")].find((el) => !el.disabled);
     if (!b) return "";
@@ -146,13 +147,13 @@ try {
   check("booking sent", /Request saved!/.test(sent), sent.slice(0, 80));
   const stored = await fetch(url).then((r) => r.text());
   check("address not stored on page", !stored.includes("999 Secret Lane"));
-  await site.screenshot({ path: path.join(out, "live_phone_sent.png") });
+  if(process.env.SHOTS) await site.screenshot({ path: path.join(out, "live_phone_sent.png") });
 
   await page.setViewport({ width: 390, height: 844 });
   await page.evaluate(() => document.getElementById("pubBox").scrollIntoView({ block: "start", behavior: "instant" }));
   const pov = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, step: document.getElementById("plabel").textContent }));
   check("phone builder overflow", pov.sw <= pov.cw + 2, JSON.stringify(pov));
-  await page.screenshot({ path: path.join(out, "publish_phone.png") });
+  if(process.env.SHOTS) await page.screenshot({ path: path.join(out, "publish_phone.png") });
 
   const again = await page.evaluate(async (liveUrl) => {
     const session = JSON.parse(localStorage.getItem("hb-parent-session"));
@@ -169,6 +170,35 @@ try {
   const tag = await site.$eval(".tag", (e) => e.textContent);
   check("republish content", /Fresh cut/.test(tag), tag);
   check("console", logs.length === 0, logs.join(" | "));
+  // Render with the same source extractor as the unit tests and the real embedded fonts.
+  const fs = await import("fs/promises");
+  const source = await fs.readFile(new URL("../index.html",import.meta.url),"utf8");
+  const libs = await fs.readFile(new URL("../assets/print-libs.js",import.meta.url),"utf8");
+  const fontData = JSON.parse(libs.slice("const FONT_DATA=".length,libs.indexOf(";\n")));
+  const fontCss = source.match(/<style id="fontcss">([\s\S]*?)<\/style>/)[1];
+  const {genSite} = extractBuilderParts(source,fontData,fontCss);
+  const styled = await browser.newPage();
+  for(const theme of ["hustle","neighbor"]) {
+    for(const type of ["lawn","snow","prep","wash","help","tutor","other","pet"]) {
+      const html = genSite(demoCfg({theme,type,palette:theme === "neighbor" ? "forest" : "ember",font:theme === "neighbor" ? "fredoka" : "",art:"cine-dusk",biz:"Taylor's Neighborhood Services",publicUrl:base,services:[{n:"A longer neighborhood service name",p:"25"}]}));
+      await styled.goto(base + "/privacy");
+      await styled.setContent(html,{waitUntil:"networkidle0"});
+      for(const width of [320,390,1366]) {
+        await styled.setViewport({width,height:844});
+        const result = await styled.evaluate(() => ({
+          theme:document.documentElement.dataset.theme,
+          overflow:document.documentElement.scrollWidth > innerWidth + 2,
+          image:!!document.querySelector(".hero img")?.naturalWidth,
+          booking:!!document.querySelector("#cal") && !!document.querySelector("#svc"),
+          title:document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2,
+          offenders:document.documentElement.scrollWidth > innerWidth + 2 ? [...document.body.querySelectorAll("*")].filter(e=>e.getBoundingClientRect().right > innerWidth + 2).slice(0,6).map(e=>({tag:e.tagName,cls:e.className,right:Math.round(e.getBoundingClientRect().right)})) : []
+        }));
+        check("style " + theme + " " + type + " " + width,result.theme === theme && !result.overflow && result.image && result.booking && result.title,JSON.stringify(result));
+      }
+    }
+  }
+  await styled.close();
+
 } finally {
   await browser.close();
   child.kill("SIGTERM");

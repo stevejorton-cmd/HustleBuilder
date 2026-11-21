@@ -68,6 +68,16 @@ const server = createServer(async (req, res) => {
       res.writeHead(404); res.end(); return;
     }
   }
+  if (req.method === "GET" && url.pathname.startsWith("/assets/hustle/")) {
+    const name = path.basename(url.pathname);
+    if (/^(snow|prep|wash|help|tutor|other)\.webp$/.test(name)) {
+      try {
+        const file = await readFile(new URL("assets/hustle/" + name, rootDir));
+        res.writeHead(200, { "content-type": "image/webp", "cache-control": "public, max-age=86400" });
+        res.end(file); return;
+      } catch { /* fall through */ }
+    }
+  }
   if (req.method === "GET" && url.pathname.startsWith("/assets/scenes/")) {
     const name = path.basename(url.pathname);
     if (/^(day|dusk)-(lawn|snow|both)\.jpg$/.test(name)) {
