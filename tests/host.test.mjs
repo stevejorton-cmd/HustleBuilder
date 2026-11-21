@@ -78,7 +78,8 @@ test("the parent landing names the winter price and uses a made-up example", asy
   const block = home.slice(home.indexOf('id="forParents"'), home.indexOf("</section>") + 10);
   assert.match(block, /\$9\.99 for the season, never auto-renews/);
   assert.match(block, /id="parentsStart"/);
-  assert.match(block, />Start free</);
+  assert.match(block, />Build a free draft</);
+  assert.match(block, /href="\/\?account=1"/);
   assert.match(home, /if\(!force\)document\.documentElement\.classList\.add\("hb-skip-parents"\)/);
   assert.equal(home.includes('setItem("hb_intro_seen"'), false);
   assert.match(home, /shouldOpenIntro\(entryParams\)&&document\.documentElement\.classList\.contains\("hb-skip-parents"\)/);
@@ -1056,7 +1057,7 @@ test("the builder hides the phone unless the parent turns it on", async () => {
   assert.match(src, /showPhone:false/);
   assert.match(src, /const publicPhone=false/);
   assert.equal(src.includes("mailto:${esc(c.email)}"), false);
-  assert.match(src, /href="#book">Email</);
+  assert.match(src, /href="#book">Open request form</);
   assert.match(src, /mailto:bookings@hustlebuilder\.org/);
   assert.equal(src.includes("app.netlify.com"), false);
   assert.equal(src.includes("Manage deployments"), false);
@@ -1831,7 +1832,7 @@ test("a long hero word scales down so it fits a phone, and hyphenation is only t
   const oldPage = stripParentContact(`<header class="hero"><h1>HANDSOME</h1></header><script>function fitHero(){var longest="";}</script></body>`);
   assert.match(oldPage, /function widest\(size\)/);
   assert.equal(stripParentContact(oldPage).match(/id="hb-hero-fit"/g).length, 1);
-  assert.match(src, /\.hero h1\{[^}]*overflow-wrap:normal;word-break:normal;hyphens:manual/);
+  assert.match(src, /\.hero h1\{[^}]*overflow-wrap:anywhere;word-break:normal;hyphens:manual/);
   assert.match(src, /hyphens","auto"/);
   assert.match(src, /for\(let size=minS-1;size>=8;size--\)/);
   const { breakWideWords } = extractNamedFns(src, ["breakWideWords"]);
@@ -1994,7 +1995,7 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.match(src, /Dog walk, 15 minutes/);
   assert.equal((src.match(/id:"pet"/g) || []).length, 1);
   assert.match(src, /dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird"/);
-  assert.match(src, /Pets on your pictures/);
+  assert.match(src, /Choose your pet pictures/);
   const { token, email } = await parent("petparent@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
@@ -2029,7 +2030,7 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.equal(preview.body.ok, true);
   const shared = await call("GET", "/api/site/sam-pets");
   assert.match(shared.body, /property="og:image" content="http:\/\/sites\.test\/assets\/pets\/pet-og\.jpg"/);
-  assert.match(src, /assets\/pets\/pet-hero\.webp/);
+  assert.match(src, /assets\/refresh\/pet\.webp/);
   assert.match(src, /pet-dog\.webp/);
   assert.equal(src.includes("function petAnimal"), false);
 });
@@ -3236,7 +3237,7 @@ test("yard cleanup and winter prep is a bookable job with hand-tool safety", asy
   assert.match(html, /id="prepsafe"/);
   assert.match(html, /Hand tools only, rakes and clippers/);
   assert.equal(/gutter|ladder/i.test(html), false);
-  assert.match(html, /Every snowfall this winter/);
+  assert.doesNotMatch(html, /<option>Every snowfall this winter<\/option>/);
   const { token, email } = await parent("prep@example.com");
   await call("POST", "/api/consent", { token, body: { consent: true } });
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
@@ -3762,7 +3763,7 @@ test("Hustle and Neighbor keep accurate service images and full booking controls
       assert.match(html, new RegExp('data-theme="' + theme + '"'));
       for (const id of ["cal", "svc", "nm", "sendHost"]) assert.ok(html.includes('id="' + id + '"'), theme + " " + type + " " + id);
       assert.equal(/golden star trophy|confetti/i.test(html), false);
-      if (["snow", "both"].includes(type)) assert.match(html, /assets\/hustle\/snow\.webp/);
+      if (["snow", "both"].includes(type)) assert.ok(html.includes("assets/hustle/" + type + ".webp"));
       if (theme === "neighbor") assert.match(html, /--bg:#FBF8F2/);
     }
   }

@@ -135,8 +135,8 @@ test("fall wording keeps snow strings for snow mode and hides the shovel starter
   assert.equal(fall.priceOffer, "Season, one-time, never auto-renews");
   assert.match(snow.priceLead, /\$9\.99 for the whole winter/);
   assert.equal(snow.priceOffer, "Winter season, one-time, never auto-renews");
-  assert.match(html, /Starter prices for yard cleanup\. Small is about \$15, medium about \$25, and large about \$40\. Change any price\./);
-  assert.match(html, /Starter prices for yard cleanup and winter prep\. Small is about \$15/);
+  assert.match(html, /Starter prices for yard cleanup\. Agree on the yard size and tasks/);
+  assert.match(html, /Starter prices for yard cleanup and winter prep\. Agree on the yard size and tasks/);
   assert.match(html, /\$\{prepTitle\} uses hand tools only/);
   assert.match(html, /data-prep-snow/);
   const start = html.indexOf("function starterServices(");
