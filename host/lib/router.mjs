@@ -1171,7 +1171,7 @@ async function savePublicEvent(row, account) {
     sequence: 0,
     createdAt: new Date().toISOString()
   };
-  rec.expiresAt=bookingExpiry(rec,60);
+  rec.expiresAt=Math.max(bookingExpiry(rec,60),bookingExpiry(row,60));
   await writeJson("events/" + token + ".json", rec);
   row.eventToken = token;
   row.publicEvent = rec;

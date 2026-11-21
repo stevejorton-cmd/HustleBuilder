@@ -14,6 +14,7 @@ test('failed logout keeps authentication and consent; successful logout clears p
  assert.equal(await c.pubSignOut(),false);assert.equal(c.pubMemToken,'token');assert.equal(saved,'parent');assert.equal(consent,true);assert.equal(cleared,0);
  c.pubApi=async()=>({ok:false,httpStatus:503});assert.equal(await c.pubSignOut(),false);assert.equal(cleared,0);
  c.pubApi=async()=>({ok:true});assert.equal(await c.pubSignOut(),true);assert.equal(c.pubMemToken,'');assert.equal(saved,null);assert.equal(consent,false);assert.equal(cleared,1);
+ c.pubSaveSession=()=>{throw Error('storage blocked');};c.setConsentOn=()=>{throw Error('storage blocked');};assert.equal(await c.pubSignOut(),true);assert.equal(cleared,2);
 });
 function inbox(){
  const els=new Map(),intervals=[],events={};let mode=true;

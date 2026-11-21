@@ -5074,8 +5074,8 @@ function pubToken(){const s=pubSession(); return pubMemToken||(s&&s.token)||"";}
 async function pubSignOut(){
   try{const result=await pubApi("/api/auth/logout",{body:{}});if(!result.ok&&result.httpStatus!==401)return false;}catch(e){return false;}
   pubMemToken="";
-  pubSaveSession(null);
-  setConsentOn(false);
+  try{pubSaveSession(null);}catch(e){}
+  try{setConsentOn(false);}catch(e){}
   clearPrivateViews();
   return true;
 }
@@ -6256,17 +6256,19 @@ if(otherBtn)otherBtn.onclick=async()=>{
   if(!consentOn()){if(st)st.textContent="This page stays on this phone until a parent agrees. Then you can open it on another device.";return;}
   if(st)st.textContent="Saving…";
   try{
-    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft:draftPayload()}});
+    const draft=draftPayload(),photosOmitted=!!(S.proof.length&&!draft.proof.length);
+    const data=await pubApi("/api/draft",{body:{code:localStorage.getItem("hb-draft")||"",draft}});
     if(!data.ok){if(st)st.textContent="Could not save. Try again.";return;}
     localStorage.setItem("hb-draft",data.code);
     if(st)st.textContent="Saved. Use this code on the other device.";
-    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, sign in with the same parent email, then open the link. Or type the code here later.</p><p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
+    openModal('<h3>Open on another device</h3><p class="small2">On the other phone, sign in with the same parent email, then open the link. Or type the code here later.</p><p class="small2">This link opens your website draft. Job and money records stay on this device. To move everything, use a backup file and include photos.</p>'+(photosOmitted?'<p class="merr" role="status">Your photo set is too large for this draft link. The photos stay on this device. Use a backup file with photos to move them.</p>':'')+'<p class="lead" id="draftCode" style="letter-spacing:.12em;font-weight:800"></p><p class="small2" id="draftLink" style="overflow-wrap:anywhere"></p><canvas id="draftQr" style="margin:8px 0"></canvas><div class="mbtns"><button type="button" class="btn" id="draftCopy">Copy link</button><button type="button" class="btn ghost" id="draftText">Text the link</button><button type="button" class="btn outline" id="draftBackup">Back up my business</button></div><div class="mfoot"><button type="button" class="btn outline" id="draftClose">Done</button></div>');
     const codeEl=mbody.querySelector("#draftCode"); if(codeEl)codeEl.textContent=data.code;
     const linkEl=mbody.querySelector("#draftLink"); if(linkEl)linkEl.textContent=data.link;
     drawQr(mbody.querySelector("#draftQr"), data.link);
     mbody.querySelector("#draftCopy").onclick=()=>copyText(data.link,"Link copied.");
     mbody.querySelector("#draftText").onclick=()=>{location.href="sms:?&body="+encodeURIComponent("Open my Hustle Builder page: "+data.link);};
     mbody.querySelector("#draftClose").onclick=closeModal;
+    mbody.querySelector("#draftBackup").onclick=openBackup;
   }catch(e){if(st)st.textContent="Could not save. Try again.";}
 };
 let askPoll=0;
