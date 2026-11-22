@@ -844,8 +844,8 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
       <p>No. A plan is a one-time payment. You are never charged automatically.</p>
     </details>
     <details>
-      <summary>What is the 50¢?</summary>
-      <p>A parent who starts the free trial checks a card for 50¢. Stripe emails a receipt, and we refund it right away. Buying a plan skips that check.</p>
+      <summary>What is the $0.50 charge and refund?</summary>
+      <p>Starting the free trial includes a $0.50 card charge. We request a full refund through Stripe right away, back to the same card. Your bank may take time to show the credit, or the original charge may disappear. This helps us confirm that an adult is approving and managing the child’s page. Buying a plan or using an eligible playtester code completes parent verification without a separate $0.50 charge.</p>
     </details>
     <details>
       <summary>Who gets paid for a job?</summary>
@@ -1054,11 +1054,12 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
           <label class="check"><input type="checkbox" id="pubConsent"><span>I am the parent or guardian and I run this page with my kid. I read the notice and I agree to publish this page and to get booking emails. The page shows a first name and a town. My email and phone stay off the page.</span></label>
           <p class="small" id="planStatus" hidden></p>
           <div id="planFirst">
-            <p class="lead">Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.</p>
+            <p class="lead">Buy the winter season, $9.99. That payment also completes parent verification, and it never auto-renews.</p>
             <button type="button" class="btn block" id="buySeason">Buy the winter season, $9.99</button>
             <button type="button" class="btn ghost block" id="buyYear">Or a full year, $19.99</button>
           </div>
-          <p class="small2" id="cardCheckNote">Or start the free 14-day trial. We charge 50¢ on a card, Stripe emails a receipt, and we refund it right away. The trial stays free. You are never charged automatically. We do not keep the card number.</p>
+          <p class="small2" id="cardCheckNote">Or start the free 14-day trial with a $0.50 card charge. We request a full refund through Stripe right away, back to the same card. Your bank may take time to show the credit, or the original charge may disappear. Stripe emails a receipt. The trial stays free. You are never charged automatically. We do not keep your card number.</p>
+          <details class="help" id="parentVerificationWhy"><summary>Why do we ask?</summary><p>This helps us confirm that an adult is approving and managing the child’s page. A parent or guardian agrees to own the account and handle booking requests.</p></details>
           <p class="small2">Publishing means you agree to the <a class="link" id="pubTerms" href="/terms" target="_blank" rel="noopener">Terms</a> and the <a class="link" id="pubPrivacy" href="/privacy" target="_blank" rel="noopener">Privacy</a> notice.</p>
           <div id="trialBox">
             <p class="lead" id="trialPitch">The 14-day trial starts at your first publication. A paid plan is optional and never renews automatically.</p>
@@ -1076,7 +1077,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
           <label class="field" for="pubSlug"><span>Link name</span><input type="text" id="pubSlug" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="josie-josies-pet-care"><small>Choose a short address such as josies-pet-care. Do not include a last name, school, or home address.</small><p class="small2" id="slugStatus" role="status"></p></label>
           <label class="check"><input type="checkbox" id="pubIndex"><span>Let Google show this page</span></label>
           <p class="small2">Off means the link still works. Search engines are asked not to list it.</p>
-          <button type="button" class="btn ghost block" id="pubGo" disabled>Start the free 14-day trial with a 50¢ refunded check</button>
+          <button type="button" class="btn ghost block" id="pubGo" disabled>Start free trial — $0.50 card charge, then refund</button>
           <p class="small2" id="familyNote" hidden></p>
         </div>
         </details>
@@ -1843,7 +1844,6 @@ input,select,textarea{border-radius:12px;background:#fff}
 .ba{border-radius:16px}.ba .kn{clip-path:none;border-radius:999px}
 .ba .tg{border-radius:999px;font-family:"Barlow",system-ui,sans-serif;font-style:normal;text-transform:none;font-weight:700;font-size:15px}
 .err{color:#B3261E}
-.hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
 .flake{fill:#BFD6EA}
 .how b{clip-path:none;border-radius:50%;font-family:"Barlow",system-ui,sans-serif;font-style:normal;font-weight:800;font-size:20px}
 .promise{border-radius:14px;border-left:1px solid var(--line);border-top:5px solid var(--accent)}
@@ -2287,6 +2287,7 @@ ${FONT_CSS}
 :root{--bg:#0E1012;--bg2:#14171A;--card:#181C20;--line:#2B3137;--bone:#F1EFEA;--mute:#A3AAB1;--accent:${rig.c};--on:#0B0C0D;--display:"Barlow Condensed","Arial Narrow",Impact,sans-serif}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
+.hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 body{margin:0;background:var(--bg);color:var(--bone);font:17.5px/1.55 "Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:88px}
 h1,h2,h3{font-family:var(--display);font-style:italic;font-weight:800;text-transform:uppercase;margin:0;line-height:.88}
 .hero{position:relative;overflow:hidden;min-height:660px;display:flex;flex-direction:column;justify-content:flex-end;isolation:isolate;background:#0B0E12}
@@ -5374,12 +5375,12 @@ function applyPublishState(me){
   if((S.siteUrl||"")&&!linkOk){S.siteUrl=""; syncLiveUrlFields(); if(slugEl)slugEl.value="";}
   if(slugEl)slugEl.readOnly=false;
   if(!(me&&me.consent)){
-    if(go){go.hidden=false; go.className="btn ghost block"; go.textContent="Start the free 14-day trial with a 50¢ refunded check";}
+    if(go){go.hidden=false; go.className="btn ghost block"; go.textContent="Start free trial — $0.50 card charge, then refund";}
     if(note)note.hidden=true;
     if(slugEl&&!slugEl.value)suggestSlug();
   }else if(owned.length){
     if(go){go.hidden=false; go.className="btn block"; go.textContent="Put this page online too";}
-    if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial. The parent check is already done.";}
+    if(note){note.hidden=false; note.textContent="Covered by your family plan — no extra charge. This page shares your plan and your trial. Parent verification is already complete.";}
     if(slugEl&&!slugEl.value)suggestSlug();
   }else{
     if(go){go.className="btn block"; go.textContent="Publish my website";}
@@ -5688,7 +5689,7 @@ async function pubPush(){
       if(!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
       const agreed=await pubApi("/api/consent", {body:{consent:true}});
       if(agreed&&agreed.url){savePending(slug); location.href=agreed.url; return;}
-      if(!agreed||!agreed.ok||agreed.needsCard){pubErr(agreed&&agreed.error==="stripe-key"?"The card check is not set up yet.":"The card check was not finished. Nothing was kept."); return;}
+      if(!agreed||!agreed.ok||agreed.needsCard){pubErr(agreed&&agreed.error==="stripe-key"?"The $0.50 card payment is not set up yet.":"Parent verification is not complete. If you made the $0.50 card payment, return to Go live shortly to check its refund status."); return;}
     }
     const me=await pubApi("/api/me", {method:"GET"});
     showHosting(me);
@@ -6384,7 +6385,7 @@ async function openAsk(token){
     if(!sameDraft){
       go(7);
       const note=$("#askInviteNotice");note.hidden=false;
-      note.textContent=(data.first||"Your child")+" invited you to review "+(data.biz||"their business page")+". The draft stays on the device where they built it. Open Hustle Builder on that device, choose Go live, and select “I’m the parent — continue here.” Verify this email, review the page, and complete the refunded 50¢ parent card check. This link has not published anything.";
+      note.textContent=(data.first||"Your child")+" invited you to review "+(data.biz||"their business page")+". The draft stays on the device where they built it. Open Hustle Builder on that device, choose Go live, and select “I’m the parent — continue here.” Verify this email, review the page, and complete parent verification with a $0.50 card charge, followed by a refund to the same card. Your bank may take time to show the credit. This link has not published anything.";
       $("#pubBox").hidden=true;
       return;
     }
@@ -6518,7 +6519,7 @@ function applySeasonCopy(){
   const buy=$("#buySeason");
   const lead=document.querySelector("#planFirst .lead");
   if(buy) buy.textContent=snowSeason?"Buy the winter season, $9.99":"Buy the season, $9.99";
-  if(lead) lead.textContent=snowSeason?"Buy the winter season, $9.99. That payment is the parent check, and it never auto-renews.":"Buy the season, $9.99. That payment is the parent check, and it never auto-renews.";
+  if(lead) lead.textContent=snowSeason?"Buy the winter season, $9.99. That payment also completes parent verification, and it never auto-renews.":"Buy the season, $9.99. That payment also completes parent verification, and it never auto-renews.";
 }
 function paintExampleRates(){
   document.querySelectorAll(".example-rate").forEach((row,i)=>{
@@ -6609,17 +6610,17 @@ async function resumeConsent(kind){
   go(7);
   const box=$("#pubOk");
   if(kind==="cancel"){
-    if(box)box.textContent="The card check was not finished. Nothing was charged. The page is not online.";
+    if(box)box.textContent="You returned without completing parent verification. Your page is not online. Return to Go live to check the payment and refund status.";
     return;
   }
-  if(box)box.textContent="Card check received. Refunding the 50¢…";
+  if(box)box.textContent="Checking the $0.50 card payment and refund…";
   let ready=null;
   for(const start=Date.now(); Date.now()-start<45000; ){
     try{const now=await pubApi("/api/consent/confirm",{body:{}}); if(now&&now.consent){ready=now;break;}}catch(e){}
     await new Promise(r=>setTimeout(r,2000));
   }
   if(!ready){
-    if(box)box.textContent="The card check is still processing. Return to Go live in a minute to check your status. Do not start another card check.";
+    if(box)box.textContent="Parent verification is still processing. Return to Go live in a minute to check the payment and refund status. Please do not start another payment.";
     return;
   }
   const pending=pendingPublish();
