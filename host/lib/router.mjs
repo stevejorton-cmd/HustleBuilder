@@ -162,15 +162,15 @@ function html(status, markup) {
 // a request, a receipt, the privacy notice ...). Inline styles only: these are
 // also served under the published-page sandbox, which allows nothing else.
 const SHELL_CSS = "body{margin:0;background:#f4f1ec;color:#1d2226;font:18px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}"
-  + ".hb-top{background:#14181d;border-bottom:3px solid #ff5b14;padding:12px 16px}"
+  + ".hb-top{background:#14181d;border-bottom:3px solid #d94b3d;padding:12px 16px}"
   + ".hb-top a{color:#fff;text-decoration:none;font-weight:800;letter-spacing:.02em}"
   + "main{max-width:38rem;margin:1.5rem auto;padding:1.5rem 1.25rem 2rem;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.12)}"
   + "main.wide{max-width:46rem}"
   + "h1{font-size:1.6rem;line-height:1.2;margin:0 0 .75rem}h2{font-size:1.15rem;margin:1.6rem 0 .4rem}"
-  + "a{color:#b43c00}p{margin:.6rem 0}"
+  + "a{color:#a33128}p{margin:.6rem 0}"
   + "button,.hb-btn{font:700 18px system-ui,sans-serif;padding:13px 18px;border-radius:10px;border:2px solid #14181d;background:#14181d;color:#fff;cursor:pointer;margin:6px 8px 6px 0;text-decoration:none;display:inline-block}"
   + "button.alt{background:#fff;color:#14181d}"
-  + "textarea,input[type=text]{display:block;width:100%;box-sizing:border-box;margin-top:6px;font:18px system-ui,sans-serif;padding:10px;border:1px solid #8a949e;border-radius:8px}"
+  + "textarea,input[type=text],input[type=datetime-local]{display:block;width:100%;box-sizing:border-box;margin-top:6px;font:18px system-ui,sans-serif;padding:10px;border:1px solid #8a949e;border-radius:8px}"
   + ".hb-foot{max-width:38rem;margin:0 auto 2rem;padding:0 1.25rem;font-size:14px;color:#5a6672}.hb-foot a{color:#5a6672}"
   + "@media (max-width:480px){main{margin:0;border-radius:0;box-shadow:none}}";
 function shell(status, title, inner, opts = {}) {
@@ -593,7 +593,9 @@ function kidJob(row, account) {
     status: row.status || "new",
     place,
     price,
-    venmoUrl
+    venmoUrl,
+    cancelRequested: !!row.cancelRequestedAt,
+    reschedule: row.reschedule ? { start: row.reschedule.start, when: row.reschedule.when, requestedAt: row.reschedule.requestedAt } : null
   };
 }
 function venmoBits(account, row, { afterJob } = {}) {
@@ -1046,8 +1048,9 @@ async function releaseHeld(account, origin) {
   for (const row of rows) {
     if (row.status !== "held") continue;
     changed = true;
+    await ensureBookingLink(row,account);
     await ensureCalToken(account);
-    await savePublicEvent(row, account);
+    await savePublicEvent(row, account, origin);
     const mailed = await sendMail(parentBookingMail(row, origin, account));
     if(mailed.ok)row.status="new";
     if (mailed.ok && row.calJob) {
@@ -1095,11 +1098,12 @@ async function sendDoneNotice(account, row, origin) {
   const lead = kid + " finished " + job + (when ? " on " + when : "") + ". Thanks for hiring a kid-owned business!";
   const cash = "Pay " + kid + " in cash or as you arranged.";
   const button = payUrl ? mailButton(payUrl, price ? "Pay " + price + " with Venmo" : "Pay with Venmo", true) : "";
-  const text = [lead, price, payUrl ? payUrl : cash, page ? "Book again: " + page : ""].filter(Boolean).join("\n\n");
+  const text = [lead, price, payUrl ? payUrl : cash, manageBits(row,origin).text, page ? "Book again: " + page : ""].filter(Boolean).join("\n\n");
   const html = "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\">"
     + "<p>" + mailEscape(lead) + "</p>"
     + (price ? "<p><b>" + mailEscape(price) + "</b></p>" : "")
     + (payUrl ? button : "<p>" + mailEscape(cash) + "</p>")
+    + manageBits(row,origin).html
     + (page ? "<p><a href=\"" + mailEscape(page) + "\">Book again</a></p>" : "")
     + "</div>";
   const sent = await sendMail({
@@ -1137,6 +1141,7 @@ function calendarPitch(origin, account) {
 }
 function eventMailBits(origin, event) {
   if (!event || !event.token || !event.start) return { text: "", html: "" };
+  if(event.manageUrl)return {text:(event.confirmed?"This job is confirmed.":"Nothing is booked yet. The title says (requested) until the family confirms.")+"\nManage booking & calendar: "+event.manageUrl+"\n",html:'<p>'+(event.confirmed?"This job is confirmed.":"Nothing is booked yet. The family will confirm.")+'</p>'+mailButton(event.manageUrl,"View booking & calendar")};
   const apple = String(origin || "").replace(/\/$/, "") + "/api/event/" + event.token + ".ics";
   const google = gcalTemplate({
     start: event.start,
@@ -1154,7 +1159,7 @@ function eventMailBits(origin, event) {
       + mailButton(apple, "Add to Apple Calendar")
   };
 }
-async function savePublicEvent(row, account) {
+async function savePublicEvent(row, account, origin=process.env.PUBLIC_ORIGIN) {
   if (!row || row.eventToken) return;
   const start = (row.invite && row.invite.start) || (row.calJob && row.calJob.start) || "";
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start)) return;
@@ -1163,16 +1168,18 @@ async function savePublicEvent(row, account) {
   const customer = firstName(row.firstName || (row.fields && row.fields.name) || "");
   const rec = {
     token,
-    id: (row.calJob && row.calJob.id) || ("b" + rand(8)),
+    id: calendarRequestId(row) || ("b" + rand(8)),
     start,
     tz: (row.invite && row.invite.tz) || tzOf(account),
     summary: eventTitle(kid, row.service || "Job", customer, false),
     location: publicText((row.fields && row.fields.address) || ""),
     details: "Requested. Not confirmed yet.",
-    confirmed: false,
-    sequence: 0,
+    confirmed: row.status === "confirmed",
+    manageUrl: row.cancelToken ? bookingUrl(row, origin) : "",
+    sequence: Number(row.invite?.sequence || 0),
     createdAt: new Date().toISOString()
   };
+  if(rec.manageUrl)rec.details += "\nManage booking: " + rec.manageUrl;
   rec.expiresAt=Math.max(bookingExpiry(rec,60),bookingExpiry(row,60));
   await writeJson("events/" + token + ".json", rec);
   row.eventToken = token;
@@ -1202,7 +1209,7 @@ function parentBookingMail(row, origin, account) {
     "Address: " + (fields.address || ""),
     "Note: " + (fields.note || "none"),
     "",
-    eventMailBits(origin, row.publicEvent).text,
+    eventMailBits(origin, row.publicEvent?{...row.publicEvent,manageUrl:action}:null).text,
     pitch.text
   ].filter((line, i, arr) => !(line === "" && arr[i - 1] === "")).join("\n");
   const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif\">"
@@ -1212,7 +1219,7 @@ function parentBookingMail(row, origin, account) {
     + "<br>Job: " + mailEscape(fields.service || row.service) + "<br>When: " + mailEscape(fields.when || row.when)
     + "<br>Size: " + mailEscape(fields.size || "not sure") + "<br>How often: " + mailEscape(fields.freq || "not specified")
     + "<br>Address: " + mailEscape(fields.address || "") + "</p>"
-    + eventMailBits(origin, row.publicEvent).html
+    + eventMailBits(origin, row.publicEvent?{...row.publicEvent,manageUrl:action}:null).html
     + pitch.html + "</div>";
   return {
     to: row.parentEmail,
@@ -2042,7 +2049,7 @@ async function serveCalendar(token) {
     if (job.source !== "book") return [job];
     const row = byJob.get(job.id);
     if (row && row.status === "cancelled") return [];
-    return [{ ...job, status: row?.status || "new", sequence: row?.publicEvent?.sequence || row?.invite?.sequence || 0 }];
+    return [{ ...job, status: row?.status || "new", sequence: row?.publicEvent?.sequence || row?.invite?.sequence || 0, manageUrl:row?.actionToken ? siteOrigin(process.env.PUBLIC_ORIGIN)+"/?jobs=1" : "" }];
   });
   return calendarResponse(200, jobsToIcs(visible, Date.now(), tzOf(account)));
 }
@@ -2145,20 +2152,12 @@ function draftCode() {
   return Array.from(bytes, (b) => DRAFT_ALPHABET[b % DRAFT_ALPHABET.length]).join("");
 }
 async function notifyNeighbor({ origin, reply, fields, account, requestId, slug, event, venmo }) {
-  const cancel = rand(18);
   const rows=await loadRequests(account.id),row=rows.find(r=>r.id===requestId);
-  await writeJson("cancels/" + cancel + ".json", {
-    accountId: account.id,
-    parentEmail: account.email,
-    requestId: requestId || "",
-    customer: fields.name,
-    service: fields.service,
-    when: fields.when,
-    used: false, createdAt:new Date().toISOString(), expiresAt:row?bookingExpiry(row):Date.now()+30*864e5,
-    retentionVersion:2
-  });
-  if(row){row.cancelToken=cancel;await saveRequests(account.id,rows);}
-  const url = (origin || "") + "/api/cancel/" + cancel;
+  if (!row) return;
+  await ensureBookingLink(row, account);
+  await saveRequests(account.id, rows);
+  const url = bookingUrl(row, origin);
+  const legacyCancel = (origin || "") + "/api/cancel/" + row.cancelToken;
 
   const support = supportReply();
   const unread = support ? "" : "Replies to this email aren't read. The family will confirm with you.";
@@ -2169,9 +2168,10 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
     "Nothing is booked yet. The family will confirm with you.",
     "",
     venmo && venmo.text,
-    eventMailBits(origin, event).text,
-    "Changed your mind? Cancel here:",
+    eventMailBits(origin, row.publicEvent || event).text,
+    "View, reschedule, or cancel your booking:",
     url,
+    "Cancel this request: " + legacyCancel,
     "",
     "Make one for your kid, free for 14 days: https://hustlebuilder.org/?for=parents" + (slug ? "&ref=" + slug : ""),
     "",
@@ -2183,22 +2183,119 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
     + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p>"
     + "<p>Nothing is booked yet. The family will confirm with you.</p>"
     + (venmo && venmo.html || "")
-    + eventMailBits(origin, event).html
-    + "<p><a href=\"" + mailEscape(url) + "\">Cancel this request</a></p>"
+    + eventMailBits(origin, row.publicEvent || event).html
+    + "<p><a href=\"" + mailEscape(url) + "\">Manage booking</a></p>"
     + "<p><a href=\"https://hustlebuilder.org/?for=parents" + (slug ? "&amp;ref=" + mailEscape(slug) : "") + "\">Make one for your kid, free for 14 days</a></p>"
     + (unread ? "<p>" + mailEscape(unread) + "</p>" : "")
     + "</div>";
   await sendMail({ to: reply, ownerId:account.id, replyTo: support, subject: "We got your request", text, html: htmlMail });
 }
 
-function cancelPage(token, done, missing) {
-  const title = missing ? "This link is finished" : done ? "Request cancelled" : "Cancel this request?";
-  const inner = missing
-    ? "<p>This cancel link is no longer active.</p>"
-    : done
-      ? "<p>Cancelled. The family got a note.</p>"
-      : "<p>Nothing is booked until the family confirms. Tap below if you do not want this request.</p><form method=\"post\" action=\"/api/cancel/" + token + "\"><button type=\"submit\">Cancel this request</button></form>";
-  return shell(missing ? 404 : 200, title, `<h1>${title}</h1>${inner}`);
+// Customer links grant access to this booking only, never to the parent account.
+function bookingUrl(row, origin) { return siteOrigin(origin) + "/api/booking/" + row.cancelToken; }
+function manageBits(row, origin) {
+  if (!row.cancelToken) return {text:"",html:""};
+  const url=bookingUrl(row,origin);
+  return {text:"Manage booking: " + url + "\n",html:'<p><a href="'+mailEscape(url)+'">Manage booking</a></p>'};
+}
+async function ensureBookingLink(row,account) {
+  if (!row.cancelToken) row.cancelToken=rand(18);
+  const key="cancels/"+row.cancelToken+".json";
+  const previous=await readJson(key);
+  await writeJson(key,{...previous, accountId:account.id,requestId:row.id,parentEmail:account.email,
+    customer:row.firstName,service:row.service,when:row.when,used:row.status==="cancelled",
+    createdAt:row.createdAt,expiresAt:bookingExpiry(row),retentionVersion:2});
+}
+async function customerBooking(token) {
+  const rec=await activeCancel(token);
+  if (!rec?.accountId || !rec.requestId) return null;
+  const account=await readJson("accounts/"+rec.accountId+".json");
+  const rows=account?await loadRequests(account.id):[];
+  const row=rows.find(r=>r.id===rec.requestId && r.cancelToken===token);
+  return row?{account,rows,row}:null;
+}
+function bookingPage(token,row,account,origin,message="",errorStatus=200) {
+  if(!row)return shell(404,"This link is finished","<h1>This link is finished</h1><p>This booking is no longer stored.</p>");
+  const terminal=["cancelled","done"].includes(row.status);
+  const status={new:"Requested — awaiting family confirmation",held:"Requested — awaiting family confirmation",confirmed:"Confirmed",cancelled:"Cancelled",done:"Completed"}[row.status]||"Requested";
+  const base="/api/booking/"+token;
+  const tomorrow=new Date(Date.now()+864e5);
+  const min=wallIn(tomorrow,tzOf(account)).slice(0,10)+"T00:00";
+  const max=wallIn(Date.now()+120*864e5,tzOf(account)).slice(0,10)+"T23:59";
+  const inner=`<h1>${mailEscape(row.business||row.service||"Your booking")}</h1>
+${row.business&&row.business!==row.service?`<p>${mailEscape(row.service||"A job")}</p>`:""}<p><b>Status: ${mailEscape(status)}</b></p>
+<p>${mailEscape(row.when||row.invite?.start||"")} (${mailEscape(tzOf(account))})</p>
+${message?`<p role="status"><b>${mailEscape(message)}</b></p>`:""}
+${row.status==="cancelled"?"<p>This booking will not go ahead. The cancellation has been recorded.</p>":""}
+${row.reschedule?`<p>A change to <b>${mailEscape(row.reschedule.when)}</b> is waiting for the parent’s approval. Your current appointment stays in place until they approve.</p>`:""}
+${row.status==="confirmed"&&row.invite?`<p><a class="hb-btn" href="${base}/calendar.ics">Open calendar invitation</a></p><p>Use the invitation in your confirmation email to keep calendar updates connected. A separately imported copy may need manual cleanup.</p>`:""}
+${!terminal?`${!row.reschedule?`<h2>Request another time</h2><form method="post" action="${base}"><input type="hidden" name="action" value="reschedule"><label>New date and time (${mailEscape(tzOf(account))})<input type="datetime-local" name="start" min="${min}" max="${max}" required></label><p>The parent must approve. Your current appointment stays in place until then.</p><button type="submit">Request new time</button></form>`:""}
+<h2>Cancel</h2><form method="post" action="/api/cancel/${token}"><p>This cancels the request or confirmed appointment and tells the family.</p><button type="submit" class="alt">Cancel this request</button></form>`:""}
+${row.slug?`<p><a href="/${mailEscape(row.slug)}">Visit the business or request another job</a></p>`:""}
+<p>Declining an invitation or deleting a calendar copy does not cancel this booking. Use this page to cancel or request changes.</p>`;
+  return shell(errorStatus,"Manage booking",inner);
+}
+function bookingInvitation(row,account,origin,customer=false,method="REQUEST") {
+  const invite=row.invite;
+  if(!invite?.uid)return "";
+  const url=customer?bookingUrl(row,origin):siteOrigin(origin)+"/api/job/"+row.actionToken;
+  const summary=inviteSummary(row.kid,row.service,row.firstName);
+  return bookingInviteIcs({id:invite.uid.replace(/@hustlebuilder\.org$/,""),start:invite.start,tz:invite.tz,
+    summary,location:customer?(method==="CANCEL"?"":publicText(row.address||"")):row.address||"",
+    description:customer?((method==="CANCEL"?"Cancelled.":"Confirmed.")+"\nUse Manage booking to cancel or request another time. Declining or deleting a calendar copy does not cancel the booking.\nManage booking: "+url):[invite.description,"Manage booking: "+url].filter(Boolean).join("\n"),
+    attendee:customer?contactEmail(row.fields?.contact):account.email,sequence:Number(invite.sequence||0),method,
+    confirmed:row.status==="confirmed"||row.status==="done",url});
+}
+function notificationMessage(row) {
+  return contactEmail(row.fields?.contact)?"Saved. Email notices queued for the parent and customer.":"Saved. Parent email notice queued. Contact this phone-only customer directly by call or text.";
+}
+async function bookingNotices(account,row,origin,kind,extra="") {
+  const manage=manageBits(row,origin),parentUrl=siteOrigin(origin)+"/api/job/"+row.actionToken;
+  const lead=kind==="confirmed"?"Your booking is confirmed":kind==="rescheduled"?"Your booking time has changed":kind==="declined"?"The requested time change was declined":"Your booking has been cancelled";
+  const detail=([row.kid,row.business].filter(Boolean).join(" · ")||"Your booking")+" · "+(row.service||"Your booking")+(row.when?" · "+row.when+" ("+tzOf(account)+")":"")+". "+extra;
+  const customer=contactEmail(row.fields?.contact);
+  const parentIcs=kind==="cancelled"?takeCancelIcs(row):["confirmed","rescheduled"].includes(kind)?bookingInvitation(row,account,origin):"";
+  const customerIcs=kind==="cancelled"?(row.customerInviteSent?bookingInvitation(row,account,origin,true,"CANCEL"):""):["confirmed","rescheduled"].includes(kind)?bookingInvitation(row,account,origin,true):"";
+  const parentLead=kind==="cancelled"?(row.cancelledBy==="customer"?"A neighbor cancelled":"Booking cancelled: "+(row.service||"a job")):kind==="confirmed"?"Booking confirmed: "+row.service:kind==="rescheduled"?"Booking rescheduled: "+row.service:"Time change declined: "+row.service;
+  const calendarNote=kind==="cancelled"?"This booking will not go ahead. Your family calendar updates when your calendar app refreshes.":kind==="declined"?"Your original appointment remains in place.":"This job is confirmed. Calendar updates use the same appointment.";
+  const phone=customer?"":" Contact this phone-only customer directly by call or text.";
+  await sendMail({to:account.email,ownerId:account.id,replyTo:supportReply(),forParent:true,origin,subject:parentLead,
+    text:(row.firstName||"Neighbor")+" · "+detail+"\n\n"+calendarNote+phone+"\nManage booking: "+parentUrl,
+    html:'<p>'+mailEscape((row.firstName||'Neighbor')+' · '+detail)+'</p><p>'+mailEscape(calendarNote+phone)+'</p><p><a href="'+mailEscape(parentUrl)+'">Manage booking</a></p>',ics:parentIcs});
+  if(customer && customer!==String(account.email||"").toLowerCase()) {
+    const calendarAdvice=kind==="cancelled"?"A linked invitation can update through this cancellation notice. Please remove any separately saved calendar copy.":calendarNote;
+    const pay=kind==="confirmed"?venmoBits(account,row,{afterJob:false}):{text:"",html:""};
+    await sendMail({to:customer,ownerId:account.id,replyTo:supportReply(),subject:lead,
+      text:detail+"\n\n"+calendarAdvice+"\n\n"+pay.text+manage.text,
+      html:'<div style="font:18px/1.45 system-ui,sans-serif"><p>'+mailEscape(detail)+'</p><p>'+mailEscape(calendarAdvice)+'</p>'+pay.html+manage.html+'</div>',ics:customerIcs});
+    if(customerIcs&&kind!=="cancelled")row.customerInviteSent=true;
+  }
+}
+async function syncBookingEvent(row,account,origin) {
+  if(!row.invite)return;
+  row.invite.sequence=Math.max(Number(row.invite.sequence||0),Number(row.publicEvent?.sequence||0))+1;
+  row.invite.summary=inviteSummary(row.kid,row.service,row.firstName);
+  if(!row.eventToken)await savePublicEvent(row,account,origin);
+  if(row.publicEvent){
+    const event=row.publicEvent;
+    Object.assign(event,{start:row.invite.start,sequence:row.invite.sequence,confirmed:row.status==="confirmed"||row.status==="done",
+      summary:eventTitle(row.kid,row.service,row.firstName,row.status==="confirmed"||row.status==="done"),manageUrl:bookingUrl(row,origin)});
+    event.details=(event.confirmed?"Confirmed.":"Requested. Not confirmed yet.")+"\nManage booking: "+event.manageUrl;
+    event.expiresAt=Math.max(bookingExpiry(event,60),bookingExpiry(row,60));
+    await writeJson("events/"+row.eventToken+".json",event);
+  }
+  const jobs=await loadJobs(account.id,tzOf(account));
+  const id=calendarRequestId(row),job=jobs.find(j=>j.id===id);
+  if(job)job.start=row.invite.start;
+  if(row.calJob)row.calJob.start=row.invite.start;
+  await saveJobs(account.id,jobs,tzOf(account));
+  await ensureBookingLink(row,account);
+}
+async function cancelBooking(account,row,origin,by) {
+  row.status="cancelled";row.cancelledBy=by;row.cancelledAt=new Date().toISOString();
+  row.reschedule=null;row.cancelRequestedAt=null;
+  await bookingNotices(account,row,origin,"cancelled",by==="customer"?"Cancelled by the customer.":"Cancelled by the family.");
+  await removeCalendarRequest(account.id,row);await dropPublicEvent(row);await ensureBookingLink(row,account);
 }
 
 function clipDraft(value) {
@@ -2318,7 +2415,7 @@ async function routeRequest(req) {
   if (method === "GET" && eventFile) {
     const rec = await readJson("events/" + eventFile[1].toLowerCase() + ".json");
     if (!rec || !rec.start) return json(404, { ok: false, error: "missing" });
-    const body = addEventIcs({ ...rec, id: rec.id || "event", description: rec.confirmed ? "Confirmed." : "Requested. Not confirmed yet.", location: publicText(rec.location || "") });
+    const body = addEventIcs({ ...rec, id: rec.id || "event", description: rec.details || (rec.confirmed ? "Confirmed." : "Requested. Not confirmed yet."), url:rec.manageUrl||"", location: publicText(rec.location || "") });
     if (!body) return json(404, { ok: false, error: "missing" });
     return {
       status: 200,
@@ -2376,10 +2473,17 @@ async function routeRequest(req) {
     return withCors(json(200, { ok: true, code: draftGet[1], draft: rec.draft, updatedAt: rec.updatedAt }), req.headers && req.headers.origin);
   }
 
-  const cancelGet = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
-  if (method === "GET" && cancelGet) {
-    const rec = await activeCancel(cancelGet[1]);
-    return cancelPage(cancelGet[1], !!(rec && rec.used), !rec);
+  const bookingGet=route.match(/^(?:booking|cancel)\/([a-f0-9]{20,80})(\/calendar\.ics)?$/i);
+  if(method==="GET"&&bookingGet){
+    const hit=await customerBooking(bookingGet[1]);
+    if(!hit)return bookingPage(bookingGet[1],null,null,origin);
+    if(bookingGet[2]){
+      if(hit.row.status!=="confirmed")return json(409,{ok:false,error:"status"});
+      const ics=bookingInvitation(hit.row,hit.account,origin,true);
+      if(!ics)return json(404,{ok:false,error:"missing"});
+      return {...calendarResponse(200,ics),headers:{...calendarResponse(200,ics).headers,"content-disposition":'inline; filename="booking.ics"'}};
+    }
+    return bookingPage(bookingGet[1],hit.row,hit.account,origin);
   }
 
   const body = method === "GET" ? {} : parseBody(req.body);
@@ -2928,39 +3032,34 @@ async function routeRequest(req) {
     return withCors(json(200, { ok: true, code, link }), req.headers && req.headers.origin);
   }
 
-  const cancelPost = route.match(/^cancel\/([a-f0-9]{20,80})$/i);
-  if (method === "POST" && cancelPost) {
-    const rec = await activeCancel(cancelPost[1]);
-    if (!rec) return cancelPage(cancelPost[1], false, true);
-    if (!rec.used) {
-      rec.used = true;
-      rec.cancelledAt = new Date().toISOString();
-      await writeJson("cancels/" + cancelPost[1] + ".json", rec);
-      let cancelIcs = "";
-      if (rec.requestId && rec.accountId) {
-        const rows = await loadRequests(rec.accountId);
-        const row = rows.find((item) => item.id === rec.requestId);
-        if (row && row.status !== "done") {
-          row.status = "cancelled";
-          cancelIcs = takeCancelIcs(row);
-          await removeCalendarRequest(rec.accountId,row);
-          await dropPublicEvent(row);
-          await saveRequests(rec.accountId, rows);
-        }
-      }
-      const support = supportReply();
-      await sendMail({
-        to: rec.parentEmail,
-        replyTo: support,
-        forParent: true,
-        origin,
-        subject: "A neighbor cancelled",
-        text: rec.customer + " cancelled the request for " + (rec.service || "a job") + (rec.when ? " on " + rec.when : "") + ".\n\nYou do not need to do anything else.",
-        html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">" + mailEscape(rec.customer) + " cancelled the request for " + mailEscape(rec.service || "a job") + (rec.when ? " on " + mailEscape(rec.when) : "") + ".</p>",
-        ics: cancelIcs
-      });
+  const customerPost=route.match(/^(booking|cancel)\/([a-f0-9]{20,80})$/i);
+  if(method==="POST"&&customerPost){
+    const token=customerPost[2],hit=await customerBooking(token);
+    if(!hit)return bookingPage(token,null,null,origin);
+    const {account,rows,row}=hit;
+    if(customerPost[1]==="cancel"||body.action==="cancel"){
+      if(row.status==="done")return bookingPage(token,row,account,origin,"Completed jobs cannot be cancelled.",409);
+      if(row.status!=="cancelled"){await cancelBooking(account,row,origin,"customer");await saveRequests(account.id,rows);}
+      return bookingPage(token,row,account,origin,"Cancelled. Cancellation email notices have been queued for you and the family.");
     }
-    return cancelPage(cancelPost[1], true, false);
+    if(body.action!=="reschedule")return json(400,{ok:false,error:"action"});
+    if(["cancelled","done","held"].includes(row.status))return bookingPage(token,row,account,origin,"This booking cannot be rescheduled.",409);
+    const start=String(body.start||"").trim(),instant=jobInstant(start,tzOf(account));
+    const today=wallIn(Date.now(),tzOf(account)).slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start)||instant==null||wallIn(instant,tzOf(account))!==start||start.slice(0,10)<=today||start.slice(0,10)>wallIn(Date.now()+120*864e5,tzOf(account)).slice(0,10))return bookingPage(token,row,account,origin,"Choose a valid time from tomorrow through the next 120 days.",400);
+    if(start===row.invite?.start)return bookingPage(token,row,account,origin,"That is already your appointment time.",400);
+    if(row.reschedule){
+      return bookingPage(token,row,account,origin,row.reschedule.start===start?"This time change is already waiting for the parent’s approval.":"A time change is already waiting for approval.",row.reschedule.start===start?200:409);
+    }
+    if(await countKey(counterKey("reschedule",token),30))return bookingPage(token,row,account,origin,"Too many time-change requests today. Please try again tomorrow.",429);
+    row.reschedule={start,when:new Intl.DateTimeFormat("en-US",{timeZone:tzOf(account),weekday:"short",month:"long",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(instant)),requestedAt:new Date().toISOString()};
+    const action=siteOrigin(origin)+"/api/job/"+row.actionToken;
+    const lead=(row.firstName||"A customer")+" requested "+row.reschedule.when+" ("+tzOf(account)+") for "+row.service+". The current appointment stays in place until you approve.";
+    await sendMail({to:account.email,ownerId:account.id,replyTo:supportReply(),forParent:true,origin,subject:"New time requested: "+row.service,text:lead+"\n\nReview: "+action,html:'<p>'+mailEscape(lead)+'</p><p><a href="'+mailEscape(action)+'">Review time change</a></p>'});
+    const customer=contactEmail(row.fields?.contact),manage=manageBits(row,origin);
+    if(customer&&customer!==String(account.email).toLowerCase())await sendMail({to:customer,ownerId:account.id,replyTo:supportReply(),subject:"Your time change is awaiting approval",text:lead+"\n\n"+manage.text,html:'<p>'+mailEscape(lead)+'</p>'+manage.html});
+    await saveRequests(account.id,rows);
+    return bookingPage(token,row,account,origin,"Time change requested. The parent must approve it; your current appointment remains in place.");
   }
 
   if (method === "GET" && route === "plans") {
@@ -3011,6 +3110,29 @@ async function routeRequest(req) {
     return withCors(json(200, { ok: true, shareStreet: account.shareStreet }), req.headers && req.headers.origin);
   }
 
+  if(method==="POST"&&route==="my-jobs/cancel-request"){
+    const code=String(body.code||"").trim().toLowerCase();
+    let account=null;
+    if(/^[a-z0-9]{8}$/.test(code)){
+      const id=await(await store()).get("jobcode/"+code);
+      if(id)account=await readJson("accounts/"+id.trim()+".json");
+      else {const draft=await readJson("drafts/"+code+".json");if(draft?.accountId)account=await readJson("accounts/"+draft.accountId+".json");}
+    }
+    if(!account){const limited=await countKey(counterKey("codemiss",clientIp(req)),CODE_MISS_LIMIT);return json(limited?429:401,{ok:false,error:limited?"limit":"auth"});}
+    if(await countKey(counterKey("kidcancel",clientIp(req)),30))return json(429,{ok:false,error:"limit"});
+    const rows=await loadRequests(account.id),row=rows.find(r=>r.id===body.id);
+    if(!row)return json(404,{ok:false,error:"missing"});
+    if(!["new","confirmed"].includes(row.status))return json(409,{ok:false,error:"status",message:"This job is already finished or cancelled."});
+    if(!row.cancelRequestedAt){
+      row.cancelRequestedAt=new Date().toISOString();
+      const action=siteOrigin(origin)+"/api/job/"+row.actionToken;
+      const lead=(row.kid||"Your kid")+" asked you to cancel "+row.service+" · "+row.when+". The booking is still active until you decide.";
+      await sendMail({to:account.email,ownerId:account.id,replyTo:supportReply(),forParent:true,origin,subject:"Your kid asked to cancel a job",text:lead+"\n\nReview: "+action,html:'<p>'+mailEscape(lead)+'</p><p><a href="'+mailEscape(action)+'">Review cancellation request</a></p>'});
+      await saveRequests(account.id,rows);
+    }
+    return json(200,{ok:true,status:row.status,message:"Your parent has been asked. The job stays active until your parent cancels it."});
+  }
+
   if (method === "GET" && route === "my-jobs") {
     let account = await me();
     const parentSession = account;
@@ -3030,6 +3152,7 @@ async function routeRequest(req) {
     const rows = await loadRequests(account.id);
     const jobs = rows.map((row) => {
       const job = kidJob(row, account);
+      job.canAskCancel = !parentSession && ["new","confirmed"].includes(row.status);
       if (parentSession && parentSession.id === account.id && row.actionToken) job.action = row.actionToken;
       return job;
     });
@@ -3045,112 +3168,53 @@ async function routeRequest(req) {
     const rows = account ? await loadRequests(account.id) : [];
     const row = rows.find((item) => item.id === parts[1]);
     if (!account || !row) return finishedPage("This request is no longer stored. Requests are deleted about 30 days after the scheduled job, or arrival if undated.");
+    let updateMessage="";
     if (method === "POST") {
-      const next = String(body.status || "");
-      if (next !== "confirmed" && next !== "done" && next !== "cancelled") return json(400, { ok: false, error: "status" });
-      const was = row.status;
-      const cancelIcs = next === "cancelled" ? takeCancelIcs(row) : "";
-      row.status = next;
-      if(next==='cancelled'){await removeCalendarRequest(account.id,row);await dropPublicEvent(row);}
-      if ((next === "confirmed" || next === "done") && next !== was && row.eventToken) {
-        const rec = await readJson("events/" + row.eventToken + ".json");
-        if (rec) {
-          rec.sequence = Math.max(1, Number(rec.sequence || 0) + (rec.confirmed ? 0 : 1));
-          rec.confirmed = true;
-          rec.summary = String(rec.summary || "").replace(" (requested)", "");
-          rec.details = "Confirmed.";
-          await writeJson("events/" + row.eventToken + ".json", rec);
-          row.publicEvent = rec;
-          if (next === "confirmed") {
-            const add = eventMailBits(origin, rec);
-            const pay = venmoBits(account, row, { afterJob: false });
-            const confirmedIcs = addEventIcs(rec);
-            const who = row.firstName || "A neighbor";
-            const jobName = row.service || "a job";
-            await sendMail({
-              to: account.email,
-              replyTo: supportReply(),
-              forParent: true,
-              origin,
-              subject: "Booking confirmed: " + jobName,
-              text: who + " · " + jobName + " is confirmed.\n\n" + add.text,
-              html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(who) + " · " + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>",
-              ics: confirmedIcs
-            });
-            const neighbor = contactEmail(row.fields && row.fields.contact);
-            if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
-              await sendMail({
-                to: neighbor,
-                replyTo: supportReply(),
-                subject: "Your booking is confirmed",
-                text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + pay.text + add.text,
-                html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + pay.html + add.html + "</div>",
-                ics: confirmedIcs
-              });
-            }
+      const next=String(body.status||"");
+      if(!["confirmed","done","cancelled","accept-reschedule","decline-reschedule","keep-booking"].includes(next))return json(400,{ok:false,error:"status"});
+      if(["cancelled","done"].includes(row.status)&&next!==row.status)return json(409,{ok:false,error:"terminal",message:"This booking is already finished. Create a new request for another job."});
+      await ensureBookingLink(row,account);
+      if(next==="accept-reschedule"||next==="decline-reschedule"){
+        if(!row.reschedule||body.start!==row.reschedule.start)return json(409,{ok:false,error:"reschedule",message:"The requested time has changed. Refresh and review it again."});
+        if(next==="accept-reschedule"){
+          const start=row.reschedule.start;
+          if(jobInstant(start,tzOf(account))<=Date.now())return json(409,{ok:false,error:"date",message:"That requested time has passed. Ask the customer for another time."});
+          row.when=row.reschedule.when;row.fields||={};row.fields.when=row.when;
+          if(row.invite)row.invite.start=start;
+          else {
+            const id="b"+rand(8);row.calendarJobId=id;
+            row.invite={uid:id+"@hustlebuilder.org",start,tz:tzOf(account),sequence:0,attendee:account.email};
+            const jobs=await loadJobs(account.id,tzOf(account));jobs.push({id,source:"book",start,kid:row.kid,service:row.service,customer:row.firstName,address:row.address,createdAt:row.createdAt});await saveJobs(account.id,jobs,tzOf(account));
           }
+          row.status="confirmed";row.reschedule=null;
+          await syncBookingEvent(row,account,origin);await bookingNotices(account,row,origin,"rescheduled");
+        }else{row.reschedule=null;await bookingNotices(account,row,origin,"declined");}
+      }else if(next==="keep-booking"){
+        row.cancelRequestedAt=null;
+      }else if(next!==row.status){
+        if(next==="cancelled")await cancelBooking(account,row,origin,"family");
+        else {
+          row.status=next;
+          if(next==="confirmed"){await syncBookingEvent(row,account,origin);await bookingNotices(account,row,origin,"confirmed");}
+          if(next==="done"){row.reschedule=null;row.cancelRequestedAt=null;await syncBookingEvent(row,account,origin);if(!row.doneMailedAt){const told=await sendDoneNotice(account,row,origin);if(told)row.doneMailedAt=new Date().toISOString();}}
         }
       }
-      if (next === "done" && !row.doneMailedAt) {
-        const told = await sendDoneNotice(account, row, origin);
-        if (told) row.doneMailedAt = new Date().toISOString();
-      }
-      // The parent is cancelling the request, not merely hiding it locally.
-      // Notify an email customer once. Do not forward the private parent
-      // calendar invitation: it can contain access notes and parent details.
-      if (next === "cancelled" && !row.cancelMailedAt) {
-        const neighbor = contactEmail(row.fields && row.fields.contact);
-        if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
-          const job = row.service || "Your booking";
-          const when = row.when ? " for " + row.when : "";
-          const text = job + when + " has been cancelled by the family. This booking will not go ahead.\n\nPlease remove it from your calendar. If you need another time, contact the family or send a new request through their page.";
-          const sent = await sendMail({
-            to: neighbor,
-            replyTo: supportReply(),
-            subject: "Your booking has been cancelled",
-            text,
-            html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(job + when) + " has been cancelled by the family. This booking will not go ahead.</p><p>Please remove it from your calendar. If you need another time, contact the family or send a new request through their page.</p></div>"
-          });
-          if (sent.ok) row.cancelMailedAt = new Date().toISOString();
-        }
-      }
-      await saveRequests(account.id, rows);
-      if (cancelIcs) await sendMail({
-        to: account.email,
-        replyTo: supportReply(),
-        forParent: true,
-        origin,
-        subject: "Booking cancelled: " + (row.service || "a job"),
-        text: "You marked this request cancelled. It comes off your calendar.\n\n" + (row.firstName || "Neighbor") + " · " + (row.service || "a job"),
-        html: "<p style=\"font:18px/1.45 system-ui,sans-serif\">You marked this request cancelled. It comes off your calendar.</p>",
-        ics: cancelIcs
-      });
-      if (body.json === true) return json(200, { ok: true, status: row.status });
+      await saveRequests(account.id,rows);
+      updateMessage=next==="keep-booking"?"Kept the booking. Your kid can see that the request was cleared.":notificationMessage(row);
+      if(body.json===true)return json(200,{ok:true,status:row.status,message:updateMessage});
     }
-    const title = row.status === "new" ? "New request" : row.status[0].toUpperCase() + row.status.slice(1);
-    return shell(200, title, `<h1>${mailEscape(row.service || "A job")}</h1>
-<p>${mailEscape(row.firstName || "Neighbor")} · ${mailEscape(row.when || "")}</p>
-<p>Status: <b id="st">${mailEscape(row.status)}</b></p>
-<p>${mailEscape((row.fields && row.fields.contact) || "")}<br>${mailEscape((row.fields && row.fields.address) || "")}</p>
-<p>For requests with a date and customer email, Confirm sends a confirmation. Done sends a completion notice to customers with an email.</p>
-<p>Cancel updates your list and calendar and emails a cancellation to customers with an email. For phone-only requests, contact the customer directly to confirm or cancel.</p>
-<button type="button" id="yes">Confirmed</button>
-<button type="button" id="done">Done</button>
-<button type="button" id="no" class="alt">Cancelled</button>
-<p id="msg" role="status"></p>
-<script>
-async function mark(status){
-  const msg=document.getElementById("msg");
-  try{
-    const res=await fetch(location.pathname,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});
-    if(res.ok){document.getElementById("st").textContent=status;msg.textContent="Saved.";}
-    else msg.textContent="Could not save that. Try again.";
-  }catch(e){msg.textContent="Could not save that. Check your connection and try again.";}
-}
-document.getElementById("yes").onclick=()=>mark("confirmed");
-document.getElementById("done").onclick=()=>mark("done");
-document.getElementById("no").onclick=()=>mark("cancelled");
-</script>`);
+    const title=row.status==="new"?"New request":row.status;
+    const terminal=["cancelled","done"].includes(row.status);
+    return shell(200,title,`<h1>${mailEscape(row.service||"A job")}</h1>
+<p>${mailEscape(row.firstName||"Neighbor")} · ${mailEscape(row.when||"")}</p>
+<p>Status: <b>${mailEscape(row.status)}</b></p>
+<p>${mailEscape(row.fields?.contact||"")}<br>${mailEscape(row.address||"")}</p>
+${row.cancelRequestedAt&&!terminal?'<p><b>Your kid asked to cancel this job.</b> The booking stays active until you decide.</p>':""}
+${row.reschedule&&!terminal?`<h2>Time change requested</h2><p>${mailEscape(row.reschedule.when)} (${mailEscape(tzOf(account))}). The original appointment stays in place until you approve.</p>
+<form method="post"><input type="hidden" name="start" value="${mailEscape(row.reschedule.start)}"><button name="status" value="accept-reschedule">Accept new time</button><button name="status" value="decline-reschedule" class="alt">Keep original time</button></form>`:""}
+${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for email customers. Contact phone-only customers directly by call or text.</p>
+<form method="post">${row.status!=="confirmed"?'<button name="status" value="confirmed">Confirm booking</button>':""}<button name="status" value="done">Mark done</button><button name="status" value="cancelled" class="alt">Cancel request</button>${row.cancelRequestedAt?'<button name="status" value="keep-booking" class="alt">Keep booking</button>':""}</form>`:"<p>This booking is finished. No further changes can be made.</p>"}
+<p role="status">${mailEscape(updateMessage)}</p>`);
   }
 
   const renewGet = route.match(/^renew\/([a-f0-9]{16,80})$/i);
@@ -3323,6 +3387,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       idempotencyKey:dedupe,
       createdAt: new Date().toISOString()
     };
+    await ensureBookingLink(row,account);
     await (await store()).put("jobact/" + actionToken, account.id + ":" + requestId);
     const rows = await loadRequests(account.id);
     rows.push(row);
@@ -3343,9 +3408,9 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
     }
     await ensureCalToken(account);
-    await savePublicEvent(row, account);
+    await savePublicEvent(row, account, origin);
     const pitch = calendarPitch(origin, account);
-    const add = eventMailBits(origin, row.publicEvent);
+    const add = eventMailBits(origin, row.publicEvent?{...row.publicEvent,manageUrl:actionUrl}:null);
     const fullText = text + "\n\n" + add.text + "\nMark it confirmed or done:\n" + actionUrl + (pitch.text ? "\n\n" + pitch.text : "");
     const fullHtml = htmlMail.replace("</div>", "<p><a href=\"" + mailEscape(actionUrl) + "\">Mark confirmed or done</a></p>" + add.html + pitch.html + "</div>");
     const mailed = await sendMail({
@@ -3965,20 +4030,21 @@ async function requestLocks(req) {
     const pi=String(body.data?.object?.payment_intent||'');
     if(/^pi_[A-Za-z0-9_]+$/.test(pi)){keys.push('payintent:'+pi);const ptr=await read('payintents/'+pi+'.json');if(/^[a-f0-9]{8,32}$/.test(String(ptr?.accountId||'')))accountIds.add(ptr.accountId);}
   }
-  const capability=route.match(/^(cancel|job|renew|cal)\/([a-f0-9]+)(?:\.ics)?$/);
+  const capability=route.match(/^(cancel|booking|job|renew|cal)\/([a-f0-9]+)(?:\/calendar\.ics|\.ics)?$/);
   if(capability){const [,kind,token]=capability;
-    if(kind==='cancel'){const row=await read('cancels/'+token+'.json');if(row?.accountId)accountIds.add(row.accountId);}
+    if(kind==='cancel'||kind==='booking'){const row=await read('cancels/'+token+'.json');if(row?.accountId)accountIds.add(row.accountId);}
     else {const pointer=await s.get((kind==='job'?'jobact/':kind==='cal'?'caltokens/':'renew/')+(kind==='cal'?sha(token):token));if(pointer)accountIds.add(pointer.split(':')[0]);}
   }
   const code=String(body.code||req.query?.get?.('code')||'').trim().toLowerCase();
   if(/^[a-z0-9]{8}$/.test(code))keys.push('draft:'+code);
   if(route.startsWith('ask/'))keys.push('ask:'+route.split('/')[1]);
   if(route==='book'||route==='ask'||route==='draft'||route.startsWith('auth/'))keys.push('quota:'+route.split('/')[0]+':'+sha(clientIp(req)));
-  if(req.method==='GET'&&route==='my-jobs'&&code){const id=await s.get('jobcode/'+code);if(id)accountIds.add(id);else{const d=await read('drafts/'+code+'.json');if(d?.accountId)accountIds.add(d.accountId);}}
+  if((route==='my-jobs'||route==='my-jobs/cancel-request')&&code){const id=await s.get('jobcode/'+code);if(id)accountIds.add(id);else{const d=await read('drafts/'+code+'.json');if(d?.accountId)accountIds.add(d.accountId);}}
   if(route==='slug'&&req.method==='POST'){
     for(const id of accountIds){const account=await read('accounts/'+id+'.json');for(const owned of [...slugsOf(account),...(account?.formerSlugs||[])])keys.push('slug:'+owned);}
   }
   if(route==='report')keys.push('quota:report:'+sha(clientIp(req)));
+  if(route==='my-jobs/cancel-request')keys.push('quota:kidcancel:'+sha(clientIp(req)));
   keys.push(...[...accountIds].map(id=>'account:'+id));
   const readOnly=String(req.method).toUpperCase()==='GET'&&(/^(site\/|card\/|qr\/|slug$|plans$|test\/outbox$)/.test(route));
   // Each of these used to take the site-wide exclusive lock (pausing every

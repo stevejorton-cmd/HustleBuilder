@@ -38,10 +38,11 @@ test('readiness: signup, consent, publish, duplicate booking, confirm and parent
   assert.equal((await inbox(neighbor)).length,before+1);
   const notice=(await inbox(neighbor)).find(m=>m.subject==='Your booking has been cancelled');
   assert.ok(notice);
-  assert.match(notice.text,/cancelled by the family/);
+  assert.match(notice.text,/cancelled by the family/i);
   assert.match(notice.text,/Yard cleanup/);
   assert.doesNotMatch(JSON.stringify(notice),/Private test key note|readiness-parent@example.com|123 Example Lane/);
-  assert.equal(notice.ics||'', '','Never forward the private parent calendar attachment');
+  assert.match(notice.ics,/METHOD:CANCEL/,'Send a customer-safe cancellation invitation');
+  assert.doesNotMatch(notice.ics,/Private test key note|readiness-parent@example.com|\/api\/job\//,'Never forward parent private details');
   assert.equal((await inbox(email)).filter(m=>/^Booking cancelled:/.test(m.subject)).length,1);
   await json('POST',action,{status:'cancelled',json:true},token);
   assert.equal((await inbox(email)).filter(m=>/^Booking cancelled:/.test(m.subject)).length,1);
@@ -78,7 +79,8 @@ test('readiness: signup, consent, publish, duplicate booking, confirm and parent
   assert.equal((await inbox(neighbor)).length,customerMailBeforeTrialChange,'Family plan checkout must not send a customer booking cancellation');
   const screen=(await call('GET',action)).body;
   assert.doesNotMatch(screen,/These buttons only update/);
-  assert.match(screen,/emails a cancellation to customers with an email/);
+  assert.match(screen,/This booking is finished/);
+  assert.doesNotMatch(screen,/<button[^>]*value="(?:confirmed|done|cancelled)"/);
  } finally {
   for(const k of ['PUBLISH_TEST_MODE','PAYWALL_MODE','PUBLIC_ORIGIN','ADMIN_SECRET']){if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
   await rm(dir,{recursive:true,force:true});

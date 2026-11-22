@@ -255,9 +255,11 @@ test("a family outside Central time gets calendar events at the hour the neighbo
   assert.match(feed.body, /DTEND:20261202T220000Z/);
   assert.equal(feed.body.includes("TZID=America/Chicago"), false);
   const mail = (await outbox(p.email)).find((m) => /Booking request/.test(m.subject));
-  assert.match(mail.text, /dates=20261202T210000Z\/20261202T220000Z/);
+  assert.match(mail.text, /Manage booking & calendar:/);
+  assert.doesNotMatch(mail.text, /action=TEMPLATE/);
   assert.equal(mail.text.includes("ctz="), false);
   assert.match(mail.ics, /DTSTART:20261202T210000Z/);
+  assert.match(mail.ics, /DTEND:20261202T220000Z/);
   // A junk zone from the browser is ignored, not stored.
   await call("POST", "/api/publish", { token: p.token, body: { slug: "sam-yard", html: page("Sam"), tz: "Not/AZone" } });
   assert.equal((await readAccount(p.id)).tz, "America/New_York");
@@ -322,7 +324,7 @@ test("host-made pages cannot be framed and do not leak private links", async () 
   assert.equal(job.status, 200);
   assert.equal(job.headers["x-frame-options"], "DENY");
   assert.equal(job.headers["referrer-policy"], "no-referrer");
-  assert.match(job.body, /id="no"/, "a parent can mark a request cancelled");
+  assert.match(job.body, /name="status" value="cancelled"/, "a parent can mark a request cancelled");
   assert.equal(mail.html.includes('Pat "Q" Jones'), false, "quotes are escaped in mail markup");
   assert.match(mail.html, /Pat &quot;Q&quot; Jones/);
   const gone = await call("GET", "/api/job/" + "a".repeat(24));

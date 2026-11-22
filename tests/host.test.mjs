@@ -55,6 +55,14 @@ async function parent(email = "parent@example.com") {
   return { email, token: verify.body.token, code: start.body.devCode };
 }
 
+// Inspect this test's stored request to exercise the legacy calendar endpoint
+// even though new email links now lead to the managed booking page.
+async function requestForSlug(slug) {
+  const meta=JSON.parse(await readFile(path.join(dir,"pages",slug+".json"),"utf8"));
+  const rows=JSON.parse(await readFile(path.join(dir,"requests",meta.accountId+".json"),"utf8"));
+  return rows.find(row=>row.slug===slug);
+}
+
 async function pendingSession(accountId,plan,id) {
   const file=dir+'/accounts/'+accountId+'.json';
   const account=JSON.parse(await readFile(file,'utf8'));
@@ -225,7 +233,8 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   assert.match(msg.html, /tel:\+14025550199/);
   assert.match(msg.html, /sms:\+14025550199/);
   assert.equal(msg.replyTo, "");
-  assert.match(msg.text, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
+  assert.match(msg.text, /Manage booking/);
+  assert.doesNotMatch(msg.text,/calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
   assert.match(msg.text, /about 30 days/);
   assert.match(msg.ics, /BEGIN:VCALENDAR\r\n/);
   assert.match(msg.ics, /METHOD:REQUEST/);
@@ -281,10 +290,8 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.equal(booked.body.ok, true);
   const parentBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   const parentMail = parentBox.body.messages.find((m) => /Booking request/.test(m.subject));
-  assert.match(parentMail.html, /Add to Google Calendar/);
-  assert.match(parentMail.html, /Add to Apple Calendar/);
   assert.match(parentMail.text, /\(requested\)/);
-  assert.match(parentMail.text, /dates=20261116T220000Z\/20261116T230000Z/);
+  assert.match(parentMail.ics, /DTSTART;TZID=America\/Chicago:20261116T160000/);
   assert.match(parentMail.text, /Subscribe in Google Calendar/);
   assert.match(parentMail.html, /href="http:\/\/sites\.test\/calendar\/subscribe\/[a-f0-9]+"/);
   assert.equal(/href="webcal:/.test(parentMail.html), false);
@@ -299,11 +306,15 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.match(parentMail.ics, /SEQUENCE:0/);
   const neighborBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.neighbor@example.com")));
   const neighborMail = neighborBox.body.messages[0];
-  assert.match(neighborMail.html, /Add to Google Calendar/);
-  assert.match(neighborMail.html, /Add to Apple Calendar/);
+  assert.match(neighborMail.html, /View booking &amp; calendar|View booking & calendar/);
+  assert.doesNotMatch(neighborMail.text, /calendar\.google\.com\/calendar\/render/);
   assert.equal(neighborMail.text.includes(email), false);
   assert.equal(neighborMail.text.includes("402-555-0100"), false);
-  const applePath = neighborMail.text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const stored=await requestForSlug("will-tap");
+  const applePath="/api/event/"+stored.eventToken+".ics";
+  const managedPath="/api/booking/"+stored.cancelToken;
+  assert.match(neighborMail.text,new RegExp(managedPath));
+  assert.equal((await call("GET",managedPath+"/calendar.ics")).status,409,"a requested job cannot be saved as a confirmed invitation");
   const apple = await call("GET", applePath);
   assert.match(apple.headers["content-type"], /text\/calendar/);
   assert.match(apple.headers["content-disposition"], /inline; filename="booking\.ics"/);
@@ -340,7 +351,16 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.equal(confirmedIcs.body.includes("(requested)"), false);
   assert.match(confirmedParent.ics, /SEQUENCE:1/);
   assert.match(confirmedParent.ics, new RegExp("UID:" + requestUid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.equal(confirmedParent.ics.includes(email), false);
+  assert.match(confirmedParent.ics, /METHOD:REQUEST/);
+  assert.ok(confirmedParent.ics.includes(email),"the private parent invitation identifies its attendee");
+  assert.match(confirmedNeighbor.ics, /METHOD:REQUEST/);
+  assert.equal(confirmedNeighbor.ics.includes(email),false);
+  assert.equal(confirmedNeighbor.ics.includes("402-555-0100"),false);
+  const managedIcs=await call("GET",managedPath+"/calendar.ics");
+  assert.equal(managedIcs.status,200);assert.match(managedIcs.body,/METHOD:REQUEST/);
+  assert.match(managedIcs.body,/STATUS:CONFIRMED/);
+  assert.ok(managedIcs.body.includes("UID:"+requestUid));
+  assert.equal(managedIcs.body.includes(email),false);
 });
 
 test("a booking for today or earlier is refused", async () => {
@@ -426,7 +446,7 @@ test("a priced booking opens Venmo with the parent handle, amount, and note", as
   assert.match(src, /id="acctVenmo"/);
   assert.equal(src.includes("id=\"skipLive\""), false);
   assert.match(src, /\.kidjob \.venmo-pay\{[^}]*margin:14px 0 0[^}]*min-height:48px[^}]*text-decoration:none[^}]*clip-path:none/);
-  assert.match(src, /\.kidjob \.mbtns\{display:flex;gap:8px;margin-top:14px\}/);
+  assert.match(src, /\.kidjob \.mbtns\{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px\}/);
   assert.match(src, /Copy customer payment link/);
 });
 
@@ -525,7 +545,8 @@ test("something else takes its name from the note, and email plus phone both sta
   assert.match(msg.html, />Call Dana</);
   assert.match(msg.html, />Text Dana</);
   assert.match(msg.html, />Email Dana</);
-  assert.match(msg.text, /text=Will%3A%20Dog%20walking%20\(requested\)%20-%20Dana/);
+  assert.match(msg.text, /Manage booking/);
+  assert.doesNotMatch(msg.text,/calendar\.google\.com\/calendar\/render/);
   const ics = msg.ics.replace(/\r\n[ \t]/g, "");
   assert.match(ics, /SUMMARY:Will: Dog walking - Dana/);
   const me = await json(await call("GET", "/api/me", { token }));
@@ -740,8 +761,9 @@ test("deleting the account removes calendar jobs and takedown does not", async (
   assert.equal(still.status, 200);
   assert.match(still.body, /50 Feed St/);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("gone@example.com")));
-  const apple = box.body.messages.map((m) => m.text).join("\n").match(/\/api\/event\/[a-f0-9]+\.ics/);
-  assert.ok(apple);
+  const stored=await requestForSlug("sam");
+  const apple=["/api/event/"+stored.eventToken+".ics"];
+  assert.ok(stored.eventToken);
   assert.equal((await call("GET", apple[0])).status, 200);
   const gone = await json(await call("DELETE", "/api/account", { token }));
   assert.equal(gone.body.ok, true);
@@ -1335,10 +1357,11 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   assert.match(msg.text, /Make one for your kid, free for 14 days/);
   assert.match(msg.text, /Nothing is booked yet/);
   assert.match(msg.text, /\(requested\)/);
-  assert.match(msg.html, /Add to Google Calendar/);
-  assert.match(msg.html, /Add to Apple Calendar/);
+  assert.match(msg.html, /View booking &amp; calendar|View booking & calendar/);
+  assert.doesNotMatch(msg.text,/calendar\.google\.com\/calendar\/render/);
   assert.match(msg.html, /display:block/);
-  const applePath = msg.text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const stored=await requestForSlug("riley-pets");
+  const applePath="/api/event/"+stored.eventToken+".ics";
   const apple = await call("GET", applePath);
   assert.equal(apple.status, 200);
   assert.match(apple.headers["content-type"], /text\/calendar/);
@@ -1368,7 +1391,12 @@ test("a neighbor with an email gets a request note and a cancel link that tells 
   }, headers: { "x-forwarded-for": "198.51.100.77" } }));
   assert.equal(phoneOnly.body.ok, true);
   const notes = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor@example.com")));
-  assert.equal(notes.body.messages.length, 1);
+  assert.equal(notes.body.messages.length, 2,"the requester receives an acknowledgment and cancellation receipt");
+  assert.match(notes.body.messages[1].subject,/cancelled/i);
+  const beforeRepeat=parentMail.body.messages.filter(m=>/cancelled/i.test(m.subject)).length;
+  await call("POST",cancelPath,{raw:""});
+  const repeated=await json(await call("GET","/api/test/outbox?email="+encodeURIComponent(email)));
+  assert.equal(repeated.body.messages.filter(m=>/cancelled/i.test(m.subject)).length,beforeRepeat,"repeating a cancellation does not notify the parent twice");
   delete process.env.REPLY_TO;
 });
 
@@ -1658,8 +1686,10 @@ test("a public calendar file leaves out a gate note and disappears when the job 
   const parentMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   assert.match(parentMail.body.messages.at(-1).text, /gate code 4481/);
   const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.gate@example.com")));
-  const apple = neighbor.body.messages[0].text.match(/\/api\/event\/[a-f0-9]+\.ics/);
-  assert.ok(apple);
+  const stored=await requestForSlug("gate-yard");
+  const apple=["/api/event/"+stored.eventToken+".ics"];
+  assert.ok(stored.eventToken);
+  assert.match(neighbor.body.messages[0].text,new RegExp("/api/booking/"+stored.cancelToken));
   const file = await call("GET", apple[0]);
   assert.equal(file.status, 200);
   assert.equal(file.body.includes("4481"), false);
@@ -3840,7 +3870,11 @@ test("family subscription tracks sibling request status, stable UIDs, cancellati
   assert.deepEqual(await events(family.feed),mixed);
   const box=await json(await call("GET","/api/test/outbox?email=casey.calendar%40example.com"));
   const confirmation=box.body.messages.find(m=>m.subject==="Your booking is confirmed");
-  const eventPath=confirmation.text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const stored=await requestForSlug("alex-calendar");
+  const eventPath="/api/event/"+stored.eventToken+".ics";
+  const managedEventPath="/api/booking/"+stored.cancelToken+"/calendar.ics";
+  assert.match(confirmation.ics,/METHOD:REQUEST/);
+  assert.deepEqual((await events(managedEventPath))[0],confirmed,"the connected customer invitation matches the family event");
   const one=await events(eventPath);
   assert.deepEqual(one[0],confirmed,"the subscription and one-booking file use the same identity and revision");
   await call("POST","/api/job/"+alexAction,{body:{status:"cancelled",json:true}});
@@ -3851,7 +3885,7 @@ test("family subscription tracks sibling request status, stable UIDs, cancellati
   assert.equal((await call("GET",eventPath)).status,404);
   await call("POST","/api/job/"+rileyAction,{body:{status:"confirmed",json:true}});
   await call("POST","/api/job/"+rileyAction,{body:{status:"done",json:true}});
-  const done=await events(family.feed);assert.equal(done.length,1);assert.equal(done[0].uid,riley.uid);assert.equal(done[0].status,"CONFIRMED");assert.equal(done[0].sequence,1);
+  const done=await events(family.feed);assert.equal(done.length,1);assert.equal(done[0].uid,riley.uid);assert.equal(done[0].status,"CONFIRMED");assert.equal(done[0].sequence,2,"marking the confirmed event done advances its revision");
   assert.deepEqual(await events(other.feed),isolated);
 });
 
@@ -3867,7 +3901,8 @@ test("marking a request done directly gives both calendar views a confirmed revi
   await call("POST","/api/job/"+list.body.jobs[0].action,{body:{status:"done",json:true}});
   const box=await json(await call("GET","/api/test/outbox?email="+encodeURIComponent(contact)));
   assert.equal(box.body.messages.filter(m=>m.subject==="Your booking is confirmed").length,0);
-  const eventPath=box.body.messages.find(m=>/\/api\/event\//.test(m.text)).text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const stored=await requestForSlug("done-calendar");
+  const eventPath="/api/event/"+stored.eventToken+".ics";
   const one=await call("GET",eventPath);
   const me=await json(await call("GET","/api/me",{token}));
   const feed=await call("GET",new URL(me.body.calUrl).pathname);

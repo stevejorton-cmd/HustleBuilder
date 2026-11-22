@@ -695,8 +695,11 @@ details.help li{margin-bottom:10px}
 .kidjob b,.kidjob span{display:block}
 .kidjob .job-owner{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:6px}
 .kidjob .jobst{font-weight:700;margin:14px 0 0}
-.kidjob .mbtns{display:flex;gap:8px;margin-top:14px}
-.kidjob .mbtns button{flex:1 1 0;min-width:0;min-height:44px;padding:8px 6px;border:2px solid var(--line,#e6e1d8);border-radius:8px;background:var(--raised);color:var(--ink);font:700 15px/1.2 system-ui,sans-serif;cursor:pointer}
+.kidjob .mbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.kidjob .job-change{margin:12px 0 0;padding:12px;border-left:4px solid var(--accent);background:var(--surface);font-size:16px;line-height:1.45}
+.kidjob .job-change p{margin:0 0 8px}
+.kidjob .job-change .mbtns{margin-top:8px}
+.kidjob .mbtns button{flex:1 1 120px;min-width:0;min-height:44px;padding:8px 6px;border:2px solid var(--line,#e6e1d8);border-radius:8px;background:var(--raised);color:var(--ink);font:700 15px/1.2 system-ui,sans-serif;cursor:pointer}
 .kidjob .venmo-pay{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;margin:14px 0 0;min-height:48px;padding:12px 16px;border-radius:10px;background:#3D95CE;color:#fff;text-decoration:none;font:800 17px/1.2 system-ui,sans-serif;clip-path:none}
 .kidjob .venmo-note{margin:14px 0 0}
 #jobBadge{display:inline-block;background:var(--accent);color:#fff;border-radius:99px;min-width:1.4em;text-align:center;font-size:13px;margin-left:6px}
@@ -1185,7 +1188,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
               <a class="btn" id="jobCalApple" href="">Subscribe on iPhone</a>
             </div>
           </div>
-          <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent marks them confirmed or done.</p>
+          <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent confirms changes and cancellations.</p>
           <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
           <p class="status" id="jobStatus" role="status" aria-live="polite"></p>
           <div id="jobList"></div>
@@ -5956,20 +5959,25 @@ async function loadMyJobs(options){
     const list=$("#jobList");if(!list)return;
     const jobs=data.jobs||[],canManage=jobs.some(j=>j.action)||!!session;
     const signIn=$("#jobSignIn");if(signIn)signIn.hidden=canManage;
-    if(status)status.textContent=canManage?"Up to date. Contact phone-only customers directly about changes.":"A parent signs in to confirm, finish, or cancel requests.";
+    if(status)status.textContent=canManage?"Up to date. Contact phone-only customers directly about changes.":"A parent confirms, finishes, or cancels requests. You can ask your parent to cancel an active request.";
     list.innerHTML=jobs.map(j=>{
       const terminal=j.status==="done"||j.status==="cancelled";
       const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button>':'';
       const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done">Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
+      const ask=!j.action&&!terminal&&j.canAskCancel&&!j.cancelRequested?'<div class="mbtns"><button type="button" class="btn outline" data-ask-cancel="'+esc(j.id)+'">Ask my parent to cancel</button></div>':'';
+      const cancelNote=!terminal&&j.cancelRequested?'<div class="job-change"><p>'+(j.action?'Your kid asked to cancel. Review this request and choose Cancel request if you agree.':'Your parent has been asked to cancel. This booking stays active until your parent cancels it.')+'</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="keep-booking">Keep booking</button></div>':'')+'</div>':'';
+      const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b>'+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
       const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
       const owner=[j.kid,j.business].filter(Boolean).join(" · ");
-      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+pay+'</div>';
+      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+cancelNote+proposed+acts+ask+pay+'</div>';
     }).join("");
     if(!list.dataset.bound){
       list.dataset.bound="1";
       list.addEventListener("click",async function(ev){
         const pay=ev.target.closest("button[data-pay-link]");
         if(pay){copyText(pay.getAttribute("data-pay-link"),"Payment link copied. Share it with the customer.");return;}
+        const ask=ev.target.closest("button[data-ask-cancel]");
+        if(ask){await askMyParentToCancel(ask);return;}
         const btn=ev.target.closest("button[data-job]");
         if(btn)await updateMyJob(btn);
       });
@@ -5987,18 +5995,47 @@ async function updateMyJob(btn){
     const yes=await confirmModal('<h3>Cancel this booking request?</h3><p class="small2">It will leave the family calendar. Customers with an email receive a cancellation notice. Contact phone-only customers directly.</p>',"Cancel request");
     if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
   }
+  if(next==="keep-booking"){
+    const yes=await confirmModal('<h3>Dismiss your kid’s cancellation request?</h3><p class="small2">The appointment stays active. Talk with your kid about keeping this booking.</p>',"Keep booking");
+    if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
+  }
+  if(next==="accept-reschedule"||next==="decline-reschedule"){
+    const accepting=next==="accept-reschedule";
+    const yes=await confirmModal('<h3>'+ (accepting?'Accept the requested new time?':'Keep the original time?')+'</h3><p class="small2">'+(accepting?'The booking and family calendar will move to the new time.':'The booking will stay at its original time.')+' Customers with an email receive an update. Contact phone-only customers directly.</p>',accepting?"Accept new time":"Keep original time");
+    if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
+  }
   if(jobsActionPending)return;
   jobsActionPending=true;
-  const buttons=Array.from($("#jobList").querySelectorAll("button[data-job]"));buttons.forEach(b=>b.disabled=true);
+  const buttons=Array.from($("#jobList").querySelectorAll("button[data-job],button[data-ask-cancel]"));buttons.forEach(b=>b.disabled=true);
   const status=$("#jobStatus");if(status)status.textContent="Saving request…";
   try{
-    const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:next,json:true}});
+    const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:next,json:true,...((next==="accept-reschedule"||next==="decline-reschedule")?{start:btn.getAttribute("data-start")}: {})}});
     if(epoch!==privateViewEpoch||key!==privateViewKey())return;
     if(!data.ok){if(status)status.textContent=data.message||"Could not save that change. Refresh requests and try again.";return;}
     jobsActionPending=false;
     await loadMyJobs();
-    if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Saved: "+jobLabel(data.status||next)+". Contact phone-only customers directly about changes.";
+    if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent=data.message||("Saved: "+jobLabel(data.status||next)+". Contact phone-only customers directly about changes.");
   }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not confirm whether that change saved. Tap Refresh requests before trying again.";}
+  finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);}
+}
+async function askMyParentToCancel(btn){
+  if(jobsActionPending)return;
+  const key=privateViewKey(),epoch=privateViewEpoch;
+  const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
+  if(!code)return;
+  const yes=await confirmModal('<h3>Ask your parent to cancel?</h3><p class="small2">Your parent gets a request to review. The appointment stays active until your parent cancels it. Your parent handles notifying the customer.</p>',"Ask my parent");
+  if(!yes||jobsActionPending||epoch!==privateViewEpoch||key!==privateViewKey())return;
+  jobsActionPending=true;
+  const buttons=Array.from($("#jobList").querySelectorAll("button[data-job],button[data-ask-cancel]"));buttons.forEach(b=>b.disabled=true);
+  const status=$("#jobStatus");if(status)status.textContent="Asking your parent…";
+  try{
+    const data=await pubApi("/api/my-jobs/cancel-request",{body:{code,id:btn.getAttribute("data-ask-cancel")}});
+    if(epoch!==privateViewEpoch||key!==privateViewKey())return;
+    if(!data.ok){if(status)status.textContent=data.message||"Could not ask your parent. Refresh requests and try again.";return;}
+    jobsActionPending=false;
+    await loadMyJobs();
+    if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent=data.message||"Your parent has been asked. The booking stays active until your parent cancels it.";
+  }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not confirm whether the request sent. Tap Refresh requests before trying again.";}
   finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);}
 }
 function refreshVisibleJobs(){
@@ -6593,7 +6630,7 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
 applySeasonCopy();
-function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent","build"].some(k=>params.has(k))&&!introSeen();}
+function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent","build","jobs"].some(k=>params.has(k))&&!introSeen();}
 if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
 window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(!new URLSearchParams(location.search).get("ask"))initPublish();
@@ -6632,6 +6669,7 @@ const consentQ=startQ.get("consent");
 if(consentQ==="paid"||consentQ==="cancel")resumeConsent(consentQ);
 else if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
 else if(accountQ){go(7); showAccount();}
+else if(startQ.get("jobs"))setMode("boss");
 else if(!askQ)go(Number.isInteger(S.builderStep)?S.builderStep:0);
 if(startQ.get("account")){go(7); const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}
 syncLiveUrlFields();
