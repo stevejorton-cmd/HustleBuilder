@@ -83,7 +83,9 @@ try{
   // Reproduce the reported persisted combination: old orange app preferences,
   // an empty page-theme id and a teal pet palette. Preserve content and records.
   const context=await browser.createBrowserContext(),legacy=await context.newPage();
+  legacy.on('pageerror',e=>errors.push(String(e)));
   await legacy.evaluateOnNewDocument(()=>{
+    if(window!==window.top)return;
     if(!localStorage.getItem('brand-test-seeded')){
       localStorage.setItem('brand-test-seeded','1');
       localStorage.setItem('hb-anonymous-draft','1');
