@@ -43,7 +43,8 @@ test('sample request requires a day and only displays a simulated result',async(
  const context=vm.createContext({document:{getElementById:id=>nodes[id]}});vm.runInContext(script,context);
  assert.equal(nodes.nm.value,'Example Neighbor');assert.equal(nodes.addr.value,'100 Example Lane');
  nodes.demoRequest.onclick();assert.match(nodes.demoRequestResult.textContent,/Pick a day/);assert.equal(nodes.demoRequestResult.hidden,false);
- nodes.picked.textContent='Friday, December 4';nodes.demoRequest.onclick();assert.match(nodes.demoRequestResult.textContent,/Example request: Leaf raking/);assert.match(nodes.demoRequestResult.textContent,/has not sent or saved anything/);
+ nodes.picked.textContent='Tap a day to pick it.';nodes.demoRequest.onclick();assert.match(nodes.demoRequestResult.textContent,/Pick a day/);
+ nodes.picked.textContent='Selected: Friday, December 4.';nodes.demoRequest.onclick();assert.match(nodes.demoRequestResult.textContent,/Example request: Leaf raking/);assert.match(nodes.demoRequestResult.textContent,/has not sent or saved anything/);
  assert.equal('fetch' in context,false);assert.equal('localStorage' in context,false);
  assert.deepEqual(await(await store()).list(''),[]);
 });
