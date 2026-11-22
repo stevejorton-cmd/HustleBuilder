@@ -233,3 +233,61 @@ test('cancelling with a proposed new time clears the proposal and blocks stale p
   const cancelled=await row(f,r.id);assert.equal(cancelled.status,'cancelled');assert.ok(!cancelled.reschedule);
   assert.equal((await events(f)).length,0);assert.equal((await outbox(f.email)).length,beforeP);assert.equal((await outbox('customer-manage@example.com')).length,beforeC);
 });
+
+test('an undated booking gaining a date keeps one identity across both calendar formats and the family feed',async()=>{
+  const f=await family(),r=await book(f,{start:'',when:'Arrange a time next week'});
+  assert.equal(r.invite,null);assert.ok(r.cancelToken);
+  const target='2026-12-08T15:30';
+  assert.equal((await call('POST','/api/booking/'+r.cancelToken,{body:{action:'reschedule',start:target}})).status,200);
+  assert.equal((await act(r,'accept-reschedule',target)).status,200);
+  const current=await row(f,r.id);assert.equal(current.status,'confirmed');
+  const feed=await events(f);assert.equal(feed.length,1);assert.equal(feed[0].uid,current.invite.uid);
+  const message=(await outbox('customer-manage@example.com')).at(-1),invite=ics(message);
+  assert.equal(invite.method,'REQUEST');assert.equal(invite.uid,feed[0].uid);
+  const one=await call('GET','/api/event/'+current.eventToken+'.ics');assert.equal(one.status,200);
+  const publicCalendar=ics({ics:one.body});assert.equal(publicCalendar.method,'PUBLISH');assert.equal(publicCalendar.uid,invite.uid);
+  assert.equal(publicCalendar.sequence,invite.sequence);assert.equal(publicCalendar.start,invite.start);
+  const stored=await read('events/'+current.eventToken+'.json');assert.equal(stored.id+'@hustlebuilder.org',invite.uid);
+});
+
+test('undated phone-only booking retains its management token before any parent action',async()=>{
+  const f=await family(),r=await book(f,{contact:'402-555-0100',start:'',when:'Arrange a time next week'});
+  assert.ok(r.cancelToken,'management token is persisted for phone-only requests');
+  const capability=await read('cancels/'+r.cancelToken+'.json');assert.equal(capability.requestId,r.id);assert.equal(capability.accountId,f.id);
+  const page=await call('GET','/api/booking/'+r.cancelToken);assert.equal(page.status,200);assert.match(page.body,/Leaf cleanup/);
+});
+
+test('family feed uses the safe My jobs entry point without distributing parent action authority',async()=>{
+  const f=await family(),r=await book(f);const feed=await call('GET',f.feed);
+  const unfolded=feed.body.replace(/\r\n[ \t]/g,'');
+  assert.ok(unfolded.includes('/?jobs=1'),'family calendar has safe My jobs link');
+  assert.equal(unfolded.includes('/api/job/'),false);assert.equal(unfolded.includes(r.actionToken),false);
+  await act(r,'confirmed');
+  const confirmed=(await call('GET',f.feed)).body.replace(/\r\n[ \t]/g,'');
+  assert.ok(confirmed.includes('/?jobs=1'));assert.equal(confirmed.includes(r.actionToken),false);
+});
+
+test('moving a booking later extends request, capability and public-event retention to the new appointment',async ctx=>{
+  const f=await family(),r=await book(f);await act(r,'confirmed');
+  const before=await read('cancels/'+r.cancelToken+'.json'),target='2027-02-15T16:00';
+  assert.equal((await call('POST','/api/booking/'+r.cancelToken,{body:{action:'reschedule',start:target}})).status,200);
+  assert.equal((await act(r,'accept-reschedule',target)).status,200);
+  const moved=await row(f,r.id),capability=await read('cancels/'+r.cancelToken+'.json'),event=await read('events/'+moved.eventToken+'.json');
+  assert.ok(capability.expiresAt>before.expiresAt);assert.ok(event.expiresAt>capability.expiresAt);
+  assert.equal(moved.invite.start,target);
+  const later=Date.parse('2027-03-16T18:00:00Z');ctx.mock.timers.tick(later-Date.now());
+  const active=await call('GET','/api/booking/'+r.cancelToken);assert.equal(active.status,200,'link survives original date plus 30 days and remains available 29 days after new work');
+  assert.match(active.body,/February 15, 2027/);
+  assert.equal((await row(f,r.id)).invite.start,target);
+  assert.equal((await call('GET','/api/event/'+moved.eventToken+'.ics')).status,200);
+});
+
+test('parent keeping a kid-requested booking clears the request without cancellation or misleading mail',async()=>{
+  const f=await family(),r=await book(f);
+  assert.equal((await call('POST','/api/my-jobs/cancel-request',{body:{code:f.code,id:r.id}})).status,200);
+  const pCount=(await outbox(f.email)).length,cCount=(await outbox('customer-manage@example.com')).length,before=await events(f);
+  const result=await json(await act(r,'keep-booking'));assert.equal(result.status,200);assert.match(result.body.message,/kept|keep/i);
+  const kept=await row(f,r.id);assert.equal(kept.status,'new');assert.ok(!kept.cancelRequestedAt);
+  const kid=await json(await call('GET','/api/my-jobs?code='+f.code));assert.equal(kid.body.jobs[0].cancelRequested,false);
+  assert.equal((await outbox(f.email)).length,pCount);assert.equal((await outbox('customer-manage@example.com')).length,cCount);assert.deepEqual(await events(f),before);
+});
