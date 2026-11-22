@@ -24,7 +24,7 @@ test('shop handoff uses current PDF export and waits for an explicit save click'
   const h=harness();await h.c.openPrintShop(false);
   assert.equal(h.checks,1);assert.equal(h.saved.length,0);assert.equal(h.renders.length,0);
   assert.match(h.markup,/PDF is not transferred automatically/);assert.match(h.markup,/does not place an order or make a payment/);
-  assert.match(h.markup,/https:\/\/www\.office\.fedex\.com\/default\/flyers\.html/);
+  assert.match(h.markup,/https:\/\/www\.office\.fedex\.com\/default\/copies\.html/);
   assert.match(h.markup,/https:\/\/www\.officedepot\.com\/l\/print-and-copy\/document-printing/);
   assert.match(h.markup,/8\.5 × 11 inches, portrait, one-sided, Actual size or 100%/);
   assert.match(h.markup,/black-and-white printing/);
