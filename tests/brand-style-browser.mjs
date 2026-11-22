@@ -54,11 +54,11 @@ try{
         const f=await preview(p,theme);
         const shell=await p.evaluate(()=>{
           const root=getComputedStyle(document.documentElement),b=document.querySelector('#themes button[aria-pressed="true"]');
-          return {theme:document.documentElement.dataset.businessStyle,bg:getComputedStyle(document.body).backgroundColor,accent:getComputedStyle(document.getElementById('next')).backgroundColor,selected:b.dataset.brandStyle,stored:JSON.parse(localStorage.getItem('hustle-builder-v3')),overflow:document.documentElement.scrollWidth-innerWidth};
+          return {theme:document.documentElement.dataset.businessStyle,bg:getComputedStyle(document.body).backgroundColor,accent:getComputedStyle(document.getElementById('next')).backgroundColor,selected:b.dataset.brandStyle,stored:JSON.parse(localStorage.getItem('hustle-builder-v3')),overflow:document.documentElement.scrollWidth-innerWidth,offenders:[...document.body.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().right>innerWidth+2).slice(0,12).map(el=>({tag:el.tagName,id:el.id,cls:el.className,right:el.getBoundingClientRect().right}))};
         });
         const site=await f.evaluate(()=>({theme:document.documentElement.dataset.theme,bg:getComputedStyle(document.body).backgroundColor,accent:getComputedStyle(document.getElementById('heroCta')).backgroundColor,pet:document.querySelector('.petbar')?getComputedStyle(document.querySelector('.petbar')).backgroundColor:null,booking:!!document.querySelector('#cal')&&!!document.querySelector('#svc')}));
         assert.equal(shell.theme,theme);assert.equal(shell.selected,theme);assert.equal(shell.stored.theme,theme);assert.equal(shell.stored.type,type);
-        assert.equal(shell.bg,schemes[theme].bg);assert.equal(shell.accent,schemes[theme].accent);assert.ok(shell.overflow<=2,'builder overflow '+JSON.stringify({theme,type,width,overflow:shell.overflow}));
+        assert.equal(shell.bg,schemes[theme].bg);assert.equal(shell.accent,schemes[theme].accent);assert.ok(shell.overflow<=2,'builder overflow '+JSON.stringify({theme,type,width,overflow:shell.overflow,offenders:shell.offenders}));
         assert.equal(site.theme,theme);assert.equal(site.bg,schemes[theme].bg);assert.equal(site.accent,schemes[theme].accent);assert.ok(site.booking);
         if(type==='pet')assert.equal(site.pet,schemes[theme].bg);
         await p.evaluate(()=>scrollTo({top:0,behavior:'instant'}));

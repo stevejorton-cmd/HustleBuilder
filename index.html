@@ -220,7 +220,7 @@ img.scene{object-fit:cover;object-position:62% 62%;display:block}
 .tile[aria-pressed="true"]{filter:none;box-shadow:0 0 0 3px var(--accent)}
 .tile[aria-pressed="true"] .tick{display:flex}
 .moretiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.petfront{margin-top:18px;padding:16px 16px 18px;background:var(--raised);border-left:5px solid #0F6E6A}
+.petfront{margin-top:18px;padding:16px 16px 18px;background:var(--raised);border-left:5px solid var(--accent)}
 .petfront h3{margin:0 0 8px}
 .pethero{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center top;border-radius:16px;margin:12px 0 0;background:#e7f6ea}
 .petart{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
@@ -305,6 +305,10 @@ body.soft .hours-quick button{border-radius:999px}
 #themes .themecard[aria-pressed="true"] .tn::after{content:" ✓";font-size:17px}
 #themes .tb{min-width:0;padding:2px 0 0;font-size:12.5px}
 #themeHelp{display:block;margin-top:8px;font-size:12.5px;color:var(--muted);line-height:1.35}
+@media(max-width:380px){
+  #themes .themecard{grid-template-columns:24px minmax(0,1fr);column-gap:7px;padding:10px 8px}
+  #themes .tp{width:24px;height:38px}#themes .tn{font-size:20px}#themes .tb{font-size:11.5px}
+}
 
 .callout{display:flex;gap:12px;background:var(--surface);border-left:5px solid var(--accent);padding:14px 16px;margin:0 0 22px;font-size:16px}
 .callout svg{flex:none;width:26px;height:26px}
@@ -325,9 +329,9 @@ body.soft .hours-quick button{border-radius:999px}
 
 .stage{display:none}
 .shell.sheet .stage{display:flex;position:fixed;inset:0;z-index:40;flex-direction:column;background:var(--stage)}
-.stage .bar{display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;border-bottom:1px solid #2A2F34;color:#F1EFEA}
+.stage .bar{display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;border-bottom:1px solid var(--line);color:var(--ink)}
 .stage .bar strong{font-family:var(--display);font-style:italic;font-weight:900;font-size:24px;text-transform:uppercase}
-.stage .bar .btn{color:#F1EFEA;border-color:#3A4046}
+.stage .bar .btn{color:var(--ink);border-color:var(--line)}
 .phone{flex:1;min-height:0;position:relative}
 .phone iframe{display:block;width:100%;height:100%;border:0;background:var(--bg)}
 .caption{display:none}
@@ -675,6 +679,11 @@ details.help li{margin-bottom:10px}
   @page{size:letter;margin:0}
 }
 @media (max-width:460px){.top .brand .slash{display:block}.top .brand .word{display:none}}
+@media(max-width:380px){
+  .top{flex-wrap:wrap;gap:6px}.top .brand{width:100%}.top .brand .word{display:block;margin-right:auto;font-size:20px}
+  .top .parents-link{margin-left:0;font-size:14px}.top .modes{width:100%}.top .modes button{flex:1;min-height:36px}
+  .edit :where(button,a,input,textarea,select,label,summary){scroll-margin-top:112px}
+}
 #pubPlans{display:flex;flex-direction:column;gap:8px}
 #pubPlans button{display:block;width:100%;text-align:left;white-space:normal;line-height:1.35;padding:12px 14px}
 #pubPlans button b{display:block}
@@ -2808,7 +2817,6 @@ const MORE_TYPES=[
   {id:"tutor",name:"Reading",blurb:"Read together",emoji:"📚",img:"assets/refresh/tutor.webp",color:"#4C3A8A"},
   {id:"other",name:"Something else",blurb:"You name it",emoji:"✨",img:"assets/refresh/other.webp",color:"#3D6B16"}
 ];
-const TYPE_COLOR={pet:"teal",odd:"gold",wash:"cobalt",help:"rose",tutor:"violet",other:"lime"};
 function skyMood(){return (S.sky==="sunny"||S.sky==="dusk")?S.sky:(S.look==="day"?"sunny":"dusk");}
 function presetServices(id){
   return starterServices(id, (S&&S.lvlApplied)||1);
@@ -4351,7 +4359,7 @@ function renderFlyerChips(){
   $("#fUrlWrap").hidden=S.flyerQr!=="web";
   $("#fSmsHelp").hidden=S.flyerQr!=="sms";
   $("#fFmtHelp").textContent={full:"One big flyer for a window, a bulletin board, or a hand-off.",hanger:"Two door hangers per sheet. Cut them out and hang them on doorknobs.",tabs:"A flyer with eight tear-off tabs. Neighbors rip one off and scan it later.",cards:"Ten business cards per sheet. Cut along the dotted lines. Hand one to every customer.",refer:"Ten cards per sheet that say Tell a neighbor. Hand one to every happy customer and ask them to pass it on.",sign:"A letter-size sign with a huge QR code. Tape it up, or have a print shop make it big for a real yard sign.",post:"A square graphic for Instagram, Facebook, or a group chat. Saves as an image.",story:"A tall graphic sized for stories. Saves as an image."}[S.flyerFmt];
-  $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Ink saver is on: white page, black lettering, thin black lines.":"Uses your "+(S.theme==="neighbor"?"Neighbor":"Hustle")+" colors. Choose Ink saver for economical black-and-white printing.";
+  $("#fStyleHelp").textContent=S.flyerStyle==="ink"?"Ink saver is on: white page, black lettering, thin black lines.":"Uses your "+(S.theme==="neighbor"?"Neighbor":"Energy")+" colors. Choose Ink saver for economical black-and-white printing.";
 }
 $("#fUrl").value=S.siteUrl||"";
 syncLiveUrlFields();
