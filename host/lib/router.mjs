@@ -1210,6 +1210,7 @@ function parentBookingMail(row, origin, account) {
     + "<p><a href=\"" + mailEscape(action) + "\">Mark confirmed or done</a></p>"
     + "<p>Name: " + mailEscape(fields.name || row.firstName) + "<br>Reach them at: " + mailEscape(fields.contact || "")
     + "<br>Job: " + mailEscape(fields.service || row.service) + "<br>When: " + mailEscape(fields.when || row.when)
+    + "<br>Size: " + mailEscape(fields.size || "not sure") + "<br>How often: " + mailEscape(fields.freq || "not specified")
     + "<br>Address: " + mailEscape(fields.address || "") + "</p>"
     + eventMailBits(origin, row.publicEvent).html
     + pitch.html + "</div>";
@@ -3280,7 +3281,7 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       + "<p>" + [link(tel, "Call " + fields.name), link(sms, "Text " + fields.name), link(reply ? "mailto:" + reply : "", reply ? "Email " + fields.name : "")].filter(Boolean).join(" &nbsp; ") + "</p>"
       + (flagLine ? "<p>" + mailEscape(flagLine) + "</p>" : "")
       + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
-      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(titled) + "<br>When: " + mailEscape(fields.when) + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
+      + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(titled) + "<br>When: " + mailEscape(fields.when) + "<br>Size: " + mailEscape(fields.size || "not sure") + "<br>How often: " + mailEscape(fields.freq || "not specified") + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
       + (petBits.length ? "<br>" + petBits.map(mailEscape).join("<br>") : "") + "</p>"
       + "<p>We keep the name, address, and time until about 30 days after the scheduled job for the family calendar.</p>"
       + "</div>";
