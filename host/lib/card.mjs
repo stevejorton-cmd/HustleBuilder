@@ -46,7 +46,7 @@ const FONT = {
 
 function hexColor(input) {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(String(input || ""));
-  const hex = m ? m[1] : "FF5B14";
+  const hex = m ? m[1] : "D94B3D";
   return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 }
 
@@ -138,10 +138,10 @@ function pngFromRgb(buf, w, h) {
 export function homeOgPng() {
   const w = 1200, h = 630;
   const buf = Buffer.alloc(w * h * 3, 0);
-  const bar = [255, 91, 20];
+  const bar = [217, 75, 61];
   const ink = [241, 239, 234];
   const mute = [210, 206, 198];
-  fill(buf, w, 0, 0, w, h, [14, 16, 18], h);
+  fill(buf, w, 0, 0, w, h, [32, 38, 44], h);
   fill(buf, w, 0, 0, w, 28, bar, h);
   const lines = [
     ["YOUR KID'S FIRST", 8, ink],
@@ -165,7 +165,7 @@ export function cardPng({ title, line, accent, theme } = {}) {
   const neighbor = theme === "neighbor";
   const ink = neighbor ? [32, 59, 48] : [241, 239, 234];
   const mute = neighbor ? [83, 102, 91] : [210, 206, 198];
-  fill(buf, w, 0, 0, w, h, neighbor ? [251, 248, 242] : [27, 30, 33], h);
+  fill(buf, w, 0, 0, w, h, neighbor ? [251, 248, 242] : [32, 38, 44], h);
   fill(buf, w, 0, 0, w, 28, bar, h);
   const titleMax = 1040;
   const lineMax = 1040;

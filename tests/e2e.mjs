@@ -179,8 +179,8 @@ try {
   const {genSite} = extractBuilderParts(source,fontData,fontCss);
   const styled = await browser.newPage();
   for(const theme of ["hustle","neighbor"]) {
-    for(const type of ["lawn","snow","prep","wash","help","tutor","other","pet"]) {
-      const html = genSite(demoCfg({theme,type,palette:theme === "neighbor" ? "forest" : "ember",font:theme === "neighbor" ? "fredoka" : "",art:"cine-dusk",biz:"Taylor's Neighborhood Services",publicUrl:base,services:[{n:"A longer neighborhood service name",p:"25"}]}));
+    for(const type of ["lawn","snow","both","prep","odd","wash","help","tutor","other","pet"]) {
+      const html = genSite(demoCfg({theme,type,palette:theme === "neighbor" ? "forest" : "mower",font:theme === "neighbor" ? "fredoka" : "",art:"cine-dusk",biz:"Taylor's Neighborhood Services",publicUrl:base,services:[{n:"A longer neighborhood service name",p:"25"}]}));
       await styled.goto(base + "/privacy");
       await styled.setContent(html,{waitUntil:"networkidle0"});
       for(const width of [320,390,1366]) {

@@ -26,11 +26,11 @@ export function extractBuilderParts(src, fontData, fontCss = "") {
     return null;
   };
   const consts = ["RIGS", "TAGS", "PET_ART", "FONT_META", "FONT_ORDER", "SITE_THEMES", "SPAL", "SVGH"];
-  const fns = ["heroFitPx", "genSite", "brandArt", "bannerArt", "cineUrl", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "jobSrc", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
+  const fns = ["heroFitPx", "genSite", "normalizeBrandStyle", "brandArt", "bannerArt", "cineUrl", "sceneArt", "scene", "defHours", "esc", "fmtPrice", "priceNum", "cleanPrice", "petPortrait", "petFace", "petSrc", "petHero", "jobSrc", "schedSummary", "siteFontCss", "siteTheme", "themeCss", "dayCss", "typeInfo", "t12", "inboxValid", "house", "silTree", "siteMain"];
   let code = "";
   for (const c of consts) { const t = extractConst(c); assert.ok(t, "const " + c); code += t + "\n"; }
   for (const f of fns) { const t = extractFn(f); assert.ok(t, "fn " + f); code += t + "\n"; }
-  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, SITE_THEMES, fmtPrice, cleanPrice, petFace, PET_ART, siteFontCss };")(fontData || {}, fontCss, "");
+  return new Function("FONT_DATA", "FONT_CSS", "NOISE", "let sceneN=0;\n" + code + "\nreturn { genSite, siteTheme, normalizeBrandStyle, SITE_THEMES, fmtPrice, cleanPrice, petFace, PET_ART, siteFontCss };")(fontData || {}, fontCss, "");
 }
 export function demoCfg(extra) {
   const sched = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ on: i >= 1 && i <= 6, from: "16:00", to: "20:00" }));
