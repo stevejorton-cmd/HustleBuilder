@@ -9,6 +9,7 @@ import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import {bookingExpiry} from "./retention.mjs";
 import QRCode from "qrcode";
+import {taylorDemoHtml} from "./demo.mjs";
 
 export const PLANS = {
   season: { id: "season", amount: 999, label: "$9.99" },
@@ -585,6 +586,7 @@ function kidJob(row, account) {
   });
   return {
     id: row.id,
+    businessKey: row.slug || row.business || row.kid || "",
     kid: row.kid || (row.calJob && row.calJob.kid) || "",
     business: row.business || "",
     service: row.service || "A job",
@@ -1886,6 +1888,7 @@ async function serveSlug(slug, view) {
   if (res && res.headers && String(res.headers["content-type"] || "").includes("text/html")) {
     const origin=await publicOrigin();
     res.headers = {...res.headers,"content-security-policy":"sandbox allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation; default-src 'none'; script-src 'unsafe-inline'; connect-src "+(origin?new URL(origin).origin+"/api/book":"'self'")+"; img-src "+(origin?new URL(origin).origin:"'self'")+" data: blob:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",'referrer-policy':'no-referrer'};
+    if(slug === "taylor-demo") res.headers["content-security-policy"] = res.headers["content-security-policy"].replace(/connect-src [^;]+;/,"connect-src 'none';");
   }
   return res;
 }
@@ -1895,6 +1898,7 @@ async function serveSlugInner(slug, view) {
   if (slug === "security") return securityPage();
   if (slug === "retention") return retentionPage();
   if (slug === "terms") return termsPage();
+  if (slug === "taylor-demo") return html(200,await taylorDemoHtml());
   const why = checkSlug(slug);
   if (why) return missingPage(slug, false);
   const meta = await readJson("pages/" + slug + ".json");
@@ -3156,8 +3160,23 @@ async function routeRequest(req) {
       if (parentSession && parentSession.id === account.id && row.actionToken) job.action = row.actionToken;
       return job;
     });
+    // The parent can filter every child, including a page with no current
+    // requests. Page metadata already stores the public names; never open
+    // the much larger website HTML just to draw a filter.
+    const businesses = new Map();
+    if (parentSession && parentSession.id === account.id) {
+      const pages = await Promise.all(slugsOf(account).slice(0,MAX_PAGES_PER_ACCOUNT).map(async key => ({key,meta:await readJson("pages/"+key+".json")})));
+      for (const {key,meta} of pages) {
+        if (!meta || meta.accountId !== account.id) continue;
+        const booked = jobs.find(job => job.businessKey === key);
+        businesses.set(key, {key, kid:String(meta.names?.first || booked?.kid || "").slice(0,40), business:String(meta.names?.biz || booked?.business || meta.card?.title || key).slice(0,80)});
+      }
+    }
+    // Retained requests can outlive a renamed or unpublished page. Keep
+    // their filter available, without including another family's pages.
+    for (const job of jobs) if (job.businessKey && !businesses.has(job.businessKey)) businesses.set(job.businessKey,{key:job.businessKey,kid:job.kid,business:job.business});
     const fresh = jobs.filter((row) => row.status === "new").length;
-    return withCors(json(200, { ok: true, jobs, fresh, shareStreet: !!account.shareStreet }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, jobs, businesses:[...businesses.values()], fresh, shareStreet: !!account.shareStreet }), req.headers && req.headers.origin);
   }
 
   const jobAct = route.match(/^job\/([a-f0-9]{16,80})$/i);
@@ -3205,7 +3224,9 @@ async function routeRequest(req) {
     }
     const title=row.status==="new"?"New request":row.status;
     const terminal=["cancelled","done"].includes(row.status);
-    return shell(200,title,`<h1>${mailEscape(row.service||"A job")}</h1>
+    return shell(200,title,`<p><a href="/?jobs=1">View all family bookings</a></p>
+<h1>${mailEscape(row.service||"A job")}</h1>
+<p>${mailEscape([row.kid,row.business].filter(Boolean).join(" · "))}</p>
 <p>${mailEscape(row.firstName||"Neighbor")} · ${mailEscape(row.when||"")}</p>
 <p>Status: <b>${mailEscape(row.status)}</b></p>
 <p>${mailEscape(row.fields?.contact||"")}<br>${mailEscape(row.address||"")}</p>

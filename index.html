@@ -691,6 +691,7 @@ details.help li{margin-bottom:10px}
 #trialBox{padding:8px 12px 8px 16px}
 #myJobs{padding:8px 4px 12px 10px}
 #myJobs h3{margin:0 0 8px}
+#jobFilters{margin:16px 0 8px}#jobFilters label{display:block;font-weight:700;margin-bottom:6px}#jobKidFilter{width:100%;max-width:100%;min-height:44px;font-size:16px}#jobFilterSummary{margin:8px 0 0}
 .kidjob{display:block;border:2px solid var(--line,#e6e1d8);border-radius:12px;padding:16px;margin-top:12px;background:#fff}
 .kidjob b,.kidjob span{display:block}
 .kidjob .job-owner{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:6px}
@@ -1191,6 +1192,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
           <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent confirms changes and cancellations.</p>
           <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
           <p class="status" id="jobStatus" role="status" aria-live="polite"></p>
+          <div id="jobFilters" hidden><label for="jobKidFilter">Show bookings for</label><select id="jobKidFilter"><option value="">All kids</option></select><p class="small2" id="jobFilterSummary" role="status" aria-live="polite"></p></div>
           <div id="jobList"></div>
         </div>
 </div><div id="bossBody"></div><p class="small2" style="margin:4px 20px 0"><button type="button" class="link" id="watchIntroBoss" data-intro>See examples</button></p></section>
@@ -1220,6 +1222,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
 
   <div class="factions">
     <button type="button" class="btn block" id="fPdf" disabled>Save PDF to print</button>
+    <button type="button" class="btn ghost block" id="fShop" disabled>Print at a shop</button>
     <div class="row" id="fRow"><button type="button" class="btn ghost" id="fPng" disabled>Save as image</button><button type="button" class="btn ghost" id="fPrint" disabled>Print from here</button></div>
   </div>
   <p class="status" id="fStatus" role="status"></p>
@@ -1250,7 +1253,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
       <div class="st-tabs" id="stTabs" role="group" aria-label="Design steps"></div>
       <div id="stPanel"></div>
       <p class="status" id="pHint" role="status"></p>
-      <div class="st-actions"><button type="button" class="btn block" id="pPdf">Save PDF to print</button><div class="row"><button type="button" class="btn ghost" id="pPng">Save as image</button><button type="button" class="btn ghost" id="pPrint">Print from here</button></div><p class="status" id="pStatus" role="status"></p></div>
+      <div class="st-actions"><button type="button" class="btn block" id="pPdf">Save PDF to print</button><button type="button" class="btn ghost block" id="pShop">Print at a shop</button><div class="row"><button type="button" class="btn ghost" id="pPng">Save as image</button><button type="button" class="btn ghost" id="pPrint">Print from here</button></div><p class="status" id="pStatus" role="status"></p></div>
     </div>
   </div>
 </div>
@@ -1272,8 +1275,8 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
       </section>
       <section class="example-card" id="examplePanel1" role="tabpanel" aria-labelledby="exampleTab1">
         <div class="example-label"><b>Your flyer</b><span>Ready to print</span></div>
-        <div class="example-paper"><canvas id="exampleFlyer" width="850" height="1100" role="img" aria-label="Example flyer for Taylor’s Yard Cleanup: yard cleanup $15, leaf raking $15, with a sample QR code"></canvas><span class="example-stamp">SAMPLE FLYER</span></div>
-        <p class="example-caption">Hand out your flyer with a parent. Neighbors scan your code to reach you.</p>
+        <div class="example-paper"><a href="/taylor-demo" target="_blank" rel="noopener" aria-label="Open Taylor’s example website"><canvas id="exampleFlyer" width="850" height="1100" role="img" aria-label="Example flyer for Taylor’s Yard Cleanup with a working QR code to Taylor’s example website"></canvas></a><span class="example-stamp">SAMPLE FLYER</span></div>
+        <p class="example-caption">Scan or tap this sample flyer to visit Taylor’s example website. Your own flyer will link to your business.</p>
       </section>
       <section class="example-card" id="examplePanel2" role="tabpanel" aria-labelledby="exampleTab2">
         <div class="example-label"><b>Your first payday</b><span>Example only</span></div>
@@ -4277,11 +4280,11 @@ function drawFlyerPreview(){
   const ctx=cv.getContext("2d");const c=flyerCfg();drawFlyer(ctx,c);
   $("#fHint").textContent=c.ok?"":c.why;
   const pr=d.print;
-  $("#fPdf").hidden=!pr;$("#fPrint").hidden=!pr;
+  $("#fPdf").hidden=!pr;$("#fPrint").hidden=!pr;$("#fShop").hidden=!pr;
   $("#fPng").className=pr?"btn ghost":"btn block";$("#fPng").textContent=pr?"Save as image":"Save image";
   $("#fRow").style.gridTemplateColumns=pr?"minmax(0,1fr) minmax(0,1fr)":"minmax(0,1fr)";
   $("#fHelpBox").hidden=!pr;
-  ["#fPdf","#fPng","#fPrint"].forEach(id=>{$(id).disabled=!c.ok;});
+  ["#fPdf","#fPng","#fPrint","#fShop"].forEach(id=>{$(id).disabled=!c.ok;});
 }
 let fontsReady=false;
 function refreshFlyers(){
@@ -4355,6 +4358,31 @@ async function printFlyer(){
   st.textContent="If your print screen didn’t open, tap Save PDF to print instead.";
 }
 
+function printShopMapUrl(place){
+  const location=String(place||"").replace(/[\u0000-\u001f\u007f]/g," ").trim().slice(0,100);
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(location?"print shops near "+location:"print shops near me");
+}
+async function openPrintShop(studio){
+  const status=$(studio?"#pStatus":"#fStatus");
+  if(!await allowBusinessExport(status))return;
+  const cfg=studio?pcfg():flyerCfg();
+  if(!cfg.ok){status.textContent=cfg.why;return;}
+  if(!studio&&!pageDims(cfg.fmt).print){status.textContent="Choose a printable flyer format to order paper copies.";return;}
+  const ink=studio?cfg.bg==="ink":cfg.style==="ink";
+  openModal('<h3>Print at a shop</h3><ol class="small2"><li><b>Save your PDF.</b> This keeps your current design, prices, and QR code together.</li><li><b>Choose a shop.</b> Upload that PDF on the shop’s website, then choose a nearby pickup location.</li><li><b>Review with a parent.</b> Confirm the paper, quantity, and price before ordering.</li></ol><p class="small2">The PDF is not transferred automatically. Opening a shop does not place an order or make a payment.</p><button type="button" class="btn block" id="shopSavePdf">Save PDF for the shop</button><p class="status" id="shopStatus" role="status" aria-live="polite"></p><p class="small2"><b>Print settings:</b> US Letter, 8.5 × 11 inches, portrait, one-sided, Actual size or 100%. '+(ink?'Choose black-and-white printing for this Ink saver design.':'Choose color printing to keep this design’s colors.')+' Print one test copy before ordering a batch. For a larger yard sign, ask the shop to check the size and print quality first.</p><div class="mbtns"><a class="btn ghost" href="https://www.office.fedex.com/default/flyers.html" target="_blank" rel="noopener noreferrer">FedEx Office</a><a class="btn ghost" href="https://www.officedepot.com/l/print-and-copy/document-printing" target="_blank" rel="noopener noreferrer">Office Depot / OfficeMax</a></div><label class="small2" style="display:block;margin-top:16px" for="shopLocation">Town or ZIP code (optional)</label><input type="text" id="shopLocation" maxlength="100" placeholder="Town or ZIP code" autocomplete="off"><p><a id="shopNearby" href="'+printShopMapUrl('')+'" target="_blank" rel="noopener noreferrer">Find nearby print shops</a></p><p class="small2">Your town or ZIP code goes to Google Maps only when you open that link. You can also take the saved PDF to a library or another local printer.</p><button type="button" class="btn outline" id="shopClose">Done</button>');
+  const save=$("#shopSavePdf"),notice=$("#shopStatus"),location=$("#shopLocation"),nearby=$("#shopNearby");
+  location.oninput=()=>{nearby.href=printShopMapUrl(location.value);};
+  save.onclick=async()=>{
+    save.disabled=true;notice.textContent="Preparing your PDF…";
+    try{
+      if(studio)await saveStudio("pdf");else await saveFlyer("pdf");
+      notice.textContent=status.textContent||"Check your downloads before continuing to the shop.";
+    }catch(e){notice.textContent="Could not save the PDF. Try again, or open Hustle Builder in Safari or Chrome.";}
+    finally{save.disabled=false;}
+  };
+  $("#shopClose").onclick=closeModal;
+}
+
 function renderFlyerChips(){
   const mk=(id,key,items)=>{const w=$(id);w.innerHTML="";items.forEach(it=>{const b=document.createElement("button");b.type="button";b.textContent=it[1];b.setAttribute("aria-pressed",String(S[key]===it[0]));b.onclick=()=>{S[key]=it[0];save();renderFlyerChips();refreshFlyers();updateLaunch();};w.appendChild(b);});};
   mk("#fFmt","flyerFmt",[["full","Flyer"],["hanger","Door hanger"],["tabs","Tear-off tabs"],["cards","Business cards"],["refer","Neighbor card"],["sign","Yard sign"]]);
@@ -4374,6 +4402,7 @@ $("#fPhone").addEventListener("change",()=>{S.flyerPhone=$("#fPhone").checked;sa
 $("#fPdf").onclick=()=>saveFlyer("pdf");
 $("#fPng").onclick=()=>saveFlyer("png");
 $("#fPrint").onclick=printFlyer;
+$("#fShop").onclick=()=>openPrintShop(false);
 $("#toFlyers").onclick=()=>setMode("flyers");
 $("#flyerGoLive").onclick=()=>{setMode("build");go(7);};
 
@@ -4845,7 +4874,7 @@ function renderPoster(scale){const cv=document.createElement("canvas");cv.width=
 /* ---- Studio screen ---- */
 function stSnapshot(){return JSON.stringify(S.studio);}
 function stSet(patch,opt){opt=opt||{};if(!opt.noHist){stHist.push(stSnapshot());if(stHist.length>40)stHist.shift();}Object.assign(S.studio,patch);save();drawStudio();if(opt.panel!==false)renderPanel();$("#stUndo").disabled=!stHist.length;}
-function drawStudio(){const cv=$("#pCanvas");if(!cv)return;const ctx=cv.getContext("2d"),p=pcfg();if(p.font!=="workwear"&&!FONT_OK[p.font]){loadFont(p.font).then(()=>{if(stOpen){drawStudio();if(stTab===0)renderPanel();}});}drawPoster(ctx,p);$("#pHint").textContent=p.ok?"":p.why;["#pPdf","#pPng","#pPrint"].forEach(id=>{$(id).disabled=!p.ok;});}
+function drawStudio(){const cv=$("#pCanvas");if(!cv)return;const ctx=cv.getContext("2d"),p=pcfg();if(p.font!=="workwear"&&!FONT_OK[p.font]){loadFont(p.font).then(()=>{if(stOpen){drawStudio();if(stTab===0)renderPanel();}});}drawPoster(ctx,p);$("#pHint").textContent=p.ok?"":p.why;["#pPdf","#pPng","#pPrint","#pShop"].forEach(id=>{$(id).disabled=!p.ok;});}
 function stSurprise(){const r=n=>Math.floor(Math.random()*n),keys=Object.keys(RIGS),hs=HEADS[pKind()]||HEADS.lawn;stSet({layout:(S.studio.layout+1+r(LAYOUT_NAMES.length-1))%LAYOUT_NAMES.length,rig:keys[r(keys.length)],bg:BG_OPTS[r(BG_OPTS.length)][0],nameStyle:NS_OPTS[r(NS_OPTS.length)][0],trim:["stripes","waves","dots","bar"][r(4)],sky:SKY_OPTS[r(SKY_OPTS.length)][0],head:r(hs.length),custom:"",badge:r(BADGES.length),flip:Math.random()>.5});}
 function renderPanel(){
   const el=$("#stPanel");if(!el)return;el.innerHTML="";const st=S.studio;
@@ -4927,7 +4956,7 @@ async function printStudio(){
 }
 $("#openStudio").onclick=openStudio;$("#stClose").onclick=closeStudio;
 $("#stUndo").onclick=()=>{const s=stHist.pop();if(!s)return;S.studio=Object.assign(studioDefaults(),JSON.parse(s));save();drawStudio();renderPanel();$("#stUndo").disabled=!stHist.length;};
-$("#pPdf").onclick=()=>saveStudio("pdf");$("#pPng").onclick=()=>saveStudio("png");$("#pPrint").onclick=printStudio;
+$("#pPdf").onclick=()=>saveStudio("pdf");$("#pPng").onclick=()=>saveStudio("png");$("#pPrint").onclick=printStudio;$("#pShop").onclick=()=>openPrintShop(true);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&stOpen&&!document.getElementById("modal").classList.contains("open"))closeStudio();});
 
 /* ============ How the app looks ============ */
@@ -5095,6 +5124,7 @@ function clearPrivateViews(){
   privateViewEpoch++;accountLoadId++;
   if(typeof jobsLoadPending!=="undefined"){jobsLoadPending=false;jobsLoadKey="";}
   if(typeof jobsActionPending!=="undefined")jobsActionPending=false;
+  if(typeof resetJobFilters==="function")resetJobFilters();
   const refresh=$("#refreshJobs");if(refresh)refresh.disabled=false;
   if(modalEl.classList.contains("open"))closeModal();
   ["#jobList","#accountSites","#buildsBox"].forEach(id=>{const el=$(id);if(el)el.innerHTML="";});
@@ -5936,6 +5966,50 @@ if(shareBox)shareBox.onchange=async()=>{
 };
 function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting"}[status]||"New";}
 let jobsLoadKey="",jobsLoadPending=false,jobsActionPending=false;
+let jobsFilterOwner="",jobsKidFilter="",jobsFilterRows=[],jobsFilterChoices=[];
+function jobBusinessKey(job){return String(job.businessKey||job.kid||job.business||"unassigned");}
+function resetJobFilters(){
+  jobsFilterOwner="";jobsKidFilter="";jobsFilterRows=[];jobsFilterChoices=[];
+  const wrap=$("#jobFilters");if(wrap)wrap.hidden=true;
+  const select=$("#jobKidFilter");if(select){select.innerHTML='<option value="">All kids</option>';select.value="";select.disabled=false;}
+  const summary=$("#jobFilterSummary");if(summary)summary.textContent="";
+}
+function updateJobFilters(jobs,businesses,key){
+  if(jobsFilterOwner!==key){jobsKidFilter="";jobsFilterOwner=key;}
+  jobsFilterRows=jobs;
+  const choices=new Map();
+  for(const b of businesses){if(b&&b.key)choices.set(String(b.key),{key:String(b.key),kid:b.kid||"",business:b.business||""});}
+  for(const job of jobs){const key=jobBusinessKey(job);if(!choices.has(key))choices.set(key,{key,kid:job.kid||"",business:job.business||""});}
+  jobsFilterChoices=Array.from(choices.values()).map(b=>({...b,label:[b.kid,b.business].filter(Boolean).join(" · ")||b.key}));
+  if(jobsKidFilter&&!choices.has(jobsKidFilter))jobsKidFilter="";
+  const wrap=$("#jobFilters"),select=$("#jobKidFilter");
+  if(wrap)wrap.hidden=jobsFilterChoices.length<2;
+  if(select){
+    const markup='<option value="">All kids</option>'+jobsFilterChoices.map(b=>'<option value="'+esc(b.key)+'">'+esc(b.label)+'</option>').join("");
+    if(select.innerHTML!==markup)select.innerHTML=markup;
+    select.value=jobsKidFilter;
+    if(!select.dataset.bound){select.dataset.bound="1";select.addEventListener("change",()=>{jobsKidFilter=select.value||"";renderFilteredJobs();});}
+  }
+}
+function renderFilteredJobs(){
+  const list=$("#jobList");if(!list)return;
+  const visible=jobsKidFilter?jobsFilterRows.filter(j=>jobBusinessKey(j)===jobsKidFilter):jobsFilterRows;
+  const choice=jobsFilterChoices.find(b=>b.key===jobsKidFilter),label=choice?choice.label:"All kids";
+  list.innerHTML=visible.map(j=>{
+      const terminal=j.status==="done"||j.status==="cancelled";
+      const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button>':'';
+      const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done">Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
+      const ask=!j.action&&!terminal&&j.canAskCancel&&!j.cancelRequested?'<div class="mbtns"><button type="button" class="btn outline" data-ask-cancel="'+esc(j.id)+'">Ask my parent to cancel</button></div>':'';
+      const cancelNote=!terminal&&j.cancelRequested?'<div class="job-change"><p>'+(j.action?'Your kid asked to cancel. Review this request and choose Cancel request if you agree.':'Your parent has been asked to cancel. This booking stays active until your parent cancels it.')+'</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="keep-booking">Keep booking</button></div>':'')+'</div>':'';
+      const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b>'+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
+      const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
+      const owner=[j.kid,j.business].filter(Boolean).join(" · ");
+      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+cancelNote+proposed+acts+ask+pay+'</div>';
+    }).join("");
+  const empty=$("#jobEmpty");if(empty){empty.hidden=visible.length>0;empty.textContent=jobsKidFilter?"No booking requests for "+label+" yet.":"No booking requests yet. Share your published website link so neighbors can request a job.";}
+  const summary=$("#jobFilterSummary");if(summary)summary.textContent="Showing "+visible.length+" booking"+(visible.length===1?"":"s")+" · "+label;
+}
+
 async function loadMyJobs(options){
   options=options||{};
   if(!draftWriteAllowed()){clearPrivateViews();return;}
@@ -5960,17 +6034,8 @@ async function loadMyJobs(options){
     const jobs=data.jobs||[],canManage=jobs.some(j=>j.action)||!!session;
     const signIn=$("#jobSignIn");if(signIn)signIn.hidden=canManage;
     if(status)status.textContent=canManage?"Up to date. Contact phone-only customers directly about changes.":"A parent confirms, finishes, or cancels requests. You can ask your parent to cancel an active request.";
-    list.innerHTML=jobs.map(j=>{
-      const terminal=j.status==="done"||j.status==="cancelled";
-      const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button>':'';
-      const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done">Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
-      const ask=!j.action&&!terminal&&j.canAskCancel&&!j.cancelRequested?'<div class="mbtns"><button type="button" class="btn outline" data-ask-cancel="'+esc(j.id)+'">Ask my parent to cancel</button></div>':'';
-      const cancelNote=!terminal&&j.cancelRequested?'<div class="job-change"><p>'+(j.action?'Your kid asked to cancel. Review this request and choose Cancel request if you agree.':'Your parent has been asked to cancel. This booking stays active until your parent cancels it.')+'</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="keep-booking">Keep booking</button></div>':'')+'</div>':'';
-      const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b>'+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
-      const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
-      const owner=[j.kid,j.business].filter(Boolean).join(" · ");
-      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+cancelNote+proposed+acts+ask+pay+'</div>';
-    }).join("");
+    updateJobFilters(jobs,data.businesses||[],key);
+    renderFilteredJobs();
     if(!list.dataset.bound){
       list.dataset.bound="1";
       list.addEventListener("click",async function(ev){
@@ -5982,7 +6047,6 @@ async function loadMyJobs(options){
         if(btn)await updateMyJob(btn);
       });
     }
-    const empty=$("#jobEmpty");if(empty){empty.hidden=jobs.length>0;empty.textContent="No booking requests yet. Share your published website link so neighbors can request a job.";}
     const badge=$("#jobBadge");if(badge){badge.hidden=!data.fresh;if(data.fresh)badge.textContent=String(data.fresh);}
     const btn=$("#myJobsBtn");if(btn){btn.hidden=false;btn.textContent=data.fresh?("My jobs ("+data.fresh+" new)"):"My jobs";}
   }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not refresh requests. Check your connection and tap Refresh requests.";}
@@ -6006,6 +6070,7 @@ async function updateMyJob(btn){
   }
   if(jobsActionPending)return;
   jobsActionPending=true;
+  const filter=$("#jobKidFilter");if(filter)filter.disabled=true;
   const buttons=Array.from($("#jobList").querySelectorAll("button[data-job],button[data-ask-cancel]"));buttons.forEach(b=>b.disabled=true);
   const status=$("#jobStatus");if(status)status.textContent="Saving request…";
   try{
@@ -6016,7 +6081,7 @@ async function updateMyJob(btn){
     await loadMyJobs();
     if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent=data.message||("Saved: "+jobLabel(data.status||next)+". Contact phone-only customers directly about changes.");
   }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not confirm whether that change saved. Tap Refresh requests before trying again.";}
-  finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);}
+  finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);if(filter)filter.disabled=false;}
 }
 async function askMyParentToCancel(btn){
   if(jobsActionPending)return;
@@ -6026,6 +6091,7 @@ async function askMyParentToCancel(btn){
   const yes=await confirmModal('<h3>Ask your parent to cancel?</h3><p class="small2">Your parent gets a request to review. The appointment stays active until your parent cancels it. Your parent handles notifying the customer.</p>',"Ask my parent");
   if(!yes||jobsActionPending||epoch!==privateViewEpoch||key!==privateViewKey())return;
   jobsActionPending=true;
+  const filter=$("#jobKidFilter");if(filter)filter.disabled=true;
   const buttons=Array.from($("#jobList").querySelectorAll("button[data-job],button[data-ask-cancel]"));buttons.forEach(b=>b.disabled=true);
   const status=$("#jobStatus");if(status)status.textContent="Asking your parent…";
   try{
@@ -6036,11 +6102,11 @@ async function askMyParentToCancel(btn){
     await loadMyJobs();
     if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent=data.message||"Your parent has been asked. The booking stays active until your parent cancels it.";
   }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not confirm whether the request sent. Tap Refresh requests before trying again.";}
-  finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);}
+  finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);if(filter)filter.disabled=false;}
 }
 function refreshVisibleJobs(){
   if(document.hidden||!document.body.classList.contains("boss-on")||jobsActionPending||modalEl.classList.contains("open"))return;
-  if(document.activeElement&&document.activeElement.closest("#jobList"))return;
+  if(document.activeElement&&document.activeElement.closest("#jobList,#jobFilters"))return;
   loadMyJobs({quiet:true});
 }
 const refreshJobsBtn=$("#refreshJobs");if(refreshJobsBtn)refreshJobsBtn.onclick=()=>loadMyJobs();
@@ -6590,9 +6656,10 @@ function drawExamples(){
   }
   const cv=$("#exampleFlyer");
   const rates=view&&view.rates?view.rates:EXAMPLE_RATES;
-  const example={fmt:"full",style:"ink",qrMode:"web",type:view?view.sampleType:"lawn",pets:[],biz:view?view.biz:"Taylor’s Yard Crew",tagline:view?view.tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:rates.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://example.com",urlText:"SAMPLE · YOUR WEBSITE LINK",ok:true,why:"",showPhone:false,phone:"",parentName:""};
+  const example={fmt:"full",style:"ink",qrMode:"web",type:view?view.sampleType:"lawn",pets:[],biz:view?view.biz:"Taylor’s Yard Crew",tagline:view?view.tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:rates.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://hustlebuilder.org/taylor-demo",urlText:"hustlebuilder.org/taylor-demo",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
 }
+if(typeof window!=="undefined")window.hbPrintLibsReady=drawExamples;
 function openIntro(){
   const box=$("#intro");if(!box||!box.hidden)return;
   introReturnFocus=document.activeElement;
@@ -6680,6 +6747,6 @@ renderPetGallery();
 renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();refresh();
 })();
 </script>
-<script src="/assets/print-libs.js" onload="loadAllFonts()"></script>
+<script src="/assets/print-libs.js" onload="loadAllFonts();if(window.hbPrintLibsReady)window.hbPrintLibsReady()"></script>
 </body>
 </html>
