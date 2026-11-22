@@ -10,7 +10,7 @@ const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);re
 test('failed logout keeps authentication and consent; successful logout clears private views',async()=>{
  let saved='parent',consent=true,cleared=0;
  const c=vm.createContext({pubMemToken:'token',pubSaveSession:s=>saved=s,setConsentOn:v=>consent=v,clearPrivateViews:()=>cleared++,pubApi:async()=>{throw Error('offline');}});
- vm.runInContext(part('async function pubSignOut(){','function calSyncOn('),c);
+ vm.runInContext(part('async function pubSignOut(){','function sharedSessionEmail('),c);
  assert.equal(await c.pubSignOut(),false);assert.equal(c.pubMemToken,'token');assert.equal(saved,'parent');assert.equal(consent,true);assert.equal(cleared,0);
  c.pubApi=async()=>({ok:false,httpStatus:503});assert.equal(await c.pubSignOut(),false);assert.equal(cleared,0);
  c.pubApi=async()=>({ok:true});assert.equal(await c.pubSignOut(),true);assert.equal(c.pubMemToken,'');assert.equal(saved,null);assert.equal(consent,false);assert.equal(cleared,1);

@@ -10,6 +10,7 @@ import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import {bookingExpiry} from "./retention.mjs";
 import QRCode from "qrcode";
 import {taylorDemoHtml} from "./demo.mjs";
+import {recurrenceHint,recurrencePlan} from "./recurrence.mjs";
 
 export const PLANS = {
   season: { id: "season", amount: 999, label: "$9.99" },
@@ -596,6 +597,7 @@ function kidJob(row, account) {
     place,
     price,
     venmoUrl,
+    series: row.series ? {index:row.series.index,total:row.series.total,kind:row.series.kind} : null,
     cancelRequested: !!row.cancelRequestedAt,
     reschedule: row.reschedule ? { start: row.reschedule.start, when: row.reschedule.when, requestedAt: row.reschedule.requestedAt } : null
   };
@@ -2229,12 +2231,14 @@ function bookingPage(token,row,account,origin,message="",errorStatus=200) {
   const inner=`<h1>${mailEscape(row.business||row.service||"Your booking")}</h1>
 ${row.business&&row.business!==row.service?`<p>${mailEscape(row.service||"A job")}</p>`:""}<p><b>Status: ${mailEscape(status)}</b></p>
 <p>${mailEscape(row.when||row.invite?.start||"")} (${mailEscape(tzOf(account))})</p>
+${row.series?`<p>Visit ${Number(row.series.index)} of ${Number(row.series.total)} in your approved repeating schedule. Changes to this visit leave the other visits in place.</p>`:""}
 ${message?`<p role="status"><b>${mailEscape(message)}</b></p>`:""}
 ${row.status==="cancelled"?"<p>This booking will not go ahead. The cancellation has been recorded.</p>":""}
 ${row.reschedule?`<p>A change to <b>${mailEscape(row.reschedule.when)}</b> is waiting for the parent’s approval. Your current appointment stays in place until they approve.</p>`:""}
 ${row.status==="confirmed"&&row.invite?`<p><a class="hb-btn" href="${base}/calendar.ics">Open calendar invitation</a></p><p>Use the invitation in your confirmation email to keep calendar updates connected. A separately imported copy may need manual cleanup.</p>`:""}
 ${!terminal?`${!row.reschedule?`<h2>Request another time</h2><form method="post" action="${base}"><input type="hidden" name="action" value="reschedule"><label>New date and time (${mailEscape(tzOf(account))})<input type="datetime-local" name="start" min="${min}" max="${max}" required></label><p>The parent must approve. Your current appointment stays in place until then.</p><button type="submit">Request new time</button></form>`:""}
 <h2>Cancel</h2><form method="post" action="/api/cancel/${token}"><p>This cancels the request or confirmed appointment and tells the family.</p><button type="submit" class="alt">Cancel this request</button></form>`:""}
+${row.series?`<form method="post" action="${base}"><input type="hidden" name="action" value="cancel-series"><p>Cancel all future, uncompleted visits in this repeating schedule. Completed visits and other bookings stay as they are.</p><button type="submit" class="alt">Cancel remaining visits</button></form>`:""}
 ${row.slug?`<p><a href="/${mailEscape(row.slug)}">Visit the business or request another job</a></p>`:""}
 <p>Declining an invitation or deleting a calendar copy does not cancel this booking. Use this page to cancel or request changes.</p>`;
   return shell(errorStatus,"Manage booking",inner);
@@ -2256,7 +2260,7 @@ function notificationMessage(row) {
 async function bookingNotices(account,row,origin,kind,extra="") {
   const manage=manageBits(row,origin),parentUrl=siteOrigin(origin)+"/api/job/"+row.actionToken;
   const lead=kind==="confirmed"?"Your booking is confirmed":kind==="rescheduled"?"Your booking time has changed":kind==="declined"?"The requested time change was declined":"Your booking has been cancelled";
-  const detail=([row.kid,row.business].filter(Boolean).join(" · ")||"Your booking")+" · "+(row.service||"Your booking")+(row.when?" · "+row.when+" ("+tzOf(account)+")":"")+". "+extra;
+  const detail=([row.kid,row.business].filter(Boolean).join(" · ")||"Your booking")+" · "+(row.service||"Your booking")+(row.when?" · "+row.when+" ("+tzOf(account)+")":"")+(row.series?" · Visit "+row.series.index+" of "+row.series.total:"")+". "+extra;
   const customer=contactEmail(row.fields?.contact);
   const parentIcs=kind==="cancelled"?takeCancelIcs(row):["confirmed","rescheduled"].includes(kind)?bookingInvitation(row,account,origin):"";
   const customerIcs=kind==="cancelled"?(row.customerInviteSent?bookingInvitation(row,account,origin,true,"CANCEL"):""):["confirmed","rescheduled"].includes(kind)?bookingInvitation(row,account,origin,true):"";
@@ -2300,6 +2304,50 @@ async function cancelBooking(account,row,origin,by) {
   row.reschedule=null;row.cancelRequestedAt=null;
   await bookingNotices(account,row,origin,"cancelled",by==="customer"?"Cancelled by the customer.":"Cancelled by the family.");
   await removeCalendarRequest(account.id,row);await dropPublicEvent(row);await ensureBookingLink(row,account);
+}
+
+function repeatOffer(row) {
+  return !row.series && ["new","confirmed"].includes(row.status) && row.invite?.start ? recurrenceHint(row) : null;
+}
+function visitWhen(start,account) {
+  return new Intl.DateTimeFormat("en-US",{timeZone:tzOf(account),weekday:"short",month:"long",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(jobInstant(start,tzOf(account))));
+}
+async function approveSeries(account,rows,row,body,origin) {
+  // The first approval owns the schedule; retries cannot create more visits.
+  if(row.series)return {ok:true,total:row.series.total,repeated:true};
+  if(!repeatOffer(row))return {error:"recurrence",message:"This request does not have an approvable repeating schedule.",status:409};
+  if(row.reschedule)return {error:"reschedule",message:"Resolve the requested time change before approving repeating visits.",status:409};
+  if(body.start!==row.invite.start)return {error:"stale",message:"The first appointment has changed. Refresh and review the schedule again.",status:409};
+  if(onBreak(account)||trialOver(account))return {error:"plan",message:"A parent must choose a plan before adding more visits.",status:409};
+  const plan=recurrencePlan(row,{count:Number(body.count),tz:tzOf(account)});
+  if(!plan||plan.error)return {error:plan?.error||"recurrence",message:plan?.message||"Agree on the schedule before approving visits.",status:400};
+  const jobs=await loadJobs(account.id,tzOf(account));
+  if(jobs.length+plan.count-1>200)return {error:"capacity",message:"These visits would exceed the family calendar’s 200-job limit. Choose fewer visits or try again after older entries expire.",status:409};
+  const seriesId=rand(16),createdAt=new Date().toISOString(),visits=[row];
+  for(let i=1;i<plan.starts.length;i++){
+    const start=plan.starts[i],id="r"+rand(8),jobId="b"+rand(8),actionToken=rand(12),when=visitWhen(start,account);
+    const visit={id,actionToken,slug:row.slug,parentEmail:account.email,replyTo:row.replyTo,firstName:row.firstName,kid:row.kid,business:row.business,service:row.service,when,address:row.address,status:"confirmed",fields:{...row.fields,when,start},createdAt,calendarJobId:jobId,
+      invite:{uid:jobId+"@hustlebuilder.org",start,tz:tzOf(account),sequence:0,summary:inviteSummary(row.kid,row.service,row.firstName),location:row.address,description:row.invite.description,attendee:account.email}};
+    // Never inherit the original visit's action URL or private calendar link.
+    visit.invite.description=["Approved repeating visit.","Manage booking: "+siteOrigin(origin)+"/api/job/"+actionToken].join("\n");
+    jobs.push({id:jobId,source:"book",start,kid:visit.kid,service:visit.service,customer:visit.firstName,address:visit.address,createdAt});
+    await (await store()).put("jobact/"+actionToken,account.id+":"+id);
+    rows.push(visit);visits.push(visit);
+  }
+  await saveJobs(account.id,jobs,tzOf(account));
+  for(let i=0;i<visits.length;i++){
+    const visit=visits[i];visit.status="confirmed";visit.reschedule=null;visit.cancelRequestedAt=null;
+    visit.series={id:seriesId,index:i+1,total:plan.count,kind:plan.kind};
+    await ensureBookingLink(visit,account);await syncBookingEvent(visit,account,origin);
+    await bookingNotices(account,visit,origin,"confirmed","The parent approved this repeating schedule. Each visit can be managed separately; Manage booking also lets you cancel the remaining visits.");
+  }
+  return {ok:true,total:visits.length};
+}
+async function cancelSeries(account,rows,row,origin,by) {
+  if(!row.series?.id)return {error:"series",message:"This booking is not part of a repeating schedule.",status:409};
+  const remaining=rows.filter(r=>r.series?.id===row.series.id && r.slug===row.slug && ["new","confirmed"].includes(r.status) && jobInstant(r.invite?.start,tzOf(account))>Date.now());
+  for(const visit of remaining)await cancelBooking(account,visit,origin,by);
+  return {ok:true,cancelled:remaining.length};
 }
 
 function clipDraft(value) {
@@ -3041,6 +3089,12 @@ async function routeRequest(req) {
     const token=customerPost[2],hit=await customerBooking(token);
     if(!hit)return bookingPage(token,null,null,origin);
     const {account,rows,row}=hit;
+    if(body.action==="cancel-series"){
+      const result=await cancelSeries(account,rows,row,origin,"customer");
+      if(result.error)return bookingPage(token,row,account,origin,result.message,result.status);
+      await saveRequests(account.id,rows);
+      return bookingPage(token,row,account,origin,result.cancelled?"Cancelled "+result.cancelled+" remaining visits. Cancellation notices have been queued for you and the family.":"There are no future, uncompleted visits left to cancel.");
+    }
     if(customerPost[1]==="cancel"||body.action==="cancel"){
       if(row.status==="done")return bookingPage(token,row,account,origin,"Completed jobs cannot be cancelled.",409);
       if(row.status!=="cancelled"){await cancelBooking(account,row,origin,"customer");await saveRequests(account.id,rows);}
@@ -3157,7 +3211,11 @@ async function routeRequest(req) {
     const jobs = rows.map((row) => {
       const job = kidJob(row, account);
       job.canAskCancel = !parentSession && ["new","confirmed"].includes(row.status);
-      if (parentSession && parentSession.id === account.id && row.actionToken) job.action = row.actionToken;
+      if (parentSession && parentSession.id === account.id && row.actionToken) {
+        job.action = row.actionToken;
+        const hint=repeatOffer(row);
+        if(hint&&!row.reschedule)job.recurrence={...hint,start:row.invite.start};
+      }
       return job;
     });
     // The parent can filter every child, including a page with no current
@@ -3176,7 +3234,7 @@ async function routeRequest(req) {
     // their filter available, without including another family's pages.
     for (const job of jobs) if (job.businessKey && !businesses.has(job.businessKey)) businesses.set(job.businessKey,{key:job.businessKey,kid:job.kid,business:job.business});
     const fresh = jobs.filter((row) => row.status === "new").length;
-    return withCors(json(200, { ok: true, jobs, businesses:[...businesses.values()], fresh, shareStreet: !!account.shareStreet }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, parentAuthenticated:!!parentSession, jobs, businesses:[...businesses.values()], fresh, shareStreet: !!account.shareStreet }), req.headers && req.headers.origin);
   }
 
   const jobAct = route.match(/^job\/([a-f0-9]{16,80})$/i);
@@ -3190,10 +3248,14 @@ async function routeRequest(req) {
     let updateMessage="";
     if (method === "POST") {
       const next=String(body.status||"");
-      if(!["confirmed","done","cancelled","accept-reschedule","decline-reschedule","keep-booking"].includes(next))return json(400,{ok:false,error:"status"});
-      if(["cancelled","done"].includes(row.status)&&next!==row.status)return json(409,{ok:false,error:"terminal",message:"This booking is already finished. Create a new request for another job."});
+      if(!["confirmed","done","cancelled","accept-reschedule","decline-reschedule","keep-booking","approve-series","cancel-series"].includes(next))return json(400,{ok:false,error:"status"});
+      if(["cancelled","done"].includes(row.status)&&next!==row.status&&next!=="cancel-series")return json(409,{ok:false,error:"terminal",message:"This booking is already finished. Create a new request for another job."});
       await ensureBookingLink(row,account);
-      if(next==="accept-reschedule"||next==="decline-reschedule"){
+      if(next==="approve-series"||next==="cancel-series"){
+        const result=next==="approve-series"?await approveSeries(account,rows,row,body,origin):await cancelSeries(account,rows,row,origin,"family");
+        if(result.error)return body.json===true?json(result.status,{ok:false,error:result.error,message:result.message}):shell(result.status,"Review repeating visits",'<h1>Review repeating visits</h1><p>'+mailEscape(result.message)+'</p><p><a href="/api/job/'+row.actionToken+'">Back to booking</a></p>');
+        updateMessage=next==="approve-series"?(result.repeated?"This repeating schedule is already approved.":"Approved "+result.total+" visits. Confirmation notices are queued for each visit."):(result.cancelled?"Cancelled "+result.cancelled+" future visits. Cancellation notices are queued.":"There are no future, uncompleted visits left to cancel.");
+      }else if(next==="accept-reschedule"||next==="decline-reschedule"){
         if(!row.reschedule||body.start!==row.reschedule.start)return json(409,{ok:false,error:"reschedule",message:"The requested time has changed. Refresh and review it again."});
         if(next==="accept-reschedule"){
           const start=row.reschedule.start;
@@ -3219,20 +3281,23 @@ async function routeRequest(req) {
         }
       }
       await saveRequests(account.id,rows);
-      updateMessage=next==="keep-booking"?"Kept the booking. Your kid can see that the request was cleared.":notificationMessage(row);
+      updateMessage ||= next==="keep-booking"?"Kept the booking. Your kid can see that the request was cleared.":notificationMessage(row);
       if(body.json===true)return json(200,{ok:true,status:row.status,message:updateMessage});
     }
     const title=row.status==="new"?"New request":row.status;
     const terminal=["cancelled","done"].includes(row.status);
+    const repeat=repeatOffer(row);
     return shell(200,title,`<p><a href="/?jobs=1">View all family bookings</a></p>
 <h1>${mailEscape(row.service||"A job")}</h1>
 <p>${mailEscape([row.kid,row.business].filter(Boolean).join(" · "))}</p>
 <p>${mailEscape(row.firstName||"Neighbor")} · ${mailEscape(row.when||"")}</p>
 <p>Status: <b>${mailEscape(row.status)}</b></p>
+${row.series?`<p>Visit ${Number(row.series.index)} of ${Number(row.series.total)} in the approved repeating schedule. Each visit can be changed separately.</p><form method="post"><p>Cancel all future, uncompleted visits in this schedule. Completed visits and other bookings stay as they are.</p><button name="status" value="cancel-series" class="alt">Cancel remaining visits</button></form>`:""}
 <p>${mailEscape(row.fields?.contact||"")}<br>${mailEscape(row.address||"")}</p>
 ${row.cancelRequestedAt&&!terminal?'<p><b>Your kid asked to cancel this job.</b> The booking stays active until you decide.</p>':""}
 ${row.reschedule&&!terminal?`<h2>Time change requested</h2><p>${mailEscape(row.reschedule.when)} (${mailEscape(tzOf(account))}). The original appointment stays in place until you approve.</p>
 <form method="post"><input type="hidden" name="start" value="${mailEscape(row.reschedule.start)}"><button name="status" value="accept-reschedule">Accept new time</button><button name="status" value="decline-reschedule" class="alt">Keep original time</button></form>`:""}
+${repeat&&!row.reschedule?`<h2>Approve repeating visits</h2><form method="post"><input type="hidden" name="start" value="${mailEscape(row.invite.start)}"><p>${mailEscape(repeat.label)}. Nothing repeats until you approve. The selected schedule includes this first visit at ${mailEscape(row.when)} (${mailEscape(tzOf(account))}).</p>${repeat.requiresCount?`<label>Total visits, including this first one<select name="count">${Array.from({length:7},(_,i)=>i+2).map(n=>'<option value="'+n+'"'+(n===4?' selected':'')+'>'+n+' visits</option>').join("")}</select></label>`:`<p>One visit each day from ${mailEscape(row.fields?.awayFrom||"")} through ${mailEscape(row.fields?.awayTo||"")}, at the selected time. Approve 2–14 days at once.</p>`}<p>Each visit gets its own calendar entry and confirmation notice. You or the customer can cancel one visit or the remaining visits.</p><button name="status" value="approve-series">Approve repeating visits</button></form>`:""}
 ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for email customers. Contact phone-only customers directly by call or text.</p>
 <form method="post">${row.status!=="confirmed"?'<button name="status" value="confirmed">Confirm booking</button>':""}<button name="status" value="done">Mark done</button><button name="status" value="cancelled" class="alt">Cancel request</button>${row.cancelRequestedAt?'<button name="status" value="keep-booking" class="alt">Keep booking</button>':""}</form>`:"<p>This booking is finished. No further changes can be made.</p>"}
 <p role="status">${mailEscape(updateMessage)}</p>`);

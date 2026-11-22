@@ -1191,6 +1191,8 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
           </div>
           <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent confirms changes and cancellations.</p>
           <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
+          <div id="familyJobsCode" hidden><p class="small2">Family jobs code: <b id="familyJobsCodeValue"></b>. Share this with your kids so they can view requests and ask you to cancel. It does not let them confirm or cancel bookings.</p><button type="button" class="btn ghost" id="copyFamilyJobsCode">Copy family jobs code</button><p class="small2">Copy the code, then sign out of your parent account before handing over this device.</p></div>
+          <details class="help" id="kidJobsEntry"><summary>Use a family jobs code</summary><p class="small2">Ask your parent for the 8-character family jobs code. This opens your family’s requests without signing in as a parent.</p><form id="kidJobsForm"><label for="kidJobsCodeInput">Family jobs code<input id="kidJobsCodeInput" name="jobsCode" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="8" maxlength="8" pattern="[A-Za-z0-9]{8}" required></label><div class="mbtns"><button type="submit" class="btn ghost" id="openKidJobs">View family requests</button><button type="button" class="btn outline" id="forgetKidJobs" hidden>Forget family jobs code</button></div></form><p class="status" id="kidJobsStatus" role="status" aria-live="polite"></p></details>
           <p class="status" id="jobStatus" role="status" aria-live="polite"></p>
           <div id="jobFilters" hidden><label for="jobKidFilter">Show bookings for</label><select id="jobKidFilter"><option value="">All kids</option></select><p class="small2" id="jobFilterSummary" role="status" aria-live="polite"></p></div>
           <div id="jobList"></div>
@@ -3716,6 +3718,7 @@ function todayHTML(){
     return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+(link||"")+dirAnchor(j.address)+'<button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button></div></div>';
   };
   return '<div class="bcard"><div class="thead"><h3>Today</h3><span class="tdate">'+parseISO(t).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})+'</span></div>'
+    +'<p class="small2">Your manual job log. Editing or removing a job here does not change a customer’s booking request or notify them. A parent manages online bookings above.</p>'
     +(today.length?today.map(card).join(""):'<p class="empty">No jobs scheduled for today. Add a job once you and your parent agree on the details.</p>')
     +'<button type="button" class="btn ghost" data-act="schedule" style="width:100%;margin-top:6px">Schedule a job</button>'
     +(missed.length?'<h4 class="h4">Missed</h4>'+missed.map(j=>row(j,true)).join(""):"")
@@ -5115,9 +5118,10 @@ const PUB_KEY="hb-parent-session";
    nobody gets signed out by the switch, but new sign-ins never save it. */
 let pubMemToken="";
 let privateViewEpoch=0,accountLoadId=0;
+function kidJobsCode(){try{const code=String(localStorage.getItem("hb-kid-jobs-code")||"").trim().toLowerCase();return /^[a-z0-9]{8}$/.test(code)?code:"";}catch(e){return "";}}
 function privateViewKey(){
   const session=pubSession();
-  let code="";try{code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";}catch(e){}
+  let code="";try{code=kidJobsCode()||localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";}catch(e){}
   return [sessionEmail||(session&&session.email)||"",pubToken(),code].join("|");
 }
 function clearPrivateViews(){
@@ -5128,9 +5132,9 @@ function clearPrivateViews(){
   const refresh=$("#refreshJobs");if(refresh)refresh.disabled=false;
   if(modalEl.classList.contains("open"))closeModal();
   ["#jobList","#accountSites","#buildsBox"].forEach(id=>{const el=$(id);if(el)el.innerHTML="";});
-  ["#jobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#accountVenmoField"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  ["#jobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#accountVenmoField","#familyJobsCode"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
   ["#jobCalGoogle","#jobCalApple","#calGoogle","#calApple"].forEach(id=>{const el=$(id);if(el)el.removeAttribute("href");});
-  ["#calLink","#jobStatus","#venmoMsg"].forEach(id=>{const el=$(id);if(el)el.textContent="";});
+  ["#calLink","#jobStatus","#venmoMsg","#familyJobsCodeValue"].forEach(id=>{const el=$(id);if(el)el.textContent="";});
   const venmo=$("#acctVenmo");if(venmo)venmo.value="";
   const empty=$("#jobEmpty");if(empty){empty.hidden=false;empty.textContent="Sign in with the parent account to see booking requests. Your local job log is below.";}
   const signIn=$("#jobSignIn");if(signIn)signIn.hidden=false;
@@ -5160,16 +5164,49 @@ async function pubSignOut(){
   try{const result=await pubApi("/api/auth/logout",{body:{}});if(!result.ok&&result.httpStatus!==401)return false;}catch(e){return false;}
   pubMemToken="";
   try{pubSaveSession(null);}catch(e){}
+  try{localStorage.removeItem("hb-kid-jobs-code");}catch(e){}
   try{setConsentOn(false);}catch(e){}
   clearPrivateViews();
   return true;
 }
+function sharedSessionEmail(raw){try{return String(JSON.parse(raw||"null")?.email||"").trim().toLowerCase();}catch(e){return "";}}
+function lockChangedParentSession(event){
+  if(event.key!==PUB_KEY&&event.key!==null)return;
+  if(event.storageArea&&event.storageArea!==localStorage)return;
+  const before=sharedSessionEmail(event.oldValue),after=sharedSessionEmail(event.newValue);
+  if(event.key!==null&&before===after)return;
+  pubMemToken="";sessionEmail="";draftRecoveryBlocked=true;
+  try{localStorage.removeItem("hb-kid-jobs-code");}catch(e){}
+  clearPrivateViews();
+  if(document.getElementById("sharedSessionLock"))return;
+  // Keep unsaved work in memory, without writing it over another tab's family.
+  // The user elects when to reload the current shared session and saved draft.
+  const lock=document.createElement("section");lock.id="sharedSessionLock";
+  lock.setAttribute("role","alertdialog");lock.setAttribute("aria-modal","true");lock.setAttribute("aria-labelledby","sharedSessionTitle");
+  lock.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:var(--bg,#f7f5ed);color:var(--ink,#1d2723)";
+  lock.innerHTML='<div style="max-width:560px"><h2 id="sharedSessionTitle">The parent session changed in another tab.</h2><p>Family details are hidden. Your unsaved edits stay in this tab until you reload.</p><p>Reload to open the family currently signed in. Reloading discards unsaved edits in this tab.</p><button type="button" class="btn" id="sharedSessionReload">Reload current family</button></div>';
+  for(const child of document.body.children){if(child.tagName==="SCRIPT")continue;child.inert=true;child.style.visibility="hidden";}
+  document.body.appendChild(lock);
+  const reload=lock.querySelector("#sharedSessionReload");reload.onclick=()=>location.reload();reload.focus();
+}
+window.addEventListener("storage",lockChangedParentSession);
 function calSyncOn(){return !!(publishOrigin()&&pubSession()&&localStorage.getItem("hb-cal-sync")!=="0");}
 function calJobBody(j){return {id:j.id,service:j.service||"",customer:j.customer||"",address:j.address||"",start:(j.date||"")+"T"+(j.time||"09:00"),note:j.note||"",amount:j.amount?String(j.amount):""};}
 function syncCalJob(j){if(!calSyncOn()||!j)return;pubApi("/api/jobs",{body:calJobBody(j)}).catch(function(){});}
 function unsyncCalJob(id){if(!calSyncOn()||!id)return;pubApi("/api/jobs",{method:"DELETE",body:{id:id}}).catch(function(){});}
 function syncCalUpcoming(){if(!calSyncOn())return;(B.upcoming||[]).forEach(syncCalJob);}
+function showFamilyJobsCode(me){
+  const box=$("#familyJobsCode"),value=$("#familyJobsCodeValue"),copy=$("#copyFamilyJobsCode");
+  const code=String(me&&me.ok&&me.jobCode||"").trim().toLowerCase();
+  const valid=/^[a-z0-9]{8}$/.test(code);
+  if(box)box.hidden=!valid;
+  if(value)value.textContent=valid?code:"";
+  if(copy)copy.onclick=valid?()=>copyText(code,"Family jobs code copied. Sign out before handing this device to a kid."):null;
+  // A server-verified parent sign-in ends the explicit read-only kid view.
+  if(me&&me.ok){try{localStorage.removeItem("hb-kid-jobs-code");}catch(e){}const forget=$("#forgetKidJobs");if(forget)forget.hidden=true;}
+}
 function showCalendar(me){
+  showFamilyJobsCode(me);
   const box=$("#calBox"); if(!box)return;
   if(!me||!me.calUrl){box.hidden=true;return;}
   const link=$("#calLink"); if(link)link.textContent=me.calUrl;
@@ -5537,7 +5574,9 @@ async function initPublish(){
   if(!me.ok){
     if(me.httpStatus===401||me.error==="auth"){pubSaveSession(null);sessionEmail="";if(typeof clearPrivateViews==="function")clearPrivateViews();}
     else pubErr("Could not check your account. Check your connection and try again.");
-    if(!draftDirty)restoreOwnedDraft();return;
+    if(!draftDirty)restoreOwnedDraft();
+    if(kidJobsCode()&&document.body.classList.contains("boss-on"))loadMyJobs();
+    return;
   }
   sessionEmail=String(me.email||"").trim().toLowerCase();
   if(!forgetUnownedDraft())return;
@@ -6002,9 +6041,21 @@ function renderFilteredJobs(){
       const ask=!j.action&&!terminal&&j.canAskCancel&&!j.cancelRequested?'<div class="mbtns"><button type="button" class="btn outline" data-ask-cancel="'+esc(j.id)+'">Ask my parent to cancel</button></div>':'';
       const cancelNote=!terminal&&j.cancelRequested?'<div class="job-change"><p>'+(j.action?'Your kid asked to cancel. Review this request and choose Cancel request if you agree.':'Your parent has been asked to cancel. This booking stays active until your parent cancels it.')+'</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="keep-booking">Keep booking</button></div>':'')+'</div>':'';
       const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b>'+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
+      const seriesKind=j.series&&({weekly:"Weekly visits",biweekly:"Visits every other week",away:"Daily visits during the away dates"}[j.series.kind]||"Repeating visits");
+      const series=j.series?'<p class="small2"><b>Visit '+esc(j.series.index)+' of '+esc(j.series.total)+'</b> · '+esc(seriesKind)+'</p>':'';
+      const cancelSeries=j.series&&j.action?'<div class="mbtns"><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancel-series">Cancel remaining visits</button></div>':'';
+      let repeating="";
+      if(j.action&&!terminal&&!j.series&&!j.reschedule&&j.recurrence){
+        const hint=j.recurrence,counted=hint.requiresCount!==false;
+        const max=Math.min(8,Math.floor(Number(hint.maxCount)||8)),preferred=Math.min(max,Math.max(2,Math.floor(Number(hint.defaultCount)||4)));
+        const countId="job-series-count-"+encodeURIComponent(String(j.action||j.id||"request"));
+        let options="";for(let n=2;n<=max;n++)options+='<option value="'+n+'"'+(n===preferred?' selected':'')+'>'+n+' visits</option>';
+        const choice=counted?'<label class="small2" for="'+esc(countId)+'">Number of visits, including this booking</label><select id="'+esc(countId)+'" data-series-count>'+options+'</select>':'<p class="small2">Approve the original visit and one visit on each remaining away date, at the same time each day. Daily visits can cover up to '+esc(hint.maxCount||14)+' days.</p>';
+        repeating='<div class="job-change"><p><b>'+esc(hint.label||"Repeating visits requested")+'</b></p><p class="small2">This request is one appointment until a parent approves the repeating visits.</p>'+choice+((!counted||max>=2)?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="approve-series" data-start="'+esc(hint.start||"")+'" data-series-when="'+esc(j.when||hint.start||"")+'" data-series-label="'+esc(hint.label||"Repeating visits")+'" data-count-id="'+(counted?esc(countId):'')+'">Approve repeating visits</button></div>':'<p class="small2">No additional visits are available. Agree on a new schedule first.</p>')+'</div>';
+      }
       const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
       const owner=[j.kid,j.business].filter(Boolean).join(" · ");
-      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+cancelNote+proposed+acts+ask+pay+'</div>';
+      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+series+cancelNote+proposed+repeating+acts+cancelSeries+ask+pay+'</div>';
     }).join("");
   const empty=$("#jobEmpty");if(empty){empty.hidden=visible.length>0;empty.textContent=jobsKidFilter?"No booking requests for "+label+" yet.":"No booking requests yet. Share your published website link so neighbors can request a job.";}
   const summary=$("#jobFilterSummary");if(summary)summary.textContent="Showing "+visible.length+" booking"+(visible.length===1?"":"s")+" · "+label;
@@ -6012,8 +6063,9 @@ function renderFilteredJobs(){
 
 async function loadMyJobs(options){
   options=options||{};
-  if(!draftWriteAllowed()){clearPrivateViews();return;}
-  const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
+  const kidCode=kidJobsCode();
+  if(!draftWriteAllowed()&&!kidCode){clearPrivateViews();return;}
+  const code=kidCode||localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
   const session=pubSession();
   if(!code&&!pubToken()&&!session){clearPrivateViews();return;}
   const key=privateViewKey(),epoch=privateViewEpoch;
@@ -6030,8 +6082,13 @@ async function loadMyJobs(options){
       else if(status)status.textContent=data.message||"Could not refresh requests. Your last loaded list is still shown. Try again.";
       return;
     }
+    if(kidCode&&(data.parentAuthenticated===true||(data.jobs||[]).some(j=>j.action))){
+      clearPrivateViews();
+      const help=$("#kidJobsStatus");if(help)help.textContent="A parent is still signed in on this device. Sign out of the parent account before using a family jobs code.";
+      return;
+    }
     const list=$("#jobList");if(!list)return;
-    const jobs=data.jobs||[],canManage=jobs.some(j=>j.action)||!!session;
+    const jobs=data.jobs||[],canManage=data.parentAuthenticated===true||jobs.some(j=>j.action);
     const signIn=$("#jobSignIn");if(signIn)signIn.hidden=canManage;
     if(status)status.textContent=canManage?"Up to date. Contact phone-only customers directly about changes.":"A parent confirms, finishes, or cancels requests. You can ask your parent to cancel an active request.";
     updateJobFilters(jobs,data.businesses||[],key);
@@ -6055,6 +6112,26 @@ async function loadMyJobs(options){
 async function updateMyJob(btn){
   if(jobsActionPending)return;
   const next=btn.getAttribute("data-st"),key=privateViewKey(),epoch=privateViewEpoch;
+  let seriesCount,seriesStart;
+  if(next==="approve-series"){
+    seriesStart=btn.getAttribute("data-start")||"";
+    const countId=btn.getAttribute("data-count-id"),select=countId?document.getElementById(countId):null;
+    if(countId){
+      seriesCount=select?Number(select.value):NaN;
+      if(!Number.isInteger(seriesCount)||seriesCount<2||seriesCount>8){const status=$("#jobStatus");if(status)status.textContent="Choose 2 to 8 visits, then review the schedule again.";return;}
+    }
+    if(!seriesStart){const status=$("#jobStatus");if(status)status.textContent="Refresh requests before approving the repeating visits.";return;}
+    if(select)select.disabled=true;
+    try{
+      const details=seriesCount?('The original booking plus '+(seriesCount-1)+' more visit'+(seriesCount===2?'':'s')+' will be confirmed.'):"The original booking and one visit on each remaining away date will be confirmed, at the same time each day.";
+      const yes=await confirmModal('<h3>Approve '+(seriesCount?seriesCount+' ':"")+'repeating visits?</h3><p class="small2"><b>'+esc(btn.getAttribute("data-series-label")||"Repeating visits")+'</b>, starting '+esc(btn.getAttribute("data-series-when")||seriesStart)+'. '+details+' Each visit appears in the family calendar. Email notices are queued for customers with an email. Contact phone-only customers directly.</p>',"Approve repeating visits");
+      if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
+    }finally{if(select)select.disabled=false;}
+  }
+  if(next==="cancel-series"){
+    const yes=await confirmModal('<h3>Cancel the remaining visits?</h3><p class="small2">Only future, uncompleted visits in this repeating schedule will be cancelled. Past or completed visits and other bookings are unaffected. Email cancellation notices are queued for customers with an email. Contact phone-only customers directly.</p>',"Cancel remaining visits");
+    if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
+  }
   if(next==="cancelled"){
     const yes=await confirmModal('<h3>Cancel this booking request?</h3><p class="small2">It will leave the family calendar. Customers with an email receive a cancellation notice. Contact phone-only customers directly.</p>',"Cancel request");
     if(!yes||epoch!==privateViewEpoch||key!==privateViewKey())return;
@@ -6071,10 +6148,10 @@ async function updateMyJob(btn){
   if(jobsActionPending)return;
   jobsActionPending=true;
   const filter=$("#jobKidFilter");if(filter)filter.disabled=true;
-  const buttons=Array.from($("#jobList").querySelectorAll("button[data-job],button[data-ask-cancel]"));buttons.forEach(b=>b.disabled=true);
+  const buttons=Array.from($("#jobList").querySelectorAll("button[data-job],button[data-ask-cancel],select[data-series-count]"));buttons.forEach(b=>b.disabled=true);
   const status=$("#jobStatus");if(status)status.textContent="Saving request…";
   try{
-    const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:next,json:true,...((next==="accept-reschedule"||next==="decline-reschedule")?{start:btn.getAttribute("data-start")}: {})}});
+    const data=await pubApi("/api/job/"+btn.getAttribute("data-job"),{body:{status:next,json:true,...((next==="accept-reschedule"||next==="decline-reschedule")?{start:btn.getAttribute("data-start")}: {}),...(next==="approve-series"?{start:seriesStart,...(seriesCount?{count:seriesCount}:{})}:{})}});
     if(epoch!==privateViewEpoch||key!==privateViewKey())return;
     if(!data.ok){if(status)status.textContent=data.message||"Could not save that change. Refresh requests and try again.";return;}
     jobsActionPending=false;
@@ -6086,7 +6163,7 @@ async function updateMyJob(btn){
 async function askMyParentToCancel(btn){
   if(jobsActionPending)return;
   const key=privateViewKey(),epoch=privateViewEpoch;
-  const code=localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
+  const code=kidJobsCode()||localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
   if(!code)return;
   const yes=await confirmModal('<h3>Ask your parent to cancel?</h3><p class="small2">Your parent gets a request to review. The appointment stays active until your parent cancels it. Your parent handles notifying the customer.</p>',"Ask my parent");
   if(!yes||jobsActionPending||epoch!==privateViewEpoch||key!==privateViewKey())return;
@@ -6104,6 +6181,43 @@ async function askMyParentToCancel(btn){
   }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not confirm whether the request sent. Tap Refresh requests before trying again.";}
   finally{if(epoch===privateViewEpoch)jobsActionPending=false;buttons.forEach(b=>b.disabled=false);if(filter)filter.disabled=false;}
 }
+async function openKidJobs(event){
+  if(event)event.preventDefault();
+  const input=$("#kidJobsCodeInput"),button=$("#openKidJobs"),status=$("#kidJobsStatus");
+  if(!input||!button||button.disabled)return;
+  const code=String(input.value||"").trim().toLowerCase();
+  if(!/^[a-z0-9]{8}$/.test(code)){if(status)status.textContent="Enter the 8-character family jobs code from your parent.";return;}
+  const key=privateViewKey(),epoch=privateViewEpoch;
+  button.disabled=true;if(status)status.textContent="Checking family jobs code…";
+  try{
+    const data=await pubApi("/api/my-jobs?code="+encodeURIComponent(code),{method:"GET"});
+    if(epoch!==privateViewEpoch||key!==privateViewKey())return;
+    if(!data.ok){if(status)status.textContent=data.error==="limit"?"Too many code checks today. Ask your parent to open the account, or try again tomorrow.":"That code could not be opened. Check it with your parent and try again.";return;}
+    if(data.parentAuthenticated!==false||(data.jobs||[]).some(j=>j.action)){
+      if(status)status.textContent="A parent is still signed in on this device. Copy the family jobs code, then sign out of the parent account before handing over the device.";
+      return;
+    }
+    clearPrivateViews();
+    pubMemToken="";sessionEmail="";try{pubSaveSession(null);}catch(e){}
+    try{localStorage.setItem("hb-kid-jobs-code",code);}catch(e){if(status)status.textContent="This browser could not remember the code. Allow site storage and try again.";return;}
+    input.value="";
+    const forget=$("#forgetKidJobs");if(forget)forget.hidden=false;
+    const acceptedEpoch=privateViewEpoch,acceptedKey=privateViewKey();
+    await loadMyJobs();
+    if(acceptedEpoch!==privateViewEpoch||acceptedKey!==privateViewKey())return;
+    if(status)status.textContent="Read-only family view. A parent confirms changes and cancellations.";
+  }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not check the code. Check your connection and try again.";}
+  finally{button.disabled=false;}
+}
+function forgetKidJobs(){
+  try{localStorage.removeItem("hb-kid-jobs-code");}catch(e){}
+  clearPrivateViews();
+  const input=$("#kidJobsCodeInput");if(input)input.value="";
+  const forget=$("#forgetKidJobs");if(forget)forget.hidden=true;
+  const status=$("#kidJobsStatus");if(status)status.textContent="Family jobs code forgotten on this device.";
+}
+const kidJobsForm=$("#kidJobsForm");if(kidJobsForm)kidJobsForm.addEventListener("submit",openKidJobs);
+const forgetKidJobsBtn=$("#forgetKidJobs");if(forgetKidJobsBtn){forgetKidJobsBtn.hidden=!kidJobsCode();forgetKidJobsBtn.onclick=forgetKidJobs;}
 function refreshVisibleJobs(){
   if(document.hidden||!document.body.classList.contains("boss-on")||jobsActionPending||modalEl.classList.contains("open"))return;
   if(document.activeElement&&document.activeElement.closest("#jobList,#jobFilters"))return;
