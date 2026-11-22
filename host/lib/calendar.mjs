@@ -164,7 +164,9 @@ function timeLines(start, tz) {
 function eventLines(job, now, tz) {
   const when = timeLines(job.start, tz);
   if (!when) return [];
-  const summary = job.kid
+  const booked = job.source === "book";
+  const confirmed = job.status === "confirmed" || job.status === "done";
+  const summary = booked ? eventTitle(job.kid, job.service || "Job", job.customer || "Neighbor", confirmed) : job.kid
     ? inviteSummary(job.kid, job.service || "Job", job.customer || "Neighbor")
     : (job.service || "Job") + " - " + (job.customer || "Customer");
   const bits = [];
@@ -174,6 +176,7 @@ function eventLines(job, now, tz) {
   const lines = [
     "BEGIN:VEVENT",
     "UID:" + job.id + "@hustlebuilder.org",
+    ...(booked ? ["SEQUENCE:" + Math.max(confirmed ? 1 : 0, Math.floor(Number(job.sequence) || 0)), "STATUS:" + (confirmed ? "CONFIRMED" : "TENTATIVE")] : []),
     "DTSTAMP:" + dtstamp(now),
     ...when,
     "SUMMARY:" + icsEscape(summary),

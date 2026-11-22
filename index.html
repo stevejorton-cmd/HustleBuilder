@@ -693,6 +693,7 @@ details.help li{margin-bottom:10px}
 #myJobs h3{margin:0 0 8px}
 .kidjob{display:block;border:2px solid var(--line,#e6e1d8);border-radius:12px;padding:16px;margin-top:12px;background:#fff}
 .kidjob b,.kidjob span{display:block}
+.kidjob .job-owner{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:6px}
 .kidjob .jobst{font-weight:700;margin:14px 0 0}
 .kidjob .mbtns{display:flex;gap:8px;margin-top:14px}
 .kidjob .mbtns button{flex:1 1 0;min-width:0;min-height:44px;padding:8px 6px;border:2px solid var(--line,#e6e1d8);border-radius:8px;background:var(--raised);color:var(--ink);font:700 15px/1.2 system-ui,sans-serif;cursor:pointer}
@@ -5960,7 +5961,8 @@ async function loadMyJobs(options){
       const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button>':'';
       const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done">Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
       const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
-      return '<div class="kidjob"><b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+pay+'</div>';
+      const owner=[j.kid,j.business].filter(Boolean).join(" · ");
+      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+acts+pay+'</div>';
     }).join("");
     if(!list.dataset.bound){
       list.dataset.bound="1";
