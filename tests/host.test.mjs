@@ -248,7 +248,7 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   assert.equal(feed.status, 200);
   assert.match(feed.headers["content-type"], /text\/calendar/);
   assert.equal(feed.body.replace(/\r\n/g, "").includes("\n"), false);
-  assert.match(feed.body, /SUMMARY:Mow - Riley/);
+  assert.match(feed.body, /SUMMARY:Mow \(requested\) - Riley/);
   assert.match(feed.body, /999 Secret Lane/);
   assert.match(feed.body, /UID:b[a-f0-9]+@hustlebuilder\.org/);
   const privacy = await call("GET", "/api/site/privacy");
@@ -316,7 +316,7 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   assert.equal(apple.body.toLowerCase().includes("mailto:"), false);
   const me = await json(await call("GET", "/api/me", { token }));
   const feed = await call("GET", new URL(me.body.calUrl).pathname);
-  assert.match(feed.body, /SUMMARY:Will: Mow a small yard - Riley/);
+  assert.match(feed.body, /SUMMARY:Will: Mow a small yard \(requested\) - Riley/);
   assert.equal(feed.body.includes("Riley Stone"), false);
   assert.equal(feed.body.includes(email), false);
   assert.equal(feed.body.includes("402-555-0100"), false);
@@ -530,7 +530,7 @@ test("something else takes its name from the note, and email plus phone both sta
   assert.match(ics, /SUMMARY:Will: Dog walking - Dana/);
   const me = await json(await call("GET", "/api/me", { token }));
   const feed = await call("GET", new URL(me.body.calUrl).pathname);
-  assert.match(feed.body.replace(/\r\n[ \t]/g, ""), /SUMMARY:Will: Dog walking - Dana/);
+  assert.match(feed.body.replace(/\r\n[ \t]/g, ""), /SUMMARY:Will: Dog walking \(requested\) - Dana/);
   assert.equal(feed.body.includes("Something else"), false);
   const blank = await json(await call("POST", "/api/book", { body: {
     slug: "will-custom", name: "Dana", contact: "dana@example.com", service: "Something else",
@@ -3770,4 +3770,84 @@ test("Energy and Neighbor keep accurate service images and full booking controls
       if (theme === "neighbor") assert.match(html, /--bg:#FBF8F2/);
     }
   }
+});
+
+test("family subscription tracks sibling request status, stable UIDs, cancellation and account isolation", async () => {
+  async function setup(email, pages) {
+    const {token} = await parent(email);
+    await call("POST", "/api/consent", {token,body:{consent:true}});
+    await call("POST", "/api/checkout", {token,body:{plan:"season"}});
+    for(const [slug,first] of pages) {
+      const html=page(first)+'<script>window.__C='+JSON.stringify({first,biz:first+" Services",email:"",phoneDigits:""})+';</script>';
+      assert.equal((await call("POST", "/api/publish", {token,body:{slug,html}})).status,200);
+    }
+    const me=await json(await call("GET","/api/me",{token}));
+    return {token,feed:new URL(me.body.calUrl).pathname};
+  }
+  const family=await setup("siblings-calendar@example.com",[["alex-calendar","Alex"],["riley-calendar","Riley"]]);
+  const other=await setup("separate-calendar@example.com",[["sam-calendar","Sam"]]);
+  for(const [slug,service,name,contact,time] of [
+    ["alex-calendar","Leaf cleanup","Casey","casey.calendar@example.com","10:00"],
+    ["riley-calendar","Pet visit","Morgan","morgan.calendar@example.com","16:00"],
+    ["sam-calendar","Book help","Dana","dana.calendar@example.com","18:00"]
+  ]) {
+    const res=await call("POST","/api/book",{body:{slug,service,name,contact,when:"November 16 at "+time,start:"2026-11-16T"+time,address:"123 Sample Lane",note:"Calendar test",t:5000}});
+    assert.equal(res.status,200);
+  }
+  async function events(feed) {
+    const response=await call("GET",feed);assert.equal(response.status,200);
+    const component=new ICAL.Component(ICAL.parse(response.body));
+    return component.getAllSubcomponents("vevent").map(e=>Object.fromEntries(["uid","summary","status","sequence"].map(key=>[key,e.getFirstPropertyValue(key)])));
+  }
+  const first=await events(family.feed),isolated=await events(other.feed);
+  assert.equal(first.length,2);assert.equal(isolated.length,1);
+  const alex=first.find(e=>e.summary.startsWith("Alex:")),riley=first.find(e=>e.summary.startsWith("Riley:"));
+  for(const e of first){assert.match(e.summary,/\(requested\)/);assert.equal(e.status,"TENTATIVE");assert.equal(e.sequence,0);}
+  assert.match(isolated[0].summary,/^Sam:/);
+  const list=await json(await call("GET","/api/my-jobs",{token:family.token}));
+  assert.deepEqual(list.body.jobs.map(j=>[j.kid,j.business]).sort(),[["Alex","Alex Services"],["Riley","Riley Services"]]);
+  const alexAction=list.body.jobs.find(j=>j.service==="Leaf cleanup").action;
+  const rileyAction=list.body.jobs.find(j=>j.service==="Pet visit").action;
+  assert.equal((await call("POST","/api/job/"+alexAction,{body:{status:"confirmed",json:true}})).status,200);
+  const mixed=await events(family.feed),confirmed=mixed.find(e=>e.uid===alex.uid),pending=mixed.find(e=>e.uid===riley.uid);
+  assert.equal(confirmed.summary,"Alex: Leaf cleanup - Casey");assert.equal(confirmed.status,"CONFIRMED");assert.equal(confirmed.sequence,1);
+  assert.equal(pending.summary,riley.summary);assert.equal(pending.status,"TENTATIVE");assert.equal(pending.sequence,0);
+  assert.deepEqual(await events(other.feed),isolated);
+  // Repeated confirmation keeps the logical event and its revision stable.
+  await call("POST","/api/job/"+alexAction,{body:{status:"confirmed",json:true}});
+  assert.deepEqual(await events(family.feed),mixed);
+  const box=await json(await call("GET","/api/test/outbox?email=casey.calendar%40example.com"));
+  const confirmation=box.body.messages.find(m=>m.subject==="Your booking is confirmed");
+  const eventPath=confirmation.text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const one=await events(eventPath);
+  assert.deepEqual(one[0],confirmed,"the subscription and one-booking file use the same identity and revision");
+  await call("POST","/api/job/"+alexAction,{body:{status:"cancelled",json:true}});
+  assert.deepEqual(await events(family.feed),[pending]);
+  const parentBox=await json(await call("GET","/api/test/outbox?email=siblings-calendar%40example.com"));
+  const cancelled=parentBox.body.messages.find(m=>m.subject==="Booking cancelled: Leaf cleanup");
+  assert.match(cancelled.ics,/METHOD:CANCEL/);assert.match(cancelled.ics,/SEQUENCE:2/);assert.ok(cancelled.ics.includes("UID:"+alex.uid));
+  assert.equal((await call("GET",eventPath)).status,404);
+  await call("POST","/api/job/"+rileyAction,{body:{status:"confirmed",json:true}});
+  await call("POST","/api/job/"+rileyAction,{body:{status:"done",json:true}});
+  const done=await events(family.feed);assert.equal(done.length,1);assert.equal(done[0].uid,riley.uid);assert.equal(done[0].status,"CONFIRMED");assert.equal(done[0].sequence,1);
+  assert.deepEqual(await events(other.feed),isolated);
+});
+
+
+test("marking a request done directly gives both calendar views a confirmed revision without confirmation mail", async () => {
+  const {token}=await parent("done-calendar@example.com");
+  await call("POST","/api/consent",{token,body:{consent:true}});
+  await call("POST","/api/checkout",{token,body:{plan:"season"}});
+  await call("POST","/api/publish",{token,body:{slug:"done-calendar",html:page("Alex")}});
+  const contact="directdone@example.com";
+  assert.equal((await call("POST","/api/book",{body:{slug:"done-calendar",name:"Casey",contact,service:"Leaf cleanup",when:"November 16 at 4 PM",start:"2026-11-16T16:00",address:"123 Sample Lane",t:5000}})).status,200);
+  const list=await json(await call("GET","/api/my-jobs",{token}));
+  await call("POST","/api/job/"+list.body.jobs[0].action,{body:{status:"done",json:true}});
+  const box=await json(await call("GET","/api/test/outbox?email="+encodeURIComponent(contact)));
+  assert.equal(box.body.messages.filter(m=>m.subject==="Your booking is confirmed").length,0);
+  const eventPath=box.body.messages.find(m=>/\/api\/event\//.test(m.text)).text.match(/\/api\/event\/[a-f0-9]+\.ics/)[0];
+  const one=await call("GET",eventPath);
+  const me=await json(await call("GET","/api/me",{token}));
+  const feed=await call("GET",new URL(me.body.calUrl).pathname);
+  for(const response of [one,feed]){assert.match(response.body,/STATUS:CONFIRMED/);assert.match(response.body,/SEQUENCE:1/);assert.equal(response.body.includes("(requested)"),false);}
 });

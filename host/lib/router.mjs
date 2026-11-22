@@ -585,6 +585,8 @@ function kidJob(row, account) {
   });
   return {
     id: row.id,
+    kid: row.kid || (row.calJob && row.calJob.kid) || "",
+    business: row.business || "",
     service: row.service || "A job",
     when: row.when || "",
     firstName: row.firstName || "Neighbor",
@@ -2011,7 +2013,18 @@ async function serveCalendar(token) {
   const account = await accountByCalToken(token);
   if (!account) return json(404, { ok: false, error: "missing" });
   const jobs = await loadJobs(account.id, tzOf(account));
-  return calendarResponse(200, jobsToIcs(jobs, Date.now(), tzOf(account)));
+  // Stored calendar jobs predate status tracking. Read the authoritative
+  // request state so existing subscriptions update without a data migration,
+  // and changing one sibling's request leaves the other jobs untouched.
+  const requests = await loadRequests(account.id);
+  const byJob = new Map(requests.map(row => [calendarRequestId(row), row]));
+  const visible = jobs.flatMap(job => {
+    if (job.source !== "book") return [job];
+    const row = byJob.get(job.id);
+    if (row && row.status === "cancelled") return [];
+    return [{ ...job, status: row?.status || "new", sequence: row?.publicEvent?.sequence || row?.invite?.sequence || 0 }];
+  });
+  return calendarResponse(200, jobsToIcs(visible, Date.now(), tzOf(account)));
 }
 
 function clientIp(req) {
@@ -3019,40 +3032,42 @@ async function routeRequest(req) {
       const cancelIcs = next === "cancelled" ? takeCancelIcs(row) : "";
       row.status = next;
       if(next==='cancelled'){await removeCalendarRequest(account.id,row);await dropPublicEvent(row);}
-      if (next === "confirmed" && was !== "confirmed" && row.eventToken) {
+      if ((next === "confirmed" || next === "done") && next !== was && row.eventToken) {
         const rec = await readJson("events/" + row.eventToken + ".json");
         if (rec) {
+          rec.sequence = Math.max(1, Number(rec.sequence || 0) + (rec.confirmed ? 0 : 1));
           rec.confirmed = true;
-          rec.sequence = Math.max(1, Number(rec.sequence || 0) + 1);
           rec.summary = String(rec.summary || "").replace(" (requested)", "");
           rec.details = "Confirmed.";
           await writeJson("events/" + row.eventToken + ".json", rec);
           row.publicEvent = rec;
-          const add = eventMailBits(origin, rec);
-          const pay = venmoBits(account, row, { afterJob: false });
-          const confirmedIcs = addEventIcs(rec);
-          const who = row.firstName || "A neighbor";
-          const jobName = row.service || "a job";
-          await sendMail({
-            to: account.email,
-            replyTo: supportReply(),
-            forParent: true,
-            origin,
-            subject: "Booking confirmed: " + jobName,
-            text: who + " · " + jobName + " is confirmed.\n\n" + add.text,
-            html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(who) + " · " + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>",
-            ics: confirmedIcs
-          });
-          const neighbor = contactEmail(row.fields && row.fields.contact);
-          if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
+          if (next === "confirmed") {
+            const add = eventMailBits(origin, rec);
+            const pay = venmoBits(account, row, { afterJob: false });
+            const confirmedIcs = addEventIcs(rec);
+            const who = row.firstName || "A neighbor";
+            const jobName = row.service || "a job";
             await sendMail({
-              to: neighbor,
+              to: account.email,
               replyTo: supportReply(),
-              subject: "Your booking is confirmed",
-              text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + pay.text + add.text,
-              html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + pay.html + add.html + "</div>",
+              forParent: true,
+              origin,
+              subject: "Booking confirmed: " + jobName,
+              text: who + " · " + jobName + " is confirmed.\n\n" + add.text,
+              html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(who) + " · " + mailEscape(jobName) + " is confirmed.</p>" + add.html + "</div>",
               ics: confirmedIcs
             });
+            const neighbor = contactEmail(row.fields && row.fields.contact);
+            if (neighbor && neighbor !== String(account.email || "").toLowerCase()) {
+              await sendMail({
+                to: neighbor,
+                replyTo: supportReply(),
+                subject: "Your booking is confirmed",
+                text: "Hi " + who + ",\n\n" + jobName + " is confirmed.\n\n" + pay.text + add.text,
+                html: "<div style=\"font:18px/1.45 system-ui,sans-serif;color:#1d2226\"><p>Hi " + mailEscape(who) + ",</p><p>" + mailEscape(jobName) + " is confirmed.</p>" + pay.html + add.html + "</div>",
+                ics: confirmedIcs
+              });
+            }
           }
         }
       }
@@ -3271,7 +3286,8 @@ document.getElementById("no").onclick=()=>mark("cancelled");
       parentEmail: account.email,
       replyTo: reply || supportReply(),
       firstName: firstName(fields.name),
-      kid: job ? job.kid : "",
+      kid: names.first ? firstName(names.first) : "",
+      business: names.biz || "",
       service: titled,
       when: fields.when || start,
       address: fields.address,
@@ -3806,7 +3822,7 @@ function takeCancelIcs(row) {
   const invite = row && row.invite;
   if (!invite || !invite.uid || invite.cancelled) return "";
   const id = String(invite.uid).replace(/@hustlebuilder\.org$/, "");
-  const sequence = Number(invite.sequence || 0) + 1;
+  const sequence = Math.max(Number(invite.sequence || 0), Number(row.publicEvent?.sequence || 0)) + 1;
   invite.sequence = sequence;
   invite.cancelled = true;
   return bookingInviteIcs({
@@ -3815,8 +3831,11 @@ function takeCancelIcs(row) {
     attendee: invite.attendee || row.parentEmail, sequence, method: "CANCEL"
   });
 }
+function calendarRequestId(row) {
+  return row.calendarJobId||row.calJob?.id||row.invite?.uid?.replace(/@hustlebuilder\.org$/, "")||row.ics?.match(/UID:([^@\r\n]+)@/)?.[1];
+}
 async function removeCalendarRequest(accountId,row) {
-  const id=row.calendarJobId||row.calJob?.id||row.ics?.match(/UID:([^@\r\n]+)@/)?.[1];
+  const id=calendarRequestId(row);
   if(id)await saveJobs(accountId,(await loadJobs(accountId)).filter(j=>j.id!==id));
   row.calJob=null;
 }
