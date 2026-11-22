@@ -2014,6 +2014,7 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.match(msg.text, /Milo/);
   assert.match(msg.text, /lockbox 4481/);
   assert.match(msg.text, /Poop scoop/);
+  assert.match(msg.html, /How often: Weekly poop scoop/);
   assert.match(msg.ics || "", /Milo/);
   const note = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("neighbor-pet@example.com")));
   assert.match(note.body.messages[0].text, /Poop scoop/);
@@ -2034,6 +2035,26 @@ test("pet words and a pet booking stay allowed, and the key note stays with the 
   assert.match(src, /assets\/refresh\/pet\.webp/);
   assert.match(src, /pet-dog\.webp/);
   assert.equal(src.includes("function petAnimal"), false);
+});
+
+test("HTML booking emails retain size and recurring preferences with escaped customer text", async () => {
+  const { token, email } = await parent("booking-preferences@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  await call("POST", "/api/publish", { token, body: { slug: "size-and-repeat", html: page("Lawn Lines") } });
+  const result = await json(await call("POST", "/api/book", { body: {
+    slug: "size-and-repeat", name: "Neighbor", contact: "neighbor-preferences@example.com",
+    service: "Mow the lawn", when: "Saturday afternoon", address: "TEST ONLY",
+    start: futureDay(7) + "T14:00", t: 3000, size: "Large & uneven", freq: "Every <other> week"
+  } }));
+  assert.equal(result.body.ok, true);
+  const outbox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
+  const message = outbox.body.messages.find(m => m.subject === "Booking request: Mow the lawn");
+  assert.match(message.text, /Size: Large & uneven/);
+  assert.match(message.text, /How often: Every <other> week/);
+  assert.match(message.html, /Size: Large &amp; uneven/);
+  assert.match(message.html, /How often: Every &lt;other&gt; week/);
+  assert.equal(message.html.includes("Every <other> week"), false);
 });
 
 test("add more jobs lists the selected business type first", async () => {
