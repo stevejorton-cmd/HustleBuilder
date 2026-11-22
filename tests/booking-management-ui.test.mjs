@@ -62,3 +62,28 @@ test('jobs entry opens My jobs and suppresses examples without granting parent a
   assert.match(source,/else if\(startQ.get\("jobs"\)\)setMode\("boss"\)/);
   const h=inbox();h.data.clear();let cleared=0,calls=0;h.c.clearPrivateViews=()=>cleared++;h.c.pubApi=async()=>{calls++;return {ok:true};};await h.c.loadMyJobs();assert.equal(cleared,1);assert.equal(calls,0);
 });
+
+test('family filters switch siblings locally, include empty businesses, and preserve selection after refresh',async()=>{
+  const h=inbox(true);let calls=0;
+  const jobs=[{...job,id:'riley-job',businessKey:'riley-yard',kid:'Riley',business:'Yard Crew',action:'riley-action'},{...job,id:'quinn-job',businessKey:'quinn-pets',kid:'Quinn',business:'Pet Visits',action:'quinn-action',service:'Dog walk'}];
+  const businesses=[{key:'riley-yard',kid:'Riley',business:'Yard Crew'},{key:'quinn-pets',kid:'Quinn',business:'Pet Visits'},{key:'casey-snow',kid:'Casey',business:'Snow Patrol'}];
+  h.c.pubApi=async()=>{calls++;return {ok:true,jobs,businesses,fresh:1};};await h.c.loadMyJobs();
+  const select=h.el('#jobKidFilter');assert.equal(h.el('#jobFilters').hidden,false);assert.match(select.innerHTML,/All kids/);assert.match(select.innerHTML,/Casey/);
+  select.value='quinn-pets';select.change();assert.match(h.el('#jobList').innerHTML,/quinn-action/);assert.doesNotMatch(h.el('#jobList').innerHTML,/riley-action/);assert.match(h.el('#jobFilterSummary').textContent,/Showing 1 booking.*Quinn/);assert.equal(calls,1,'switching does not fetch or mutate bookings');
+  await h.c.loadMyJobs();assert.equal(select.value,'quinn-pets');assert.doesNotMatch(h.el('#jobList').innerHTML,/riley-action/);
+  select.value='casey-snow';select.change();assert.equal(h.el('#jobList').innerHTML,'');assert.equal(h.el('#jobEmpty').hidden,false);assert.match(h.el('#jobEmpty').textContent,/Casey.*yet/);
+  select.value='';select.change();assert.match(h.el('#jobList').innerHTML,/riley-action/);assert.match(h.el('#jobList').innerHTML,/quinn-action/);assert.equal(h.el('#jobEmpty').hidden,true);
+});
+test('same-name kids remain distinct by business key and filters reset for another family',async()=>{
+  const h=inbox(true);
+  let jobs=[{...job,id:'one',businessKey:'sam-yard',kid:'Sam',business:'Yard',service:'First service'},{...job,id:'two',businessKey:'sam-pets',kid:'Sam',business:'Pets',service:'Second service'}];
+  h.c.pubApi=async()=>({ok:true,jobs,fresh:0});await h.c.loadMyJobs();const select=h.el('#jobKidFilter');
+  select.value='sam-pets';select.change();assert.match(h.el('#jobList').innerHTML,/Second service/);assert.doesNotMatch(h.el('#jobList').innerHTML,/First service/);
+  h.c.privateViewEpoch++;jobs=[{...job,businessKey:'lee-snow',kid:'Lee',business:'Snow'}];await h.c.loadMyJobs();assert.equal(select.value,'');assert.doesNotMatch(select.innerHTML,/Sam/);assert.match(h.el('#jobList').innerHTML,/Lee/);assert.equal(h.el('#jobFilters').hidden,true);
+  h.c.resetJobFilters();assert.equal(select.value,'');assert.equal(h.el('#jobFilterSummary').textContent,'');assert.doesNotMatch(select.innerHTML,/Lee/);
+});
+test('family filter labels escape customer-controlled markup and removed choices fall back to All kids',async()=>{
+  const h=inbox(true);let jobs=[{...job,businessKey:'yard',kid:'<img src=x>',business:'A & B'},{...job,businessKey:'pets',kid:'Quinn',business:'Pets'}];
+  h.c.pubApi=async()=>({ok:true,jobs});await h.c.loadMyJobs();const select=h.el('#jobKidFilter');assert.doesNotMatch(select.innerHTML,/<img/);assert.match(select.innerHTML,/&lt;img/);assert.match(select.innerHTML,/A &amp; B/);
+  select.value='pets';select.change();jobs=[jobs[0]];await h.c.loadMyJobs();assert.equal(select.value,'');assert.equal(h.el('#jobEmpty').hidden,true);
+});

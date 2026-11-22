@@ -291,3 +291,42 @@ test('parent keeping a kid-requested booking clears the request without cancella
   const kid=await json(await call('GET','/api/my-jobs?code='+f.code));assert.equal(kid.body.jobs[0].cancelRequested,false);
   assert.equal((await outbox(f.email)).length,pCount);assert.equal((await outbox('customer-manage@example.com')).length,cCount);assert.deepEqual(await events(f),before);
 });
+
+test('parent family filters identify sibling businesses, include empty pages and exclude other families',async()=>{
+  const f=await family(),other=await family('other-navigation@example.com','other-yard','othernav');
+  const publishSibling=async(slug,kid,business)=>{
+    const html='<!doctype html><html><head><title>'+business+'</title></head><body><!-- hb-public --><h1>'+business+'</h1><script>window.__C='+JSON.stringify({first:kid,biz:business})+';</script></body></html>';
+    const response=await json(await call('POST','/api/publish',{token:f.token,body:{slug,html}}));assert.equal(response.status,200);
+  };
+  await publishSibling('riley-yard','Riley','Riley Yard Crew');
+  await publishSibling('quinn-yard','Quinn','Quinn Yard Crew');
+  const sam=await book(f,{service:'Leaf cleanup'}),riley=await book({...f,slug:'riley-yard'},{service:'Leaf cleanup',contact:'riley-customer@example.com'});
+  const foreign=await book(other,{service:'Leaf cleanup',contact:'other-customer@example.com'});
+  // A stale or damaged account slug list must not expose another family's
+  // page names through the navigation metadata.
+  const account=await read('accounts/'+f.id+'.json');account.slugs.push(other.slug);await write('accounts/'+f.id+'.json',account);
+  const s=await store(),originalGet=s.get;
+  s.get=async key=>{assert.equal(key.endsWith('.html'),false,'filters read small metadata, not website HTML');return originalGet(key);};
+  const response=await json(await call('GET','/api/my-jobs',{token:f.token}));assert.equal(response.status,200);
+  assert.deepEqual(response.body.jobs.map(j=>j.businessKey).sort(),[f.slug,'riley-yard'].sort());
+  assert.equal(response.body.jobs.length,2);assert.ok(response.body.jobs.every(j=>j.service==='Leaf cleanup'));
+  assert.deepEqual(response.body.businesses.map(b=>b.key).sort(),[f.slug,'riley-yard','quinn-yard'].sort());
+  assert.deepEqual(response.body.businesses.find(b=>b.key==='quinn-yard'),{key:'quinn-yard',kid:'Quinn',business:'Quinn Yard Crew'});
+  assert.equal(response.body.jobs.some(j=>j.id===foreign.id),false);assert.equal(response.body.businesses.some(b=>b.key===other.slug),false);
+  assert.equal(response.body.jobs.find(j=>j.id===sam.id).action,sam.actionToken);
+  assert.equal(response.body.jobs.find(j=>j.id===riley.id).action,riley.actionToken);
+  const child=await json(await call('GET','/api/my-jobs?code='+f.code));assert.equal(child.status,200);
+  assert.deepEqual(child.body.businesses.map(b=>b.key).sort(),[f.slug,'riley-yard'].sort(),'kid view derives filters only from the existing job view');
+  assert.ok(child.body.jobs.every(j=>j.action===undefined));
+});
+
+test('parent booking pages link to the signed-in family view while customer pages stay booking-specific',async()=>{
+  const f=await family(),r=await book(f);
+  const parentPage=await call('GET','/api/job/'+r.actionToken);assert.equal(parentPage.status,200);
+  assert.match(parentPage.body,/<a href="\/\?jobs=1">View all family bookings<\/a>/);
+  assert.match(parentPage.body,/Sam Yard/);
+  const customerPage=await call('GET','/api/booking/'+r.cancelToken);assert.equal(customerPage.status,200);
+  assert.doesNotMatch(customerPage.body,/View all family bookings|href="\/\?jobs=1"/);
+  assert.equal(customerPage.body.includes(r.actionToken),false);
+  const unsigned=await call('GET','/api/my-jobs');assert.equal(unsigned.status,401,'following the public family link does not grant parent access');
+});
