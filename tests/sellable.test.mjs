@@ -301,10 +301,10 @@ test("privacy and terms are real pages with no internal notes", async () => {
   assert.match(terms.body, /Payments for jobs go directly between neighbors and the family/);
   assert.match(privacy.body, /Stripe/);
   assert.match(privacy.body, /about 30 days/);
-  assert.match(privacy.body, /50¢/);
+  assert.match(privacy.body, /\$0\.50/);
   assert.match(privacy.body, /do not store the card number/i);
-  assert.match(terms.body, /Parent check/);
-  assert.match(terms.body, /refund the 50¢ in full/i);
+  assert.match(terms.body, /Parent verification/);
+  assert.match(terms.body, /full refund through Stripe right away, back to the same card/i);
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.equal(src.includes("will be added before this app is sold"), false);
   assert.equal(src.includes("Nothing is sent to a server"), false);
@@ -339,7 +339,7 @@ test("the admin dashboard can take a page down and put it back without the comma
   const cookie = login.headers["set-cookie"].split(";")[0];
   const dash = await call("GET", "/admin", { headers: { cookie } });
   assert.match(dash.body, /action="\/admin\/takedown"/);
-  assert.match(dash.body, /Consent: card check, refunded/);
+  assert.match(dash.body, /Consent: \$0\.50 card charge refunded/);
   const anon = await call("POST", "/admin/takedown", { raw: "slug=sam-yard" });
   assert.equal(anon.status, 302);
   assert.match((await call("GET", "/api/site/sam-yard")).body, /<h1>Sam<\/h1>/, "no session, no change");
@@ -503,6 +503,9 @@ test("a finished 50 cent check refunds, stores consent, and then publish is allo
   const p = await verifiedOnly("card-ok@example.com");
   await call("POST", "/api/consent", { token: p.token, body: { consent: true } });
   const id = Object.keys(state.sessions)[0];
+  assert.equal(state.sessions[id].amount_total,50,"the verification amount stays fifty cents");
+  assert.match(state.sessions[id].name,/\$0\.50 card charge, then a refund/);
+  assert.doesNotMatch(state.sessions[id].name,/card check|refunded check/i);
   Object.assign(state.sessions[id], { status: "complete", payment_status: "paid", payment_intent: "pi_verify_ok_1" });
   const event = { id: "evt_verify_ok", type: "checkout.session.completed", data: { object: state.sessions[id] } };
   const hook = await json(await call("POST", "/api/stripe/webhook", signStripe(JSON.stringify(event))));

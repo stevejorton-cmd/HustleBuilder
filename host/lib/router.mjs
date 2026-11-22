@@ -1002,12 +1002,12 @@ async function beginCardCheck(account, origin) {
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", "usd");
   params.set("line_items[0][price_data][unit_amount]", String(VERIFY_CENTS));
-  params.set("line_items[0][price_data][product_data][name]", "Hustle Builder parent check, 50¢, refunded right away");
+  params.set("line_items[0][price_data][product_data][name]", "Hustle Builder parent verification: $0.50 card charge, then a refund");
   params.set("metadata[accountId]", account.id);
   params.set("metadata[purpose]", "parent_verification");
   params.set("metadata[notice]", CONSENT_VERSION);
   params.set("payment_intent_data[receipt_email]", account.email);
-  params.set("payment_intent_data[description]", "Hustle Builder parent check, 50¢, refunded right away");
+  params.set("payment_intent_data[description]", "Hustle Builder parent verification: $0.50 card charge, then a refund");
   params.set("payment_intent_data[statement_descriptor_suffix]", STATEMENT_SUFFIX);
   params.set("payment_intent_data[metadata][purpose]", "parent_verification");
   params.set("payment_intent_data[metadata][accountId]", account.id);
@@ -1271,13 +1271,32 @@ async function sendOnce(flag, message) {
 // own note and republishing either page never re-sends. kind picks the
 // wording: "added" for a further page joining the family plan, "renamed"
 // when the primary address moved, "" for the first page.
-async function sendLiveNote(account, origin, slug, kind = "") {
+async function sendLiveNote(account, origin, slug, kind = "", draftCode = "") {
   const mailed = new Set(Array.isArray(account.liveMailedSlugs) ? account.liveMailedSlugs : []);
   if (account.liveMailed) mailed.add(account.liveMailed);
   if (mailed.has(slug)) return;
   const url = (origin || "") + "/" + slug;
   const qr = (origin || "") + "/api/qr/" + slug + ".png";
   const accountLink = accountUrl(origin);
+  let builderLink = accountLink;
+  const code = String(draftCode || "").trim().toLowerCase();
+  if (/^[a-z0-9]{8}$/.test(code)) {
+    const rec = await readJson("drafts/" + code + ".json");
+    const meta = await readJson("pages/" + slug + ".json");
+    const draft = rec && rec.draft;
+    const names = meta && meta.names;
+    const fresh = rec && Date.now() - Date.parse(rec.updatedAt || 0) <= DRAFT_MS;
+    // Never use the account's most recent draft here: it may be a sibling's.
+    // An expired, foreign, or mismatched draft falls back to the parent account.
+    if (fresh && draftOwnedBy(rec, account, code) && draft && names
+        && firstName(draft.first) === firstName(names.first)
+        && (!String(draft.bizName || "").trim() || String(draft.bizName).trim() === names.biz)) {
+      builderLink = (origin || "") + "/?draft=" + code;
+    }
+  }
+  const flyerHint = builderLink === accountLink
+    ? "Choose this child’s saved page, then open Flyers."
+    : "Open Flyers after this child’s page loads.";
   const renamed = kind === "renamed";
   const added = kind === "added";
   const subject = renamed ? "Your new web address is live" : added ? "Your new page is live" : "Your page is live";
@@ -1288,8 +1307,8 @@ async function sendLiveNote(account, origin, slug, kind = "") {
     to: account.email,
     replyTo: supportReply(),
     subject,
-    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app. The QR code is on it, and in this email.\n2. Share the link with neighbors.\n\nSubscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calSubscribe + "\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
-    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li>Print a flyer in the app.</li><li>Share the link with neighbors.</li></ol><p>Subscribe once. New and confirmed bookings show up on their own.</p>" + mailButton(links.calGoogle, "Subscribe in Google Calendar") + mailButton(links.calSubscribe, "Subscribe on iPhone") + "<p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
+    text: lead + "\n\n" + url + "\n\nNext:\n1. Print a flyer in the app:\n" + builderLink + "\n" + flyerHint + " The QR code is on the flyer and in this email.\n2. Share the link with neighbors:\n" + url + "\n\nSubscribe once. New and confirmed bookings show up on their own.\nSubscribe in Google Calendar:\n" + links.calGoogle + "\nSubscribe on iPhone:\n" + links.calSubscribe + "\n\nQR code: " + qr + "\n\nYour account:\n" + accountLink + "\n",
+    html: "<div style=\"font:18px/1.5 system-ui,sans-serif;color:#1d2226\"><p><b>" + lead + "</b></p><p><a href=\"" + mailEscape(url) + "\">" + mailEscape(url) + "</a></p><p><img src=\"" + mailEscape(qr) + "\" alt=\"QR code for the page\" width=\"220\" height=\"220\"></p><p>Next:</p><ol><li><a href=\"" + mailEscape(builderLink) + "\">Print a flyer in the app</a>. " + mailEscape(flyerHint) + "</li><li><a href=\"" + mailEscape(url) + "\">Share the link with neighbors</a>.</li></ol><p>Subscribe once. New and confirmed bookings show up on their own.</p>" + mailButton(links.calGoogle, "Subscribe in Google Calendar") + mailButton(links.calSubscribe, "Subscribe on iPhone") + "<p><a href=\"" + mailEscape(accountLink) + "\">Your account</a></p></div>"
   });
   if (sent.ok) {
     mailed.add(slug);
@@ -1328,7 +1347,7 @@ async function sendMail({ to, subject, text, html: htmlBody, ics, replyTo, forPa
   return queueMail({to,subject:sub,text:clean,html:markup,ics:icsText,replyTo:reply,ownerId:ownerId||'',expiresAt:expiresAt||null});
 }
 
-export const LEGAL_UPDATED = "November 21, 2026";
+export const LEGAL_UPDATED = "November 22, 2026";
 function privacyPage() {
   return shell(200, "Privacy", `<h1>Privacy</h1>
 <p>Last updated ${LEGAL_UPDATED}.</p>
@@ -1341,12 +1360,12 @@ function privacyPage() {
 <p>Until a parent completes verification and consent, your draft stays only in this browser. “Ask my parent” sends only the contact information and names needed to request consent, not the business draft. If consent is not completed within seven days, we delete that request information. Cloud drafts become available only after parental consent.</p>
 
 <h2>What we keep for a parent account</h2>
-<p>The account belongs to the parent or guardian, not the child. The parent owns it and runs the page. The child can help build the draft. We keep the parent’s email address, the parent check described below, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
+<p>The account belongs to the parent or guardian, not the child. The parent owns it and runs the page. The child can help build the draft. We keep the parent’s email address, the parent verification described below, the page they approved, and the plan and payment status. We use the email to send sign-in codes, booking requests, receipts, and plan reminders. We do not sell it, share it for advertising, or send marketing email.</p>
 <p>A kid does not make an account and does not give us an email address.</p>
 
 <h2>How a parent agrees</h2>
-<p>Before the first page goes online, a parent reads this notice and pays 50¢ with a card through Stripe. Stripe emails a receipt to the parent’s email. We refund that 50¢ in full right away. The free trial stays free. You are never charged automatically.</p>
-<p>We store that the check happened: the method (a card check, or a later plan payment), the time, Stripe’s payment id, and this notice’s version. We do not store the card number, the expiration date, or the security code. A parent who already passed the check does not do it again for another kid’s page or for an update. Buying a real plan also counts, so that parent skips the 50¢. Refunding the 50¢ does not take the page down.</p>
+<p>Before the first page goes online, a parent reads this notice and makes a $0.50 card payment through Stripe. We request a full refund through Stripe right away, back to the same card. Your bank may take time to show the credit, or the original charge may disappear. Stripe emails a receipt to the parent’s email. This helps us confirm that an adult is approving and managing the child’s page. The free trial stays free. You are never charged automatically.</p>
+<p>We store that parent verification happened: the method (a refunded card charge or a plan payment), the time, Stripe’s payment id, and this notice’s version. We do not store the card number, the expiration date, or the security code. A parent who already completed verification does not do it again for another kid’s page or for an update. Buying a plan or using an eligible playtester code also counts, so that parent skips the separate $0.50 charge. Refunding the $0.50 does not take the page down.</p>
 
 <h2>What the public page shows</h2>
 <p>The page shows a first name and a town, plus the services, prices, photos, and reviews the family chose to add after a parent agrees. A parent’s email and phone are not on the page. We do not ask for a last name, a school, or a precise location of the child. Neighbors use the booking form. Search engines are asked not to list the page unless the parent turns that on too.</p>
@@ -1399,8 +1418,8 @@ function termsPage() {
 <h2>Free trial</h2>
 <p>${trialBlurb()} There is one trial per parent email, shared by every page on that account.</p>
 
-<h2>Parent check</h2>
-<p>Before the first page goes online, a parent pays 50¢ by card. Stripe emails a receipt to that parent, and we refund the 50¢ in full right away. The trial stays free. You are never charged automatically. We keep the method, the time, Stripe’s payment id, and the notice version. We do not keep the card number. A parent who already passed this check, or who later buys a plan, does not pay the 50¢ again. Refunding the 50¢ does not take the page down. A refund of a plan is different and is described under Refunds.</p>
+<h2>Parent verification</h2>
+<p>Before the first page goes online, a parent makes a $0.50 card payment through Stripe. We request a full refund through Stripe right away, back to the same card. Your bank may take time to show the credit, or the original charge may disappear. Stripe emails a receipt to that parent. This helps us confirm that an adult is approving and managing the child’s page. The trial stays free. You are never charged automatically. We keep the method, the time, Stripe’s payment id, and the notice version. We do not keep the card number. A parent who already completed verification, buys a plan, or uses an eligible playtester code does not pay the separate $0.50 charge. Refunding the $0.50 does not take the page down. A refund of a plan is different and is described under Refunds.</p>
 
 <h2>Plans and payment</h2>
 <p>A season plan is ${PLANS.season.label}. It covers the page through the end of the current season: August 31 for summer, March 31 for winter. If fewer than ${SEASON_MIN_DAYS} days are left in a season, the plan runs through the end of the next one instead. A year plan is ${PLANS.year.label} and covers 365 days. The end date is shown before you pay.</p>
@@ -1437,7 +1456,7 @@ function securityPage() {
 <h2>Safeguards</h2>
 <ul>
 <li>The parent session is an HttpOnly cookie. The admin cookie is HttpOnly and SameSite=Strict.</li>
-<li>Publishing, cloud drafts, and account deletion require a verified parent. Publish also requires the refunded 50¢ card check or a paid plan.</li>
+<li>Publishing, cloud drafts, and account deletion require a verified parent. Publish also requires parent verification through a refunded $0.50 card charge or a paid plan.</li>
 <li>Public pages are stripped of a parent email and phone, including HTML entities and JavaScript escapes. A page is not listed in search unless the parent turns that on.</li>
 <li>A public calendar file leaves out a gate code or key note, and is deleted when the booking is cancelled.</li>
 <li>Booking and account links use long random tokens. There is no directory of families.</li>
@@ -1721,8 +1740,8 @@ async function adminDashboardPage(origin, query) {
   };
   const consentAdminLabel = (account) => {
     if (!account) return "";
-    if (account.consentMethod === "card_charge" && account.consentRefundedAt) return "Consent: card check, refunded";
-    if (account.consentMethod === "card_charge") return "Consent: card check, refund pending";
+    if (account.consentMethod === "card_charge" && account.consentRefundedAt) return "Consent: $0.50 card charge refunded";
+    if (account.consentMethod === "card_charge") return "Consent: $0.50 card refund pending";
     if (account.consentMethod === "plan_payment" && account.consentAt) return "Consent: plan payment";
     if (account.consentAt) return "Consent: recorded";
     return "Consent: not verified";
@@ -2233,8 +2252,8 @@ const FUNNEL_LABELS = {
   draft_started: "Draft started",
   parent_invited: "Parent invited",
   parent_verified: "Parent verified",
-  check_started: "Card check started",
-  check_passed: "Card check passed",
+  check_started: "Card verification started",
+  check_passed: "Card verification completed",
   published: "Published",
   checkout_started: "Checkout started",
   plan_paid: "Plan paid",
@@ -2774,7 +2793,7 @@ async function routeRequest(req) {
     const liveKind = addedPage && ownedBefore.length > 0
       ? "added"
       : account.slug === slug && account.liveMailed && account.liveMailed !== slug ? "renamed" : "";
-    await sendLiveNote(account, origin, slug, liveKind);
+    await sendLiveNote(account, origin, slug, liveKind, body.draftCode);
     if (!existing) await noteFunnel("published");
     await saveAccount(account);
     const url = (origin || "") + "/" + slug;
@@ -2840,8 +2859,8 @@ async function routeRequest(req) {
       forParent: true,
       origin,
       subject: names.biz ? who + " asked you to publish " + names.biz : "Your kid asked you to publish their page",
-      text: ready + "\n\n" + trialBlurb() + " A first-time parent verifies their email and completes a 50¢ card check that is refunded right away. Plans never renew automatically.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nYou would own the account and run the page with your kid. The page itself stays on their phone until you agree. Review the page together on the device where your child built it. Choose Go live, then “I’m the parent — continue here.” This invitation link expires in 7 days, and we delete the request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.\n\nPrivacy notice: " + (origin || "https://hustlebuilder.org") + "/privacy\nQuestions: " + SUPPORT_EMAIL + "\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
-      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(ready) + "</p><p>" + mailEscape(trialBlurb()) + " A first-time parent verifies their email and completes a 50¢ card check that is refunded right away. Plans never renew automatically.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p>The page itself stays on their device until you agree. Review it together there: choose Go live, then “I’m the parent — continue here.”</p><p><a href=\"" + mailEscape(link) + "\">View the invitation</a></p><p>The link expires in 7 days, and we delete this request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.</p><p><a href=\"" + mailEscape((origin || "https://hustlebuilder.org") + "/privacy") + "\">Privacy notice</a></p><p>Questions: <a href=\"mailto:" + SUPPORT_EMAIL + "\">" + SUPPORT_EMAIL + "</a></p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
+      text: ready + "\n\n" + trialBlurb() + " A first-time parent verifies their email and makes a $0.50 card payment. We request a full refund through Stripe right away, back to the same card. Your bank may take time to show the credit, or the original charge may disappear. This helps us confirm that an adult is approving and managing the child’s page. Plans never renew automatically.\n\nAfter that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".\n\nYou would own the account and run the page with your kid. The page itself stays on their phone until you agree. Review the page together on the device where your child built it. Choose Go live, then “I’m the parent — continue here.” This invitation link expires in 7 days, and we delete the request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.\n\nPrivacy notice: " + (origin || "https://hustlebuilder.org") + "/privacy\nQuestions: " + SUPPORT_EMAIL + "\n\n" + link + "\n" + (supportReply() ? "" : "\nReplies to this email aren't read.\n"),
+      html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>" + mailEscape(ready) + "</p><p>" + mailEscape(trialBlurb()) + " A first-time parent verifies their email and makes a $0.50 card payment. We request a full refund through Stripe right away, back to the same card. Your bank may take time to show the credit, or the original charge may disappear. This helps us confirm that an adult is approving and managing the child’s page. Plans never renew automatically.</p><p>After that, a season is " + PLANS.season.label + " and a year is " + PLANS.year.label + ".</p><p>The page itself stays on their device until you agree. Review it together there: choose Go live, then “I’m the parent — continue here.”</p><p><a href=\"" + mailEscape(link) + "\">View the invitation</a></p><p>The link expires in 7 days, and we delete this request then if you have not agreed. If you ignore this email, we do not collect anything else from the page.</p><p><a href=\"" + mailEscape((origin || "https://hustlebuilder.org") + "/privacy") + "\">Privacy notice</a></p><p>Questions: <a href=\"mailto:" + SUPPORT_EMAIL + "\">" + SUPPORT_EMAIL + "</a></p>" + (supportReply() ? "" : "<p>Replies to this email aren't read.</p>") + "</div>"
     });
     if (!mailed.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
     await noteFunnel("parent_invited");

@@ -93,8 +93,12 @@ try {
   await clickControl(page, "#pubVerify");
   await page.waitForSelector("#pubReady:not([hidden])");
   const cardNote = await page.$eval("#cardCheckNote", (el) => el.textContent);
-  check("publish explains the refunded 50 cent check", /50¢/.test(cardNote) && /refund/i.test(cardNote) && /trial stays free/i.test(cardNote), cardNote);
-  check("publish button is the card check", /50¢/.test(await page.$eval("#pubGo", (el) => el.textContent)));
+  check("publish explains the card charge, refund and bank timing", /\$0\.50 card charge/.test(cardNote) && /same card/.test(cardNote) && /bank may take time/.test(cardNote) && /trial stays free/i.test(cardNote), cardNote);
+  check("publish button names the charge and refund", /\$0\.50 card charge, then refund/.test(await page.$eval("#pubGo", (el) => el.textContent)));
+  await clickControl(page,"#parentVerificationWhy > summary");
+  check("parent verification explanation opens",await page.$eval("#parentVerificationWhy",el=>el.open&&/adult is approving and managing/.test(el.textContent)));
+  await page.keyboard.press("Enter");
+  check("parent verification explanation closes with the keyboard",await page.$eval("#parentVerificationWhy",el=>!el.open));
   await page.$eval("#pubConsent", (el) => { el.checked = true; });
   await page.click("#pubSlug", { clickCount: 3 });
   await page.type("#pubSlug", "sam-yard");
@@ -190,13 +194,27 @@ try {
           overflow:document.documentElement.scrollWidth > innerWidth + 2,
           image:!!document.querySelector(".hero img")?.naturalWidth,
           booking:!!document.querySelector("#cal") && !!document.querySelector("#svc"),
+          honeypot:(()=>{const input=document.getElementById("hp"),wrap=input?.closest(".hp");return !!wrap&&wrap.getBoundingClientRect().right<0&&wrap.getBoundingClientRect().width<=1&&input.tabIndex===-1&&wrap.getAttribute("aria-hidden")==="true";})(),
           title:document.querySelector("h1").getBoundingClientRect().right <= innerWidth + 2,
           offenders:document.documentElement.scrollWidth > innerWidth + 2 ? [...document.body.querySelectorAll("*")].filter(e=>e.getBoundingClientRect().right > innerWidth + 2).slice(0,6).map(e=>({tag:e.tagName,cls:e.className,right:Math.round(e.getBoundingClientRect().right)})) : []
         }));
-        check("style " + theme + " " + type + " " + width,result.theme === theme && !result.overflow && result.image && result.booking && result.title,JSON.stringify(result));
+        check("style " + theme + " " + type + " " + width,result.theme === theme && !result.overflow && result.image && result.booking && result.title && result.honeypot,JSON.stringify(result));
       }
     }
   }
+  // Legacy spam-trap geometry depends only on the generated inline HTML/CSS.
+  // Isolate it from the preceding live document and block asset/booking requests:
+  // a slow or unavailable demo host must not decide whether this layout passes.
+  const legacy = await browser.newPage();
+  await legacy.setRequestInterception(true);
+  legacy.on("request", request => request.abort());
+  for(const theme of ["", "bold", "clean", "paper", "sport", "friendly", "midnight", "retro"]){
+    await legacy.setContent(genSite(demoCfg({theme,type:"pet",publicUrl:base})),{waitUntil:"domcontentloaded"});
+    await legacy.setViewport({width:390,height:844});
+    const trap=await legacy.evaluate(()=>{const input=document.getElementById("hp"),wrap=input.closest(".hp");return {offscreen:wrap.getBoundingClientRect().right<0,clipped:wrap.getBoundingClientRect().width<=1,hiddenFromAT:wrap.getAttribute("aria-hidden")==="true",skipTab:input.tabIndex===-1};});
+    check("honeypot legacy "+(theme||"default Energy"),Object.values(trap).every(Boolean),JSON.stringify(trap));
+  }
+  await legacy.close();
   await styled.close();
 
 } finally {

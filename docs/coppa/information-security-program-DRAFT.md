@@ -13,7 +13,7 @@ Also stored for the parent: email address, consent record, plan status, and book
 ## Safeguards already in the code
 
 - The parent session is an HttpOnly cookie. The admin cookie is HttpOnly and SameSite=Strict.
-- Publishing, drafts, and account deletion require a verified parent session. Publish also requires the refunded 50¢ card check or a paid plan.
+- Publishing, drafts, and account deletion require a verified parent session. Publish also requires parent verification through a refunded $0.50 card charge or a paid plan.
 - Public pages are stripped of parent email and phone, including HTML entities and JavaScript escapes. Kid pages are not listed to search engines unless the parent turns that on.
 - Public calendar files omit gate codes and key notes, and are deleted when a booking is cancelled.
 - Booking and account routes are unlisted and use long random tokens. There is no directory of families.

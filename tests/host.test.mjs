@@ -1078,7 +1078,8 @@ test("ask my parent requires verification and reports only the verified family p
   assert.match(sent.body.link, /\/\?ask=/);
   const mail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("mom@example.com")));
   assert.match(mail.body.messages[0].text, /device where your child built it/);
-  assert.match(mail.body.messages[0].text, /50¢ card check that is refunded/);
+  assert.match(mail.body.messages[0].text, /\$0\.50 card payment/);
+  assert.match(mail.body.messages[0].text, /bank may take time to show the credit/);
   assert.doesNotMatch(mail.body.messages[0].text, /No payment is needed/);
   assert.match(mail.body.messages[0].text, /ask=/);
   assert.match(mail.body.messages[0].text, /\/privacy/);
@@ -2878,7 +2879,7 @@ test("funnel counts stay aggregate and show on the admin page", async () => {
   const login = await call("POST", "/admin/login", { raw: "secret=test-admin-secret", headers: { "x-forwarded-for": "198.51.100.44" } });
   const cookie = login.headers["set-cookie"].split(";")[0];
   const dash = await call("GET", "/admin", { headers: { cookie } });
-  assert.match(dash.body, /Card check passed/);
+  assert.match(dash.body, /Card verification completed/);
   assert.match(dash.body, /Published/);
   assert.match(dash.body, /Plan paid/);
   assert.match(dash.body, /Referral visit/);
@@ -3850,4 +3851,58 @@ test("marking a request done directly gives both calendar views a confirmed revi
   const me=await json(await call("GET","/api/me",{token}));
   const feed=await call("GET",new URL(me.body.calUrl).pathname);
   for(const response of [one,feed]){assert.match(response.body,/STATUS:CONFIRMED/);assert.match(response.body,/SEQUENCE:1/);assert.equal(response.body.includes("(requested)"),false);}
+});
+
+test("publication next steps link to the matching child draft and public URL for first, sibling and renamed pages", async()=>{
+  const {token,email}=await parent("next-steps@example.com");
+  await call("POST","/api/consent",{token,body:{consent:true}});
+  await call("POST","/api/checkout",{token,body:{plan:"season"}});
+  const source=await readFile(new URL("../index.html",import.meta.url),"utf8"),{genSite}=extractBuilderParts(source);
+  const kids=[{first:"Riley",biz:"Riley’s Lawn Lines",type:"lawn",slug:"riley-next"},{first:"Quinn",biz:"Quinn’s Car Shine",type:"wash",slug:"quinn-next"}];
+  for(const kid of kids){
+    const saved=await json(await call("POST","/api/draft",{token,body:{draft:{first:kid.first,bizName:kid.biz,type:kid.type,services:[{n:"Neighborhood job",p:"15"}]}}}));
+    assert.equal(saved.status,200);kid.code=saved.body.code;
+    kid.html=genSite(demoCfg({first:kid.first,biz:kid.biz,type:kid.type}));
+  }
+  function href(message,label){return message.html.match(new RegExp('<a href="([^"]+)">'+label+'</a>'))?.[1];}
+  async function publish(kid,subject){
+    assert.equal((await call("POST","/api/publish",{token,body:{slug:kid.slug,html:kid.html,draftCode:kid.code}})).status,200);
+    const box=await json(await call("GET","/api/test/outbox?email="+encodeURIComponent(email)));
+    const message=box.body.messages.filter(m=>m.subject===subject).at(-1);
+    assert.ok(message);assert.equal(message.to,email);
+    const builder="http://sites.test/?draft="+kid.code,publicUrl="http://sites.test/"+kid.slug;
+    assert.equal(href(message,"Print a flyer in the app"),builder);
+    assert.equal(href(message,"Share the link with neighbors"),publicUrl);
+    assert.ok(message.text.includes(builder));assert.ok(message.text.includes("2. Share the link with neighbors:\n"+publicUrl));
+    assert.match(message.html,/Open Flyers after this child’s page loads/);
+    const page=await call("GET","/api/site/"+kid.slug);assert.equal(page.body.includes(kid.code),false,"private draft link stays out of the public page");
+    return message;
+  }
+  const first=await publish(kids[0],"Your page is live");
+  assert.equal(first.html.includes("?draft="+kids[1].code),false,"latest account draft may belong to a different sibling");
+  const second=await publish(kids[1],"Your new page is live");
+  assert.equal(second.html.includes("?draft="+kids[0].code),false);
+  assert.equal((await call("POST","/api/slug",{token,body:{from:kids[0].slug,slug:"riley-next-new"}})).status,200);
+  kids[0].slug="riley-next-new";await publish(kids[0],"Your new web address is live");
+});
+
+test("publication flyer links fall back safely when a draft is missing, foreign, a sibling's, or expired",async()=>{
+  const owner=await parent("fallback-steps@example.com"),other=await parent("foreign-steps@example.com");
+  for(const family of [owner,other])await call("POST","/api/consent",{token:family.token,body:{consent:true}});
+  const source=await readFile(new URL("../index.html",import.meta.url),"utf8"),{genSite}=extractBuilderParts(source);
+  const html=genSite(demoCfg({first:"Riley",biz:"Riley’s Lawn Lines"}));
+  async function draft(token,first,biz){const saved=await json(await call("POST","/api/draft",{token,body:{draft:{first,bizName:biz}}}));assert.equal(saved.status,200);return saved.body.code;}
+  const foreign=await draft(other.token,"Riley","Riley’s Lawn Lines"),sibling=await draft(owner.token,"Quinn","Quinn’s Car Shine"),expired=await draft(owner.token,"Riley","Riley’s Lawn Lines");
+  const file=path.join(dir,"drafts",expired+".json"),rec=JSON.parse(await readFile(file,"utf8"));
+  rec.updatedAt=new Date(Date.now()-91*864e5).toISOString();await writeFile(file,JSON.stringify(rec));
+  for(const [suffix,code] of [["missing",""],["foreign",foreign],["sibling",sibling],["expired",expired]]){
+    const slug="flyer-"+suffix;
+    assert.equal((await call("POST","/api/publish",{token:owner.token,body:{slug,html,draftCode:code}})).status,200);
+    const box=await json(await call("GET","/api/test/outbox?email="+encodeURIComponent(owner.email)));
+    const message=box.body.messages.filter(m=>m.subject.includes("is live")).at(-1);
+    assert.match(message.html,/<a href="http:\/\/sites\.test\/\?account=1">Print a flyer in the app<\/a>/);
+    assert.ok(message.html.includes('<a href="http://sites.test/'+slug+'">Share the link with neighbors</a>'));
+    assert.match(message.html,/Choose this child’s saved page, then open Flyers/);
+    assert.equal(message.text.includes("?draft="),false);
+  }
 });
