@@ -173,6 +173,8 @@ function eventLines(job, now, tz) {
   const note = publicText(job.note);
   if (note) bits.push(note);
   if (job.amount) bits.push("Price: " + publicText(job.amount));
+  const manage = eventUrl(job.manageUrl);
+  if (manage) bits.push("Manage booking: " + manage);
   const lines = [
     "BEGIN:VEVENT",
     "UID:" + job.id + "@hustlebuilder.org",
@@ -183,6 +185,7 @@ function eventLines(job, now, tz) {
     "LOCATION:" + icsEscape(publicText(job.address || ""))
   ];
   if (bits.length) lines.push("DESCRIPTION:" + icsEscape(bits.join("\n")));
+  if (manage) lines.push("URL:" + manage);
   lines.push("END:VEVENT");
   return lines;
 }
@@ -220,20 +223,40 @@ export function inviteSummary(kid, service, customer) {
 
 export const INVITE_ORGANIZER = "bookings@hustlebuilder.org";
 
+// URLs are URI properties rather than TEXT: keep query punctuation intact,
+// but never allow a line break, a non-web scheme, or embedded credentials.
+function eventUrl(value) {
+  const raw = String(value || "");
+  if (!raw || /[\u0000-\u0020\u007f]/.test(raw)) return "";
+  try {
+    const parsed = new URL(raw);
+    return /^https?:$/.test(parsed.protocol) && !parsed.username && !parsed.password ? parsed.href : "";
+  } catch { return ""; }
+}
+
+function inviteEmail(value) {
+  const mail = String(value || "").trim();
+  return /^[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?$/i.test(mail) ? mail : "";
+}
+
 // A real invitation, separate from the family feed (that one stays
-// METHOD:PUBLISH). REQUEST is tentative so Google adds it for the parent to
-// confirm. CANCEL uses the same UID and a higher SEQUENCE so the calendar
-// drops that same event.
+// METHOD:PUBLISH). Pending REQUESTs stay tentative; confirmation and time
+// changes reuse that UID with a higher SEQUENCE. Confirming the booking does
+// not claim the attendee has accepted their calendar invitation.
 export function bookingInviteIcs({
   id, start, tz = TZID, now = Date.now(), summary, location = "", description = "",
-  attendee, sequence = 0, method = "REQUEST", organizer = INVITE_ORGANIZER
+  attendee, sequence = 0, method = "REQUEST", organizer = INVITE_ORGANIZER,
+  confirmed = false, url = ""
 } = {}) {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(String(id || ""))) return "";
   const when = timeLines(start, tz);
   if (!when) return "";
   const kind = method === "CANCEL" ? "CANCEL" : "REQUEST";
   const seq = Math.max(0, Math.floor(Number(sequence) || 0));
-  const mail = String(attendee || "").trim();
+  const mail = inviteEmail(attendee);
+  const from = inviteEmail(organizer);
+  if (!mail || !from) return "";
+  const manage = eventUrl(url);
   const local = !tz || tz === TZID;
   const lines = [
     "BEGIN:VCALENDAR",
@@ -250,9 +273,10 @@ export function bookingInviteIcs({
     "SUMMARY:" + icsEscape(summary || "Job"),
     "LOCATION:" + icsEscape(location),
     "DESCRIPTION:" + icsEscape(description),
-    "ORGANIZER;CN=Hustle Builder:mailto:" + organizer,
-    "ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:" + mail,
-    "STATUS:" + (kind === "CANCEL" ? "CANCELLED" : "TENTATIVE"),
+    ...(manage ? ["URL:" + manage] : []),
+    "ORGANIZER;CN=Hustle Builder:mailto:" + from,
+    "ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=" + (kind === "CANCEL" ? "FALSE" : "TRUE") + ":mailto:" + mail,
+    "STATUS:" + (kind === "CANCEL" ? "CANCELLED" : confirmed ? "CONFIRMED" : "TENTATIVE"),
     "CLASS:PRIVATE",
     "END:VEVENT",
     "END:VCALENDAR"
@@ -322,7 +346,7 @@ export function gcalTemplate(job, tz = TZID) {
 
 // One event a phone can open with Add Event. No attendee and no parent
 // address: this file is the link in both the neighbor's email and the family's.
-export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, location = "", description = "", confirmed = false, sequence = 0 } = {}) {
+export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, location = "", description = "", confirmed = false, sequence = 0, url = "" } = {}) {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(String(id || ""))) return "";
   const when = timeLines(start, tz || TZID);
   if (!when) return "";
@@ -343,6 +367,7 @@ export function addEventIcs({ id, start, tz = TZID, now = Date.now(), summary, l
     "SUMMARY:" + icsEscape(publicText(summary) || "Job"),
     "LOCATION:" + icsEscape(publicText(location)),
     "DESCRIPTION:" + icsEscape(publicText(description)),
+    ...(eventUrl(url) ? ["URL:" + eventUrl(url)] : []),
     "STATUS:" + (confirmed ? "CONFIRMED" : "TENTATIVE"),
     "END:VEVENT",
     "END:VCALENDAR"
