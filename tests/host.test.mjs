@@ -2305,7 +2305,7 @@ test("the home screen app can install and keep the builder offline", async () =>
   const manifest = JSON.parse(await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"));
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
-  assert.equal(manifest.theme_color, "#FF5B14");
+  assert.equal(manifest.theme_color, "#D94B3D");
   assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.sizes === "192x192"));
   assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.sizes === "512x512"));
   assert.ok(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512"));
@@ -3013,31 +3013,32 @@ test("page reskins: an unknown theme falls back to Bold Block", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { genSite, siteTheme } = extractBuilderParts(src);
   assert.equal(siteTheme("neon"), "bold");
-  assert.equal(siteTheme(""), "");
-  assert.equal(siteTheme(undefined), "");
+  assert.equal(siteTheme(""), "hustle");
+  assert.equal(siteTheme(undefined), "hustle");
   const html = genSite(demoCfg({ theme: "neon" }));
   assert.ok(html.includes('data-theme="bold"'));
   assert.ok(html.includes("/* hb-theme:bold */"));
 });
 
-test("page reskins: no theme picked renders exactly the pre-theme page", async () => {
+test("page reskins: an unset legacy style receives the Energy design shown by the picker", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { genSite } = extractBuilderParts(src);
-  const night = genSite(demoCfg({ theme: "" }));
-  assert.equal(night.includes("data-theme="), false);
-  assert.equal(night.includes("hb-theme:"), false);
-  assert.ok(night.includes('"theme":""'));
-  assert.ok(night.includes("--bg:#0E1012")); // the original dark base, untouched
-  const day = genSite(demoCfg({ theme: "", look: "day" }));
-  assert.equal(day.includes("data-theme="), false);
-  assert.equal(day.includes("hb-theme:"), false);
-  assert.ok(day.includes("--bg:#FBF8F2")); // the legacy day look still applies
+  for (const type of ["lawn", "pet"]) {
+    for (const look of ["night", "day"]) {
+      const html = genSite(demoCfg({ theme: "", type, look, palette: "teal" }));
+      assert.ok(html.includes('data-theme="hustle"'));
+      assert.ok(html.includes("/* hb-theme:hustle */"));
+      assert.ok(html.includes('--accent:#D94B3D'));
+      assert.ok(html.includes('--bg:#20262C'));
+      assert.equal(html.includes('background:#e7f6ea'), false);
+    }
+  }
 });
 
 test("page reskins: the builder offers the picker and carries the choice to publish", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /id="themes"/);
-  assert.match(src, /theme:""/); // state default: unset, so old drafts render as before
+  assert.match(src, /theme:"hustle"/); // Energy is selected and applied from the first screen
   assert.match(src, /theme:siteTheme\(S\.theme\)/); // resolve() carries it into genSite
   for (const name of ["Bold Block", "Clean", "Paper", "Sport Stripe", "Friendly", "Midnight", "Retro Badge"]) {
     assert.ok(src.includes('"' + name + '"') || src.includes(name), name);
@@ -3276,11 +3277,11 @@ test("pilot fixes: sticky preview offset survives, pet hero spans full width, fr
   assert.match(friendly, /\.hero \.tag\{color:var\(--bone\)[^}]*background:var\(--card\)/, "friendly tag is a solid chip with dark text");
 });
 
-test("pilot fixes: Make It Yours offers the same page designs as step 5", async () => {
+test("pilot fixes: Make It Yours offers the same page designs as the visible builder picker", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(src, /id="lkThemes"/, "the look panel has a page-design grid");
   assert.match(src, /paintThemeCards\(mbody\.querySelector\("#lkThemes"\)/, "the panel paints the shared theme cards");
-  assert.match(src, /function renderThemes\(\)\{\s*paintThemeCards\(\$\("#themes"\),\$\("#themeHelp"\)\);/, "step 5 uses the same painter, so both bind S.theme");
+  assert.match(src, /function renderThemes\(\)\{\s*paintThemeCards\(\$\("#themes"\),\$\("#themeHelp"\)\);/, "the builder uses the same painter, so both bind S.theme");
 });
 
 // ---- Family plan: one account, several kid pages, one trial/payment ----
@@ -3756,12 +3757,12 @@ test("created sites use the current slash favicon without rewriting saved family
 });
 
 
-test("Hustle and Neighbor keep accurate service images and full booking controls", async () => {
+test("Energy and Neighbor keep accurate service images and full booking controls", async () => {
   const src = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const { genSite } = extractBuilderParts(src);
   for (const theme of ["hustle", "neighbor"]) {
     for (const type of ["lawn", "snow", "both", "prep", "wash", "help", "tutor", "odd", "other", "pet"]) {
-      const html = genSite(demoCfg({ theme, type, art: theme === "hustle" ? "cine-dusk" : "cine-day", palette: theme === "hustle" ? "ember" : "forest" }));
+      const html = genSite(demoCfg({ theme, type, art: theme === "hustle" ? "cine-dusk" : "cine-day", palette: theme === "hustle" ? "mower" : "forest" }));
       assert.match(html, new RegExp('data-theme="' + theme + '"'));
       for (const id of ["cal", "svc", "nm", "sendHost"]) assert.ok(html.includes('id="' + id + '"'), theme + " " + type + " " + id);
       assert.equal(/golden star trophy|confetti/i.test(html), false);

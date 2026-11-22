@@ -25,7 +25,7 @@ test("ink saver is the default flyer and poster look for every job", () => {
     assert.equal(JSON.stringify(ink).includes("#0F6E6A"), false, type);
     assert.equal(JSON.stringify(ink).includes("#0E1012"), false, type);
     const bold = theme.flyerTheme({ type, style: "bold", accent: "#FF5B14" });
-    assert.equal(bold.bg, "#0E1012", type);
+    assert.equal(bold.bg, "#20262C", type);
     assert.equal(bold.bold, true, type);
   }
   const posters = vm.createContext({});
@@ -43,5 +43,5 @@ test("ink saver is the default flyer and poster look for every job", () => {
   assert.match(src, /\["ink","Ink saver"\]/);
   assert.match(src, /if\(!S\.flyerStyle\)S\.flyerStyle="ink"/);
   assert.match(src, /style:"ink"/);
-  assert.match(src, /--accent:#FF5B14/);
+  assert.match(src, /--accent:#D94B3D/);
 });
