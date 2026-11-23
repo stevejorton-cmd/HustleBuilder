@@ -11,8 +11,21 @@ const child=spawn(process.execPath,['host/dev-server.mjs'],{cwd:root,env:{...pro
 const results=[];let browser;
 const pass=name=>{results.push(name);console.log('PASS flow audit: '+name);};
 const post=async(path,body,token)=>{const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json',origin:base,...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});assert.equal(r.status,200,path);return r.json();};
-async function click(p,selector){await p.waitForSelector(selector,{visible:true});await p.$eval(selector,el=>el.scrollIntoView({block:'center',behavior:'instant'}));await p.waitForFunction(selector=>{const el=document.querySelector(selector),r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));},{},selector);await p.click(selector);}
-async function fill(p,selector,value){await p.$eval(selector,el=>{el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));});await p.type(selector,value);}
+async function click(p,selector){
+ try{
+  // Chromium can suspend IntersectionObserver in the background customer or
+  // parent tab. Activate the tab just as a person must before interacting.
+  await p.bringToFront();await p.waitForSelector(selector,{visible:true});
+  // Account navigation can scroll again after its contents arrive. Keep the
+  // requested control in view while requiring it to be the real pointer hit.
+  await p.waitForFunction(selector=>{const el=document.querySelector(selector);if(!el)return false;el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));},{},selector);
+  await p.click(selector);
+ }catch(error){throw new Error('Flow audit could not click '+selector,{cause:error});}
+}
+async function fill(p,selector,value){
+ try{await p.bringToFront();await p.$eval(selector,el=>{el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));});await p.type(selector,value);}
+ catch(error){throw new Error('Flow audit could not fill '+selector,{cause:error});}
+}
 async function dismiss(p){await p.evaluate(()=>{document.getElementById('introSkip')?.click();document.getElementById('parentsKid')?.click();});}
 async function login(p,email){
  await p.select('#stepJump','7');await fill(p,'#pubEmail',email);
@@ -78,5 +91,20 @@ try{
  const customer=await browser.newPage();await customer.setViewport({width:390,height:844});let failBooking=true,bookingPosts=0;await customer.setRequestInterception(true);customer.on('request',r=>{if(new URL(r.url()).pathname==='/api/book'&&r.method()==='POST'){bookingPosts++;if(failBooking)return r.respond({status:503,contentType:'application/json',headers:{'access-control-allow-origin':'null'},body:JSON.stringify({ok:false,error:'temporary'})});}return r.continue();});
  await customer.goto(base+'/flow-pets',{waitUntil:'networkidle0'});await customer.evaluate(()=>[...document.querySelectorAll('.day')].find(b=>!b.disabled).click());await fill(customer,'#nm','Neighbor');await fill(customer,'#ct','neighbor@example.com');await fill(customer,'#addr','123 Example Lane');await customer.select('#freq',"While I'm away");await click(customer,'#sendHost');assert.equal(bookingPosts,0);assert.match(await customer.$eval('#err',e=>e.textContent),/first and last day/);
  const from=new Date(Date.now()+8*864e5).toISOString().slice(0,10),to=new Date(Date.now()+10*864e5).toISOString().slice(0,10);await customer.$eval('#awayFrom',(el,value)=>el.value=value,from);await customer.$eval('#awayTo',(el,value)=>el.value=value,to);await click(customer,'#sendHost');await customer.waitForFunction(()=>!document.getElementById('outWrap').hidden&&!document.getElementById('sentBox').hidden&&document.getElementById('sentBox').textContent.length>10);assert.ok(await customer.$eval('#out',el=>el.value.includes('Neighbor')));assert.ok(await customer.$eval('#sentBox',el=>el.textContent.length>10));failBooking=false;await new Promise(resolve=>setTimeout(resolve,2700));await click(customer,'#sendHost');await customer.waitForFunction(()=>/Request saved!/.test(document.getElementById('sentBox').textContent));assert.equal(bookingPosts,2);pass('pet date validation blocks incomplete requests; failed delivery keeps a copy and retries');
+ // The kid entry is reachable from the always-visible My jobs tab, including
+ // after parent logout. It never turns a live parent session into kid mode.
+ console.log('STEP flow audit: prepare sibling request for family-code handoff');
+ await post('/api/book',{requestId:'flow-kid-sibling-123',slug:'flow-snow',name:'Jordan Neighbor',contact:'snow-neighbor@example.com',service:'Snow shovel',when:'Next week',address:'456 Example Lane',start:new Date(Date.now()+8*864e5).toISOString().slice(0,10)+'T16:00',t:5000});
+ console.log('STEP flow audit: return from customer tab to parent My jobs');
+ await click(p,'#mBoss');await p.waitForSelector('#familyJobsCode:not([hidden])');const familyCode=await p.$eval('#familyJobsCodeValue',e=>e.textContent);assert.match(familyCode,/^[a-z0-9]{8}$/);assert.equal(familyCode,published.jobCode);
+ console.log('STEP flow audit: reject family-code entry while parent is signed in');
+ await p.$eval('#kidJobsEntry',el=>el.open=true);await fill(p,'#kidJobsCodeInput',familyCode);await click(p,'#openKidJobs');await p.waitForFunction(()=>/sign out of the parent account/.test(document.getElementById('kidJobsStatus').textContent));assert.equal(await p.evaluate(()=>localStorage.getItem('hb-kid-jobs-code')),null);pass('parent must sign out before handing over the family jobs code');
+ await click(p,'#mBuild');await p.select('#stepJump','7');await click(p,'#openAccount');await p.waitForSelector('#acctSignOut:not([hidden])');await click(p,'#acctSignOut');await p.waitForFunction(()=>/Signed out\./.test(document.getElementById('accountMsg').textContent));
+ await click(p,'#mBoss');await p.$eval('#kidJobsEntry',el=>el.open=true);await fill(p,'#kidJobsCodeInput',familyCode);await click(p,'#openKidJobs');await p.waitForSelector('#jobList button[data-ask-cancel]');assert.equal(await p.$('#jobList button[data-job]'),null);assert.equal(await p.$eval('#jobSignIn',e=>e.hidden),false);assert.equal(await p.$eval('#jobCalGoogle',e=>e.hasAttribute('href')),false);await p.goto(base+'/?jobs=1',{waitUntil:'networkidle0'});await p.waitForSelector('#jobList button[data-ask-cancel]');assert.equal(await p.$('#jobList button[data-job]'),null);await p.waitForSelector('#jobFilters:not([hidden])');await p.select('#jobKidFilter','flow-snow');assert.match(await p.$eval('#jobList',e=>e.textContent),/Riley.*Snow shovel/s);assert.doesNotMatch(await p.$eval('#jobList',e=>e.textContent),/Alex/);await click(p,'#jobList button[data-ask-cancel]');await click(p,'#cfYes');await p.waitForFunction(()=>/parent has been asked/.test(document.getElementById('jobStatus').textContent));assert.match(await p.$eval('#jobList',e=>e.textContent),/stays active until your parent cancels/);assert.equal(await p.$('#jobList button[data-job]'),null);pass('signed-out kid code filters siblings and asks a parent without confirming or cancelling');
+ // Reloading restores the code but collapses the native details disclosure.
+ // Reopen its visible summary before using the Forget control inside it.
+ await click(p,'#kidJobsEntry summary');await p.waitForSelector('#kidJobsEntry[open] #forgetKidJobs',{visible:true});
+ await click(p,'#forgetKidJobs');assert.equal(await p.$eval('#jobList',e=>e.innerHTML),'');assert.equal(await p.evaluate(()=>localStorage.getItem('hb-kid-jobs-code')),null);pass('forgetting a kid code removes the read-only family view');
+ await click(p,'#mBuild');await login(p,email);await click(p,'#openAccount');await p.waitForSelector('#acctSignOut:not([hidden])');const otherTab=await browser.newPage();otherTab.on('pageerror',e=>errors.push(String(e)));await otherTab.goto(base+'/?jobs=1',{waitUntil:'networkidle0'});await otherTab.waitForSelector('#jobList button[data-job]');await click(p,'#acctSignOut');await p.waitForFunction(()=>/Signed out\./.test(document.getElementById('accountMsg').textContent));await otherTab.bringToFront();await otherTab.waitForSelector('#sharedSessionLock',{visible:true});assert.equal(await otherTab.$eval('#jobList',e=>e.innerHTML),'');assert.equal(await otherTab.$eval('#jobCalGoogle',e=>e.hasAttribute('href')),false);assert.match(await otherTab.$eval('#sharedSessionLock',e=>e.textContent),/Family details are hidden/);await otherTab.close();pass('sign-out locks another open tab and clears its booking actions and calendar links');
  assert.deepEqual(errors,[]);pass('no uncaught application errors during the family walkthrough');console.log(JSON.stringify({passed:results.length,results},null,2));
 }finally{if(browser)await browser.close();child.kill('SIGTERM');await rm(dir,{recursive:true,force:true});}

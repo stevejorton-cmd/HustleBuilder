@@ -182,7 +182,7 @@ test('reschedule rejects invalid, past, nonexistent local and more than 120-day 
 
 test('kid asks parent once without cancelling, revealing management authority or crossing family boundaries',async()=>{
   const f=await family(),r=await book(f),other=await family('other-parent@example.com','other-manage','otherkid');
-  const response=await json(await call('GET','/api/my-jobs?code='+f.code));assert.equal(response.status,200);
+  const response=await json(await call('GET','/api/my-jobs?code='+f.code));assert.equal(response.status,200);assert.equal(response.body.parentAuthenticated,false);
   const kid=response.body.jobs.find(j=>j.id===r.id);assert.equal(kid.canAskCancel,true);
   for(const secret of ['action','actionToken','parentEmail','address','contact','cancelToken'])assert.equal(kid[secret],undefined,secret);
   const before=(await outbox(f.email)).length;
@@ -193,7 +193,7 @@ test('kid asks parent once without cancelling, revealing management authority or
   assert.equal(pendingKid.body.jobs.find(j=>j.id===r.id).cancelRequested,true);
   assert.equal((await call('POST','/api/my-jobs/cancel-request',{body:{code:f.code,id:r.id}})).status,200);
   assert.equal((await outbox(f.email)).length,before+1);
-  const parentView=await json(await call('GET','/api/my-jobs',{token:f.token}));
+  const parentView=await json(await call('GET','/api/my-jobs',{token:f.token}));assert.equal(parentView.body.parentAuthenticated,true);
   const managed=parentView.body.jobs.find(j=>j.id===r.id);assert.ok(managed.action);assert.ok(managed.cancelRequested);
   for(const code of ['notacode',other.code]){
     const denied=await call('POST','/api/my-jobs/cancel-request',{body:{code,id:r.id}});

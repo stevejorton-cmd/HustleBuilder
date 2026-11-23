@@ -2087,6 +2087,74 @@ test("HTML booking emails retain size and recurring preferences with escaped cus
   assert.equal(message.html.includes("Every <other> week"), false);
 });
 
+test("booking emails identify the correct sibling and customer acknowledgments explain pending status once", async () => {
+  const { token, email } = await parent("family-mail@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  await call("POST", "/api/checkout", { token, body: { plan: "season" } });
+  const customer = "shared-neighbor@example.com";
+  const businesses = [
+    { slug: "casey-mail", kid: "Casey", business: "Casey's Yard & <Garden>", start: futureDay(7) + "T16:00", when: "Saturday at 4 PM" },
+    { slug: "drew-mail", kid: "Drew", business: "Drew's Reading Corner", start: "", when: "Tuesday afternoon" }
+  ];
+  const escape = value => value.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  for (const business of businesses) {
+    const html = page(business.kid).replace("</body>", "<script>window.__C=" + JSON.stringify({ first: business.kid, biz: business.business }) + ";</script></body>");
+    assert.equal((await call("POST", "/api/publish", { token, body: { slug: business.slug, html } })).status, 200);
+    const booked = await json(await call("POST", "/api/book", { body: {
+      slug: business.slug, name: "Neighbor", contact: customer, service: "Helpful work", address: "TEST ONLY",
+      start: business.start, when: business.when, t: 3000
+    } }));
+    assert.equal(booked.body.ok, true);
+  }
+  const parents = (await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)))).body.messages.filter(m => m.subject === "Booking request: Helpful work");
+  const customers = (await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(customer)))).body.messages;
+  assert.equal(parents.length, 2); assert.equal(customers.length, 2);
+  for (const business of businesses) {
+    const identity = "Business: " + business.kid + " · " + business.business;
+    const parentMessage = parents.find(message => message.text.includes(identity));
+    const customerMessage = customers.find(message => message.text.includes(identity));
+    assert.ok(parentMessage, business.kid + " parent notification identifies its business");
+    assert.ok(customerMessage, business.kid + " acknowledgment identifies its business");
+    for (const message of [parentMessage, customerMessage]) {
+      assert.ok(message.html.includes(escape(identity)));
+      assert.equal(message.html.includes("<Garden>"), false);
+      const sibling = businesses.find(other => other.slug !== business.slug);
+      assert.equal(message.text.includes(sibling.business), false, "email does not identify the sibling's business");
+    }
+    assert.equal((customerMessage.text.match(/Nothing is booked yet\./g) || []).length, 1);
+    assert.equal((customerMessage.html.match(/Nothing is booked yet\./g) || []).length, 1);
+    const request = await requestForSlug(business.slug);
+    assert.ok(customerMessage.html.includes("/api/booking/" + request.cancelToken));
+    for (const privateValue of [email, request.actionToken]) {
+      assert.equal(customerMessage.text.includes(privateValue), false);
+      assert.equal(customerMessage.html.includes(privateValue), false);
+    }
+  }
+});
+
+test("held and regenerated parent booking emails retain escaped child and business identity", async () => {
+  const { token, email } = await parent("held-family-mail@example.com");
+  await call("POST", "/api/consent", { token, body: { consent: true } });
+  const identity = "Business: Jamie · Jamie's <Helping> & Hands";
+  const html = page("Jamie").replace("</body>", '<script>window.__C={"first":"Jamie","biz":"Jamie\'s <Helping> & Hands"};</script></body>');
+  assert.equal((await call("POST", "/api/publish", { token, body: { slug: "jamie-mail", html } })).status, 200);
+  await patchAccount(account => { account.trialEndsAt = new Date(Date.now() - 1000).toISOString(); });
+  const booked = await json(await call("POST", "/api/book", { body: {
+    slug: "jamie-mail", name: "Neighbor", contact: "held-neighbor@example.com", service: "Set the table",
+    when: "Saturday at 1 PM", start: futureDay(7) + "T13:00", address: "TEST ONLY", t: 3000
+  } }));
+  assert.equal(booked.body.held, true);
+  const waiting = (await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)))).body.messages.find(m => m.subject === "You have a new request waiting");
+  assert.ok(waiting.text.includes(identity));
+  assert.match(waiting.html, /Business: Jamie · Jamie's &lt;Helping&gt; &amp; Hands/);
+  assert.equal(waiting.html.includes("held-neighbor@example.com"), false);
+  assert.equal((await call("POST", "/api/checkout", { token, body: { plan: "season" } })).status, 200);
+  const released = (await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)))).body.messages.find(m => m.subject === "Booking request: Set the table");
+  assert.ok(released.text.includes(identity));
+  assert.match(released.html, /Business: Jamie · Jamie's &lt;Helping&gt; &amp; Hands/);
+  assert.equal(released.html.includes("<Helping>"), false);
+});
+
 test("add more jobs lists the selected business type first", async () => {
   const { readFile } = await import("fs/promises");
   const { runInNewContext } = await import("vm");

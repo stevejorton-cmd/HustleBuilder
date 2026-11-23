@@ -7,16 +7,54 @@ function part(a,b){const i=src.indexOf(a),j=src.indexOf(b,i+a.length);assert.ok(
 function harness({owner='',anonymous=false,offline=false,email='',first='Saved Alex',failArchive=false}={}){
  const data=new Map([['draft',JSON.stringify({first,siteUrl:''})],['boss',JSON.stringify({jobs:[{id:'private-job'}]})]]);
  if(owner)data.set('hb-draft-owner',owner);if(anonymous)data.set('hb-anonymous-draft','1');
- const els=new Map();const el=k=>{if(!els.has(k))els.set(k,{hidden:true,textContent:'',value:''});return els.get(k);};
+ const els=new Map();const el=k=>{if(!els.has(k))els.set(k,{hidden:true,textContent:'',value:'',innerHTML:'',dataset:{},addEventListener(){},removeAttribute(){}});return els.get(k);};
  const localStorage={getItem:k=>data.get(k)??null,setItem(k,v){if(failArchive&&k.startsWith('hb-private-draft:'))throw Error('quota');data.set(k,String(v));},removeItem:k=>data.delete(k),key:i=>[...data.keys()][i],get length(){return data.size;}};
- const c=vm.createContext({privateViewEpoch:0,LS:'draft',BK:'boss',savedRaw:JSON.parse(data.get('draft')),savedBoss:JSON.parse(data.get('boss')),draftOwner:owner,anonymousDraft:anonymous,sessionEmail:'',draftDirty:false,draftRecoveryBlocked:false,S:{first:'',siteUrl:''},B:{jobs:[]},localStorage,document:{getElementById:el},$:el,
+ const c=vm.createContext({privateViewEpoch:0,publishIdentityChecks:0,LS:'draft',BK:'boss',savedRaw:JSON.parse(data.get('draft')),savedBoss:JSON.parse(data.get('boss')),draftOwner:owner,anonymousDraft:anonymous,sessionEmail:'',draftDirty:false,draftRecoveryBlocked:false,S:{first:'',siteUrl:''},B:{jobs:[]},localStorage,document:{getElementById:el,body:{classList:{contains:()=>false}}},$:el,
   freshBoss:()=>({jobs:[]}),hydrateDraft:raw=>{c.S={first:'',siteUrl:'',...raw};},paintCurrentBuild(){},flyerUrlForDraft:()=>'',currentDraftCode:()=>'',siteDraftsLoad:()=>({}),legacySiteDraft:()=>'',pubSession:()=>null,
   pubPlans(){},publishOrigin:()=> 'https://test.invalid',pubErr(){},pubApi:async()=>{if(offline)throw Error('offline');return email?{ok:true,email,verified:true}:{ok:false};},pubSaveSession(){},showHosting(){},showParentVerified(){},settleGoLive(){},applyPublishState(){},planHelp:()=>'',showCalendar(){},syncCalUpcoming(){},applySavedVenmo(){}});
+ vm.runInContext(part('function kidJobsCode(){','function privateViewKey(){'),c);
  vm.runInContext(part('function draftBelongsTo(', '/* The flyer link'),c);
  vm.runInContext(part('function draftWriteAllowed(){','function resolve('),c);
  vm.runInContext(part('function deviceDraftKeys(){','$("#pubSend").onclick='),c);
  return {c,data,el};
 }
+function openJobsHarness(options){
+ const h=harness(options),{c,data}=h;
+ c.document.body.classList.contains=name=>name==='boss-on';
+ c.accountLoadId=0;c.modalEl={classList:{contains:()=>false}};c.closeModal=()=>{};c.clearParentVerified=()=>{};
+ c.pubToken=()=>'';c.pubSession=()=>JSON.parse(data.get('parent-session')||'null');
+ c.pubSaveSession=session=>{if(session)data.set('parent-session',JSON.stringify(session));else data.delete('parent-session');};
+ c.esc=value=>String(value??'');c.jobLabel=value=>value;
+ vm.runInContext(part('function privateViewKey(){','function publishOrigin(){'),c);
+ vm.runInContext(part('let jobsLoadKey=','async function updateMyJob('),c);
+ return h;
+}
+for(const owner of ['parent@example.com',''])test(`My jobs startup waits for verified identity with ${owner?'a locked owner draft':'only a session cookie'}`,async()=>{
+ const {c,data,el}=openJobsHarness({owner});let resolveIdentity;const calls=[];
+ const saved=data.get('draft');
+ c.pubApi=async path=>{
+  calls.push(path);
+  if(path==='/api/me')return new Promise(resolve=>{resolveIdentity=resolve;});
+  assert.equal(path,'/api/my-jobs');
+  return {ok:true,parentAuthenticated:true,jobs:[{id:'booking',action:'parent-action',service:'Family service',status:'new'}],fresh:1};
+ };
+ const pending=c.initPublish(),epoch=c.privateViewEpoch;
+ await c.loadMyJobs();
+ assert.equal(c.privateViewEpoch,epoch,'opening jobs must not invalidate the pending identity check');
+ assert.deepEqual(calls,['/api/me']);assert.equal(c.sessionEmail,'');assert.equal(c.S.first,'');assert.equal(el('#jobList').innerHTML,'');assert.equal(data.get('draft'),saved);
+ resolveIdentity({ok:true,email:'parent@example.com',verified:true});await pending;
+ assert.equal(c.sessionEmail,'parent@example.com');assert.equal(c.S.first,owner?'Saved Alex':'');
+ assert.match(el('#jobList').innerHTML,/Family service/);assert.match(el('#jobList').innerHTML,/data-job="parent-action"/);assert.equal(el('#jobSignIn').hidden,true);
+ assert.deepEqual(calls,['/api/me','/api/my-jobs']);assert.equal(data.get('draft'),saved);
+});
+test('sign-out during My jobs startup still rejects the late identity and preserves the locked draft',async()=>{
+ const {c,data,el}=openJobsHarness({owner:'parent@example.com'});let resolveIdentity;let jobsRequests=0;
+ const saved=data.get('draft');c.pubApi=path=>path==='/api/me'?new Promise(resolve=>{resolveIdentity=resolve;}):(jobsRequests++,Promise.resolve({ok:true,jobs:[]}));
+ const pending=c.initPublish();await c.loadMyJobs();
+ c.clearPrivateViews();c.sessionEmail='';
+ resolveIdentity({ok:true,email:'parent@example.com',verified:true});await pending;
+ assert.equal(c.sessionEmail,'');assert.equal(c.S.first,'');assert.equal(c.draftWriteAllowed(),false);assert.equal(el('#jobList').innerHTML,'');assert.equal(jobsRequests,0);assert.equal(data.get('draft'),saved);
+});
 for(const offline of [false,true])test(`anonymous pre-signup draft survives ${offline?'offline':'signed-out online'} reload`,async()=>{
  const {c,data}=harness({anonymous:true,offline});await c.initPublish();assert.equal(c.S.first,'Saved Alex');assert.ok(data.has('draft'));assert.equal(c.B.jobs[0].id,'private-job');
 });

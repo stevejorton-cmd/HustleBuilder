@@ -8,7 +8,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&
 function inbox(parent=false){
   const els=new Map(),data=new Map([['hb-job-code','family01']]);
   const el=id=>{if(!els.has(id))els.set(id,{innerHTML:'',textContent:'',hidden:false,disabled:false,dataset:{},addEventListener(n,fn){this[n]=fn;},querySelectorAll(){return [];}});return els.get(id);};
-  const c=vm.createContext({privateViewEpoch:0,privateViewKey:()=>String(c.privateViewEpoch),draftWriteAllowed:()=>true,clearPrivateViews(){},localStorage:{getItem:k=>data.get(k)||''},pubSession:()=>parent?{email:'parent@example.test'}:null,pubToken:()=>parent?'token':'',$:el,esc,jobLabel:s=>s,copyText(){},confirmModal:async()=>false,document:{hidden:false,activeElement:null,body:{classList:{contains:()=>true}},addEventListener(){}},window:{addEventListener(){}},modalEl:{classList:{contains:()=>false}},setInterval(){},pubApi:async()=>({ok:true,jobs:[],fresh:0})});
+  const c=vm.createContext({privateViewEpoch:0,publishIdentityChecks:0,privateViewKey:()=>String(c.privateViewEpoch),draftWriteAllowed:()=>true,clearPrivateViews(){},localStorage:{getItem:k=>data.get(k)||''},pubSession:()=>parent?{email:'parent@example.test'}:null,pubToken:()=>parent?'token':'',$:el,esc,jobLabel:s=>s,copyText(){},confirmModal:async()=>false,document:{hidden:false,activeElement:null,body:{classList:{contains:()=>true}},addEventListener(){}},window:{addEventListener(){}},modalEl:{classList:{contains:()=>false}},setInterval(){},pubApi:async()=>({ok:true,jobs:[],fresh:0})});
+  vm.runInContext(part('function kidJobsCode(){','function privateViewKey(){'),c);
   vm.runInContext(part('let jobsLoadKey=','const jobsBtn='),c);
   return {c,el,data};
 }
