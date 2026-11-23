@@ -3708,7 +3708,7 @@ function todayHTML(){
     return '<div class="tj"><div class="top2"><b>'+esc(j.customer)+'</b><span class="amt">'+(j.amount?money(j.amount):"Quote")+'</span></div>'
       +'<p class="sub2">'+esc(j.service||"Job")+(j.time?" at "+fmtTime(j.time):"")+(j.note?" / "+esc(j.note):"")+'</p>'
       +addrLink(j.address)
-      +(working?'<p class="tjtime">Working: <b data-start="'+j.startedAt+'">'+elapsed(Date.now()-j.startedAt)+'</b></p>':"")
+      +(working?'<p class="tjtime">Working: <b data-elapsed-start="'+j.startedAt+'">'+elapsed(Date.now()-j.startedAt)+'</b></p>':"")
       +'<div class="tjb'+(one?" one":"")+'">'+prim+'</div>'
       +'<div class="links">'+dirAnchor(j.address)
       +(j.phone?'<a href="tel:'+digitsOf(j.phone)+'">Call</a>':"")
@@ -3727,7 +3727,7 @@ function todayHTML(){
     +(later.length?'<h4 class="h4">Coming up</h4>'+later.map(j=>row(j,false)).join(""):"")+'</div>';
 }
 let ticker=null;
-function startTicker(){if(ticker)return;ticker=setInterval(()=>{document.querySelectorAll("[data-start]").forEach(e=>{e.textContent=elapsed(Date.now()-Number(e.dataset.start));});},15000);}
+function startTicker(){if(ticker)return;ticker=setInterval(()=>{document.querySelectorAll("[data-elapsed-start]").forEach(e=>{const startedAt=Number(e.dataset.elapsedStart);if(Number.isFinite(startedAt))e.textContent=elapsed(Date.now()-startedAt);});},15000);}
 
 // Opening Messages only prepares a request; a person records the customer's reply.
 function openJobConfirmation(id){
