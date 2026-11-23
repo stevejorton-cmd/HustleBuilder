@@ -9,6 +9,17 @@ function escAttr(value) {
     .replace(/>/g, "&gt;");
 }
 
+// Inject at serve time so existing sites gain the same private parent channel
+// without a republish. Navigate out of the public page sandbox into our form;
+// no parent address or new fetch permission is exposed to the published page.
+export function withParentInquiry(html,slug) {
+  const out=String(html||'');
+  if(!/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug||''))||out.includes('id="hb-parent-inquiry"'))return out;
+  const block='<aside id="hb-parent-inquiry" style="font:16px/1.5 system-ui,sans-serif;margin:2rem;padding:1.25rem;border:1px solid currentColor;border-radius:16px"><b>A question before booking?</b><p>Ask the parent about the work, supplies, price, or timing. Asking a question does not book a job.</p><a href="/api/inquiry/'+escAttr(slug)+'" target="_top">Ask the parent</a></aside>';
+  if(/<section\b[^>]*id=["']book["']/i.test(out))return out.replace(/(<section\b[^>]*id=["']book["'][^>]*>)/i,tag=>tag+block);
+  return /<\/body>/i.test(out)?out.replace(/<\/body>/i,()=>block+'</body>'):out+block;
+}
+
 export function decoratePage(html, { title, description, image, url, indexable }) {
   let out = String(html || "");
   out = out.replace(/<meta[^>]*name=["'](?:description|robots|twitter:[^"']+)["'][^>]*>/gi, "");

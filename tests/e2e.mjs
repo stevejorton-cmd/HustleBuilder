@@ -63,7 +63,11 @@ try {
   await page.evaluate(() => document.querySelectorAll("#days button")[1].click());
   await page.click("#next");
   await page.type('input[data-k="phone"]', "4025550148");
-  for (let i = 0; i < 3; i++) await page.click("#next");
+  await page.click("#next");
+  await clickControl(page,'section[data-step="5"] details.help > summary');
+  await clickControl(page,'#siteFonts button:nth-child(3)');
+  check('first draft selects Anton through the website font control',await page.$eval('#siteFonts button:nth-child(3)',el=>el.textContent==='Anton'&&el.getAttribute('aria-pressed')==='true'));
+  for (let i = 0; i < 2; i++) await page.click("#next");
   await page.waitForSelector("#pubEmail");
   check("on publish step", (await page.$eval("#plabel", (e) => e.textContent)) === "Step 8 of 8");
   const ov = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
@@ -102,6 +106,7 @@ try {
   await page.$eval("#pubConsent", (el) => { el.checked = true; });
   await page.click("#pubSlug", { clickCount: 3 });
   await page.type("#pubSlug", "sam-yard");
+  const firstPublishRequest=page.waitForRequest(request=>request.url()===base+'/api/publish'&&request.method()==='POST');
   await clickControl(page, "#pubGo");
   try {
     await page.waitForFunction(() => /Published/.test(document.getElementById("pubOk").textContent), { timeout: 20000 });
@@ -120,6 +125,14 @@ try {
   check('v4 cookie alone authenticates in browser',cookieMe.status===200&&cookieMe.data.email==='parent@example.com');
   const url = await page.$eval("#pubUrl", (a) => a.href);
   check("stable url", url === base + "/sam-yard", url);
+  const firstPublishBody=JSON.parse((await firstPublishRequest).postData());
+  const binding=await page.evaluate(async()=>{
+    const code=localStorage.getItem('hb-draft');
+    const draft=await fetch('/api/draft/'+encodeURIComponent(code)).then(r=>r.json());
+    const gear=await fetch('/api/gear?slug=sam-yard').then(r=>r.json());
+    return {code,draft:draft.draft,business:gear.businesses?.find(b=>b.slug==='sam-yard')};
+  });
+  check('first UI publish binds its saved draft to matching parent gear',/^[a-z0-9]{8}$/.test(binding.code||'')&&firstPublishBody.draftCode===binding.code&&binding.draft?.siteFont==='anton'&&binding.business?.brand.font===binding.draft.siteFont&&binding.business?.brand.kidName===binding.draft.first&&binding.business?.brand.businessName===firstPublishBody.cardTitle&&binding.business?.brand.source==='draft');
   if(process.env.SHOTS) await page.screenshot({ path: path.join(out, "published_desktop.png") });
 
   const site = await browser.newPage();

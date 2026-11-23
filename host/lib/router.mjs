@@ -4,13 +4,15 @@ import { DEFAULT_TZ, addEventIcs, bookingInviteIcs, eventTitle, feedLinks, gcalT
 import { cleanVenmo, venmoNote, venmoPayUrl } from "./venmo.mjs";
 import { cardPng, iconPng } from "./card.mjs";
 import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
-import { decoratePage, familyVenmo, hidePhone, stripParentContact, withSiteFavicon } from "./preview.mjs";
+import { decoratePage, familyVenmo, hidePhone, stripParentContact, withSiteFavicon, withParentInquiry } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
 import {bookingExpiry} from "./retention.mjs";
 import QRCode from "qrcode";
 import {taylorDemoHtml} from "./demo.mjs";
 import {recurrenceHint,recurrencePlan} from "./recurrence.mjs";
+import {agreedPrice,quoteAccepted,quoteStatus,parseQuote,parseMessage,operationId,quoteMarkup,threadMarkup,money} from "./neighbor.mjs";
+import {getGear,updateGearPreferences,recordGearCompletion,renameGearBusiness,deleteGearAccount,syncGearBusiness} from "./gear.mjs";
 
 export const PLANS = {
   season: { id: "season", amount: 999, label: "$9.99" },
@@ -172,7 +174,7 @@ const SHELL_CSS = "body{margin:0;background:#f4f1ec;color:#1d2226;font:18px/1.55
   + "a{color:#a33128}p{margin:.6rem 0}"
   + "button,.hb-btn{font:700 18px system-ui,sans-serif;padding:13px 18px;border-radius:10px;border:2px solid #14181d;background:#14181d;color:#fff;cursor:pointer;margin:6px 8px 6px 0;text-decoration:none;display:inline-block}"
   + "button.alt{background:#fff;color:#14181d}"
-  + "textarea,input[type=text],input[type=datetime-local]{display:block;width:100%;box-sizing:border-box;margin-top:6px;font:18px system-ui,sans-serif;padding:10px;border:1px solid #8a949e;border-radius:8px}"
+  + "textarea,input[type=text],input[type=email],input[type=number],input[type=datetime-local],select{display:block;width:100%;box-sizing:border-box;margin-top:6px;font:18px system-ui,sans-serif;padding:10px;border:1px solid #8a949e;border-radius:8px}fieldset{margin:12px 0;border:1px solid #8a949e;border-radius:8px}summary{cursor:pointer;font-weight:700;padding:12px 0}button:disabled{opacity:.55;cursor:not-allowed}"
   + ".hb-foot{max-width:38rem;margin:0 auto 2rem;padding:0 1.25rem;font-size:14px;color:#5a6672}.hb-foot a{color:#5a6672}"
   + "@media (max-width:480px){main{margin:0;border-radius:0;box-shadow:none}}";
 function shell(status, title, inner, opts = {}) {
@@ -580,7 +582,7 @@ async function activeCancel(token){
 
 function kidJob(row, account) {
   const place = account && account.shareStreet ? (streetOnly(row.address) || "In your neighborhood") : "In your neighborhood";
-  const price = row.fields && row.fields.price || "";
+  const price = agreedPrice(row);
   const venmoUrl = venmoPayUrl(account && account.venmo, {
     amount: price,
     note: venmoNote({ kid: row.kid || (row.calJob && row.calJob.kid) || "", service: row.service, when: row.when })
@@ -604,7 +606,7 @@ function kidJob(row, account) {
 }
 function venmoBits(account, row, { afterJob } = {}) {
   const url = venmoPayUrl(account && account.venmo, {
-    amount: row && row.fields && row.fields.price,
+    amount: agreedPrice(row),
     note: venmoNote({
       kid: (row && (row.kid || (row.calJob && row.calJob.kid))) || "",
       service: row && row.service,
@@ -1095,9 +1097,9 @@ async function sendDoneNotice(account, row, origin) {
   const who = givenName(row.firstName) || "your neighbor";
   const job = String(row.service || "the job").replace(/\s+/g, " ").trim();
   const when = String(row.when || "").replace(/\s+/g, " ").trim();
-  const price = priceLabel(row.fields && row.fields.price);
+  const price = priceLabel(agreedPrice(row));
   const note = venmoNote({ kid: givenName(row.kid), service: job, when });
-  const payUrl = venmoPayUrl(account && account.venmo, { amount: row.fields && row.fields.price, note });
+  const payUrl = venmoPayUrl(account && account.venmo, { amount: agreedPrice(row), note });
   const page = row.slug ? String(origin || "").replace(/\/$/, "") + "/" + row.slug : "";
   const lead = kid + " finished " + job + (when ? " on " + when : "") + ". Thanks for hiring a kid-owned business!";
   const cash = "Pay " + kid + " in cash or as you arranged.";
@@ -1395,6 +1397,12 @@ function privacyPage() {
 <p>When a neighbor asks for a job, we keep what they typed: their name, how to reach them, the address, the job, the day and time, and a short note. It goes to the parent by email, to the parent’s private family calendar link, and to the parent’s account. We delete the request about 30 days after the scheduled job, or after it arrives if no job date was supplied. The family calendar drops a job about 30 days after the job date. A public calendar file for that one booking is deleted as soon as the booking is cancelled, and otherwise with its request or at most about 60 days after the scheduled job. A gate code or key note stays in the parent’s email and is not put in the public calendar file. It is not a customer list and we do not use it for anything else.</p>
 <p>If the neighbor leaves an email address, we send one note saying the request arrived, with a link to cancel it. That note does not include the parent’s email or phone, and it does not include a gate code or key note.</p>
 <p>The kid’s “My jobs” list shows the job, the day and time, the neighbor’s first name, and a status. It does not show the neighbor’s email, phone, or street unless the parent turns street sharing on, and even then it shows the street name without the house number.</p>
+<p>A parent can send an itemized quote with the work, equipment arrangements, and final price. We keep the current quote, its acceptance, and any previous accepted quote with that booking until the booking is deleted. Private questions and replies use a link that opens only that request. Keep these links private. Messages and quote details are not included in the kid’s My jobs list.</p>
+<p>A neighbor can also ask the parent a question before booking. We keep their first name, email, question, and replies for about 30 days after the question arrives. This does not create a job or calendar appointment. The parent’s personal email and phone are not shown to the neighbor, and pre-booking conversations are not shown in the kid’s My jobs list.</p>
+
+<h2>My Business Gear and earned progress</h2>
+<p>We keep each published business’s name and design settings, the count of jobs a parent marked complete, and scrambled identifiers that prevent the same job counting twice. This progress stays with the parent account when old booking details are deleted. It does not contain customer names, contact details, addresses, or notes. Deleting the account deletes this progress and design record. A parent can choose to receive a one-time email when a business earns its three-job Operator milestone; this is off until the parent turns it on.</p>
+<p>Design downloads are free. Creating a design does not order physical goods or share information with a printer. Any optional physical purchase is a separate choice made by the parent.</p>
 
 <h2>Drafts and “ask my parent” links</h2>
 <p>After a parent has verified their email and agreed, a draft can be saved on our server so the same page opens on another device. The draft code is the key, so keep it private. We delete a draft about 90 days after its last save, or when the parent deletes the account. Before that agreement, the draft stays in the browser. An “ask my parent” note keeps only the parent’s email, the kid’s first name, and the business name, and we delete it after 7 days if consent is not completed.</p>
@@ -1505,6 +1513,8 @@ function retentionPage() {
 <h2>After a parent agrees</h2>
 <p>The published page stays up until the parent takes it offline or deletes the account. Deleting the account removes the page, the booking requests, the calendar, and the public calendar files.</p>
 <p>A booking request is deleted about 30 days after the scheduled job, or after it arrives if no job date was supplied. The family calendar drops a job about 30 days after the job date. A public calendar file for one booking is deleted as soon as the booking is cancelled, and otherwise with its request or at most about 60 days after the scheduled job.</p>
+<p>Booking quotes, acceptance records, and private messages are deleted with their booking. A pre-booking question and its replies are deleted about 30 days after the question arrives. Neither creates a permanent customer list.</p>
+<p>Business Gear design settings, earned milestones, completed-job counts, and scrambled job identifiers remain while the parent account exists so earned progress survives booking cleanup. They contain no customer contact information and are deleted with the account.</p>
 <p>A cloud draft is deleted about 90 days after its last save, or when the account is deleted.</p>
 <h2>What can remain</h2>
 <p>Two scrambled markers can stay after an account is deleted, so the free trial cannot be restarted: one for the email, and one for the card if a card was used. Neither is the email address or the card number.</p>
@@ -1930,7 +1940,7 @@ async function serveSlugInner(slug, view) {
   // The real page is the only response that gets the "Built with" belt,
   // added here at serve time so the stored page stays exactly as the
   // family published it.
-  const res = html(200, withBelt(withSiteFavicon(page), slug));
+  const res = html(200, withBelt(withSiteFavicon(withParentInquiry(page,slug)), slug));
   // The response is settled; only now does the view count. noteView swallows
   // its own errors, and every other return above (break, pause, review,
   // missing, down, redirect) leaves the counter untouched.
@@ -2229,8 +2239,64 @@ async function customerBooking(token) {
   const row=rows.find(r=>r.id===rec.requestId && r.cancelToken===token);
   return row?{account,rows,row}:null;
 }
+function parentUnread(row) {
+  const thread=Array.isArray(row.thread)?row.thread:[];
+  const index=row.parentReadMessageId?thread.findIndex(message=>message.id===row.parentReadMessageId):-1;
+  return thread.slice(index+1).filter(message=>message.author==='customer').length;
+}
+async function neighborNotice(account,row,origin,{parent=false,subject,lead}) {
+  const to=parent?account.email:contactEmail(row.fields?.contact);
+  if(!to)return {ok:false};
+  const url=parent?siteOrigin(origin)+'/api/job/'+row.actionToken:bookingUrl(row,origin);
+  const label=parent?'Review and reply privately':row.kind==='inquiry'?'Read the private conversation':'Manage booking';
+  return sendMail({to,ownerId:account.id,expiresAt:bookingExpiry(row),replyTo:supportReply(),forParent:parent,origin,subject,
+    text:lead+'\n\n'+label+': '+url+'\n\nKeep this link private. It opens only this request.',
+    html:'<p>'+mailEscape(lead)+'</p><p><a href="'+mailEscape(url)+'">'+label+'</a></p><p>Keep this link private. It opens only this request.</p>'});
+}
+async function sendJobQuote(account,row,body,origin) {
+  if(row.kind==='inquiry'||['done','cancelled','held'].includes(row.status))return {status:409,error:'status',message:'A quote can only be sent for an active booking request.'};
+  if(!contactEmail(row.fields?.contact))return {status:409,error:'email',message:'Online quote acceptance needs a customer email address. Agree on this phone-only request directly with the customer.'};
+  const id=operationId(body.requestId),parsed=parseQuote(body);
+  if(!id)return {status:400,error:'request-id',message:'Reload the page before sending this quote.'};
+  if(parsed.error)return {status:400,...parsed};
+  const fingerprint=sha(JSON.stringify(parsed));
+  if(row.quote?.requestId===id)return row.quote.fingerprint===fingerprint?{ok:true,message:'This quote was already sent.'}:{status:409,error:'request-id',message:'This send request has already been used. Reload and review the latest quote.'};
+  const previousRevision=Number(row.quote?.revision||0);
+  if(!/^\d+$/.test(String(body.baseRevision??''))||Number(body.baseRevision)!==previousRevision)return {status:409,error:'quote-revision',message:'The quote has changed. Reload and review the latest revision before sending.'};
+  if(await countKey(counterKey('quote',row.id),12))return {status:429,error:'limit',message:'The daily quote limit has been reached. Try again tomorrow.'};
+  if(quoteAccepted(row))row.previousAcceptedQuote={...row.quote};
+  row.quote={...parsed,revision:previousRevision+1,createdAt:new Date().toISOString(),acceptedAt:null,acceptedRevision:null,requestId:id,fingerprint};
+  await neighborNotice(account,row,origin,{subject:'Please review your job quote',lead:'The parent sent revision '+row.quote.revision+' of your job quote for '+row.service+'. Final price per visit: '+money(row.quote.totalCents)+'. Review the included work, equipment, and price, then accept or ask a question. This does not confirm an appointment.'});
+  return {ok:true,message:'Quote sent. The customer must accept this revision before you confirm or finish the job.'};
+}
+async function acceptJobQuote(account,row,body,origin) {
+  if(row.kind==='inquiry'||['done','cancelled','held'].includes(row.status))return {status:409,error:'status',message:'This request cannot accept a new quote.'};
+  if(!row.quote||!/^\d+$/.test(String(body.revision??''))||Number(body.revision)!==row.quote.revision)return {status:409,error:'quote-revision',message:'The quote has changed. Read the latest revision below before accepting.'};
+  if(body.accept!=='yes')return {status:400,error:'agreement',message:'Tick the agreement box to accept the included work and final price.'};
+  if(quoteAccepted(row))return {ok:true,message:'You already accepted this quote revision.'};
+  row.quote.acceptedAt=new Date().toISOString();row.quote.acceptedRevision=row.quote.revision;
+  await neighborNotice(account,row,origin,{parent:true,subject:'Your customer accepted the quote',lead:(row.firstName||'Your customer')+' accepted revision '+row.quote.revision+' for '+row.service+' at '+money(row.quote.totalCents)+' per visit. Appointment approval is still managed separately.'});
+  return {ok:true,message:'Quote accepted. The parent still confirms the appointment or repeating schedule separately.'};
+}
+async function appendPrivateMessage(account,row,body,origin,author,ip) {
+  if(row.kind==='inquiry'&&row.status==='closed')return {status:409,error:'closed',message:'This question is closed. Start a new request from the business page.'};
+  const parsed=parseMessage(body);if(parsed.error)return {status:400,...parsed};
+  const thread=row.thread||[],previous=thread.find(message=>message.id===parsed.id);
+  if(previous)return previous.author===author&&previous.text===parsed.text?{ok:true,message:'This message was already sent.'}:{status:409,error:'request-id',message:'This send request has already been used. Reload before sending a new message.'};
+  if(thread.length>=40)return {status:409,error:'limit',message:'This conversation has reached its 40-message limit.'};
+  if(await countKey(counterKey('thread',row.id+'|'+author),10)||await countKey(counterKey('thread-ip',ip),40))return {status:429,error:'limit',message:'The daily message limit has been reached. Try again tomorrow.'};
+  const blocked=wordHits(parsed.text).block;if(blocked)return {status:400,error:'moderation',message:'Please remove the blocked word before sending your message.'};
+  row.thread=[...thread,{...parsed,author,at:new Date().toISOString()}];
+  const parent=author==='customer';
+  await neighborNotice(account,row,origin,{parent,subject:parent?'A customer has a question':'The parent replied to your question',lead:parent?'A customer sent a private question about '+(row.business||row.service)+'. Open the request to read and reply.':'The parent has replied privately about '+(row.business||row.service)+'. Read the reply using your private link. Messages do not change an appointment or price agreement.'});
+  return {ok:true,message:parent?'Question sent to the parent. Keep this private link to read the reply.':contactEmail(row.fields?.contact)?'Private reply sent to the customer.':'Reply saved on the private booking page. Contact this phone-only customer directly to let them know.'};
+}
+function inquiryForm(slug,names,message='',status=200) {
+  return shell(status,'Ask the parent',`<p><a href="/${mailEscape(slug)}">Back to ${mailEscape(names.biz||'the business')}</a></p><h1>Ask the parent</h1><p>Ask about the work, equipment, price, or timing before booking. This sends a private question to the parent. It does not create a job or a calendar appointment.</p>${message?'<p role="alert">'+mailEscape(message)+'</p>':''}<form method="post"><input type="hidden" name="requestId" value="${rand(16)}"><input type="hidden" name="startedAt" value="${Date.now()}"><div hidden><label>Leave empty<input type="text" name="company" tabindex="-1" autocomplete="off"></label></div><label>Your first name<input type="text" name="name" maxlength="60" autocomplete="given-name" required></label><label>Your email<input type="email" name="email" maxlength="80" autocomplete="email" required></label><label>Your question<textarea name="text" maxlength="1200" required></textarea></label><p>The parent can reply through a private link. Do not include children’s personal contact details. We retain the question and replies for about 30 days.</p><button type="submit">Send question to parent</button></form>`);
+}
 function bookingPage(token,row,account,origin,message="",errorStatus=200) {
   if(!row)return shell(404,"This link is finished","<h1>This link is finished</h1><p>This booking is no longer stored.</p>");
+  if(row.kind==='inquiry')return shell(errorStatus,'Your private question',`<h1>${mailEscape(row.business||'Your private question')}</h1><p><b>${row.status==='closed'?'Question closed':'Question sent to the parent'}</b></p><p>This conversation has not booked a job. No calendar appointment was created.</p>${message?'<p role="status">'+mailEscape(message)+'</p>':''}${threadMarkup(row,{requestId:rand(16)})}<p><a href="/${mailEscape(row.slug)}">Visit the business to request a job</a></p><p>Keep this link private. It opens only this conversation.</p>`);
   const terminal=["cancelled","done"].includes(row.status);
   const status={new:"Requested — awaiting family confirmation",held:"Requested — awaiting family confirmation",confirmed:"Confirmed",cancelled:"Cancelled",done:"Completed"}[row.status]||"Requested";
   const base="/api/booking/"+token;
@@ -2243,6 +2309,8 @@ ${row.business&&row.business!==row.service?`<p>${mailEscape(row.service||"A job"
 ${row.series?`<p>Visit ${Number(row.series.index)} of ${Number(row.series.total)} in your approved repeating schedule. Changes to this visit leave the other visits in place.</p>`:""}
 ${message?`<p role="status"><b>${mailEscape(message)}</b></p>`:""}
 ${row.status==="cancelled"?"<p>This booking will not go ahead. The cancellation has been recorded.</p>":""}
+${quoteMarkup(row)}
+${threadMarkup(row,{requestId:rand(16)})}
 ${row.reschedule?`<p>A change to <b>${mailEscape(row.reschedule.when)}</b> is waiting for the parent’s approval. Your current appointment stays in place until they approve.</p>`:""}
 ${row.status==="confirmed"&&row.invite?`<p><a class="hb-btn" href="${base}/calendar.ics">Open calendar invitation</a></p><p>Use the invitation in your confirmation email to keep calendar updates connected. A separately imported copy may need manual cleanup.</p>`:""}
 ${!terminal?`${!row.reschedule?`<h2>Request another time</h2><form method="post" action="${base}"><input type="hidden" name="action" value="reschedule"><label>New date and time (${mailEscape(tzOf(account))})<input type="datetime-local" name="start" min="${min}" max="${max}" required></label><p>The parent must approve. Your current appointment stays in place until then.</p><button type="submit">Request new time</button></form>`:""}
@@ -2338,6 +2406,7 @@ function parentVisitNote(row) {
 async function approveSeries(account,rows,row,body,origin) {
   // The first approval owns the schedule; retries cannot create more visits.
   if(row.series)return {ok:true,total:row.series.total,repeated:true};
+  if(row.quote&&!quoteAccepted(row))return {error:'quote',message:'The customer must accept the current quote before you approve repeating visits.',status:409};
   if(!repeatOffer(row))return {error:"recurrence",message:"This request does not have an approvable repeating schedule.",status:409};
   if(row.reschedule)return {error:"reschedule",message:"Resolve the requested time change before approving repeating visits.",status:409};
   if(body.start!==row.invite.start)return {error:"stale",message:"The first appointment has changed. Refresh and review the schedule again.",status:409};
@@ -2349,7 +2418,7 @@ async function approveSeries(account,rows,row,body,origin) {
   const seriesId=rand(16),createdAt=new Date().toISOString(),visits=[row];
   for(let i=1;i<plan.starts.length;i++){
     const start=plan.starts[i],id="r"+rand(8),jobId="b"+rand(8),actionToken=rand(12),when=visitWhen(start,account);
-    const visit={id,actionToken,slug:row.slug,parentEmail:account.email,replyTo:row.replyTo,firstName:row.firstName,kid:row.kid,business:row.business,service:row.service,when,address:row.address,status:"confirmed",fields:{...row.fields,when,start},createdAt,calendarJobId:jobId,
+    const visit={id,actionToken,slug:row.slug,gearBusinessId:row.gearBusinessId,parentEmail:account.email,replyTo:row.replyTo,firstName:row.firstName,kid:row.kid,business:row.business,service:row.service,when,address:row.address,status:"confirmed",fields:{...row.fields,when,start},...(row.quote?{quote:structuredClone(row.quote)}:{}),createdAt,calendarJobId:jobId,
       invite:{uid:jobId+"@hustlebuilder.org",start,tz:tzOf(account),sequence:0,summary:inviteSummary(row.kid,row.service,row.firstName),location:row.address,description:row.invite.description,attendee:account.email}};
     // Rebuild parent-only details from the request fields, so care instructions
     // survive without inheriting the original visit's action or calendar links.
@@ -2573,6 +2642,54 @@ async function routeRequest(req) {
     return accountFromRequest(req);
   }
 
+  if(route==='gear'&&(method==='GET'||method==='POST')){
+    const account=await me();
+    if(!account?.emailVerifiedAt)return json(401,{ok:false,error:'auth',message:'A verified parent must sign in to manage business gear.'});
+    const options={origin,slug:method==='GET'?req.query?.get?.('slug'):body.slug,businessId:method==='GET'?(req.query?.get?.('businessId')||req.query?.get?.('business')):body.businessId};
+    const result=method==='GET'?await getGear(account,options):await updateGearPreferences(account,{...options,milestoneEmails:body.milestoneEmails});
+    return json(result.ok?200:result.status||400,result);
+  }
+
+  const inquiryRoute=route.match(/^inquiry\/([a-z0-9][a-z0-9-]{1,40})$/);
+  if(inquiryRoute&&(method==='GET'||method==='POST')){
+    let slug=inquiryRoute[1],meta=await readJson('pages/'+slug+'.json');
+    const owner=meta?.accountId,seen=new Set([slug]);
+    for(let hops=0;meta?.status==='redirect'&&hops<8;hops++){
+      if(Date.parse(meta.until||'')<=Date.now()||checkSlug(meta.to)||seen.has(meta.to))return finishedPage('This business is not accepting questions right now.');
+      slug=meta.to;seen.add(slug);meta=await readJson('pages/'+slug+'.json');
+      if(meta?.accountId!==owner)return finishedPage('This business is not accepting questions right now.');
+    }
+    const account=meta?.accountId?await readJson('accounts/'+meta.accountId+'.json'):null;
+    if(!account||meta.status!=='live'||onBreak(account)||trialOver(account))return shell(404,'Questions are paused','<h1>Questions are paused</h1><p>This business is not accepting new questions right now.</p>');
+    const names=await siteNames(slug,meta);
+    if(method==='GET')return inquiryForm(slug,names);
+    const fail=(status,message,error='fields')=>body.json===true?json(status,{ok:false,error,message}):inquiryForm(slug,names,message,status);
+    if(String(body.company||body.hp||'').trim())return body.json===true?json(200,{ok:true}):shell(200,'Question received','<h1>Question received</h1><p>Thank you.</p>');
+    const id=operationId(body.requestId),email=emailOk(body.email),name=typeof body.name==='string'?body.name.trim():'';
+    const parsed=parseMessage(body);
+    if(!id||!email||!name||name.length>60||/[\r\n\x00-\x1f]/.test(name)||parsed.error)return fail(400,'Add your first name, a valid email, and a question up to 1,200 characters.');
+    const payloadHash=sha(JSON.stringify({slug,email,name,text:parsed.text})),dedupe=sha('inquiry|'+slug+'|'+id);
+    const prior=await readJson('bookingids/'+account.id+'/'+dedupe);
+    if(prior){
+      if(prior.payloadHash!==payloadHash)return fail(409,'This send request was already used. Reload before sending a different question.','request-id');
+      const previous=(await loadRequests(account.id)).find(row=>row.id===prior.id&&row.kind==='inquiry');
+      if(!previous)return fail(410,'This conversation is no longer stored. Reload to start a new question.','expired');
+      return body.json===true?json(200,{ok:true,id:previous.id,manageUrl:bookingUrl(previous,origin),duplicate:true}):{...redirect(bookingUrl(previous,origin)),status:303};
+    }
+    const waited=body.t===undefined?Date.now()-Number(body.startedAt):Number(body.t);
+    if(!Number.isFinite(waited)||waited<MIN_FORM_MS)return fail(400,'Wait a few seconds, then send your question.','fast');
+    if(await countKey(counterKey('inquiry-ip',clientIp(req)),5)||await countKey(counterKey('inquiry-email',email),5)||await countKey(counterKey('inquiry-account',account.id),20))return fail(429,'The daily question limit has been reached. Please try again tomorrow.','limit');
+    if(wordHits(name+' '+parsed.text).block)return fail(400,'Please remove the blocked word before sending your question.','moderation');
+    const row={id:'r'+rand(8),actionToken:rand(12),kind:'inquiry',slug,gearBusinessId:meta.gearBusinessId,parentEmail:account.email,firstName:firstName(name),kid:firstName(names.first),business:names.biz||'',service:'Question for the parent',status:'inquiry',fields:{name,contact:email},thread:[{...parsed,author:'customer',at:new Date().toISOString()}],createdAt:new Date().toISOString(),idempotencyKey:dedupe};
+    await ensureBookingLink(row,account);
+    await (await store()).put('jobact/'+row.actionToken,account.id+':'+row.id);
+    const rows=await loadRequests(account.id);rows.push(row);await saveRequests(account.id,rows);
+    await writeJson('bookingids/'+account.id+'/'+dedupe,{id:row.id,payloadHash,createdAt:row.createdAt});
+    await neighborNotice(account,row,origin,{parent:true,subject:'A neighbor has a question before booking',lead:'A neighbor sent a private question about '+(names.biz||'your business')+'. Review and reply through the private request. No job or calendar appointment has been created.'});
+    await neighborNotice(account,row,origin,{subject:'Your question was sent to the parent',lead:'Your question was sent to the parent. Keep this private link to read their reply or ask a follow-up question. No job has been booked.'});
+    return body.json===true?json(200,{ok:true,id:row.id,manageUrl:bookingUrl(row,origin)}):{...redirect(bookingUrl(row,origin)),status:303};
+  }
+
   if (method === "POST" && route === "slug") {
     const account = await me();
     if (!account || !account.emailVerifiedAt) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
@@ -2607,6 +2724,7 @@ async function routeRequest(req) {
       }
     }
     await writeJson("pages/" + from + ".json", { slug: from, accountId: account.id, status: "redirect", to: next, until, updatedAt: new Date(now).toISOString() });
+    await renameGearBusiness(account,from,next);
     account.formerSlugs.push(from);
     swapAccountSlug(account, from, next);
     account.slugChanges.push(new Date(now).toISOString());
@@ -2953,6 +3071,7 @@ async function routeRequest(req) {
       names: { first: pageNames.first, biz: pageNames.biz }, legacyInbox: pageNames.legacyInbox
     });
     addAccountSlug(account, slug);
+    await syncGearBusiness(account,{slug,draftCode:body.draftCode});
     account.indexable = indexable;
     // The publishing parent's browser names the family's time zone, so the
     // calendar shows a 4:00 PM job at 4:00 PM wherever they live.
@@ -3114,6 +3233,13 @@ async function routeRequest(req) {
     const token=customerPost[2],hit=await customerBooking(token);
     if(!hit)return bookingPage(token,null,null,origin);
     const {account,rows,row}=hit;
+    if(customerPost[1]==='cancel'&&body.action&&body.action!=='cancel')return json(400,{ok:false,error:'action'});
+    if(customerPost[1]==='booking'&&(body.action==='accept-quote'||body.action==='question')){
+      const result=body.action==='accept-quote'?await acceptJobQuote(account,row,body,origin):await appendPrivateMessage(account,row,body,origin,'customer',clientIp(req));
+      if(!result.error)await saveRequests(account.id,rows);
+      return body.json===true?json(result.status||200,{ok:!result.error,...result,status:row.status,quoteStatus:quoteStatus(row),quoteRevision:row.quote?.revision||0}):bookingPage(token,row,account,origin,result.message,result.status||200);
+    }
+    if(row.kind==='inquiry')return bookingPage(token,row,account,origin,'Questions do not create bookings. Visit the business page to request a job.',409);
     if(body.action==="cancel-series"){
       const result=await cancelSeries(account,rows,row,origin,"customer");
       if(result.error)return bookingPage(token,row,account,origin,result.message,result.status);
@@ -3233,11 +3359,16 @@ async function routeRequest(req) {
       return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
     }
     const rows = await loadRequests(account.id);
-    const jobs = rows.map((row) => {
+    const jobs = rows.filter(row=>parentSession||row.kind!=='inquiry').map((row) => {
       const job = kidJob(row, account);
       job.canAskCancel = !parentSession && ["new","confirmed"].includes(row.status);
       if (parentSession && parentSession.id === account.id && row.actionToken) {
         job.action = row.actionToken;
+        job.detailsUrl=siteOrigin(origin)+'/api/job/'+row.actionToken;
+        job.inquiry=row.kind==='inquiry';
+        job.quoteStatus=quoteStatus(row);
+        job.quoteRevision=row.quote?.revision||0;
+        job.unreadMessages=parentUnread(row);
         const hint=repeatOffer(row);
         if(hint&&!row.reschedule)job.recurrence={...hint,start:row.invite.start};
       }
@@ -3272,9 +3403,26 @@ async function routeRequest(req) {
     if (!account || !row) return finishedPage("This request is no longer stored. Requests are deleted about 30 days after the scheduled job, or arrival if undated.");
     let updateMessage="";
     if (method === "POST") {
+      if(['send-quote','reply','close-inquiry'].includes(body.action)){
+        let result;
+        if(body.action==='send-quote')result=await sendJobQuote(account,row,body,origin);
+        else if(body.action==='reply')result=await appendPrivateMessage(account,row,body,origin,'parent',clientIp(req));
+        else if(row.kind!=='inquiry')result={status:409,error:'kind',message:'Only a pre-booking question can be closed this way.'};
+        else {
+          if(row.status!=='closed'){
+            row.status='closed';
+            await neighborNotice(account,row,origin,{subject:'Your question is closed',lead:'The parent closed this pre-booking conversation. No job was booked. Visit the business page to start a new request.'});
+          }
+          result={ok:true,message:'Question closed. No job or calendar appointment was created.'};
+        }
+        if(result.error)return body.json===true?json(result.status||400,{ok:false,...result}):shell(result.status||400,'Review request','<h1>Review request</h1><p role="alert">'+mailEscape(result.message)+'</p><p><a href="/api/job/'+row.actionToken+'">Back to the request</a></p>');
+        updateMessage=result.message;
+      }else{
       const next=String(body.status||"");
+      if(row.kind==='inquiry')return json(409,{ok:false,error:'inquiry',message:'A question is not a booking. Reply or close the question; no calendar or completion is created.'});
       if(!["confirmed","done","cancelled","accept-reschedule","decline-reschedule","keep-booking","approve-series","cancel-series"].includes(next))return json(400,{ok:false,error:"status"});
       if(["cancelled","done"].includes(row.status)&&next!==row.status&&next!=="cancel-series")return json(409,{ok:false,error:"terminal",message:"This booking is already finished. Create a new request for another job."});
+      if(['confirmed','done','approve-series','accept-reschedule'].includes(next)&&row.quote&&!quoteAccepted(row))return body.json===true?json(409,{ok:false,error:'quote',message:'The customer must accept the current quote revision first.'}):shell(409,'Quote needs acceptance','<h1>Quote needs acceptance</h1><p>The customer must accept the current quote revision before you confirm or finish this job.</p><p><a href="/api/job/'+row.actionToken+'">Review quote and questions</a></p>');
       await ensureBookingLink(row,account);
       if(next==="approve-series"||next==="cancel-series"){
         const result=next==="approve-series"?await approveSeries(account,rows,row,body,origin):await cancelSeries(account,rows,row,origin,"family");
@@ -3300,19 +3448,27 @@ async function routeRequest(req) {
       }else if(next!==row.status){
         if(next==="cancelled")await cancelBooking(account,row,origin,"family");
         else {
+          const previousStatus=row.status;
           row.status=next;
           if(next==="confirmed"){await syncBookingEvent(row,account,origin);await bookingNotices(account,row,origin,"confirmed");}
-          if(next==="done"){row.reschedule=null;row.cancelRequestedAt=null;await syncBookingEvent(row,account,origin);if(!row.doneMailedAt){const told=await sendDoneNotice(account,row,origin);if(told)row.doneMailedAt=new Date().toISOString();}}
+          if(next==="done"){row.reschedule=null;row.cancelRequestedAt=null;await syncBookingEvent(row,account,origin);if(!row.doneMailedAt){const told=await sendDoneNotice(account,row,origin);if(told)row.doneMailedAt=new Date().toISOString();}await recordGearCompletion(account,row,{previousStatus,parentAuthorized:true,origin});}
         }
       }
-      await saveRequests(account.id,rows);
       updateMessage ||= next==="keep-booking"?"Kept the booking. Your kid can see that the request was cleared.":notificationMessage(row);
-      if(body.json===true)return json(200,{ok:true,status:row.status,message:updateMessage});
+      }
+      row.parentReadMessageId=row.thread?.at(-1)?.id||'';
+      await saveRequests(account.id,rows);
+      if(body.json===true)return json(200,{ok:true,status:row.status,message:updateMessage,quoteStatus:quoteStatus(row),quoteRevision:row.quote?.revision||0});
     }
+    if(method==='GET'&&parentUnread(row)){
+      row.parentReadMessageId=row.thread.at(-1).id;await saveRequests(account.id,rows);
+    }
+    if(row.kind==='inquiry')return shell(200,'Neighbor question',`<p><a href="/?jobs=1">View all family requests</a></p><h1>Question for ${mailEscape(row.business||'the parent')}</h1><p>From ${mailEscape(row.firstName||'a neighbor')}. No job or calendar appointment was created.</p><p>Status: ${row.status==='closed'?'Closed':'Open question'}</p>${threadMarkup(row,{parent:true,requestId:rand(16)})}${row.status!=='closed'?'<form method="post"><button name="action" value="close-inquiry" class="alt">Close this question</button></form>':''}<p role="status">${mailEscape(updateMessage)}</p>`);
     const title=row.status==="new"?"New request":row.status;
     const terminal=["cancelled","done"].includes(row.status);
     const repeat=repeatOffer(row);
-    const visitNote=row.series?parentVisitNote(row):"";
+    const visitNote=parentVisitNote(row);
+    const quotePending=!!row.quote&&!quoteAccepted(row);
     return shell(200,title,`<p><a href="/?jobs=1">View all family bookings</a></p>
 <h1>${mailEscape(row.service||"A job")}</h1>
 <p>${mailEscape([row.kid,row.business].filter(Boolean).join(" · "))}</p>
@@ -3321,12 +3477,14 @@ async function routeRequest(req) {
 ${row.series?`<p>Visit ${Number(row.series.index)} of ${Number(row.series.total)} in the approved repeating schedule. Each visit can be changed separately.</p><form method="post"><p>Cancel all future, uncompleted visits in this schedule. Completed visits and other bookings stay as they are.</p><button name="status" value="cancel-series" class="alt">Cancel remaining visits</button></form>`:""}
 <p>${mailEscape(row.fields?.contact||"")}<br>${mailEscape(row.address||"")}</p>
 ${visitNote?'<h2>Visit details</h2><p>'+mailEscape(visitNote).replace(/\n/g,"<br>")+'</p>':""}
+${quoteMarkup(row,{parent:true,canQuote:!!contactEmail(row.fields?.contact),requestId:rand(16)})}
+${threadMarkup(row,{parent:true,requestId:rand(16)})}
 ${row.cancelRequestedAt&&!terminal?'<p><b>Your kid asked to cancel this job.</b> The booking stays active until you decide.</p>':""}
 ${row.reschedule&&!terminal?`<h2>Time change requested</h2><p>${mailEscape(row.reschedule.when)} (${mailEscape(tzOf(account))}). The original appointment stays in place until you approve.</p>
-<form method="post"><input type="hidden" name="start" value="${mailEscape(row.reschedule.start)}"><button name="status" value="accept-reschedule">Accept new time</button><button name="status" value="decline-reschedule" class="alt">Keep original time</button></form>`:""}
-${repeat&&!row.reschedule?`<h2>Approve repeating visits</h2><form method="post"><input type="hidden" name="start" value="${mailEscape(row.invite.start)}"><p>${mailEscape(repeat.label)}. Nothing repeats until you approve. The selected schedule includes this first visit at ${mailEscape(row.when)} (${mailEscape(tzOf(account))}).</p>${repeat.requiresCount?`<label>Total visits, including this first one<select name="count">${Array.from({length:7},(_,i)=>i+2).map(n=>'<option value="'+n+'"'+(n===4?' selected':'')+'>'+n+' visits</option>').join("")}</select></label>`:`<p>One visit each day from ${mailEscape(row.fields?.awayFrom||"")} through ${mailEscape(row.fields?.awayTo||"")}, at the selected time. Approve 2–14 days at once.</p>`}<p>Each visit gets its own calendar entry and confirmation notice. You or the customer can cancel one visit or the remaining visits.</p><button name="status" value="approve-series">Approve repeating visits</button></form>`:""}
+<form method="post"><input type="hidden" name="start" value="${mailEscape(row.reschedule.start)}"><button name="status" value="accept-reschedule"${quotePending?' disabled':''}>Accept new time</button><button name="status" value="decline-reschedule" class="alt">Keep original time</button></form>`:""}
+${repeat&&!row.reschedule?`<h2>Approve repeating visits</h2><form method="post"><input type="hidden" name="start" value="${mailEscape(row.invite.start)}"><p>${mailEscape(repeat.label)}. Nothing repeats until you approve. The selected schedule includes this first visit at ${mailEscape(row.when)} (${mailEscape(tzOf(account))}).</p>${repeat.requiresCount?`<label>Total visits, including this first one<select name="count">${Array.from({length:7},(_,i)=>i+2).map(n=>'<option value="'+n+'"'+(n===4?' selected':'')+'>'+n+' visits</option>').join("")}</select></label>`:`<p>One visit each day from ${mailEscape(row.fields?.awayFrom||"")} through ${mailEscape(row.fields?.awayTo||"")}, at the selected time. Approve 2–14 days at once.</p>`}<p>Each visit gets its own calendar entry and confirmation notice. You or the customer can cancel one visit or the remaining visits.</p><button name="status" value="approve-series"${quotePending?' disabled':''}>Approve repeating visits</button></form>`:""}
 ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for email customers. Contact phone-only customers directly by call or text.</p>
-<form method="post">${row.status!=="confirmed"?'<button name="status" value="confirmed">Confirm booking</button>':""}<button name="status" value="done">Mark done</button><button name="status" value="cancelled" class="alt">Cancel request</button>${row.cancelRequestedAt?'<button name="status" value="keep-booking" class="alt">Keep booking</button>':""}</form>`:"<p>This booking is finished. No further changes can be made.</p>"}
+<form method="post">${row.status!=="confirmed"?'<button name="status" value="confirmed"'+(quotePending?' disabled':'')+'>Confirm booking</button>':""}<button name="status" value="done"${quotePending?' disabled':''}>Mark done</button><button name="status" value="cancelled" class="alt">Cancel request</button>${row.cancelRequestedAt?'<button name="status" value="keep-booking" class="alt">Keep booking</button>':""}</form>`:"<p>This booking is finished. No further changes can be made.</p>"}
 <p role="status">${mailEscape(updateMessage)}</p>`);
   }
 
@@ -3365,7 +3523,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
     const payloadHash=sha(JSON.stringify(Object.fromEntries(Object.entries(body).filter(([key])=>!['t','hp','company','requestId','slug'].includes(key)).sort(([a],[b])=>a.localeCompare(b)))));
     const dedupe=idempotency?sha(slug+'|'+idempotency):sha(slug+'|'+ip+'|'+payloadHash+'|'+Math.floor(Date.now()/300000));
     const prior=await readJson('bookingids/'+account.id+'/'+dedupe);
-    if(prior){if(prior.payloadHash!==payloadHash)return json(409,{ok:false,error:'request-id'});return json(200,{ok:true,held:prior.held,id:prior.id,duplicate:true});}
+    if(prior){if(prior.payloadHash!==payloadHash)return json(409,{ok:false,error:'request-id'});const previous=(await loadRequests(account.id)).find(row=>row.id===prior.id);return json(200,{ok:true,held:prior.held,id:prior.id,duplicate:true,...(previous?.cancelToken?{manageUrl:bookingUrl(previous,origin)}:{})});}
     const hits = await bumpIp(ip);
     if (String(body.hp || body.company || "").trim()) return withCors(json(200, { ok: true }), req.headers && req.headers.origin);
     const waited = Number(body.t);
@@ -3483,6 +3641,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
       id: requestId,
       actionToken,
       slug,
+      gearBusinessId:meta.gearBusinessId,
       parentEmail: account.email,
       replyTo: reply || supportReply(),
       firstName: firstName(fields.name),
@@ -3521,7 +3680,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
         html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p>" + (identity ? "<p>" + mailEscape(identity) + "</p>" : "") + "<p>" + mailEscape(row.firstName) + " asked for " + mailEscape(titled) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
       });
       if (!held.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
-      return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
+      return withCors(json(200, { ok: true, held: true, manageUrl:bookingUrl(row,origin) }), req.headers && req.headers.origin);
     }
     await ensureCalToken(account);
     await savePublicEvent(row, account, origin);
@@ -3552,7 +3711,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
     }
 
     if (reply) await notifyNeighbor({ origin, reply, fields, account, requestId, slug, event: row.publicEvent, venmo: venmoBits(account, row, { afterJob: true }) });
-    return withCors(json(200, { ok: true, trialLeft: undefined }), req.headers && req.headers.origin);
+    return withCors(json(200, { ok: true, trialLeft: undefined, manageUrl:bookingUrl(row,origin) }), req.headers && req.headers.origin);
   }
 
   if ((method === "POST" || method === "DELETE") && route === "jobs") {
@@ -4057,6 +4216,7 @@ async function ownerIndexSince() {
 }
 async function eraseRelated(account) {
   const s=await store();
+  await deleteGearAccount(account);
   for(const row of await loadRequests(account.id))await removeRequestArtifacts(row,account.id);
   await s.del('requests/'+account.id+'.json');
   await s.del('planacct/'+account.id);
@@ -4138,7 +4298,9 @@ async function requestLocks(req) {
   if(cookieToken){const id=await s.get('tokens/'+sha(cookieToken));if(id)accountIds.add(id.trim());}
   if(/^\/?(api\/)?admin\/(comp|refund)$/.test(String(req.path||'').split('?')[0])&&/^[a-f0-9]{8,32}$/.test(body.id||''))accountIds.add(body.id);
   if(route.startsWith('admin')||String(req.path).startsWith('/admin'))keys.push('quota:admin:'+sha(clientIp(req)));
-  const slug=String(body.slug||route.match(/^site\/(.*)$/)?.[1]||'').trim().toLowerCase();
+  // The inquiry URL selects its owner. An unrelated body.slug must never
+  // move that write outside the actual family's account lock.
+  const slug=String(route.match(/^inquiry\/(.*)$/)?.[1]||body.slug||route.match(/^site\/(.*)$/)?.[1]||'').trim().toLowerCase();
   if(slug&&!checkSlug(slug)){keys.push('slug:'+slug);const page=await read('pages/'+slug+'.json');if(page?.accountId)accountIds.add(page.accountId);}
   if(route==='stripe/webhook'){
     const id=body.data?.object?.metadata?.accountId;
@@ -4155,6 +4317,8 @@ async function requestLocks(req) {
   if(/^[a-z0-9]{8}$/.test(code))keys.push('draft:'+code);
   if(route.startsWith('ask/'))keys.push('ask:'+route.split('/')[1]);
   if(route==='book'||route==='ask'||route==='draft'||route.startsWith('auth/'))keys.push('quota:'+route.split('/')[0]+':'+sha(clientIp(req)));
+  if(route.startsWith('inquiry/'))keys.push('quota:inquiry:'+sha(clientIp(req)));
+  if(/^(job|booking)\//.test(route))keys.push('quota:thread:'+sha(clientIp(req)));
   if((route==='my-jobs'||route==='my-jobs/cancel-request')&&code){const id=await s.get('jobcode/'+code);if(id)accountIds.add(id);else{const d=await read('drafts/'+code+'.json');if(d?.accountId)accountIds.add(d.accountId);}}
   if(route==='slug'&&req.method==='POST'){
     for(const id of accountIds){const account=await read('accounts/'+id+'.json');for(const owned of [...slugsOf(account),...(account?.formerSlugs||[])])keys.push('slug:'+owned);}

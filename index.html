@@ -1190,7 +1190,7 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
             </div>
           </div>
           <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent confirms changes and cancellations.</p>
-          <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
+          <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="myBusinessGear" hidden>My Business Gear</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
           <div id="familyJobsCode" hidden><p class="small2">Family jobs code: <b id="familyJobsCodeValue"></b>. Share this with your kids so they can view requests and ask you to cancel. It does not let them confirm or cancel bookings.</p><button type="button" class="btn ghost" id="copyFamilyJobsCode">Copy family jobs code</button><p class="small2">Copy the code, then sign out of your parent account before handing over this device.</p></div>
           <details class="help" id="kidJobsEntry"><summary>Use a family jobs code</summary><p class="small2">Ask your parent for the 8-character family jobs code. This opens your family’s requests without signing in as a parent.</p><form id="kidJobsForm"><label for="kidJobsCodeInput">Family jobs code<input id="kidJobsCodeInput" name="jobsCode" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="8" maxlength="8" pattern="[A-Za-z0-9]{8}" required></label><div class="mbtns"><button type="submit" class="btn ghost" id="openKidJobs">View family requests</button><button type="button" class="btn outline" id="forgetKidJobs" hidden>Forget family jobs code</button></div></form><p class="status" id="kidJobsStatus" role="status" aria-live="polite"></p></details>
           <p class="status" id="jobStatus" role="status" aria-live="polite"></p>
@@ -1202,6 +1202,8 @@ details.help[open]>summary::before,.lg[open]>summary::before{transform:rotate(45
 <section id="flyers" aria-label="Flyers">
   <h2>Print and post.</h2>
   <p class="lead">Pick a format, connect your website or a parent’s text number, then save or print. The QR code opens your website or a text message to your parent.</p>
+
+  <button type="button" class="studio-card" id="previewBusinessGear"><span class="sc-top"><b>My Business Gear</b><span class="sc-tag">Free designs</span></span><span class="sc-sub">Preview your business on a T-shirt or cap and download the artwork. A parent can open saved gear and job milestones from their account.</span></button>
 
   <div class="flyer-workbench"><div class="flyer-controls">
   <details class="help"><summary>Want more poster designs?</summary>
@@ -5118,6 +5120,7 @@ const PUB_KEY="hb-parent-session";
    nobody gets signed out by the switch, but new sign-ins never save it. */
 let pubMemToken="";
 let privateViewEpoch=0,accountLoadId=0,publishIdentityChecks=0;
+let gearHandle=null,gearOpenId=0,pendingGearRequest=null;
 function kidJobsCode(){try{const code=String(localStorage.getItem("hb-kid-jobs-code")||"").trim().toLowerCase();return /^[a-z0-9]{8}$/.test(code)?code:"";}catch(e){return "";}}
 function privateViewKey(){
   const session=pubSession();
@@ -5126,13 +5129,15 @@ function privateViewKey(){
 }
 function clearPrivateViews(){
   privateViewEpoch++;accountLoadId++;
+  gearOpenId++;
+  if(gearHandle){gearHandle.close();gearHandle=null;}
   if(typeof jobsLoadPending!=="undefined"){jobsLoadPending=false;jobsLoadKey="";}
   if(typeof jobsActionPending!=="undefined")jobsActionPending=false;
   if(typeof resetJobFilters==="function")resetJobFilters();
   const refresh=$("#refreshJobs");if(refresh)refresh.disabled=false;
   if(modalEl.classList.contains("open"))closeModal();
   ["#jobList","#accountSites","#buildsBox"].forEach(id=>{const el=$(id);if(el)el.innerHTML="";});
-  ["#jobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#accountVenmoField","#familyJobsCode"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  ["#jobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#accountVenmoField","#familyJobsCode","#myBusinessGear"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
   ["#jobCalGoogle","#jobCalApple","#calGoogle","#calApple"].forEach(id=>{const el=$(id);if(el)el.removeAttribute("href");});
   ["#calLink","#jobStatus","#venmoMsg","#familyJobsCodeValue"].forEach(id=>{const el=$(id);if(el)el.textContent="";});
   const venmo=$("#acctVenmo");if(venmo)venmo.value="";
@@ -5471,13 +5476,14 @@ function applyPublishState(me){
 }
 function publishExtras(slug){
   const origin=publishOrigin();
+  const draftCode=currentDraftCode();
   return {
     slug,
     html:publishedHtml(slug),
     indexable:!!($("#pubIndex")&&$("#pubIndex").checked),
     showPhone:!!S.showPhone,
     phone:S.phone||"",
-    draftCode:localStorage.getItem("hb-draft-code")||localStorage.getItem("hb-job-code")||"",
+    draftCode:/^[a-z0-9]{8}$/.test(draftCode)?draftCode:"",
     cardTitle:(S.bizName||"").trim()||autoBiz(S.type,S.first.trim()||"Taylor"),
     cardLine:typeInfo(S.type).label+(S.town.trim()?" in "+S.town.trim():"")+". Book a day.",
     accent:(RIGS[S.palette]||RIGS.ember).c,
@@ -5609,6 +5615,7 @@ async function initPublish(){
   showCalendar(me); syncCalUpcoming();
   applySavedVenmo(me.venmo);
   if(document.body.classList.contains("boss-on"))await loadMyJobs();
+  if(pendingGearRequest)resumeGearLink();
 }
 $("#pubSend").onclick=async()=>{
   const button=$("#pubSend");if(button.disabled)return;
@@ -5646,6 +5653,7 @@ $("#pubVerify").onclick=async()=>{
     try{const me=await pubApi("/api/me",{method:"GET"});if(epoch!==privateViewEpoch)return;if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
     if(new URLSearchParams(location.search).get("account"))showAccount();
     try{const me=await pubApi("/api/me",{method:"GET"});if(epoch!==privateViewEpoch)return;if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
+    if(pendingGearRequest)resumeGearLink();
   }catch(e){pubErr("Could not verify. Try again.");}
   finally{button.disabled=false;}
 };
@@ -5750,18 +5758,35 @@ async function pubPush(){
   const button=$("#pubGo");
   if(button&&button.disabled)return;
   if(button)button.disabled=true;
+  const epoch=privateViewEpoch,key=privateViewKey();
+  let draftCode=currentDraftCode();
+  const snapshot=JSON.stringify(draftPayload());
+  const slug=($("#pubSlug").value||"").trim().toLowerCase();
+  const indexable=!!($("#pubIndex")&&$("#pubIndex").checked);
+  const sameParent=()=>epoch===privateViewEpoch&&key===privateViewKey()&&draftWriteAllowed();
+  const unchanged=(submitted=false)=>{
+    if(!sameParent())return false;
+    if(currentDraftCode()!==draftCode||JSON.stringify(draftPayload())!==snapshot||($("#pubSlug").value||"").trim().toLowerCase()!==slug||!!($("#pubIndex")&&$("#pubIndex").checked)!==indexable){
+      pubErr(submitted?"The draft changed while publishing. Refresh your account to check the page.":"The draft changed. Review it, then publish again.");return false;
+    }
+    return true;
+  };
   try{
   pubErr("");
+  if(!draftWriteAllowed()){draftRecoveryNotice();return;}
+  clearTimeout(draftTimer);
   if(missing().length){updateLaunch(); pubErr("Add the items still needed above, then try Publish again."); const box=$("#missing"); if(box)box.scrollIntoView({block:"center"}); return;}
   const steep=(S.services||[]).some(s=>priceTooHigh(priceNum(s.p)))||(S.seasonOn&&priceTooHigh(priceNum(S.seasonPrice)));
   if(steep){pubErr("A price is over $999. Lower it, then publish again."); return;}
   const session=pubSession()||{};
   if(!pubToken()&&!session.email){
     const probe=await pubApi("/api/me", {method:"GET"}).catch(()=>null);
+    if(!unchanged())return;
     if(!probe||!probe.ok){pubErr("Verify the parent’s email first."); return;}
     session.email=probe.email||""; session.slug=probe.slug||session.slug||"";
   }
-  const slug=($("#pubSlug").value||"").trim().toLowerCase();
+  const parentEmail=String(session.email||sessionEmail||"").trim().toLowerCase();
+  const ownsResponse=me=>!!(me&&me.ok&&parentEmail&&String(me.email||"").trim().toLowerCase()===parentEmail);
   if(!slug){pubErr("Pick a link name for this page first."); return;}
   const familyNote=$("#familyNote");
   if(familyNote&&!familyNote.hidden&&!($("#pubSlug").value||"").trim()){pubErr("Pick a link name for this page first."); return;}
@@ -5770,15 +5795,28 @@ async function pubPush(){
     // check. Ask the server. If consent is missing, the trial opens the 50¢
     // Checkout and a plan purchase opens its own Checkout.
     const prior=await pubApi("/api/me", {method:"GET"});
-    if(!prior||!prior.ok){pubErr("Verify the parent’s email first."); return;}
+    if(!unchanged())return;
+    if(!ownsResponse(prior)){pubErr("Verify the parent’s email first."); return;}
     if(!prior.consent){
       if(!$("#pubConsent").checked){pubErr("A parent has to read the notice and check the box."); return;}
       const agreed=await pubApi("/api/consent", {body:{consent:true}});
+      if(!unchanged())return;
       if(agreed&&agreed.url){savePending(slug); location.href=agreed.url; return;}
       if(!agreed||!agreed.ok||agreed.needsCard){pubErr(agreed&&agreed.error==="stripe-key"?"The $0.50 card payment is not set up yet.":"Parent verification is not complete. If you made the $0.50 card payment, return to Go live shortly to check its refund status."); return;}
     }
     const me=await pubApi("/api/me", {method:"GET"});
+    if(!unchanged())return;
+    if(!ownsResponse(me)||!me.consent){pubErr("Verify the parent’s email and finish parent verification before publishing.");return;}
     showHosting(me);
+    // Save this exact build before binding its published page. A family job
+    // code can name a sibling, and a first draft has no live URL to recover.
+    if(!consentOn()){pubErr("Could not save this draft. Try again before publishing.");return;}
+    const saved=await saveDraftChecked();
+    if(!sameParent())return;
+    if(!saved){if(unchanged())pubErr("Could not save this draft. Nothing was published. Try again.");return;}
+    draftCode=currentDraftCode();
+    if(!unchanged())return;
+    if(!/^[a-z0-9]{8}$/.test(draftCode)){pubErr("Could not save this draft. Nothing was published. Try again.");return;}
     // Several kids, one browser + family plan: publishing at an address the
     // account already owns is an update. If this device remembers that a
     // DIFFERENT build published that page, ask before a sibling's page is
@@ -5788,6 +5826,7 @@ async function pubPush(){
       const owner=siteOwnerOf(siteDraftsLoad(), slug, legacySiteDraft(), me.slug||session.slug||"");
       if(replaceWarnNeeded(owner, currentDraftCode())){
         const yes=await confirmModal('<h3>Replace the live page?</h3><p class="small2">The live page at hustlebuilder.org/'+esc(slug)+' came from a different build on this device. Publishing this build — '+esc(buildLabelOf(S))+' — would replace what neighbors see at that link.</p>');
+        if(!unchanged())return;
         if(!yes){pubErr("Nothing was published."); return;}
       }
     }
@@ -5795,8 +5834,10 @@ async function pubPush(){
     // while the shared trial still has room, never detour to checkout.
     // A new page on an account whose trial is used up pays first, as before.
     const needsPay=!me.paid && !me.grace && me.trialOver && !ownedSlugs(me).includes(slug);
-    if(needsPay){const paid=await pubCheckout(); if(!paid)return;}
+    if(needsPay){const paid=await pubCheckout(); if(!unchanged()||!paid)return;}
+    if(!unchanged())return;
     const data=await pubApi("/api/publish", {body:publishExtras(slug)});
+    if(!unchanged(true))return;
     if(!data.ok){pubErr(data.message|| (data.error==="payment"?"Pick a plan first.":data.error==="consent"?"A parent has to agree first.":data.error==="down"?"This page was taken down.": "Could not publish. Try another link name.")); return;}
     rememberExportDeadline(data);
     session.slug=data.slug; pubSaveSession(session); clearPending();
@@ -5807,8 +5848,9 @@ async function pubPush(){
     $("#pubSlug").value=data.slug; $("#pubSlug").readOnly=true; $("#pubGo").hidden=true;
     showPublished(data.url);
     $("#pubOk").textContent=data.added?"Published. This page is covered by your family plan.":data.updated?"Updated. The link stayed the same.":"Published. Send this link to neighbors.";
-    try{const now=await pubApi("/api/me",{method:"GET"}); if(now&&now.ok){showHosting(now); settleGoLive(now);}}catch(e){}
-  }catch(e){pubErr("Could not publish. Try again.");}
+    const publishedKey=privateViewKey();
+    try{const now=await pubApi("/api/me",{method:"GET"}); if(epoch===privateViewEpoch&&publishedKey===privateViewKey()&&currentDraftCode()===draftCode&&ownsResponse(now)){showHosting(now); settleGoLive(now);}}catch(e){}
+  }catch(e){if(sameParent())pubErr("Could not publish. Try again.");}
   }finally{if(button)button.disabled=false;}
 }
 async function buyPlanFirst(plan){
@@ -5961,7 +6003,9 @@ async function showAccount(message){
       note.textContent=(site.paid?"Renewing early adds on to your end date.":"One plan covers every page on this account.")+" One-time payment, never renews on its own. Full refund if you ask within 14 days.";
       card.appendChild(note);
     }
-    actions.appendChild(pause); actions.appendChild(down);
+    const gear=document.createElement("button");gear.type="button";gear.className="btn ghost";gear.textContent="My Business Gear";gear.dataset.gearSlug=site.slug;
+    gear.onclick=()=>openBusinessGear({slug:site.slug,returnFocus:gear});
+    actions.appendChild(gear);actions.appendChild(pause); actions.appendChild(down);
     card.appendChild(actions);
     box.appendChild(card);
   });
@@ -5969,6 +6013,7 @@ async function showAccount(message){
   // If the count cannot load, the card just stays as it was — no error.
   try{
     const v=await pubApi("/api/views",{method:"GET"});
+    if(loadId!==accountLoadId||epoch!==privateViewEpoch)return;
     if(v&&v.ok&&v.slug){
       const hit=viewCards.find(c=>c.slug===v.slug);
       if(hit){
@@ -5981,6 +6026,110 @@ async function showAccount(message){
     }
   }catch(e){}
 }
+/* Gear uses the selected business returned by the parent API. It never loads
+   that child's draft into the builder or borrows the most recent sibling. */
+function gearLoading(title,request){
+  openModal('<h3>'+esc(title)+'</h3><p class="small2" role="status">Loading your design…</p><button type="button" class="btn outline" id="gearDismiss">Cancel</button>');
+  modalDismiss=()=>{if(request===gearOpenId){gearOpenId++;pendingGearRequest=null;}};
+  mbody.querySelector("#gearDismiss").onclick=closeModal;
+}
+async function gearFontData(font){
+  if(!font||font==="workwear")return "";
+  if(typeof FONT_DATA==="undefined"){
+    const script=document.querySelector('script[src="/assets/print-libs.js"]');
+    if(script)await new Promise(resolve=>{
+      const done=()=>{clearTimeout(timer);script.removeEventListener("load",done);script.removeEventListener("error",done);resolve();};
+      const timer=setTimeout(done,10000);script.addEventListener("load",done,{once:true});script.addEventListener("error",done,{once:true});
+    });
+  }
+  if(typeof FONT_DATA==="undefined"||!FONT_DATA[font])throw new Error("The business font could not load. Check your connection and try again.");
+  await loadFont(font);
+  return FONT_DATA[font];
+}
+async function launchGearStudio(props,request,epoch){
+  const [studio,fontData]=await Promise.all([import("/assets/gear-studio.mjs"),gearFontData(props.font)]);
+  if(request!==gearOpenId||epoch!==privateViewEpoch)return false;
+  modalDismiss=null;
+  closeModal();
+  if(gearHandle){gearHandle.close();gearHandle=null;}
+  const handle=studio.openGearStudio({...props,fontData,fontCss:FONT_CSS,saveFile,onClose:()=>{if(gearHandle===handle)gearHandle=null;}});
+  gearHandle=handle;
+  return true;
+}
+function gearFailure(error,request,epoch,retry){
+  if(request!==gearOpenId||epoch!==privateViewEpoch)return;
+  modalDismiss=null;
+  openModal('<h3>Business gear could not open</h3><p class="small2" role="alert">'+esc(error&&error.message||"Check your connection and try again.")+'</p><div class="mbtns"><button type="button" class="btn" id="gearRetry">Try again</button><button type="button" class="btn outline" id="gearDismiss">Close</button></div>');
+  mbody.querySelector("#gearRetry").onclick=retry;
+  mbody.querySelector("#gearDismiss").onclick=()=>{gearOpenId++;pendingGearRequest=null;closeModal();};
+}
+async function openDraftGear(returnFocus){
+  if(!draftWriteAllowed()){toast("Open your saved build with its parent first.");return;}
+  const request=++gearOpenId,epoch=privateViewEpoch;
+  pendingGearRequest=null;
+  if(gearHandle){gearHandle.close();gearHandle=null;}
+  gearLoading("My Business Gear",request);
+  try{
+    const brand=resolve(false),rig=RIGS[brand.palette]||RIGS.ember;
+    await launchGearStudio({businessName:brand.biz,firstName:brand.first,accent:rig.c,theme:brand.theme,font:brand.font||"workwear",tagline:brand.tagline,previewOnly:true,operatorUnlocked:false,completedJobs:0,emailOptIn:false,canManagePreference:false,canShop:false,returnFocus},request,epoch);
+  }catch(error){gearFailure(error,request,epoch,()=>openDraftGear(returnFocus));}
+}
+async function openBusinessGear(options){
+  options=options||{};
+  const request=++gearOpenId,epoch=privateViewEpoch;
+  const selection=options.businessId?{businessId:String(options.businessId)}:options.slug?{slug:String(options.slug)}:{};
+  if(gearHandle){gearHandle.close();gearHandle=null;}
+  gearLoading("My Business Gear",request);
+  try{
+    const query=new URLSearchParams(selection).toString();
+    const data=await pubApi("/api/gear"+(query?"?"+query:""),{method:"GET"});
+    if(request!==gearOpenId||epoch!==privateViewEpoch)return;
+    if(!data.ok){
+      if(data.httpStatus===401||data.error==="auth"){
+        modalDismiss=null;pendingGearRequest=selection;closeModal();setMode("build");go(7);
+        await showAccount("Sign in with the parent email to open saved business gear and milestones.");return;
+      }
+      throw new Error(data.message||"That saved business is not available in this parent account.");
+    }
+    const businesses=Array.isArray(data.businesses)?data.businesses:[];
+    if(!businesses.length){
+      pendingGearRequest=null;modalDismiss=null;
+      openModal('<h3>Start with your business design</h3><p class="small2">Your published businesses will appear here with saved job milestones. You can preview and download artwork from the draft on this device for free.</p><div class="mbtns"><button type="button" class="btn" id="gearDraft">Preview this draft</button><button type="button" class="btn outline" id="gearDismiss">Close</button></div>');
+      mbody.querySelector("#gearDraft").onclick=()=>openDraftGear(options.returnFocus);
+      mbody.querySelector("#gearDismiss").onclick=closeModal;return;
+    }
+    const selected=selection.businessId?businesses.find(b=>b.id===selection.businessId):selection.slug?businesses.find(b=>b.id===data.selectedBusinessId):businesses.length===1?businesses[0]:null;
+    if((selection.businessId||selection.slug)&&!selected)throw new Error("That business is not available in this parent account. Open My Business Gear from the correct saved page.");
+    if(!selected){
+      pendingGearRequest=null;modalDismiss=null;
+      openModal('<h3>Whose business gear?</h3><p class="small2">Each child’s designs and completed jobs stay with their own business.</p><div id="gearBusinesses"></div><button type="button" class="btn outline" id="gearDismiss">Close</button>');
+      const list=mbody.querySelector("#gearBusinesses");
+      businesses.forEach(b=>{const button=document.createElement("button");button.type="button";button.className="btn ghost block";button.dataset.gearBusiness=b.id;button.textContent=[b.kid,b.business||b.slug].filter(Boolean).join(" · ");button.onclick=()=>openBusinessGear({businessId:b.id,returnFocus:options.returnFocus});list.appendChild(button);});
+      mbody.querySelector("#gearDismiss").onclick=closeModal;return;
+    }
+    const brand=selected.brand||{},font=FONT_META[brand.font]?brand.font:"workwear";
+    const key=privateViewKey(),id=selected.id;
+    const onPreferenceChange=async enabled=>{
+      if(request!==gearOpenId||epoch!==privateViewEpoch||key!==privateViewKey())throw new Error("Your parent session changed. Reopen My Business Gear.");
+      const saved=await pubApi("/api/gear",{body:{businessId:id,milestoneEmails:!!enabled}});
+      if(request!==gearOpenId||epoch!==privateViewEpoch||key!==privateViewKey())throw new Error("Your parent session changed. Reopen My Business Gear to check this setting.");
+      if(!saved.ok)throw new Error(saved.message||"The preference could not be saved. Try again.");
+      const business=(saved.businesses||[]).find(b=>b.id===id);
+      if(!business||business.milestoneEmails!==!!enabled)throw new Error("The preference could not be confirmed. Reopen My Business Gear to check it.");
+      return {emailOptIn:business.milestoneEmails};
+    };
+    const opened=await launchGearStudio({businessName:brand.businessName||selected.business||selected.slug,firstName:brand.kidName||selected.kid||"",accent:brand.accent,theme:brand.theme,font,tagline:brand.tagline||"",operatorUnlocked:!!(selected.operator&&selected.operator.earned),completedJobs:Number(selected.completedJobs)||0,emailOptIn:!!selected.milestoneEmails,canManagePreference:true,canShop:true,previewOnly:false,onPreferenceChange,returnFocus:options.returnFocus},request,epoch);
+    if(opened)pendingGearRequest=null;
+  }catch(error){gearFailure(error,request,epoch,()=>openBusinessGear(options));}
+}
+function resumeGearLink(){
+  if(!pendingGearRequest)return;
+  openBusinessGear({...pendingGearRequest});
+}
+const previewGearBtn=$("#previewBusinessGear");
+if(previewGearBtn)previewGearBtn.onclick=()=>openDraftGear(previewGearBtn);
+const parentGearBtn=$("#myBusinessGear");
+if(parentGearBtn)parentGearBtn.onclick=()=>openBusinessGear({returnFocus:parentGearBtn});
 const openAccountBtn=$("#openAccount");
 if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);};
 const acctOutBtn=$("#acctSignOut");
@@ -6017,7 +6166,7 @@ if(shareBox)shareBox.onchange=async()=>{
   const data=await pubApi("/api/share",{body:{on:!!shareBox.checked}});
   if(!data.ok)pubErr("Could not save that setting.");
 };
-function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting"}[status]||"New";}
+function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting",inquiry:"Question",closed:"Closed"}[status]||"New";}
 let jobsLoadKey="",jobsLoadPending=false,jobsActionPending=false;
 let jobsFilterOwner="",jobsKidFilter="",jobsFilterRows=[],jobsFilterChoices=[];
 function jobBusinessKey(job){return String(job.businessKey||job.kid||job.business||"unassigned");}
@@ -6049,9 +6198,17 @@ function renderFilteredJobs(){
   const visible=jobsKidFilter?jobsFilterRows.filter(j=>jobBusinessKey(j)===jobsKidFilter):jobsFilterRows;
   const choice=jobsFilterChoices.find(b=>b.key===jobsKidFilter),label=choice?choice.label:"All kids";
   list.innerHTML=visible.map(j=>{
+      const owner=[j.kid,j.business].filter(Boolean).join(" · ");
+      const detailsUrl=j.action&&j.detailsUrl?(typeof publishOrigin==="function"?publishOrigin():"")+"/api/job/"+encodeURIComponent(j.action):"";
+      const unread=Math.max(0,Math.floor(Number(j.unreadMessages)||0));
+      const details=detailsUrl?'<div class="mbtns"><a class="btn ghost" href="'+esc(detailsUrl)+'" target="_blank" rel="noopener noreferrer">'+(j.inquiry?'Read question &amp; reply':'Review quote &amp; questions')+(unread?' ('+unread+' new)':'')+'</a></div>':'';
+      if(j.inquiry)return '<div class="kidjob" data-inquiry="true">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>Question for the parent</b><span>'+esc(j.firstName||"Neighbor")+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span><p class="small2">A private conversation. No visit has been booked.</p>'+details+'</div>';
       const terminal=j.status==="done"||j.status==="cancelled";
-      const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed">Confirm</button>':'';
-      const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done">Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
+      const awaitingQuote=j.quoteStatus==="awaiting-acceptance";
+      const quoteGate=awaitingQuote?' disabled title="The neighbor needs to accept the current quote first."':'';
+      const quote=j.quoteStatus==="accepted"?'<p class="small2"><b>Quote accepted</b> · version '+esc(j.quoteRevision)+'</p>':awaitingQuote?'<p class="small2"><b>Waiting for quote acceptance</b> · version '+esc(j.quoteRevision)+'. The neighbor needs to agree before this job can be confirmed or marked done.</p>':'';
+      const confirm=j.status!=="confirmed"?'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="confirmed"'+quoteGate+'>Confirm</button>':'';
+      const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done"'+quoteGate+'>Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
       const ask=!j.action&&!terminal&&j.canAskCancel&&!j.cancelRequested?'<div class="mbtns"><button type="button" class="btn outline" data-ask-cancel="'+esc(j.id)+'">Ask my parent to cancel</button></div>':'';
       const cancelNote=!terminal&&j.cancelRequested?'<div class="job-change"><p>'+(j.action?'Your kid asked to cancel. Review this request and choose Cancel request if you agree.':'Your parent has been asked to cancel. This booking stays active until your parent cancels it.')+'</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="keep-booking">Keep booking</button></div>':'')+'</div>':'';
       const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b>'+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
@@ -6065,14 +6222,14 @@ function renderFilteredJobs(){
         const countId="job-series-count-"+encodeURIComponent(String(j.action||j.id||"request"));
         let options="";for(let n=2;n<=max;n++)options+='<option value="'+n+'"'+(n===preferred?' selected':'')+'>'+n+' visits</option>';
         const choice=counted?'<label class="small2" for="'+esc(countId)+'">Number of visits, including this booking</label><select id="'+esc(countId)+'" data-series-count>'+options+'</select>':'<p class="small2">Approve the original visit and one visit on each remaining away date, at the same time each day. Daily visits can cover up to '+esc(hint.maxCount||14)+' days.</p>';
-        repeating='<div class="job-change"><p><b>'+esc(hint.label||"Repeating visits requested")+'</b></p><p class="small2">This request is one appointment until a parent approves the repeating visits.</p>'+choice+((!counted||max>=2)?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="approve-series" data-start="'+esc(hint.start||"")+'" data-series-when="'+esc(j.when||hint.start||"")+'" data-series-label="'+esc(hint.label||"Repeating visits")+'" data-count-id="'+(counted?esc(countId):'')+'">Approve repeating visits</button></div>':'<p class="small2">No additional visits are available. Agree on a new schedule first.</p>')+'</div>';
+        repeating='<div class="job-change"><p><b>'+esc(hint.label||"Repeating visits requested")+'</b></p><p class="small2">This request is one appointment until a parent approves the repeating visits.</p>'+choice+((!counted||max>=2)?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="approve-series" data-start="'+esc(hint.start||"")+'" data-series-when="'+esc(j.when||hint.start||"")+'" data-series-label="'+esc(hint.label||"Repeating visits")+'" data-count-id="'+(counted?esc(countId):'')+'"'+quoteGate+'>Approve repeating visits</button></div>':'<p class="small2">No additional visits are available. Agree on a new schedule first.</p>')+'</div>';
       }
       const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
-      const owner=[j.kid,j.business].filter(Boolean).join(" · ");
-      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+series+cancelNote+proposed+repeating+acts+cancelSeries+ask+pay+'</div>';
+      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+quote+details+series+cancelNote+proposed+repeating+acts+cancelSeries+ask+pay+'</div>';
     }).join("");
   const empty=$("#jobEmpty");if(empty){empty.hidden=visible.length>0;empty.textContent=jobsKidFilter?"No booking requests for "+label+" yet.":"No booking requests yet. Share your published website link so neighbors can request a job.";}
-  const summary=$("#jobFilterSummary");if(summary)summary.textContent="Showing "+visible.length+" booking"+(visible.length===1?"":"s")+" · "+label;
+  const inquiries=visible.filter(j=>j.inquiry).length,bookings=visible.length-inquiries;
+  const summary=$("#jobFilterSummary");if(summary)summary.textContent="Showing "+bookings+" booking"+(bookings===1?"":"s")+(inquiries?" and "+inquiries+" question"+(inquiries===1?"":"s"):"")+" · "+label;
 }
 
 async function loadMyJobs(options){
@@ -6106,6 +6263,7 @@ async function loadMyJobs(options){
     const list=$("#jobList");if(!list)return;
     const jobs=data.jobs||[],canManage=data.parentAuthenticated===true||jobs.some(j=>j.action);
     const signIn=$("#jobSignIn");if(signIn)signIn.hidden=canManage;
+    const gear=$("#myBusinessGear");if(gear)gear.hidden=!canManage;
     if(status)status.textContent=canManage?"Up to date. Contact phone-only customers directly about changes.":"A parent confirms, finishes, or cancels requests. You can ask your parent to cancel an active request.";
     updateJobFilters(jobs,data.businesses||[],key);
     renderFilteredJobs();
@@ -6236,6 +6394,7 @@ const kidJobsForm=$("#kidJobsForm");if(kidJobsForm)kidJobsForm.addEventListener(
 const forgetKidJobsBtn=$("#forgetKidJobs");if(forgetKidJobsBtn){forgetKidJobsBtn.hidden=!kidJobsCode();forgetKidJobsBtn.onclick=forgetKidJobs;}
 function refreshVisibleJobs(){
   if(document.hidden||!document.body.classList.contains("boss-on")||jobsActionPending||modalEl.classList.contains("open"))return;
+  if(typeof gearHandle!=="undefined"&&gearHandle)return;
   if(document.activeElement&&document.activeElement.closest("#jobList,#jobFilters"))return;
   loadMyJobs({quiet:true});
 }
@@ -6827,7 +6986,7 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-intro]"))openIntro();});
 const entryParams=new URLSearchParams(location.search);
 applySeasonCopy();
-function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent","build","jobs"].some(k=>params.has(k))&&!introSeen();}
+function shouldOpenIntro(params){return !["ask","draft","account","hosting","consent","build","jobs","gear"].some(k=>params.has(k))&&!introSeen();}
 if(shouldOpenIntro(entryParams)&&document.documentElement.classList.contains("hb-skip-parents"))openIntro();
 window.openIntro=openIntro;window.shouldOpenIntro=shouldOpenIntro;
 if(!new URLSearchParams(location.search).get("ask"))initPublish();
@@ -6836,6 +6995,8 @@ const hostQ=startQ.get("hosting");
 const askQ=startQ.get("ask");
 const draftQ=startQ.get("draft");
 const accountQ=startQ.get("account");
+const gearQ=startQ.get("gear");
+if(gearQ)pendingGearRequest={businessId:startQ.get("business")||""};
 if(askQ&&publishOrigin()&&hostQ!=="paid")openAsk(askQ);
 else if(draftQ&&publishOrigin())loadDraft(draftQ);
 else if(localStorage.getItem("hb-ask"))startAskPoll();
@@ -6865,7 +7026,7 @@ async function resumeConsent(kind){
 const consentQ=startQ.get("consent");
 if(consentQ==="paid"||consentQ==="cancel")resumeConsent(consentQ);
 else if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
-else if(accountQ){go(7); showAccount();}
+else if(accountQ||gearQ){go(7); showAccount();}
 else if(startQ.get("jobs"))setMode("boss");
 else if(!askQ)go(Number.isInteger(S.builderStep)?S.builderStep:0);
 if(startQ.get("account")){go(7); const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}

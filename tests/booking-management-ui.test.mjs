@@ -15,6 +15,18 @@ function inbox(parent=false){
 }
 const job={id:'request1',service:'Yard cleanup',firstName:'Casey',when:'Nov 25 at 4 PM',status:'confirmed',place:'Lincoln'};
 const button=attrs=>({disabled:false,getAttribute:k=>attrs[k]||null});
+test('private parent questions have reply links but no booking or recurrence actions',async()=>{
+  const h=inbox(true);h.c.pubApi=async()=>({ok:true,parentAuthenticated:true,jobs:[{...job,inquiry:true,status:'inquiry',action:'question-token',detailsUrl:'https://app.test/api/job/question-token',unreadMessages:2,recurrence:{requiresCount:true}}]});
+  await h.c.loadMyJobs();const html=h.el('#jobList').innerHTML;
+  assert.match(html,/Read question &amp; reply \(2 new\)/);assert.match(html,/href="\/api\/job\/question-token"/);
+  assert.doesNotMatch(html,/data-job=|data-st=|data-series-count|data-ask-cancel=/);assert.match(h.el('#jobFilterSummary').textContent,/0 bookings and 1 question/);
+});
+test('an unaccepted current quote disables job approval and completion while preserving cancellation and review',async()=>{
+  const h=inbox(true);h.c.pubApi=async()=>({ok:true,parentAuthenticated:true,jobs:[{...job,status:'new',action:'parent-token',detailsUrl:'https://app.test/api/job/parent-token',quoteStatus:'awaiting-acceptance',quoteRevision:2,recurrence:{requiresCount:true,maxCount:3}}]});
+  await h.c.loadMyJobs();const html=h.el('#jobList').innerHTML;
+  assert.match(html,/Waiting for quote acceptance/);assert.match(html,/data-st="confirmed" disabled/);assert.match(html,/data-st="done" disabled/);
+  assert.match(html,/data-st="approve-series"[^>]+ disabled/);assert.match(html,/data-st="cancelled">Cancel request/);assert.match(html,/Review quote &amp; questions/);
+});
 test('kid cancellation request is offered only for active eligible requests and pending requests stay active',async()=>{
   const h=inbox();h.c.pubApi=async()=>({ok:true,jobs:[{...job,canAskCancel:true}],fresh:0});await h.c.loadMyJobs();
   assert.match(h.el('#jobList').innerHTML,/Ask my parent to cancel/);assert.doesNotMatch(h.el('#jobList').innerHTML,/data-job=/);

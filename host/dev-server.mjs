@@ -56,9 +56,9 @@ const server = createServer(async (req, res) => {
       res.writeHead(404); res.end(); return;
     }
   }
-  if (req.method === "GET" && (url.pathname === "/assets/barlow.css" || url.pathname === "/assets/print-libs.js" || url.pathname === "/apple-touch-icon.png")) {
+  if (req.method === "GET" && ["/assets/barlow.css", "/assets/print-libs.js", "/assets/gear-studio.mjs", "/assets/gear-studio.css", "/apple-touch-icon.png"].includes(url.pathname)) {
     const rel = url.pathname.replace(/^\/+/, "");
-    const type = rel.endsWith(".css") ? "text/css; charset=utf-8" : rel.endsWith(".js") ? "text/javascript; charset=utf-8" : "image/png";
+    const type = rel.endsWith(".css") ? "text/css; charset=utf-8" : /\.m?js$/.test(rel) ? "text/javascript; charset=utf-8" : "image/png";
     try {
       const file = await readFile(new URL(rel, rootDir));
       res.writeHead(200, { "content-type": type, "cache-control": "public, max-age=86400" });
