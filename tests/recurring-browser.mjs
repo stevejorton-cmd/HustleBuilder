@@ -34,17 +34,25 @@ async function api(path,{body,token}={}){
   return data;
 }
 async function click(page,selector){
-  await page.waitForSelector(selector,{visible:true});
-  await page.$eval(selector,el=>el.scrollIntoView({block:'center',behavior:'instant'}));
-  await page.waitForFunction(selector=>{
-    const el=document.querySelector(selector),rect=el.getBoundingClientRect();
-    return el.contains(document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2));
-  },{},selector);
-  await page.click(selector);
+  try{
+    // Browser visibility checks need the target tab active when switching
+    // between parent and kid sessions.
+    await page.bringToFront();
+    await page.waitForSelector(selector,{visible:true});
+    await page.$eval(selector,el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+    await page.waitForFunction(selector=>{
+      const el=document.querySelector(selector),rect=el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2));
+    },{},selector);
+    await page.click(selector);
+  }catch(error){throw new Error('Recurring browser could not click '+selector,{cause:error});}
 }
 async function fill(page,selector,value){
-  await page.$eval(selector,el=>{el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));});
-  await page.type(selector,value);
+  try{
+    await page.bringToFront();
+    await page.$eval(selector,el=>{el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));});
+    await page.type(selector,value);
+  }catch(error){throw new Error('Recurring browser could not fill '+selector,{cause:error});}
 }
 async function preparePage(context,path){
   const page=await context.newPage();
@@ -170,7 +178,7 @@ try{
   const draftBefore=await secondKidTab.evaluate(()=>localStorage.getItem('hustle-builder-v3'));
   await click(kid,'#forgetKidJobs');
   await secondKidTab.waitForFunction(()=>document.getElementById('jobList').innerHTML===''
-    && /forgotten in another tab/.test(document.getElementById('kidJobsStatus').textContent),{timeout:5000});
+    && /forgotten in another tab/.test(document.getElementById('kidJobsStatus').textContent),{timeout:5000,polling:100});
   assert.equal(await secondKidTab.evaluate(()=>localStorage.getItem('hb-kid-jobs-code')),null);
   assert.equal(await secondKidTab.$('#sharedSessionLock'),null);
   assert.equal(await secondKidTab.evaluate(()=>localStorage.getItem('hustle-builder-v3')),draftBefore);

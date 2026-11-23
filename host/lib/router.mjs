@@ -1198,12 +1198,18 @@ async function dropPublicEvent(row) {
   row.eventToken = "";
   row.publicEvent = null;
 }
+function bookingIdentity(row) {
+  const name=[row.kid,row.business].filter(Boolean).join(" · ")||row.slug||"";
+  return name?"Business: "+name:"";
+}
 function parentBookingMail(row, origin, account) {
   const fields = row.fields || {};
   const action = (origin || "") + "/api/job/" + row.actionToken;
   const pitch = calendarPitch(origin, account);
+  const identity = bookingIdentity(row);
   const text = [
     "New booking request. Nothing is booked until you reply to the customer.",
+    identity,
     "Mark it confirmed or done: " + action,
     "",
     "Name: " + (fields.name || row.firstName),
@@ -1218,6 +1224,7 @@ function parentBookingMail(row, origin, account) {
   ].filter((line, i, arr) => !(line === "" && arr[i - 1] === "")).join("\n");
   const htmlMail = "<div style=\"font:18px/1.45 system-ui,sans-serif\">"
     + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
+    + (identity ? "<p>" + mailEscape(identity) + "</p>" : "")
     + "<p><a href=\"" + mailEscape(action) + "\">Mark confirmed or done</a></p>"
     + "<p>Name: " + mailEscape(fields.name || row.firstName) + "<br>Reach them at: " + mailEscape(fields.contact || "")
     + "<br>Job: " + mailEscape(fields.service || row.service) + "<br>When: " + mailEscape(fields.when || row.when)
@@ -2167,14 +2174,16 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
 
   const support = supportReply();
   const unread = support ? "" : "Replies to this email aren't read. The family will confirm with you.";
+  const identity = bookingIdentity(row);
+  const add = eventMailBits(origin, row.publicEvent || event);
   const text = [
     "Hi " + fields.name + ",",
     "",
     "We got your request for " + (fields.service || "a job") + (fields.when ? " on " + fields.when : "") + ".",
-    "Nothing is booked yet. The family will confirm with you.",
+    identity,
+    add.text || "Nothing is booked yet. The family will confirm with you.",
     "",
     venmo && venmo.text,
-    eventMailBits(origin, row.publicEvent || event).text,
     "View, reschedule, or cancel your booking:",
     url,
     "Cancel this request: " + legacyCancel,
@@ -2187,9 +2196,9 @@ async function notifyNeighbor({ origin, reply, fields, account, requestId, slug,
     + "<p>Hi " + mailEscape(fields.name) + ",</p>"
     + "<p>We got your request for <b>" + mailEscape(fields.service || "a job") + "</b>"
     + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p>"
-    + "<p>Nothing is booked yet. The family will confirm with you.</p>"
+    + (identity ? "<p>" + mailEscape(identity) + "</p>" : "")
+    + (add.html || "<p>Nothing is booked yet. The family will confirm with you.</p>")
     + (venmo && venmo.html || "")
-    + eventMailBits(origin, row.publicEvent || event).html
     + "<p><a href=\"" + mailEscape(url) + "\">Manage booking</a></p>"
     + "<p><a href=\"https://hustlebuilder.org/?for=parents" + (slug ? "&amp;ref=" + mailEscape(slug) : "") + "\">Make one for your kid, free for 14 days</a></p>"
     + (unread ? "<p>" + mailEscape(unread) + "</p>" : "")
@@ -3407,6 +3416,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
     const jobNote = [fields.note, petBits.join(". ")].filter(Boolean).join(" | ").slice(0, 500);
     const titled = jobTitle(fields.service, fields.note);
     const names = await siteNames(slug, meta);
+    const identity = bookingIdentity({kid:names.first?firstName(names.first):"",business:names.biz,slug});
     const job = startOk ? {
       id: "b" + rand(8),
       source: "book",
@@ -3430,6 +3440,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
       reply ? "Email: " + reply : "",
       flagLine,
       "New booking request. Nothing is booked until you reply to the customer.",
+      identity,
       "",
       "Name: " + fields.name,
       "Reach them at: " + fields.contact,
@@ -3449,6 +3460,7 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
       + "<p>" + [link(tel, "Call " + fields.name), link(sms, "Text " + fields.name), link(reply ? "mailto:" + reply : "", reply ? "Email " + fields.name : "")].filter(Boolean).join(" &nbsp; ") + "</p>"
       + (flagLine ? "<p>" + mailEscape(flagLine) + "</p>" : "")
       + "<p>New booking request. Nothing is booked until you reply to the customer.</p>"
+      + (identity ? "<p>" + mailEscape(identity) + "</p>" : "")
       + "<p>Name: " + mailEscape(fields.name) + "<br>Reach them at: " + mailEscape(fields.contact) + "<br>Job: " + mailEscape(titled) + "<br>When: " + mailEscape(fields.when) + "<br>Size: " + mailEscape(fields.size || "not sure") + "<br>How often: " + mailEscape(fields.freq || "not specified") + "<br>Address: " + mailEscape(fields.address) + "<br>Note: " + mailEscape(fields.note || "none")
       + (petBits.length ? "<br>" + petBits.map(mailEscape).join("<br>") : "") + "</p>"
       + "<p>We keep the name, address, and time until about 30 days after the scheduled job for the family calendar.</p>"
@@ -3500,13 +3512,13 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
     meta.bookCount=(meta.bookCount||0)+1;
     await writeJson('pages/'+slug+'.json',meta);
     if (mode === "hold") {
-      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + row.firstName + " asked for " + titled + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
+      const heldText = "You have a new request waiting. Pay to unlock it.\n\n" + (identity ? identity + "\n\n" : "") + row.firstName + " asked for " + titled + (fields.when ? " on " + fields.when : "") + ".\n\nThe street, email, and phone stay hidden until you pay.\n\n" + PLANS.season.label + " season:\n" + links.season + "\n\n" + PLANS.year.label + " year:\n" + links.year + "\n";
       const held = await sendMail({
         to: account.email,
         replyTo: supportReply(),
         subject: "You have a new request waiting",
         text: heldText,
-        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p><p>" + mailEscape(row.firstName) + " asked for " + mailEscape(titled) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
+        html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p><b>You have a new request waiting. Pay to unlock it.</b></p>" + (identity ? "<p>" + mailEscape(identity) + "</p>" : "") + "<p>" + mailEscape(row.firstName) + " asked for " + mailEscape(titled) + (fields.when ? " on " + mailEscape(fields.when) : "") + ".</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
       });
       if (!held.ok) return withCors(json(503, { ok: false, error: "mail" }), req.headers && req.headers.origin);
       return withCors(json(200, { ok: true, held: true }), req.headers && req.headers.origin);
