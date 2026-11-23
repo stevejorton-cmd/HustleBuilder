@@ -85,3 +85,64 @@ test('device draft preview gives free designs without parent preferences, shoppi
   const gear=h.launched[0];assert.equal(gear.businessName,'Device draft');assert.equal(gear.font,'anton');assert.equal(gear.previewOnly,true);
   assert.equal(gear.canManagePreference,false);assert.equal(gear.canShop,false);assert.equal(gear.operatorUnlocked,false);
 });
+
+function verificationDevice({search='?gear=1&business=quinn',pending={businessId:'quinn'}}={}){
+  const h=device(),events=[];
+  for(const id of ['#pubVerify','#pubCode','#pubEmail','#pubVerified','#pubIndex'])Object.assign(h.element(id),{disabled:false,value:'',checked:false,scrollIntoView(){}});
+  h.element('#pubCode').value='123456';h.element('#pubEmail').value='parent@example.test';
+  const originalApi=h.c.pubApi;
+  Object.assign(h.c,{
+    $:h.element,pubMemToken:'',sessionEmail:'',draftDirty:true,location:{search},pendingGearRequest:pending,
+    pubErr:text=>h.messages.push(text),pubSaveSession(){},forgetUnownedDraft:()=>true,restoreArchivedDraft:()=>true,
+    restoreOwnedDraft(){},save(){},showParentVerified(){},applyPublishState(){},showHosting(){},showCalendar(){},syncCalUpcoming(){},
+    showAccount:async()=>{events.push('account');},
+    pubApi:async(path,options)=>{
+      if(path==='/api/auth/verify')return {ok:true,token:'verified-parent-token',email:'parent@example.test',slug:'riley'};
+      if(path==='/api/me')return {ok:true,email:'parent@example.test',consent:true};
+      events.push('gear');return originalApi(path,options);
+    }
+  });
+  const a=source.indexOf('$("#pubVerify").onclick=async()=>{'),b=source.indexOf('async function pollPaid(',a);
+  assert.ok(a>0&&b>a);vm.runInContext(source.slice(a,b),h.c);
+  return {...h,events,verify:()=>h.element('#pubVerify').onclick()};
+}
+
+for(const search of ['?gear=1&business=quinn',''])test(`parent verification refreshes account before opening the pending child gear ${search?'from an email':'from an account action'}`,async()=>{
+  const h=verificationDevice({search}),ready=deferred(),entered=deferred();
+  h.c.showAccount=async()=>{h.events.push('account-start');entered.resolve();await ready.promise;h.events.push('account-ready');};
+  const verifying=h.verify();await entered.promise;
+  assert.equal(h.launched.length,0,'gear must wait for the signed-in account cards');
+  assert.equal(h.c.pendingGearRequest.businessId,'quinn');
+  ready.resolve();await verifying;await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(h.events,['account-start','account-ready','gear']);
+  assert.equal(h.launched.length,1);assert.equal(h.launched[0].businessName,'quinn Crew');
+  assert.equal(h.c.resolve().biz,'Device draft','opening saved gear never changes the local draft');
+  assert.equal(h.element('#pubVerify').disabled,false);
+});
+
+test('sign-out or family switch during the post-verification account refresh cannot reopen private gear',async()=>{
+  const h=verificationDevice(),ready=deferred(),entered=deferred();
+  h.c.showAccount=async()=>{entered.resolve();await ready.promise;};
+  const verifying=h.verify();await entered.promise;
+  h.c.privateViewEpoch++;h.c.gearOpenId++;h.c.pubMemToken='';h.c.sessionEmail='';
+  ready.resolve();await verifying;
+  assert.equal(h.launched.length,0);assert.equal(h.requests.length,0);
+});
+
+test('a cancelled pending gear request is not restored when the account refresh finishes',async()=>{
+  const h=verificationDevice(),ready=deferred(),entered=deferred();
+  h.c.showAccount=async()=>{entered.resolve();await ready.promise;};
+  const verifying=h.verify();await entered.promise;h.c.pendingGearRequest=null;
+  ready.resolve();await verifying;
+  assert.equal(h.launched.length,0);assert.equal(h.requests.length,0);
+});
+
+test('account links still refresh after verification without opening gear',async()=>{
+  const h=verificationDevice({search:'?account=1',pending:null});await h.verify();
+  assert.deepEqual(h.events,['account']);assert.equal(h.launched.length,0);
+});
+
+test('ordinary publishing verification does not add an unrelated account or gear load',async()=>{
+  const h=verificationDevice({search:'',pending:null});await h.verify();
+  assert.deepEqual(h.events,[]);assert.equal(h.launched.length,0);
+});

@@ -5651,7 +5651,11 @@ $("#pubVerify").onclick=async()=>{
     applyPublishState(data);
     const verified=$("#pubVerified"); if(verified)verified.scrollIntoView({block:"center"});
     try{const me=await pubApi("/api/me",{method:"GET"});if(epoch!==privateViewEpoch)return;if(me.ok){showHosting(me); if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;}}catch(e){}
-    if(new URLSearchParams(location.search).get("account"))showAccount();
+    const entry=new URLSearchParams(location.search);
+    if(entry.get("account")||entry.get("gear")||pendingGearRequest){
+      await showAccount();
+      if(epoch!==privateViewEpoch)return;
+    }
     try{const me=await pubApi("/api/me",{method:"GET"});if(epoch!==privateViewEpoch)return;if(me.ok){showCalendar(me); syncCalUpcoming();}}catch(e){}
     if(pendingGearRequest)resumeGearLink();
   }catch(e){pubErr("Could not verify. Try again.");}

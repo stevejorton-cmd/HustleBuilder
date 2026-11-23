@@ -139,7 +139,7 @@ try{
   assert.match(await parent.$eval('.hbgear-handoff',el=>el.textContent),/Upload required|upload the artwork/);
   pass('three parent-Done jobs unlock free Operator artwork and queue one opted-in parent email, with sibling progress unchanged');
 
-  const inquiry=await pageFor(customerContext,'/gear-quinn');await click(inquiry,'a[href="/api/inquiry/gear-quinn"]');
+  const inquiry=await pageFor(customerContext,'/gear-quinn');await submit(inquiry,'a[href="/api/inquiry/gear-quinn"]');
   await fill(inquiry,'[name="name"]','Practice Neighbor');await fill(inquiry,'[name="email"]','gear-inquiry@example.com');await fill(inquiry,'[name="text"]','Do you bring your own pet toys?');
   const before=await sessionApi(parent,'/api/my-jobs');
   await inquiry.waitForFunction(()=>Date.now()-Number(document.querySelector('[name="startedAt"]').value)>=2500);
