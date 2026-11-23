@@ -16,8 +16,9 @@ async function click(p,selector){
   // Chromium can suspend IntersectionObserver in the background customer or
   // parent tab. Activate the tab just as a person must before interacting.
   await p.bringToFront();await p.waitForSelector(selector,{visible:true});
-  await p.$eval(selector,el=>el.scrollIntoView({block:'center',behavior:'instant'}));
-  await p.waitForFunction(selector=>{const el=document.querySelector(selector),r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));},{},selector);
+  // Account navigation can scroll again after its contents arrive. Keep the
+  // requested control in view while requiring it to be the real pointer hit.
+  await p.waitForFunction(selector=>{const el=document.querySelector(selector);if(!el)return false;el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));},{},selector);
   await p.click(selector);
  }catch(error){throw new Error('Flow audit could not click '+selector,{cause:error});}
 }

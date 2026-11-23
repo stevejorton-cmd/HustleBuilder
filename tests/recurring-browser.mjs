@@ -51,9 +51,12 @@ async function click(page,selector){
     // between parent and kid sessions.
     await page.bringToFront();
     await page.waitForSelector(selector,{visible:true});
-    await page.$eval(selector,el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+    // A delayed navigation scroll or arriving account content can move the
+    // control. Reposition it while retaining the same real hit-target check.
     await page.waitForFunction(selector=>{
-      const el=document.querySelector(selector),rect=el.getBoundingClientRect();
+      const el=document.querySelector(selector);if(!el)return false;
+      el.scrollIntoView({block:'center',behavior:'instant'});
+      const rect=el.getBoundingClientRect();
       return el.contains(document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2));
     },{},selector);
     await page.click(selector);
