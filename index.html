@@ -5117,7 +5117,7 @@ const PUB_KEY="hb-parent-session";
    an older version may still sit in localStorage and is sent as a fallback so
    nobody gets signed out by the switch, but new sign-ins never save it. */
 let pubMemToken="";
-let privateViewEpoch=0,accountLoadId=0;
+let privateViewEpoch=0,accountLoadId=0,publishIdentityChecks=0;
 function kidJobsCode(){try{const code=String(localStorage.getItem("hb-kid-jobs-code")||"").trim().toLowerCase();return /^[a-z0-9]{8}$/.test(code)?code:"";}catch(e){return "";}}
 function privateViewKey(){
   const session=pubSession();
@@ -5580,7 +5580,9 @@ async function initPublish(){
      still recognised, and a stale cache alone is not enough. A draft on
      this device is shown only when it belongs to that parent. */
   let me=null;
+  publishIdentityChecks++;
   try{ me=await pubApi("/api/me", {method:"GET"}); }catch(e){if(epoch===privateViewEpoch)restoreOwnedDraft();return;}
+  finally{publishIdentityChecks--;}
   if(epoch!==privateViewEpoch)return;
   if(!me.ok){
     if(me.httpStatus===401||me.error==="auth"){pubSaveSession(null);sessionEmail="";if(typeof clearPrivateViews==="function")clearPrivateViews();}
@@ -5606,6 +5608,7 @@ async function initPublish(){
   if($("#pubIndex"))$("#pubIndex").checked=!!me.indexable;
   showCalendar(me); syncCalUpcoming();
   applySavedVenmo(me.venmo);
+  if(document.body.classList.contains("boss-on"))await loadMyJobs();
 }
 $("#pubSend").onclick=async()=>{
   const button=$("#pubSend");if(button.disabled)return;
@@ -6075,10 +6078,12 @@ function renderFilteredJobs(){
 async function loadMyJobs(options){
   options=options||{};
   const kidCode=kidJobsCode();
-  if(!draftWriteAllowed()&&!kidCode){clearPrivateViews();return;}
+  // Startup may open My jobs before the server has verified the parent.
+  // Keep drafts locked without cancelling that still-pending identity check.
+  if(!draftWriteAllowed()&&!kidCode){if(!publishIdentityChecks)clearPrivateViews();return;}
   const code=kidCode||localStorage.getItem("hb-job-code")||localStorage.getItem("hb-draft-code")||"";
   const session=pubSession();
-  if(!code&&!pubToken()&&!session){clearPrivateViews();return;}
+  if(!code&&!pubToken()&&!session){if(!publishIdentityChecks)clearPrivateViews();return;}
   const key=privateViewKey(),epoch=privateViewEpoch;
   if(jobsLoadPending&&jobsLoadKey===key)return;
   jobsLoadPending=true;jobsLoadKey=key;
