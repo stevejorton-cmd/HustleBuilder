@@ -13,13 +13,21 @@ const pass=name=>{results.push(name);console.log('PASS flow audit: '+name);};
 const post=async(path,body,token)=>{const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json',origin:base,...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});assert.equal(r.status,200,path);return r.json();};
 async function click(p,selector){
  try{
+  for(let attempt=0;attempt<3;attempt++){
   // Chromium can suspend IntersectionObserver in the background customer or
   // parent tab. Activate the tab just as a person must before interacting.
   await p.bringToFront();await p.waitForSelector(selector,{visible:true});
   // Account navigation can scroll again after its contents arrive. Keep the
   // requested control in view while requiring it to be the real pointer hit.
   await p.waitForFunction(selector=>{const el=document.querySelector(selector);if(!el)return false;el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));},{},selector);
-  await p.click(selector);
+  try{await p.click(selector);return;}
+  catch(error){
+   // Layout may change after the hit-test. Puppeteer's clickablePoint throws
+   // this exact error before dispatching a mouse click, so it is safe to
+   // recheck readiness. Never retry other failures or a submitted action.
+   if(error?.message!=='Node is either not clickable or not an Element'||attempt===2)throw error;
+  }
+  }
  }catch(error){throw new Error('Flow audit could not click '+selector,{cause:error});}
 }
 async function fill(p,selector,value){
