@@ -1913,8 +1913,8 @@ test("a parent can confirm, finish, or cancel a booking from My jobs", async () 
   const cancelled = await json(await call("POST", "/api/job/" + list.body.jobs[0].action, { token, body: { status: "cancelled", json: true } }));
   assert.equal(cancelled.body.status, "cancelled");
   const home = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  assert.match(home, /data-st="confirmed">Confirm/);
-  assert.match(home, /data-st="done">Mark done/);
+  assert.match(home, /data-st="confirmed"[^>]*>Confirm/);
+  assert.match(home, /data-st="done"[^>]*>Mark done/);
   assert.match(home, /data-st="cancelled">Cancel request/);
   assert.match(home, /settleGoLive\(me\)/);
   assert.match(home, /id="askCopy"/);

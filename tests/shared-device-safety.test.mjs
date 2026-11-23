@@ -39,6 +39,13 @@ function device(){
 const firstJob={id:'first-booking',service:'Private first-family service',firstName:'Alex',when:'Nov 25 at 4 PM',status:'confirmed',place:'Lincoln',businessKey:'first-yard',kid:'Riley',business:'Yard Crew',action:'private-first-token'};
 const secondJob={...firstJob,id:'second-booking',service:'Second-family service',businessKey:'second-pets',kid:'Sam',business:'Pet Crew',action:'private-second-token'};
 
+test('clearing a parent session closes gear and hides its account entry point',()=>{
+  const h=device();let closed=0;h.context.gearClose=()=>closed++;
+  vm.runInContext('gearHandle={close:gearClose};gearOpenId=10;',h.context);
+  h.context.clearPrivateViews();assert.equal(closed,1);assert.equal(h.el('#myBusinessGear').hidden,true);
+  assert.equal(vm.runInContext('gearHandle',h.context),null);assert.equal(vm.runInContext('gearOpenId',h.context),11);
+});
+
 test('failed sign-out keeps the parent session and loaded family controls available for retry',async()=>{
   const h=device();h.el('#jobList').innerHTML='private first-family bookings';h.el('#jobCalGoogle').attributes.href='private-feed';
   h.context.pubApi=async()=>{throw Error('offline');};
