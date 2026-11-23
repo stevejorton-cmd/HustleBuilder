@@ -163,6 +163,30 @@ test('private booking questions and parent replies remain scoped, escaped, bound
   assert.notEqual((await call('POST','/api/job/'+r.cancelToken,{body:{...answer,json:true}})).status,200,'customer token has no parent authority');
 });
 
+test('mixed-case private routes acquire the same account and thread locks and preserve cancellation guards',async()=>{
+  const f=await family(),r=await book(f),baseStore=await store(),lockSets=[];
+  // Inspect the actual transaction options. The default file-store adapter's
+  // global queue would hide missing per-account locks used by PostgreSQL.
+  setStore({...baseStore,async transaction(fn,options){lockSets.push(options.keys);return fn(baseStore);}});
+  const locked=async(method,route,body,{thread=true}={})=>{
+    const index=lockSets.length,response=await call(method,route,{body:body?{...body,json:true}:undefined});
+    assert.ok(lockSets[index].includes('account:'+f.id),route+' acquires the capability owner account lock');
+    if(thread)assert.ok(lockSets[index].some(key=>key.startsWith('quota:thread:')),route+' acquires the thread IP quota lock');
+    return response;
+  };
+  assert.equal((await locked('POST','/api/JoB/'+r.actionToken,quote())).status,200);
+  assert.equal((await locked('POST','/api/BoOkInG/'+r.cancelToken,{action:'question',requestId:id(),text:'Are bags included?'})).status,200);
+  assert.equal((await current(f,r)).thread.at(-1).author,'customer');
+  assert.equal((await locked('POST','/api/BOOKING/'+r.cancelToken,{action:'accept-quote',revision:1,accept:'yes'})).status,200);
+  assert.equal(quoteAccepted(await current(f,r)),true);
+  assert.equal((await locked('POST','/api/JOB/'+r.actionToken,{action:'reply',requestId:id(),text:'Please provide the bags.'})).status,200);
+  assert.equal((await locked('GET','/api/BoOkInG/'+r.cancelToken)).status,200);
+  assert.equal((await locked('POST','/api/CANCEL/'+r.cancelToken,{action:'accept-quote',revision:1,accept:'yes'},{thread:false})).status,400);
+  assert.equal((await current(f,r)).status,'new','a misplaced quote action cannot become cancellation');
+  assert.equal((await locked('POST','/api/CaNcEl/'+r.cancelToken,{},{thread:false})).status,200);
+  assert.equal((await current(f,r)).status,'cancelled','legacy cancellation remains usable with an accepted mixed-case route');
+});
+
 test('Ask the parent is available on existing published pages and creates only a private conversation',async()=>{
   const f=await family();
   const page=await call('GET','/api/site/'+f.slug);assert.match(page.body,/href="\/api\/inquiry\/sam-neighbor" target="_top"/);

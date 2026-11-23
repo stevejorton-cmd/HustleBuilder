@@ -149,3 +149,56 @@ test('printer handoff uses fixed official upload pages without checkout paramete
   assert.equal(GEAR_PRINT_LINKS.cap,'https://www.printful.com/custom-embroidered-hats');
   assert.equal(GEAR_PRINT_LINKS.shirt,'https://www.printful.com/make-your-own-shirt');
 });
+
+test('font readiness resolves the real builder import stylesheet into embedded base faces and preserves the selected font', async () => {
+  const [source, module, css, libs] = await Promise.all([
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../assets/gear-studio.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../assets/barlow.css', import.meta.url), 'utf8'),
+    readFile(new URL('../assets/print-libs.js', import.meta.url), 'utf8')
+  ]);
+  const inline = source.match(/<style id="fontcss">([\s\S]*?)<\/style>/)[1];
+  const fontContext = vm.createContext({});
+  vm.runInContext(libs.slice(0, libs.indexOf('};') + 2) + ';globalThis.data=FONT_DATA;', fontContext);
+  const fontData = fontContext.data.anton, calls = [];
+  class FontFaceStub {
+    constructor(family, data, options) {
+      assert.match(data, /^url\(data:font\/woff2;base64,d09GMg/);
+      this.family = family; this.options = options;
+    }
+    async load() { return this; }
+  }
+  const context = vm.createContext({URL, FontFace:FontFaceStub, gearFontFaces,
+    fetch:async(url,options) => { calls.push({url:url.href,options}); return {ok:true,text:async()=>css}; }
+  });
+  const start = module.indexOf('async function loadFonts('), end = module.indexOf('\nexport async function renderGearPNG', start);
+  assert.ok(start >= 0 && end > start);
+  vm.runInContext(module.slice(module.indexOf('const FONTS ='), module.indexOf('\nconst BODY_FONT')), context);
+  vm.runInContext(module.slice(start,end).replaceAll('import.meta.url', JSON.stringify(new URL('../assets/gear-studio.mjs', import.meta.url).href)), context);
+  const brand = normalizeGearBrand({...base,font:'anton'});
+  const loaded = await context.loadFonts({fontCss:inline,fontData}, brand);
+  assert.deepEqual(Array.from(loaded.loaded, face => face.family).sort(), ['Barlow','Barlow Condensed','HB-anton']);
+  const missingBase = gearFontFaces(inline).length < 2;
+  assert.equal(calls.length, Number(missingBase));
+  if (missingBase) {
+    assert.equal(calls[0].url, new URL('../assets/barlow.css', import.meta.url).href);
+    assert.equal(calls[0].options.credentials, 'omit');
+  }
+  const svg = buildGearArtworkSVG(brand, {fontCss:loaded.css,fontData});
+  for (const family of ['Barlow','Barlow Condensed','HB-anton']) assert.ok(svg.includes('font-family:"'+family+'"'));
+  assert.doesNotMatch(svg, /@import/);
+
+  calls.length = 0;
+  await context.loadFonts({fontCss:css,fontData}, brand);
+  assert.equal(calls.length, 0, 'complete embedded fonts do not request another asset');
+  await assert.rejects(context.loadFonts({fontCss:css,fontData:''}, brand), /Your business font is still loading/);
+  assert.equal(calls.length, 0, 'missing selected-font data fails instead of borrowing another font or URL');
+
+  calls.length = 0;
+  const partial = css.match(/@font-face\{[^}]*font-weight:700;[^}]*\}/)[0] + '\n@import "https://private.invalid/font.css";';
+  const merged = await context.loadFonts({fontCss:partial,fontData}, brand);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, new URL('../assets/barlow.css', import.meta.url).href);
+  assert.equal(merged.loaded.length, 3, 'fallback merge does not duplicate a supplied face');
+  assert.equal(gearFontFaces(merged.css, 'anton', fontData).length, 3);
+});

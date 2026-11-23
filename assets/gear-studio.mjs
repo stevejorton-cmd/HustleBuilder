@@ -164,7 +164,9 @@ export function gearFontFaces(fontCss = '', font = 'workwear', fontData = '') {
     if (data && data.length < 400000 && ((family === 'Barlow' && weight === 700 && !italic) || (family === 'Barlow Condensed' && weight === 900 && italic))) faces.push({ family, weight, italic, data });
   }
   if (font !== 'workwear' && Object.hasOwn(FONTS, font) && typeof fontData === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(fontData) && fontData.length < 400000) faces.push({ ...FONTS[font], data: fontData });
-  return faces;
+  // A supplied stylesheet may include one base face and need the local fallback
+  // for another. Keep each family/weight/style once in both previews and exports.
+  return [...new Map(faces.map(face => [face.family + ':' + face.weight + ':' + !!face.italic, face])).values()];
 }
 function embeddedFonts(faces = []) {
   return faces.map(face => `@font-face{font-family:"${face.family}";font-weight:${face.weight};font-style:${face.italic ? 'italic' : 'normal'};src:url(data:font/woff2;base64,${face.data}) format("woff2")}`).join('');
@@ -218,8 +220,17 @@ function showSVG(container, source) {
   container.replaceChildren(document.importNode(doc.documentElement, true));
 }
 async function loadFonts(props, brand) {
-  const css = typeof props.fontCss === 'string' ? props.fontCss : await fetch(new URL('./barlow.css', import.meta.url), { credentials: 'omit' }).then(response => { if (!response.ok) throw new Error('Font unavailable'); return response.text(); });
-  const faces = gearFontFaces(css, brand.font, props.fontData);
+  let css = typeof props.fontCss === 'string' ? props.fontCss : '';
+  let faces = gearFontFaces(css, brand.font, props.fontData);
+  // The builder's FONT_CSS can contain only an @import and the font license.
+  // Exported SVG images need embedded data, so resolve missing base faces from
+  // our fixed local asset rather than following caller-supplied stylesheet URLs.
+  if (!faces.some(face => face.family === 'Barlow') || !faces.some(face => face.family === 'Barlow Condensed')) {
+    const response = await fetch(new URL('./barlow.css', import.meta.url), { credentials: 'omit' });
+    if (!response.ok) throw new Error('The print fonts could not load. Reopen Gear Studio and try again.');
+    css += '\n' + await response.text();
+    faces = gearFontFaces(css, brand.font, props.fontData);
+  }
   if (!faces.some(face => face.family === 'Barlow') || !faces.some(face => face.family === 'Barlow Condensed')) throw new Error('The print fonts could not load. Reopen Gear Studio and try again.');
   if (brand.font !== 'workwear' && !faces.some(face => face.family === FONTS[brand.font].family)) throw new Error('Your business font is still loading. Reopen Gear Studio in a moment.');
   const loaded = await Promise.all(faces.map(async face => {

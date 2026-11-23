@@ -3230,11 +3230,11 @@ async function routeRequest(req) {
 
   const customerPost=route.match(/^(booking|cancel)\/([a-f0-9]{20,80})$/i);
   if(method==="POST"&&customerPost){
-    const token=customerPost[2],hit=await customerBooking(token);
+    const customerKind=customerPost[1].toLowerCase(),token=customerPost[2],hit=await customerBooking(token);
     if(!hit)return bookingPage(token,null,null,origin);
     const {account,rows,row}=hit;
-    if(customerPost[1]==='cancel'&&body.action&&body.action!=='cancel')return json(400,{ok:false,error:'action'});
-    if(customerPost[1]==='booking'&&(body.action==='accept-quote'||body.action==='question')){
+    if(customerKind==='cancel'&&body.action&&body.action!=='cancel')return json(400,{ok:false,error:'action'});
+    if(customerKind==='booking'&&(body.action==='accept-quote'||body.action==='question')){
       const result=body.action==='accept-quote'?await acceptJobQuote(account,row,body,origin):await appendPrivateMessage(account,row,body,origin,'customer',clientIp(req));
       if(!result.error)await saveRequests(account.id,rows);
       return body.json===true?json(result.status||200,{ok:!result.error,...result,status:row.status,quoteStatus:quoteStatus(row),quoteRevision:row.quote?.revision||0}):bookingPage(token,row,account,origin,result.message,result.status||200);
@@ -3246,7 +3246,7 @@ async function routeRequest(req) {
       await saveRequests(account.id,rows);
       return bookingPage(token,row,account,origin,result.cancelled?"Cancelled "+result.cancelled+" remaining visits. Cancellation notices have been queued for you and the family.":"There are no future, uncompleted visits left to cancel.");
     }
-    if(customerPost[1]==="cancel"||body.action==="cancel"){
+    if(customerKind==="cancel"||body.action==="cancel"){
       if(row.status==="done")return bookingPage(token,row,account,origin,"Completed jobs cannot be cancelled.",409);
       if(row.status!=="cancelled"){await cancelBooking(account,row,origin,"customer");await saveRequests(account.id,rows);}
       return bookingPage(token,row,account,origin,"Cancelled. Cancellation email notices have been queued for you and the family.");
@@ -4308,8 +4308,11 @@ async function requestLocks(req) {
     const pi=String(body.data?.object?.payment_intent||'');
     if(/^pi_[A-Za-z0-9_]+$/.test(pi)){keys.push('payintent:'+pi);const ptr=await read('payintents/'+pi+'.json');if(/^[a-f0-9]{8,32}$/.test(String(ptr?.accountId||'')))accountIds.add(ptr.accountId);}
   }
-  const capability=route.match(/^(cancel|booking|job|renew|cal)\/([a-f0-9]+)(?:\/calendar\.ics|\.ics)?$/);
-  if(capability){const [,kind,token]=capability;
+  // Match the case-insensitive private handlers, including callers following
+  // a mixed-case path. Otherwise the same capability could skip its account
+  // lock on PostgreSQL even though it still reaches a mutation handler.
+  const capability=route.match(/^(cancel|booking|job|renew|cal)\/([a-f0-9]+)(?:\/calendar\.ics|\.ics)?$/i);
+  if(capability){const [,rawKind,token]=capability,kind=rawKind.toLowerCase();
     if(kind==='cancel'||kind==='booking'){const row=await read('cancels/'+token+'.json');if(row?.accountId)accountIds.add(row.accountId);}
     else {const pointer=await s.get((kind==='job'?'jobact/':kind==='cal'?'caltokens/':'renew/')+(kind==='cal'?sha(token):token));if(pointer)accountIds.add(pointer.split(':')[0]);}
   }
@@ -4318,7 +4321,7 @@ async function requestLocks(req) {
   if(route.startsWith('ask/'))keys.push('ask:'+route.split('/')[1]);
   if(route==='book'||route==='ask'||route==='draft'||route.startsWith('auth/'))keys.push('quota:'+route.split('/')[0]+':'+sha(clientIp(req)));
   if(route.startsWith('inquiry/'))keys.push('quota:inquiry:'+sha(clientIp(req)));
-  if(/^(job|booking)\//.test(route))keys.push('quota:thread:'+sha(clientIp(req)));
+  if(/^(job|booking)\//i.test(route))keys.push('quota:thread:'+sha(clientIp(req)));
   if((route==='my-jobs'||route==='my-jobs/cancel-request')&&code){const id=await s.get('jobcode/'+code);if(id)accountIds.add(id);else{const d=await read('drafts/'+code+'.json');if(d?.accountId)accountIds.add(d.accountId);}}
   if(route==='slug'&&req.method==='POST'){
     for(const id of accountIds){const account=await read('accounts/'+id+'.json');for(const owned of [...slugsOf(account),...(account?.formerSlugs||[])])keys.push('slug:'+owned);}
