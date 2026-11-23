@@ -33,6 +33,18 @@ async function api(path,{body,token}={}){
   assert.equal(data.ok,true,path+': '+JSON.stringify(data));
   return data;
 }
+async function parentJobs(page){
+  // Signing in through the UI rotates the setup bearer token. Read back through
+  // the current parent session's HttpOnly cookie, as the application does.
+  const result=await page.evaluate(async()=>{
+    const response=await fetch('/api/my-jobs',{credentials:'same-origin'});
+    return {status:response.status,data:await response.json()};
+  });
+  assert.equal(result.status,200,'parent jobs: '+JSON.stringify(result.data));
+  assert.equal(result.data.ok,true,'parent jobs: '+JSON.stringify(result.data));
+  assert.equal(result.data.parentAuthenticated,true);
+  return result.data;
+}
 async function click(page,selector){
   try{
     // Browser visibility checks need the target tab active when switching
@@ -131,7 +143,7 @@ try{
   await click(parent,'#cfYes');
   await parent.waitForFunction(()=>/Approved 3 visits/.test(document.getElementById('jobStatus').textContent)
     && document.querySelectorAll('#jobList .kidjob').length===3);
-  const approved=await api('/api/my-jobs',{token});
+  const approved=await parentJobs(parent);
   const visits=approved.jobs.filter(job=>job.businessKey===weeklySlug).sort((a,b)=>a.series.index-b.series.index);
   assert.equal(visits.length,3);assert.equal(new Set(visits.map(job=>job.id)).size,3);
   assert.equal(new Set(visits.map(job=>job.action)).size,3);
@@ -154,7 +166,7 @@ try{
 
   await click(parent,'[data-job="'+visits[1].action+'"][data-st="cancelled"]');await click(parent,'#cfYes');
   await waitCardStatus(parent,visits[1].action,'Cancelled');
-  const afterOne=await api('/api/my-jobs',{token});
+  const afterOne=await parentJobs(parent);
   assert.deepEqual(visits.map(visit=>afterOne.jobs.find(job=>job.id===visit.id).status),['confirmed','cancelled','confirmed']);
   assert.deepEqual(afterOne.jobs.find(job=>job.id===sibling.id),sibling);
   pass('cancelling the second visit leaves the other two visits and the sibling booking unchanged');
@@ -164,7 +176,7 @@ try{
   await click(parent,'#cfYes');
   await parent.waitForFunction(()=>/Cancelled 2 future visits/.test(document.getElementById('jobStatus').textContent)
     && [...document.querySelectorAll('#jobList .jobst')].every(el=>el.textContent.trim()==='Cancelled'));
-  const cancelled=await api('/api/my-jobs',{token});
+  const cancelled=await parentJobs(parent);
   assert.ok(visits.every(visit=>cancelled.jobs.find(job=>job.id===visit.id).status==='cancelled'));
   assert.deepEqual(cancelled.jobs.find(job=>job.id===sibling.id),sibling);
   await parent.select('#jobKidFilter',siblingSlug);
