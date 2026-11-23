@@ -5171,8 +5171,19 @@ async function pubSignOut(){
 }
 function sharedSessionEmail(raw){try{return String(JSON.parse(raw||"null")?.email||"").trim().toLowerCase();}catch(e){return "";}}
 function lockChangedParentSession(event){
-  if(event.key!==PUB_KEY&&event.key!==null)return;
   if(event.storageArea&&event.storageArea!==localStorage)return;
+  if(event.key==="hb-kid-jobs-code"){
+    if(String(event.oldValue||"").trim().toLowerCase()===String(event.newValue||"").trim().toLowerCase())return;
+    // Forgetting or switching limited family access applies to every open tab.
+    // Invalidate in-flight responses without locking or changing local drafts.
+    clearPrivateViews();
+    const code=kidJobsCode(),input=$("#kidJobsCodeInput"),forget=$("#forgetKidJobs"),status=$("#kidJobsStatus");
+    if(input)input.value="";
+    if(forget)forget.hidden=!code;
+    if(status)status.textContent=code?"The family jobs code changed in another tab. Refresh requests to open the current family view.":"The family jobs code was forgotten in another tab.";
+    return;
+  }
+  if(event.key!==PUB_KEY&&event.key!==null)return;
   const before=sharedSessionEmail(event.oldValue),after=sharedSessionEmail(event.newValue);
   if(event.key!==null&&before===after)return;
   pubMemToken="";sessionEmail="";draftRecoveryBlocked=true;

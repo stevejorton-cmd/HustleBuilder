@@ -119,6 +119,39 @@ test('same-parent display updates in another tab do not hide the current family 
   assert.equal(h.bodyChildren.length,1);assert.equal(h.context.sessionEmail,'first@example.test');assert.equal(h.context.draftRecoveryBlocked,false);assert.equal(h.context.S.first,'Unsaved Riley');
 });
 
+test('forgetting a kid code in another tab immediately clears details and invalidates pending refreshes without changing drafts',async()=>{
+  const h=device(),response=deferred(),savedDraft=JSON.stringify({first:'Saved Riley'});
+  h.data.delete('parent-session');h.data.delete('hb-job-code');h.context.sessionEmail='';
+  h.data.set('draft',savedDraft);h.data.set('hb-kid-jobs-code','family01');
+  const kidJob={...firstJob,canAskCancel:true};delete kidJob.action;
+  h.context.pubApi=async()=>({ok:true,parentAuthenticated:false,jobs:[kidJob],fresh:1});await h.context.loadMyJobs();
+  assert.match(h.el('#jobList').innerHTML,/Private first-family service/);
+  h.el('#kidJobsCodeInput').value='family01';h.el('#forgetKidJobs').hidden=false;
+  h.context.pubApi=()=>response.promise;const pending=h.context.loadMyJobs();
+  h.data.delete('hb-kid-jobs-code');
+  h.storage({key:'hb-kid-jobs-code',oldValue:'family01',newValue:null,storageArea:h.context.localStorage});
+  assert.equal(h.el('#jobList').innerHTML,'');assert.equal(h.el('#jobFilters').hidden,true);assert.equal(h.el('#forgetKidJobs').hidden,true);assert.equal(h.el('#kidJobsCodeInput').value,'');assert.match(h.el('#kidJobsStatus').textContent,/forgotten in another tab/);
+  response.resolve({ok:true,parentAuthenticated:false,jobs:[kidJob],fresh:1});await pending;
+  assert.equal(h.el('#jobList').innerHTML,'');assert.equal(h.el('#jobBadge').hidden,true);
+  assert.equal(h.context.draftRecoveryBlocked,false);assert.equal(h.bodyChildren.some(child=>child.id==='sharedSessionLock'),false);
+  assert.equal(h.context.S.first,'Unsaved Riley');assert.equal(h.context.B.jobs[0].customer,'Unsaved customer');assert.equal(h.data.get('draft'),savedDraft);
+});
+
+test('switching a kid code in another tab removes old family details and rejects an old response before loading the new family',async()=>{
+  const h=device(),response=deferred();h.data.delete('parent-session');h.data.delete('hb-job-code');h.context.sessionEmail='';
+  h.data.set('hb-kid-jobs-code','family01');
+  const kidJob={...firstJob,canAskCancel:true},nextKidJob={...secondJob,canAskCancel:true};delete kidJob.action;delete nextKidJob.action;
+  h.context.pubApi=async()=>({ok:true,parentAuthenticated:false,jobs:[kidJob],fresh:1});await h.context.loadMyJobs();
+  h.context.pubApi=()=>response.promise;const pending=h.context.loadMyJobs();
+  h.data.set('hb-kid-jobs-code','family02');
+  h.storage({key:'hb-kid-jobs-code',oldValue:'family01',newValue:'family02',storageArea:h.context.localStorage});
+  assert.equal(h.el('#jobList').innerHTML,'');assert.equal(h.el('#forgetKidJobs').hidden,false);assert.match(h.el('#kidJobsStatus').textContent,/changed in another tab/);
+  response.resolve({ok:true,parentAuthenticated:false,jobs:[kidJob],fresh:1});await pending;
+  assert.equal(h.el('#jobList').innerHTML,'');assert.equal(h.context.draftRecoveryBlocked,false);assert.equal(h.context.S.first,'Unsaved Riley');
+  h.context.pubApi=async()=>({ok:true,parentAuthenticated:false,jobs:[nextKidJob],fresh:0});await h.context.loadMyJobs();
+  assert.match(h.el('#jobList').innerHTML,/Second-family service/);assert.doesNotMatch(h.el('#jobList').innerHTML,/Private first-family service|data-job=/);assert.doesNotMatch(h.el('#jobKidFilter').innerHTML,/Riley/);
+});
+
 test('another-tab local-storage clear locks the family and an already pending response cannot restore it',async()=>{
   const h=device(),response=deferred();h.context.pubApi=()=>response.promise;const pending=h.context.loadMyJobs();
   h.data.clear();h.storage({key:null,oldValue:null,newValue:null});response.resolve({ok:true,parentAuthenticated:true,jobs:[firstJob],fresh:1});await pending;

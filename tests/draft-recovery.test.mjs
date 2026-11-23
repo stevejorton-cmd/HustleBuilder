@@ -12,6 +12,7 @@ function harness({owner='',anonymous=false,offline=false,email='',first='Saved A
  const c=vm.createContext({privateViewEpoch:0,LS:'draft',BK:'boss',savedRaw:JSON.parse(data.get('draft')),savedBoss:JSON.parse(data.get('boss')),draftOwner:owner,anonymousDraft:anonymous,sessionEmail:'',draftDirty:false,draftRecoveryBlocked:false,S:{first:'',siteUrl:''},B:{jobs:[]},localStorage,document:{getElementById:el},$:el,
   freshBoss:()=>({jobs:[]}),hydrateDraft:raw=>{c.S={first:'',siteUrl:'',...raw};},paintCurrentBuild(){},flyerUrlForDraft:()=>'',currentDraftCode:()=>'',siteDraftsLoad:()=>({}),legacySiteDraft:()=>'',pubSession:()=>null,
   pubPlans(){},publishOrigin:()=> 'https://test.invalid',pubErr(){},pubApi:async()=>{if(offline)throw Error('offline');return email?{ok:true,email,verified:true}:{ok:false};},pubSaveSession(){},showHosting(){},showParentVerified(){},settleGoLive(){},applyPublishState(){},planHelp:()=>'',showCalendar(){},syncCalUpcoming(){},applySavedVenmo(){}});
+ vm.runInContext(part('function kidJobsCode(){','function privateViewKey(){'),c);
  vm.runInContext(part('function draftBelongsTo(', '/* The flyer link'),c);
  vm.runInContext(part('function draftWriteAllowed(){','function resolve('),c);
  vm.runInContext(part('function deviceDraftKeys(){','$("#pubSend").onclick='),c);

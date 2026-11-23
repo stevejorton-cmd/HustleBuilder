@@ -117,6 +117,44 @@ test('away approval confirms exactly the inclusive dates at the agreed hour',asy
   assert.equal((await feed(f)).length,4);
 });
 
+test('repeating visits preserve care instructions on parent surfaces without leaking details or reusing parent links',async()=>{
+  const f=await family(),original=await book(f,{
+    service:'Dog walk',note:'Keep the small dog separate & close <gate>',size:'Small',
+    petKind:'Dog',petCount:'2',petNames:'Fido & Spot',petSize:'Small',dayPart:'Afternoon',
+    access:'Use side gate code TEST9876'
+  });
+  assert.equal((await approve(original,2)).status,200);
+  const visits=await series(f,await row(f,original.id)),clone=visits[1];
+  const details=[original.fields.note,original.fields.petNames,original.fields.access];
+  const storedJobs=await read('caljobs/'+f.id+'.json'),cloneJob=storedJobs.find(job=>job.id===clone.calendarJobId);
+  for(const detail of details){
+    assert.ok(clone.invite.description.includes(detail),'parent invitation retains '+detail);
+    assert.ok(cloneJob.note.includes(detail),'private family calendar retains '+detail);
+  }
+  assert.match(clone.invite.description,/Pet: Dog x2/);
+  assert.match(clone.invite.description,/Time of day: Afternoon/);
+  assert.ok(clone.invite.description.includes('/api/job/'+clone.actionToken));
+  assert.equal(clone.invite.description.includes(original.actionToken),false,'clone never inherits original parent action');
+  const parentMail=(await outbox(f.email)).find(mail=>mail.subject==='Booking confirmed: Dog walk'&&mail.ics.includes(clone.invite.uid));
+  assert.ok(parentMail);
+  const parentEvent=new ICAL.Component(ICAL.parse(parentMail.ics)).getFirstSubcomponent('vevent');
+  const description=parentEvent.getFirstPropertyValue('description');
+  for(const detail of details)assert.ok(description.includes(detail),'delivered parent calendar retains '+detail);
+  for(const visit of visits){
+    const page=await call('GET','/api/job/'+visit.actionToken);assert.equal(page.status,200);
+    assert.match(page.body,/Keep the small dog separate &amp; close &lt;gate&gt;/);
+    assert.match(page.body,/Pet names: Fido &amp; Spot/);assert.match(page.body,/Use side gate code TEST9876/);
+    const customerPage=await call('GET','/api/booking/'+visit.cancelToken);
+    const customerIcs=await call('GET','/api/booking/'+visit.cancelToken+'/calendar.ics');
+    for(const detail of [...details,visit.actionToken]){
+      assert.equal(customerPage.body.includes(detail),false,'customer page excludes '+detail);
+      assert.equal(customerIcs.body.includes(detail),false,'customer calendar excludes '+detail);
+    }
+  }
+  const child=await call('GET','/api/my-jobs?code='+f.code);assert.equal(child.status,200);
+  for(const detail of [...details,...visits.map(visit=>visit.actionToken)])assert.equal(child.body.includes(detail),false,'kid code excludes '+detail);
+});
+
 test('repeated and concurrent approval are idempotent without extra rows, events or email',async()=>{
   const f=await family(),original=await book(f,{freq:'Every other week'});
   const results=await Promise.all([approve(original,3),approve(original,3),approve(original,3)]);

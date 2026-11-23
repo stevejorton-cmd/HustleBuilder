@@ -2312,6 +2312,20 @@ function repeatOffer(row) {
 function visitWhen(start,account) {
   return new Intl.DateTimeFormat("en-US",{timeZone:tzOf(account),weekday:"short",month:"long",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(jobInstant(start,tzOf(account))));
 }
+function parentVisitNote(row) {
+  const fields=row.fields||{};
+  return [
+    fields.size?"Size: "+fields.size:"",
+    fields.freq?"How often: "+fields.freq:"",
+    fields.note?"Note: "+fields.note:"",
+    fields.petKind?"Pet: "+fields.petKind+(fields.petCount?" x"+fields.petCount:""):fields.petCount?"Pet count: "+fields.petCount:"",
+    fields.petNames?"Pet names: "+fields.petNames:"",
+    fields.petSize?"Dog size: "+fields.petSize:"",
+    fields.dayPart?"Time of day: "+fields.dayPart:"",
+    fields.awayFrom||fields.awayTo?"Away: "+(fields.awayFrom||"?")+" to "+(fields.awayTo||"?"):"",
+    fields.access?"Access, parent only: "+fields.access:""
+  ].filter(Boolean).join("\n");
+}
 async function approveSeries(account,rows,row,body,origin) {
   // The first approval owns the schedule; retries cannot create more visits.
   if(row.series)return {ok:true,total:row.series.total,repeated:true};
@@ -2328,9 +2342,11 @@ async function approveSeries(account,rows,row,body,origin) {
     const start=plan.starts[i],id="r"+rand(8),jobId="b"+rand(8),actionToken=rand(12),when=visitWhen(start,account);
     const visit={id,actionToken,slug:row.slug,parentEmail:account.email,replyTo:row.replyTo,firstName:row.firstName,kid:row.kid,business:row.business,service:row.service,when,address:row.address,status:"confirmed",fields:{...row.fields,when,start},createdAt,calendarJobId:jobId,
       invite:{uid:jobId+"@hustlebuilder.org",start,tz:tzOf(account),sequence:0,summary:inviteSummary(row.kid,row.service,row.firstName),location:row.address,description:row.invite.description,attendee:account.email}};
-    // Never inherit the original visit's action URL or private calendar link.
-    visit.invite.description=["Approved repeating visit.","Manage booking: "+siteOrigin(origin)+"/api/job/"+actionToken].join("\n");
-    jobs.push({id:jobId,source:"book",start,kid:visit.kid,service:visit.service,customer:visit.firstName,address:visit.address,createdAt});
+    // Rebuild parent-only details from the request fields, so care instructions
+    // survive without inheriting the original visit's action or calendar links.
+    const note=parentVisitNote(visit);
+    visit.invite.description=["Approved repeating visit.",note,"Manage booking: "+siteOrigin(origin)+"/api/job/"+actionToken].filter(Boolean).join("\n");
+    jobs.push({id:jobId,source:"book",start,kid:visit.kid,service:visit.service,customer:visit.firstName,address:visit.address,note,createdAt});
     await (await store()).put("jobact/"+actionToken,account.id+":"+id);
     rows.push(visit);visits.push(visit);
   }
@@ -3287,6 +3303,7 @@ async function routeRequest(req) {
     const title=row.status==="new"?"New request":row.status;
     const terminal=["cancelled","done"].includes(row.status);
     const repeat=repeatOffer(row);
+    const visitNote=row.series?parentVisitNote(row):"";
     return shell(200,title,`<p><a href="/?jobs=1">View all family bookings</a></p>
 <h1>${mailEscape(row.service||"A job")}</h1>
 <p>${mailEscape([row.kid,row.business].filter(Boolean).join(" · "))}</p>
@@ -3294,6 +3311,7 @@ async function routeRequest(req) {
 <p>Status: <b>${mailEscape(row.status)}</b></p>
 ${row.series?`<p>Visit ${Number(row.series.index)} of ${Number(row.series.total)} in the approved repeating schedule. Each visit can be changed separately.</p><form method="post"><p>Cancel all future, uncompleted visits in this schedule. Completed visits and other bookings stay as they are.</p><button name="status" value="cancel-series" class="alt">Cancel remaining visits</button></form>`:""}
 <p>${mailEscape(row.fields?.contact||"")}<br>${mailEscape(row.address||"")}</p>
+${visitNote?'<h2>Visit details</h2><p>'+mailEscape(visitNote).replace(/\n/g,"<br>")+'</p>':""}
 ${row.cancelRequestedAt&&!terminal?'<p><b>Your kid asked to cancel this job.</b> The booking stays active until you decide.</p>':""}
 ${row.reschedule&&!terminal?`<h2>Time change requested</h2><p>${mailEscape(row.reschedule.when)} (${mailEscape(tzOf(account))}). The original appointment stays in place until you approve.</p>
 <form method="post"><input type="hidden" name="start" value="${mailEscape(row.reschedule.start)}"><button name="status" value="accept-reschedule">Accept new time</button><button name="status" value="decline-reschedule" class="alt">Keep original time</button></form>`:""}
