@@ -23,15 +23,15 @@ const LAWN_SNAPSHOT = {
 const SEASON_PACKS = {
   fall: {
     defaultType: "prep",
-    picker: ["prep", "lawn", "pet", "snow", "both"],
+    picker: ["prep", "lawn", "pet"],
     prepCard: { name: "Yard cleanup", blurb: "Leaf raking. Dead plant cleanup.", img: "assets/jobs/prep.webp" },
-    parentsBiz: "Sam's Yard Cleanup",
+    parentsBiz: "Taylor's Yard Cleanup",
     parentsTown: "Elkhorn",
     rates: [{ n: "Yard cleanup, small", p: "15" }, { n: "Leaf raking", p: "15" }],
     kicker: "NEIGHBORHOOD YARD CLEANUP",
     biz: "Taylor’s Yard Cleanup",
     bizHtml: "Taylor’s<br>Yard Cleanup",
-    tagline: "Leaves raked. Yard ready for winter.",
+    tagline: "Leaves raked. Dead plants cleared.",
     flyerLabel: "Example flyer for Taylor’s Yard Cleanup: yard cleanup $15, leaf raking $15, with a sample QR code",
     payAmount: "+$15.00",
     payNote: "“Thanks for the yard cleanup!”",

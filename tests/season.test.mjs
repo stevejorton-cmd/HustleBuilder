@@ -34,16 +34,17 @@ test("the season file is the one switch and ships fall", () => {
   assert.equal(html.includes("student owned"), false);
 });
 
-test("fall leads with yard cleanup and snow is second", () => {
+test("fall leads with yard cleanup and hides snow tiles", () => {
   const fall = seasonView("fall");
   assert.equal(fall.defaultType, "prep");
-  assert.equal(fall.picker.join(","), "prep,lawn,pet,snow,both");
+  assert.equal(fall.picker.join(","), "prep,lawn,pet");
+  assert.equal(fall.picker.includes("snow") || fall.picker.includes("both"), false);
   assert.equal(fall.picker[0], "prep");
   assert.equal(fall.prepCard.name, "Yard cleanup");
   assert.equal(fall.prepCard.blurb, "Leaf raking. Dead plant cleanup.");
   assert.equal(fall.prepCard.blurb.toLowerCase().includes("snow"), false);
   assert.match(fall.prepCard.img, /prep\.webp/);
-  assert.equal(fall.parentsBiz, "Sam's Yard Cleanup");
+  assert.equal(fall.parentsBiz, "Taylor's Yard Cleanup");
   assert.equal(fall.parentsTown, "Elkhorn");
   assert.equal(fall.rates[0].n, "Yard cleanup, small");
   assert.equal(fall.rates[0].p, "15");
@@ -51,7 +52,8 @@ test("fall leads with yard cleanup and snow is second", () => {
   assert.equal(fall.rates[1].p, "15");
   assert.match(fall.kicker, /YARD CLEANUP/);
   assert.match(fall.biz, /Taylor’s Yard Cleanup/);
-  assert.match(fall.tagline, /Leaves/);
+  assert.match(fall.tagline, /Leaves raked\. Dead plants cleared\./);
+  assert.equal(fall.tagline.toLowerCase().includes("winter"), false);
   assert.match(fall.payNote, /yard cleanup/);
   assert.equal(fall.payAmount, "+$15.00");
   assert.equal(JSON.stringify(fall).includes("student"), false);

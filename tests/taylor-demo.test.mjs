@@ -34,6 +34,8 @@ test('both supported seasonal templates keep matching rates and safe local-only 
   const html=await readFile(new URL('../host/demo/taylor-'+id+'.html',import.meta.url),'utf8'),data=cfg(html),view=globalThis.HB_SEASON_FILE.seasonView(id);
   assert.equal(data.biz,view.biz);assert.deepEqual(data.services,view.rates.map(r=>({n:r.n,p:'$'+r.p})));
   assert.equal(data.publish,null);assert.equal(data.inbox,null);assert.equal(data.venmo,'');assert.match(html,/font\/woff2;base64,/,'actual site fonts are embedded for the sandbox');
+  assert.match(html,/Serving your neighborhood\./);assert.doesNotMatch(html,/Serving Your neighborhood/);
+  if(id==='fall')assert.match(html,/Leaves raked\. Dead plants cleared\./);
  }
 });
 test('sample request requires a day and only displays a simulated result',async()=>{
