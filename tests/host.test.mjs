@@ -14,7 +14,7 @@ import { decodeContactObfuscation, familyVenmo, hidePhone, kidOwned, stripParent
 import { cleanVenmo, venmoPayUrl } from "../host/lib/venmo.mjs";
 import { heroFitPx, heroFitSize } from "../host/lib/hero.mjs";
 import { checkSlug, wordHits } from "../host/lib/moderate.mjs";
-import { cardPng } from "../host/lib/card.mjs";
+import { cardPng, homeOgPng, iconPng } from "../host/lib/card.mjs";
 
 let dir;
 test.beforeEach(async (ctx) => {
@@ -30,6 +30,13 @@ test.beforeEach(async (ctx) => {
 test.afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
+
+function futureSlot(days, time = "16:00") {
+  const when = new Date(Date.now() + days * 86400000);
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" }).format(when);
+  const [hh, mm] = time.split(":");
+  return { start: day + "T" + time, stamp: day.replace(/-/g, "") + "T" + hh + mm + "00" };
+}
 
 function call(method, path, { body, token, headers, raw } = {}) {
   return handleRequest({
@@ -92,7 +99,8 @@ test("the parent landing names the winter price and uses a made-up example", asy
   assert.equal(home.includes('setItem("hb_intro_seen"'), false);
   assert.match(home, /shouldOpenIntro\(entryParams\)&&document\.documentElement\.classList\.contains\("hb-skip-parents"\)/);
   assert.match(block, /id="parentsExampleName"/);
-  assert.match(block, /Sam's Yard Cleanup/);
+  assert.match(block, /Taylor's Yard Cleanup/);
+  assert.equal(block.includes("Sam's Yard Cleanup"), false);
   assert.match(home, /src="\/config\/season\.js"/);
   assert.match(home, /applySeasonCopy\(\);/);
   assert.match(block, /Elkhorn/);
@@ -219,9 +227,10 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   await call("POST", "/api/consent", { token, body: { consent: true } });
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
   await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } });
+  const slot = futureSlot(7, "16:00");
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "sam", name: "Riley", contact: "402-555-0199", service: "Mow", when: "Monday at 4:00 PM",
-    address: "999 Secret Lane", note: "Gate, side; door", start: "2026-11-16T16:00", t: 5000
+    address: "999 Secret Lane", note: "Gate, side; door", start: slot.start, t: 5000
   } }));
   assert.equal(book.body.ok, true);
   const live = await call("GET", "/api/site/sam");
@@ -241,7 +250,7 @@ test("booking emails the parent, stores a calendar job, and is not on the public
   assert.match(msg.ics, /ORGANIZER;CN=Hustle Builder:mailto:bookings@hustlebuilder\.org/);
   assert.match(msg.ics, /SEQUENCE:0/);
   assert.match(msg.ics, /STATUS:TENTATIVE/);
-  assert.match(msg.ics, /DTSTART;TZID=America\/Chicago:20261116T160000/);
+  assert.match(msg.ics, new RegExp("DTSTART;TZID=America/Chicago:" + slot.stamp));
   assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /Gate\\, side\\; door/);
   assert.match(msg.ics.replace(/\r\n[ \t]/g, ""), /mailto:parent@example.com/);
   assert.match(msg.text, /calendar\.google\.com\/calendar\/r\?cid=/);
@@ -282,16 +291,17 @@ test("one-tap calendar buttons stay off the parent's contact, and confirming cle
   await call("POST", "/api/checkout", { token, body: { plan: "season" } });
   const html = page("Will") + "<script>window.__C={\"first\":\"Will\",\"biz\":\"Will Yard\",\"email\":\"\",\"phoneDigits\":\"\"};</script>";
   await call("POST", "/api/publish", { token, body: { slug: "will-tap", html } });
+  const slot = futureSlot(7, "16:00");
   const booked = await json(await call("POST", "/api/book", { body: {
     slug: "will-tap", name: "Riley Stone", contact: "riley.neighbor@example.com", service: "Mow a small yard",
     when: "Monday at 4:00 PM", address: "12 Oak", note: "Side gate. Reach " + email + " or 402-555-0100",
-    start: "2026-11-16T16:00", t: 4000
+    start: slot.start, t: 4000
   } }));
   assert.equal(booked.body.ok, true);
   const parentBox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
   const parentMail = parentBox.body.messages.find((m) => /Booking request/.test(m.subject));
   assert.match(parentMail.text, /\(requested\)/);
-  assert.match(parentMail.ics, /DTSTART;TZID=America\/Chicago:20261116T160000/);
+  assert.match(parentMail.ics, new RegExp("DTSTART;TZID=America/Chicago:" + slot.stamp));
   assert.match(parentMail.text, /Subscribe in Google Calendar/);
   assert.match(parentMail.html, /href="http:\/\/sites\.test\/calendar\/subscribe\/[a-f0-9]+"/);
   assert.equal(/href="webcal:/.test(parentMail.html), false);
@@ -423,7 +433,7 @@ test("a priced booking opens Venmo with the parent handle, amount, and note", as
   await call("POST", "/api/publish", { token, body: { slug: "will-venmo", html, venmo: "@Will-Yard" } });
   const booked = await json(await call("POST", "/api/book", { body: {
     slug: "will-venmo", name: "Riley", contact: "riley.pay@example.com", service: "Mow a small yard",
-    price: "$25", when: "Nov 21", address: "12 Oak", note: "Front", start: "2026-11-21T16:00", t: 4000
+    price: "$25", when: "Nov 21", address: "12 Oak", note: "Front", start: futureSlot(8, "16:00").start, t: 4000
   } }));
   assert.equal(booked.body.ok, true);
   const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.pay@example.com")));
@@ -466,7 +476,7 @@ test("a booking invite names the kid and the neighbor, and a cancel removes that
   await call("POST", "/api/publish", { token, body: { slug: "will-yard", html } });
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "will-yard", name: "Riley Stone", contact: "neighbor@example.com, 402-555-0199", service: "Mow a small yard",
-    when: "Sat Nov 21 10:00 AM", address: "12 Private Ln", note: "side gate", start: "2026-11-21T10:00", t: 5000
+    when: "Sat Nov 21 10:00 AM", address: "12 Private Ln", note: "side gate", start: futureSlot(8, "10:00").start, t: 5000
   } }));
   assert.equal(book.body.ok, true);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -502,7 +512,7 @@ test("a booking invite names the kid and the neighbor, and a cancel removes that
   assert.equal(pageHtml.body.includes("/api/cal/"), false);
   const again = await json(await call("POST", "/api/book", { body: {
     slug: "will-yard", name: "Casey", contact: "402-555-0144", service: "Leaf cleanup",
-    when: "Sun Nov 22 2:00 PM", address: "9 Hidden Ct", note: "back gate", start: "2026-11-22T14:00", t: 5000
+    when: "Sun Nov 22 2:00 PM", address: "9 Hidden Ct", note: "back gate", start: futureSlot(9, "14:00").start, t: 5000
   } }));
   assert.equal(again.body.ok, true);
   const second = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -533,7 +543,7 @@ test("something else takes its name from the note, and email plus phone both sta
   await call("POST", "/api/publish", { token, body: { slug: "will-custom", html } });
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "will-custom", name: "Dana", contact: "dana@example.com, 402-555-0199", service: "Something else",
-    when: "Sat Nov 21 10:00 AM", address: "8 Quiet St", note: "Dog walking", start: "2026-11-21T10:00", t: 5000
+    when: "Sat Nov 21 10:00 AM", address: "8 Quiet St", note: "Dog walking", start: futureSlot(8, "10:00").start, t: 5000
   } }));
   assert.equal(book.body.ok, true);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -555,7 +565,7 @@ test("something else takes its name from the note, and email plus phone both sta
   assert.equal(feed.body.includes("Something else"), false);
   const blank = await json(await call("POST", "/api/book", { body: {
     slug: "will-custom", name: "Dana", contact: "dana@example.com", service: "Something else",
-    when: "Sun Nov 22 11:00 AM", address: "8 Quiet St", note: "", start: "2026-11-22T11:00", t: 5000
+    when: "Sun Nov 22 11:00 AM", address: "8 Quiet St", note: "", start: futureSlot(9, "11:00").start, t: 5000
   }, headers: { "x-forwarded-for": "203.0.113.40" } }));
   assert.equal(blank.body.ok, true);
   const again = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -566,7 +576,7 @@ test("something else takes its name from the note, and email plus phone both sta
   assert.equal(empty.replyTo, "dana@example.com");
   const mixed = await json(await call("POST", "/api/book", { body: {
     slug: "will-custom", name: "Dana", contact: "user2@example.com, (402) 555-0108", service: "Mow",
-    when: "Mon Nov 23 9:00 AM", address: "8 Quiet St", note: "front only", start: "2026-11-23T09:00", t: 5000
+    when: "Mon Nov 23 9:00 AM", address: "8 Quiet St", note: "front only", start: futureSlot(10, "09:00").start, t: 5000
   }, headers: { "x-forwarded-for": "203.0.113.41" } }));
   assert.equal(mixed.body.ok, true);
   const both = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -880,7 +890,7 @@ test("reply_to uses the customer email, and a name like Dick with yard phrases i
   await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } });
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "sam", name: "Dick", contact: "neighbor@example.com", service: "Weed eating",
-    when: "Monday at 4:00 PM", address: "12 Oak", note: "kill the dandelions", start: "2026-11-20T16:00", t: 4000
+    when: "Monday at 4:00 PM", address: "12 Oak", note: "kill the dandelions", start: futureSlot(7, "16:00").start, t: 4000
   } }));
   assert.equal(book.body.ok, true);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -890,7 +900,7 @@ test("reply_to uses the customer email, and a name like Dick with yard phrases i
   assert.match(msg.html, /mailto:neighbor@example.com/);
   const flagged = await json(await call("POST", "/api/book", { body: {
     slug: "sam", name: "Pat", contact: "402-555-0144", service: "Mow", when: "Tuesday at 9:00 AM",
-    address: "4 Pine", note: "please kill it", start: "2026-11-21T09:00", t: 4000
+    address: "4 Pine", note: "please kill it", start: futureSlot(8, "09:00").start, t: 4000
   }, headers: { "x-forwarded-for": "203.0.113.9" } }));
   assert.equal(flagged.body.ok, true);
   const box2 = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -1039,7 +1049,7 @@ if(e){e.onclick=function(){var m=build(); if(m){window.location.href="mailto:"+C
   assert.match(live.body, /report-link-contrast/);
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "will-public", name: "Dana", contact: "402-555-0101", service: "Mow", when: "Saturday at 10:00 AM",
-    address: "8 Quiet St", note: "front", start: "2026-11-21T10:00", t: 5000
+    address: "8 Quiet St", note: "front", start: futureSlot(8, "10:00").start, t: 5000
   } }));
   assert.equal(book.body.ok, true);
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -1899,7 +1909,7 @@ test("a parent can confirm, finish, or cancel a booking from My jobs", async () 
   await call("POST", "/api/publish", { token, body: { slug: "sam", html: page("Sam") } });
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "sam", name: "Dana", contact: "402-555-0199", service: "Mow", when: "Saturday at 10:00 AM",
-    address: "8 Quiet St", note: "front", start: "2026-11-21T10:00", t: 5000
+    address: "8 Quiet St", note: "front", start: futureSlot(8, "10:00").start, t: 5000
   } }));
   assert.equal(book.body.ok, true);
   const list = await json(await call("GET", "/api/my-jobs", { token }));
@@ -2715,7 +2725,7 @@ test("admin view gates on the secret and lists accounts without private details"
   assert.equal(pub.status, 200);
   const book = await json(await call("POST", "/api/book", { body: {
     slug: "sam-mows", name: "Riley", contact: "402-555-0199", service: "Mow", when: "Monday at 4:00 PM",
-    address: "999 Secret Lane", note: "Gate code 4321", start: "2026-11-16T16:00", t: 5000
+    address: "999 Secret Lane", note: "Gate code 4321", start: futureSlot(7, "16:00").start, t: 5000
   } }));
   assert.equal(book.body.ok, true);
   // A paid family.
@@ -3374,7 +3384,7 @@ test("yard cleanup and winter prep is a bookable job with parent-approved tools"
     slug: "taylor-prep", name: "Dana", contact: "dana-prep@example.com",
     service: "Yard cleanup, medium", price: "25",
     when: "Sat Nov 21 10:00 AM", address: "123 Test St, Lincoln, NE",
-    note: "front walk", start: "2026-11-21T10:00", t: 5000
+    note: "front walk", start: futureSlot(8, "10:00").start, t: 5000
   } }));
   assert.equal(book.body.ok, true, JSON.stringify(book.body));
   const box = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
@@ -3839,6 +3849,13 @@ test("the home page can be shared and search engines can find the public pages",
   const touch = await call("GET", "/apple-touch-icon.png");
   assert.equal(touch.status, 200);
   assert.match(touch.headers["content-type"], /png/);
+  assert.deepEqual(Buffer.from(touch.body), iconPng(180, false));
+  const share = await readFile(new URL("../assets/og-home.png", import.meta.url));
+  assert.deepEqual(share, homeOgPng());
+  const cardSrc = await readFile(new URL("../host/lib/card.mjs", import.meta.url), "utf8");
+  assert.match(cardSrc, /\$9\.99 FOR THE SEASON/);
+  assert.equal(cardSrc.includes('"$9.99 FOR THE WINTER"'), false);
+  assert.equal(cardSrc.includes('const label = "H"'), false);
 });
 
 test("created sites use the current slash favicon without rewriting saved family pages", async () => {
@@ -3911,7 +3928,7 @@ test("family subscription tracks sibling request status, stable UIDs, cancellati
     ["riley-calendar","Pet visit","Morgan","morgan.calendar@example.com","16:00"],
     ["sam-calendar","Book help","Dana","dana.calendar@example.com","18:00"]
   ]) {
-    const res=await call("POST","/api/book",{body:{slug,service,name,contact,when:"November 16 at "+time,start:"2026-11-16T"+time,address:"123 Sample Lane",note:"Calendar test",t:5000}});
+    const res=await call("POST","/api/book",{body:{slug,service,name,contact,when:"November 16 at "+time,start:futureSlot(7,time).start,address:"123 Sample Lane",note:"Calendar test",t:5000}});
     assert.equal(res.status,200);
   }
   async function events(feed) {
@@ -3964,7 +3981,7 @@ test("marking a request done directly gives both calendar views a confirmed revi
   await call("POST","/api/checkout",{token,body:{plan:"season"}});
   await call("POST","/api/publish",{token,body:{slug:"done-calendar",html:page("Alex")}});
   const contact="directdone@example.com";
-  assert.equal((await call("POST","/api/book",{body:{slug:"done-calendar",name:"Casey",contact,service:"Leaf cleanup",when:"November 16 at 4 PM",start:"2026-11-16T16:00",address:"123 Sample Lane",t:5000}})).status,200);
+  assert.equal((await call("POST","/api/book",{body:{slug:"done-calendar",name:"Casey",contact,service:"Leaf cleanup",when:"November 16 at 4 PM",start:futureSlot(7,"16:00").start,address:"123 Sample Lane",t:5000}})).status,200);
   const list=await json(await call("GET","/api/my-jobs",{token}));
   await call("POST","/api/job/"+list.body.jobs[0].action,{body:{status:"done",json:true}});
   const box=await json(await call("GET","/api/test/outbox?email="+encodeURIComponent(contact)));

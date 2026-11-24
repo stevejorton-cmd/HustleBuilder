@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { crc32, deflateSync } from "zlib";
 
 const FONT = {
@@ -104,17 +105,60 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
+function fillPoly(buf, w, h, points, rgb) {
+  const ys = points.map((p) => p[1]);
+  const y0 = Math.max(0, Math.floor(Math.min(...ys)));
+  const y1 = Math.min(h - 1, Math.ceil(Math.max(...ys)));
+  for (let y = y0; y <= y1; y++) {
+    const xs = [];
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      if ((a[1] <= y && b[1] > y) || (b[1] <= y && a[1] > y)) {
+        const t = (y - a[1]) / (b[1] - a[1]);
+        xs.push(a[0] + t * (b[0] - a[0]));
+      }
+    }
+    xs.sort((p, q) => p - q);
+    for (let i = 0; i + 1 < xs.length; i += 2) {
+      const x0 = Math.max(0, Math.ceil(xs[i]));
+      const x1 = Math.min(w - 1, Math.floor(xs[i + 1]));
+      for (let x = x0; x <= x1; x++) {
+        const at = (y * w + x) * 3;
+        buf[at] = rgb[0]; buf[at + 1] = rgb[1]; buf[at + 2] = rgb[2];
+      }
+    }
+  }
+}
+
+// Same two slashes as favicon.svg, scaled from its 192 viewBox.
 export function iconPng(size, maskable) {
   const buf = Buffer.alloc(size * size * 3);
-  const orange = [255, 91, 20];
   const ink = [14, 16, 18];
-  fill(buf, size, 0, 0, size, size, maskable ? orange : ink, size);
-  if (!maskable) fill(buf, size, 0, 0, size, Math.max(8, Math.round(size * 0.08)), orange, size);
-  const scale = Math.max(4, Math.floor(size / (maskable ? 16 : 10)));
-  const label = "H";
-  const w = textWidth(label, scale);
-  drawText(buf, size, size, label, Math.round((size - w) / 2), Math.round((size - scale * 7) / 2), scale, maskable ? ink : orange);
+  const orange = [255, 91, 20];
+  const cream = [245, 243, 237];
+  fill(buf, size, 0, 0, size, size, ink, size);
+  const pad = maskable ? size * 0.1 : 0;
+  const scale = (size - pad * 2) / 192;
+  const map = (pts) => pts.map(([x, y]) => [pad + x * scale, pad + y * scale]);
+  fillPoly(buf, size, size, map([[86, 34], [125, 34], [90, 142], [51, 142]]), orange);
+  fillPoly(buf, size, size, map([[145, 34], [165, 34], [130, 142], [110, 142]]), cream);
+  const band = map([[0, 160], [192, 160], [192, 192], [0, 192]]);
+  fillPoly(buf, size, size, band, ink);
+  const stripe = (size - pad * 2) / 192 * 26;
+  for (let x = pad - stripe; x < size; x += stripe * 2) {
+    fillPoly(buf, size, size, [[x, pad + 192 * scale], [x + stripe, pad + 192 * scale], [x + stripe + (32 * scale), pad + 160 * scale], [x + 32 * scale, pad + 160 * scale]], orange);
+  }
   return pngFromRgb(buf, size, size);
+}
+
+function ogPriceLine() {
+  let season = "fall";
+  try {
+    const src = readFileSync(new URL("../../config/season.js", import.meta.url), "utf8");
+    season = (src.match(/const SEASON = "([a-z]+)"/) || [])[1] || "fall";
+  } catch { /* fall wording if the season file cannot be read */ }
+  return season === "snow" ? "$9.99 FOR THE WHOLE WINTER" : "$9.99 FOR THE SEASON";
 }
 
 function pngFromRgb(buf, w, h) {
@@ -146,7 +190,7 @@ export function homeOgPng() {
   const lines = [
     ["YOUR KID'S FIRST", 8, ink],
     ["NEIGHBORHOOD BUSINESS", 7, ink],
-    ["$9.99 FOR THE WINTER", 8, bar],
+    [ogPriceLine(), scaleToFit(ogPriceLine(), 1080, 8), bar],
     ["NEVER AUTO-RENEWS", 5, mute]
   ];
   let y = 150;
