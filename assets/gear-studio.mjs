@@ -1,5 +1,5 @@
 /* My Business Gear receives public brand data. It never reads an account, draft,
-   job store, or contact details. Printing is a parent-managed handoff. */
+   job store, or contact details. Printed gear is not offered in the preview. */
 
 export const GEAR_STYLES = Object.freeze([
   Object.freeze({ id: 'classic', name: 'Classic', detail: 'A clean, everyday mark' }),
@@ -13,11 +13,6 @@ export const GEAR_COLORS = Object.freeze([
   Object.freeze({ id: 'navy', name: 'Navy', hex: '#263D56' }),
   Object.freeze({ id: 'white', name: 'White', hex: '#FFFFFF' })
 ]);
-// Verified official pages. No artwork, identity, or checkout data is sent here.
-export const GEAR_PRINT_LINKS = Object.freeze({
-  shirt: 'https://www.printful.com/make-your-own-shirt',
-  cap: 'https://www.printful.com/custom-embroidered-hats'
-});
 const FONTS = Object.freeze({
   workwear: { family: 'Barlow Condensed', weight: 900, italic: true },
   bebas: { family: 'HB-bebas', weight: 400, copyright: 'Bebas Neue. Copyright 2019 The Bebas Neue Project Authors (https://github.com/dharmatype/Bebas-Neue).' },
@@ -46,8 +41,10 @@ function color(value, fallback) {
 }
 export function normalizeGearBrand(input = {}) {
   const first = cleanText(input.firstName), count = Number(input.completedJobs), previewOnly = input.previewOnly === true;
+  const name = cleanText(input.businessName) || (first ? first + '’s Business' : 'My Business');
+  const sample = previewOnly && /^Taylor['’]s Yard (?:Cleanup|Crew)$/i.test(name);
   return Object.freeze({
-    businessName: cleanText(input.businessName) || (first ? first + '’s Business' : 'My Business'),
+    businessName: sample ? 'Taylor’s Yard Crew' : name,
     firstName: first, tagline: cleanText(input.tagline),
     accent: color(input.accent, input.theme === 'neighbor' ? '#245B45' : '#D94B3D'),
     font: Object.hasOwn(FONTS, input.font) ? input.font : 'workwear',
@@ -61,7 +58,7 @@ function normalizeSelection(input = {}) {
     style: GEAR_STYLES.some(style => style.id === input.style) ? input.style : 'classic',
     color: GEAR_COLORS.find(c => c.id === input.color) || GEAR_COLORS[0],
     placement: input.placement === 'back' ? 'back' : 'compact',
-    garment: ['shirt', 'cap', 'badge'].includes(input.garment) ? input.garment : 'shirt',
+    garment: ['shirt', 'hoodie', 'cap', 'badge'].includes(input.garment) ? input.garment : 'shirt',
     operator: input.operator === true
   };
 }
@@ -142,6 +139,9 @@ function artworkContent(brand, selection) {
     const name = nameBlock(brand, { x: 760, y: 260, size: 106, width: 690, font: BODY_FONT, limit: 20 });
     return { viewBox: '0 0 1200 600', content: `<g color="${ink}">${mark(brand, style, 205, 290, 260, ink, ink, operator)}${name.svg}${style === 'work-crew' ? `<path d="M425 135H1090M425 455H1090" stroke="${ink}" stroke-width="14"/>` : ''}</g>` };
   }
+  if (brand.previewOnly && brand.businessName === 'Taylor’s Yard Crew' && style === 'classic') {
+    return { viewBox: '0 0 1000 1000', content: `<g stroke-linecap="round" stroke-linejoin="round"><path d="M134 376V257Q500 77 866 257V376M134 629V741Q500 920 866 741V629" fill="none" stroke="${accent}" stroke-width="13"/><path d="M447 299Q456 223 535 216Q520 282 447 299ZM552 293Q528 252 561 228Q591 260 552 293Z" fill="${accent}"/><path d="M455 310Q484 273 518 245" fill="none" stroke="${ink}" stroke-width="8"/>${textNode('TAYLOR’S',500,434,144,ink,FONTS.workwear,670)}${textNode('YARD CREW',500,606,208,ink,FONTS.workwear,815)}<path d="M245 704H344M656 704H755" stroke="${accent}" stroke-width="12"/>${textNode('YARD CLEANUP',500,718,50,ink,BODY_FONT,298)}</g>` };
+  }
   const name = nameBlock(brand, { y: style === 'bold' ? 515 : 490, size: style === 'bold' ? 126 : 112 });
   let content = mark(brand, style, 500, style === 'bold' ? 265 : 255, style === 'bold' ? 330 : 255, ink, accent, operator);
   if (style === 'work-crew') content += textNode('WORK CREW', 500, 105, 35, ink, BODY_FONT, 410) + `<path d="M115 398H885M115 773H885" stroke="${accent}" stroke-width="7"/>`;
@@ -182,21 +182,31 @@ export function buildGearPreviewSVG(input = {}, options = {}) {
   const brand = normalizeGearBrand(input), selection = normalizeSelection(options);
   const { color: cloth, garment, placement } = selection, fabric = cloth.hex;
   const shade = mix(fabric, '#000000', .3), light = mix(fabric, '#FFFFFF', .12), art = artworkContent(brand, selection);
-  const id = 'hbgear-' + String(options.idPrefix || 'preview').replace(/[^a-z0-9-]/gi, '') + '-' + (garment === 'cap' ? 'cap' : 'shirt');
+  const id = 'hbgear-' + String(options.idPrefix || 'preview').replace(/[^a-z0-9-]/gi, '') + '-' + garment;
   const defs = `<defs><linearGradient id="${id}-fabric" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${light}"/><stop offset=".52" stop-color="${fabric}"/><stop offset="1" stop-color="${shade}"/></linearGradient><radialGradient id="${id}-shadow"><stop stop-color="#15221B" stop-opacity=".16"/><stop offset="1" stop-color="#15221B" stop-opacity="0"/></radialGradient></defs>`;
   let body;
   if (garment === 'cap') {
     body = `<ellipse cx="305" cy="391" rx="235" ry="32" fill="url(#${id}-shadow)"/><path d="M131 297Q112 185 207 135Q271 97 346 124Q429 146 452 299L386 331 201 337Z" fill="url(#${id}-fabric)" stroke="${shade}" stroke-width="2"/><path d="M290 120Q260 194 269 309M290 120Q354 184 369 311M200 142Q177 222 183 310" fill="none" stroke="${shade}" stroke-width="2"/><path d="M290 124Q261 200 273 306M294 124Q359 189 372 306" fill="none" stroke="${light}" stroke-width="1.5"/><path d="M138 296Q279 259 450 296Q505 311 537 344Q449 400 252 367Q174 354 114 333Z" fill="${shade}"/><path d="M137 288Q279 253 448 290Q504 304 535 337Q448 391 253 359Q172 346 113 326Z" fill="url(#${id}-fabric)" stroke="${shade}" stroke-width="2"/><path d="M143 310Q292 289 499 342M165 325Q310 308 468 354M195 339Q324 329 430 364" fill="none" stroke="${light}" stroke-width="1.6" opacity=".6"/><ellipse cx="289" cy="120" rx="13" ry="7" fill="${shade}"/><ellipse cx="288" cy="117" rx="12" ry="5" fill="${fabric}"/><ellipse cx="196" cy="190" rx="3.5" ry="5" fill="${shade}"/><ellipse cx="372" cy="192" rx="3.5" ry="5" fill="${shade}"/><svg x="209" y="186" width="179" height="90" viewBox="${art.viewBox}">${art.content}</svg>`;
+  } else if (garment === 'hoodie') {
+    const back = placement === 'back';
+    body = `<ellipse cx="300" cy="465" rx="229" ry="25" fill="url(#${id}-shadow)"/>
+    <path d="M216 137 249 117H351L385 137Q419 143 434 168L506 366 457 397 407 295 421 421Q300 468 179 421L193 295 143 397 94 366 166 168Q181 143 216 137Z" fill="url(#${id}-fabric)" stroke="${shade}" stroke-width="3"/>
+    <path d="M99 362 144 384 136 405 87 383ZM501 362 456 384 464 405 513 383ZM181 416Q299 444 419 416L420 439Q300 466 180 439Z" fill="${shade}"/>
+    <path d="M103 376 134 390M497 376 466 390M195 433Q300 454 405 433M171 174Q184 196 195 289M429 174Q416 196 405 289M196 313L190 397M404 313L410 397" fill="none" stroke="${light}" stroke-width="2" opacity=".55"/>
+    <path d="M222 140Q225 57 270 38Q300 27 330 38Q375 57 378 140L327 166H273Z" fill="url(#${id}-fabric)" stroke="${shade}" stroke-width="4"/>
+    ${back ? `<path d="M301 35Q296 89 302 156" fill="none" stroke="${shade}" stroke-width="3"/>` : `<path d="M243 138Q237 79 270 60Q300 45 330 60Q363 79 357 138L321 154H279Z" fill="${shade}" stroke="${light}" stroke-width="2"/><path d="M267 149Q265 183 271 205M333 149Q335 183 329 205" fill="none" stroke="${light}" stroke-width="3" stroke-linecap="round"/><path d="M247 334Q239 352 225 371V398Q300 413 375 398V371Q361 352 353 334Z" fill="${fabric}" stroke="${shade}" stroke-width="2.5"/><path d="M231 392Q300 405 369 392" fill="none" stroke="${light}" stroke-width="1.5"/>`}
+    <svg x="${back ? 192 : 200}" y="${back ? 178 : 172}" width="${back ? 216 : 200}" height="${back ? 216 : 177}" viewBox="${art.viewBox}">${art.content}</svg>`;
   } else {
     const back = placement === 'back';
-    body = `<ellipse cx="300" cy="471" rx="209" ry="23" fill="url(#${id}-shadow)"/><path d="M208 66 251 51Q300 72 349 51L392 66 486 133 446 224 387 195 395 440Q300 458 205 440L213 195 154 224 114 133Z" fill="url(#${id}-fabric)" stroke="${shade}" stroke-width="2"/><path d="M208 66 234 135M392 66 366 135M214 191 207 423M386 191 393 423M125 140 159 211M475 140 441 211M211 429Q300 444 389 429" fill="none" stroke="${shade}" stroke-width="2" opacity=".7"/><path d="M220 196 213 418M380 196 387 418M134 143 164 206M467 143 437 206M212 433Q300 448 388 433" fill="none" stroke="${light}" stroke-width="1.6" opacity=".75"/><path d="M251 51Q300 ${back ? 69 : 125} 349 51L340 49Q300 ${back ? 62 : 103} 260 49Z" fill="${shade}"/><path d="M253 57Q300 ${back ? 77 : 130} 347 57" fill="none" stroke="${light}" stroke-width="2"/><path d="M222 164Q236 240 222 326M377 168Q363 249 380 325" fill="none" stroke="${shade}" stroke-width="8" opacity=".11"/><svg x="${back ? 224 : 306}" y="${back ? 126 : 131}" width="${back ? 153 : 67}" height="${back ? 207 : 78}" viewBox="${art.viewBox}" preserveAspectRatio="xMidYMid meet">${art.content}</svg>`;
+    const sample = brand.previewOnly && brand.businessName === 'Taylor’s Yard Crew';
+    body = `<ellipse cx="300" cy="471" rx="209" ry="23" fill="url(#${id}-shadow)"/><path d="M209 69 252 53Q300 65 348 53L391 69Q409 76 423 88L478 130 442 221 382 197Q381 300 392 438Q300 455 208 438Q219 300 218 197L158 221 122 130 177 88Q191 76 209 69Z" fill="url(#${id}-fabric)" stroke="${shade}" stroke-width="2"/><path d="M208 66 234 135M392 66 366 135M214 191 207 423M386 191 393 423M125 140 159 211M475 140 441 211M211 429Q300 444 389 429" fill="none" stroke="${shade}" stroke-width="2" opacity=".7"/><path d="M220 196 213 418M380 196 387 418M134 143 164 206M467 143 437 206M212 433Q300 448 388 433" fill="none" stroke="${light}" stroke-width="1.6" opacity=".75"/><path d="M251 51Q300 ${back ? 69 : 125} 349 51L340 49Q300 ${back ? 62 : 103} 260 49Z" fill="${shade}"/><path d="M253 57Q300 ${back ? 77 : 130} 347 57" fill="none" stroke="${light}" stroke-width="2"/><path d="M222 164Q236 240 222 326M377 168Q363 249 380 325" fill="none" stroke="${shade}" stroke-width="8" opacity=".11"/><svg x="${back || sample ? 197 : 306}" y="${back || sample ? 145 : 131}" width="${back || sample ? 206 : 67}" height="${back || sample ? 206 : 78}" viewBox="${art.viewBox}" preserveAspectRatio="xMidYMid meet">${art.content}</svg>`;
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" role="img" aria-label="${escapeGearSVG(cloth.name + ' ' + garment + ' with ' + brand.businessName + (garment === 'shirt' ? ', ' + (placement === 'back' ? 'large back design' : 'compact chest mark') : ''))}"><title>${escapeGearSVG(brand.businessName + ' ' + garment + ' preview')}</title>${defs}${body}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" role="img" aria-label="${escapeGearSVG(cloth.name + ' ' + garment + ' with ' + brand.businessName + (['shirt', 'hoodie'].includes(garment) ? ', ' + (placement === 'back' ? 'large back design' : garment === 'hoodie' || (brand.previewOnly && brand.businessName === 'Taylor’s Yard Crew') ? 'front chest design' : 'compact chest mark') : ''))}"><title>${escapeGearSVG(brand.businessName + ' ' + garment + ' preview')}</title>${defs}${body}</svg>`;
 }
 export function gearFilename(input = {}, options = {}, extension = 'png') {
   const brand = normalizeGearBrand(input), selection = normalizeSelection(options);
   const stem = brand.businessName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || 'my-business';
-  return `${stem}-${selection.garment}-${selection.style}${selection.garment === 'shirt' ? '-' + selection.placement : ''}${selection.operator && brand.operatorUnlocked ? '-operator' : ''}.${extension === 'svg' ? 'svg' : 'png'}`;
+  return `${stem}-${selection.garment}-${selection.style}${['shirt', 'hoodie'].includes(selection.garment) ? '-' + selection.placement : ''}${selection.operator && brand.operatorUnlocked ? '-operator' : ''}.${extension === 'svg' ? 'svg' : 'png'}`;
 }
 
 function element(tag, className, text) {
@@ -282,20 +292,23 @@ export function openGearStudio(props = {}) {
   const business = element('p', 'hbgear-business', brand.businessName); heading.append(title, business);
   const closeButton = button('×', 'hbgear-close'); closeButton.setAttribute('aria-label', 'Close My Business Gear');
   header.append(heading, closeButton); inner.append(header);
+  const teaser = element('div', 'hbgear-coming-soon');
+  teaser.append(element('strong', '', 'Coming Soon'), element('span', '', 'Printed T-shirts and hoodies aren’t available to order yet.'));
+  inner.append(teaser);
   inner.append(element('p', 'hbgear-intro', 'Make it yours. Try a look, then keep the artwork — every preview and download is free.'));
   if (brand.previewOnly) inner.append(element('p', 'hbgear-draft-note', 'Preview from this device’s draft. A parent can open My Business Gear for saved job milestones.'));
 
   const content = element('div', 'hbgear-content');
   const previewArea = element('section', 'hbgear-preview-area'); previewArea.setAttribute('aria-label', 'Gear previews');
   const previewGrid = element('div', 'hbgear-preview-grid'), previewCards = {};
-  for (const garment of ['shirt', 'cap']) {
+  for (const garment of ['shirt', 'hoodie']) {
     const card = element('figure', 'hbgear-preview-card hbgear-preview-' + garment), stage = element('div', 'hbgear-garment');
     const caption = element('figcaption', 'hbgear-preview-caption');
-    caption.append(element('strong', '', garment === 'shirt' ? 'The everyday tee' : 'The crew cap'));
+    caption.append(element('strong', '', garment === 'shirt' ? 'The everyday tee' : 'The crew hoodie'));
     const placement = element('span', '', ''); caption.append(placement);
     card.append(stage, caption); previewGrid.append(card); previewCards[garment] = { stage, placement };
   }
-  previewArea.append(previewGrid, element('p', 'hbgear-preview-note', 'Design previews. The printer confirms the garment, color, fit, and artwork placement.'));
+  previewArea.append(previewGrid, element('p', 'hbgear-preview-note', 'Design previews only. Actual garment colors and placement may vary.'));
 
   if (!brand.previewOnly) {
     const milestone = element('section', 'hbgear-milestone');
@@ -326,12 +339,11 @@ export function openGearStudio(props = {}) {
     pick.setAttribute('aria-label', item.name); pick.title = item.name; pick.append(element('span', 'hbgear-swatch-tick', '✓'));
     pick.addEventListener('click', () => { selection.color = item.id; render(); }); colorList.append(pick); colorButtons.push(pick);
   }
-  const placements = fieldset('3. Place your shirt design'), placementList = element('div', 'hbgear-segment'), placementButtons = []; placements.append(placementList);
-  for (const [value, label] of [['compact', 'Compact chest mark'], ['back', 'Large back design']]) {
+  const placements = fieldset('3. Place your design'), placementList = element('div', 'hbgear-segment'), placementButtons = []; placements.append(placementList);
+  for (const [value, label] of [['compact', brand.previewOnly && brand.businessName === 'Taylor’s Yard Crew' ? 'Front chest design' : 'Front chest mark'], ['back', 'Large back design']]) {
     const pick = button(label); pick.dataset.gearPlacement = value; pick.addEventListener('click', () => { selection.placement = value; render(); });
     placementList.append(pick); placementButtons.push(pick);
   }
-  placements.append(element('p', 'hbgear-help', 'The cap gets a simple, bold version of your mark.'));
   if (brand.operatorUnlocked) {
     const label = element('label', 'hbgear-check'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.dataset.gearOperator = 'true';
     label.append(check, element('span', '', 'Add my free Operator detail'));
@@ -342,9 +354,9 @@ export function openGearStudio(props = {}) {
   const downloads = element('section', 'hbgear-downloads'), downloadHeading = element('div', 'hbgear-section-heading');
   downloadHeading.append(element('h3', '', 'Keep your design'), element('p', '', 'Transparent artwork, ready to share with a printer.')); downloads.append(downloadHeading);
   const downloadGrid = element('div', 'hbgear-download-grid'), downloadButtons = [];
-  for (const garment of ['shirt', 'cap', ...(brand.operatorUnlocked ? ['badge'] : [])]) {
+  for (const garment of ['shirt', 'hoodie', ...(brand.operatorUnlocked ? ['badge'] : [])]) {
     const box = element('div', 'hbgear-download-card');
-    box.append(element('h4', '', garment === 'shirt' ? 'Shirt artwork' : garment === 'cap' ? 'Cap artwork' : 'Your Operator badge'));
+    box.append(element('h4', '', garment === 'shirt' ? 'Shirt artwork' : garment === 'hoodie' ? 'Hoodie artwork' : 'Your Operator badge'));
     const size = gearExportSize(garment); box.append(element('p', '', `${size.width.toLocaleString('en-US')} × ${size.height.toLocaleString('en-US')} px · transparent PNG`));
     const actions = element('div', 'hbgear-download-actions');
     for (const extension of ['png', 'svg']) {
@@ -354,19 +366,8 @@ export function openGearStudio(props = {}) {
     }
     box.append(actions); downloadGrid.append(box);
   }
-  downloads.append(downloadGrid, element('p', 'hbgear-print-note', 'Cap files use one solid ink and bold lettering. Ask the printer to review letter size, thread colors, and digitization before embroidery. PNG and SVG artwork are not embroidery stitch files.'));
+  downloads.append(downloadGrid);
   const status = element('p', 'hbgear-status', 'Preparing your print fonts…'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); downloads.append(status); inner.append(downloads);
-
-  if (props.canShop === true && !brand.previewOnly) {
-    const handoff = element('section', 'hbgear-handoff'), copy = element('div');
-    copy.append(element('h3', '', 'Want to make it real?'), element('p', '', 'A parent can download the PNG, choose a garment at a printer, and upload the artwork. Check the final size, colors, price, and delivery before ordering. Buying gear is optional and never changes your progress.'));
-    const links = element('div', 'hbgear-print-links');
-    for (const [garment, label] of [['shirt', 'Shirts at Printful ↗'], ['cap', 'Embroidered hats at Printful ↗']]) {
-      const link = element('a', 'hbgear-vendor-link', label); link.href = GEAR_PRINT_LINKS[garment]; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer'; links.append(link);
-    }
-    copy.append(element('p', 'hbgear-help', 'Opens a separate website. Upload required; your artwork is not sent automatically. You can also use your own local print shop.'));
-    handoff.append(copy, links); inner.append(handoff);
-  } else inner.append(element('p', 'hbgear-parent-note', 'Your downloads are free. If you want printed gear, ask a parent to choose a printer with you.'));
 
   if (props.canManagePreference === true && !brand.previewOnly && typeof props.onPreferenceChange === 'function') {
     const preference = element('section', 'hbgear-preference'), label = element('label', 'hbgear-check'), input = document.createElement('input');
@@ -392,9 +393,9 @@ export function openGearStudio(props = {}) {
 
   function render() {
     if (closed) return;
-    for (const garment of ['shirt', 'cap']) {
+    for (const garment of ['shirt', 'hoodie']) {
       showSVG(previewCards[garment].stage, buildGearPreviewSVG(brand, { ...selection, garment, idPrefix: uid }));
-      previewCards[garment].placement.textContent = garment === 'cap' ? 'Front · simple embroidery artwork' : selection.placement === 'back' ? 'Back · large design' : 'Front · compact chest mark';
+      previewCards[garment].placement.textContent = selection.placement === 'back' ? 'Back · large design' : garment === 'hoodie' || (brand.previewOnly && brand.businessName === 'Taylor’s Yard Crew') ? 'Front · center chest' : 'Front · compact chest mark';
     }
     for (const pick of styleButtons) pick.setAttribute('aria-pressed', String(pick.dataset.gearStyle === selection.style));
     for (const pick of colorButtons) pick.setAttribute('aria-pressed', String(pick.dataset.gearColor === selection.color));
@@ -414,7 +415,7 @@ export function openGearStudio(props = {}) {
       const result = await saveDownload(gearFilename(brand, chosen, extension), blob, props.saveFile);
       if (closed) return;
       if (result?.ok === false) status.textContent = result.declined ? 'Download canceled. Your design is still here.' : 'The file could not be saved. Please try again.';
-      else status.textContent = `${garment === 'badge' ? 'Operator badge' : garment === 'cap' ? 'Cap artwork' : 'Shirt artwork'} download prepared. Check your downloads or save prompt.`;
+      else status.textContent = `${garment === 'badge' ? 'Operator badge' : garment === 'hoodie' ? 'Hoodie artwork' : 'Shirt artwork'} download prepared. Check your downloads or save prompt.`;
     } catch (error) { if (!closed) status.textContent = error instanceof Error ? error.message : 'The download could not be prepared. Please try again.'; }
     finally { busy = false; if (!closed) for (const action of downloadButtons) action.disabled = false; }
   }
