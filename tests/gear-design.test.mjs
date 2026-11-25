@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {
   normalizeGearBrand, gearMonogram, gearInkColors, gearFontFaces,
   buildGearArtworkSVG, buildGearPreviewSVG, gearFilename, gearExportSize,
-  GEAR_COLORS, GEAR_STYLES, GEAR_PRINT_LINKS
+  GEAR_COLORS, GEAR_STYLES
 } from '../assets/gear-studio.mjs';
 
 const base = Object.freeze({ businessName: 'Drew’s Reading Corner', firstName: 'Drew', accent: '#245B45', font: 'workwear', tagline: 'A little practice. A lot of progress.', completedJobs: 3 });
@@ -21,7 +21,7 @@ test('every style prints the full business name safely, including punctuation, U
     'お庭のヘルパー',
     'ExtremelyLongUnbrokenBusinessNameThatStillMustAppearInFull'
   ];
-  for (const name of names) for (const {id:style} of GEAR_STYLES) for (const garment of ['shirt', 'cap', 'badge']) {
+  for (const name of names) for (const {id:style} of GEAR_STYLES) for (const garment of ['shirt', 'hoodie', 'cap', 'badge']) {
     const svg = buildGearArtworkSVG({...base, businessName:name}, {style, garment, operator:true});
     assert.equal(printedName(svg), name, `${style} ${garment}`);
     assert.doesNotMatch(svg, /<Wash>|<script|<foreignObject|\bonload=|\bonerror=/i);
@@ -140,14 +140,18 @@ test('exports embed existing local fonts and licenses without accepting arbitrar
   }
 });
 
-test('printer handoff uses fixed official upload pages without checkout parameters', () => {
-  for (const url of Object.values(GEAR_PRINT_LINKS)) {
-    const parsed = new URL(url);
-    assert.equal(parsed.origin,'https://www.printful.com'); assert.equal(parsed.search,''); assert.equal(parsed.hash,'');
-    assert.doesNotMatch(parsed.pathname,/checkout|order|cart/);
+test('the Taylor preview uses the same readable Yard Crew mark on a tee and hoodie', () => {
+  const sample = { businessName: "Taylor's Yard Cleanup", previewOnly: true };
+  const saved = normalizeGearBrand({ ...sample, previewOnly: false });
+  assert.equal(saved.businessName, "Taylor's Yard Cleanup");
+  for (const garment of ['shirt', 'hoodie']) {
+    const preview = buildGearPreviewSVG(sample, { garment });
+    assert.match(preview, /TAYLOR’S/);
+    assert.match(preview, /YARD CREW/);
+    assert.match(preview, new RegExp(garment + ' with Taylor’s Yard Crew'));
+    assert.doesNotMatch(preview, /https?:\/\/(?:www\.)?(?:printful|twoseammerch)\.com/);
   }
-  assert.equal(GEAR_PRINT_LINKS.cap,'https://www.printful.com/custom-embroidered-hats');
-  assert.equal(GEAR_PRINT_LINKS.shirt,'https://www.printful.com/make-your-own-shirt');
+  assert.notEqual(buildGearPreviewSVG(sample,{garment:'hoodie'}),buildGearPreviewSVG(sample,{garment:'shirt'}));
 });
 
 test('font readiness resolves the real builder import stylesheet into embedded base faces and preserves the selected font', async () => {

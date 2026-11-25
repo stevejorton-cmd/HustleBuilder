@@ -89,8 +89,8 @@ try{
   await click(parent,'[data-gear-download="shirt-svg"]');
   const svg=(await downloaded(gearFilename(brand,{...artOptions,garment:'shirt'},'svg'))).toString();
   assert.match(svg,/Riley Yard Crew/);assert.match(svg,/HB-anton/);assert.match(svg,/data:font\/woff2;base64,/);assert.doesNotMatch(svg,/Quinn Pet Club|gear-neighbor-parent|api\/job|api\/booking/);
-  await click(parent,'[data-gear-download="cap-png"]');
-  const png=await downloaded(gearFilename(brand,{...artOptions,garment:'cap'},'png')),size=gearExportSize('cap');
+  await click(parent,'[data-gear-download="hoodie-png"]');
+  const png=await downloaded(gearFilename(brand,{...artOptions,garment:'hoodie'},'png')),size=gearExportSize('hoodie');
   assert.equal(png.readUInt32BE(16),size.width);assert.equal(png.readUInt32BE(20),size.height);
   const raster=await parent.evaluate(async encoded=>{const img=new Image();await new Promise((yes,no)=>{img.onload=yes;img.onerror=no;img.src='data:image/png;base64,'+encoded;});const canvas=document.createElement('canvas');canvas.width=img.width;canvas.height=img.height;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;let ink=false;for(let i=3;i<pixels.length;i+=388){if(pixels[i]){ink=true;break;}}return {corner:pixels[3],ink};},png.toString('base64'));
   assert.equal(raster.corner,0);assert.equal(raster.ink,true);
@@ -136,7 +136,8 @@ try{
   const afterReplay=await api('/api/test/outbox?email='+encodeURIComponent(email));assert.equal(afterReplay.messages.filter(m=>/earned Operator/.test(m.subject)).length,1);
   await click(parent,'#myBusinessGear');await parent.waitForSelector('[data-gear-business="'+riley.id+'"]');await click(parent,'[data-gear-business="'+riley.id+'"]');await parent.waitForSelector('[data-gear-download="badge-svg"]:not([disabled])');
   assert.match(await parent.$eval('.hbgear-milestone',el=>el.textContent),/Operator unlocked/);
-  assert.match(await parent.$eval('.hbgear-handoff',el=>el.textContent),/Upload required|upload the artwork/);
+  assert.match(await parent.$eval('.hbgear-coming-soon',el=>el.textContent),/Coming Soon/);
+  assert.equal(await parent.$('dialog.hbgear a[href],.hbgear-preview-cap,[data-gear-download^="cap-"]'),null);
   pass('three parent-Done jobs unlock free Operator artwork and queue one opted-in parent email, with sibling progress unchanged');
 
   const inquiry=await pageFor(customerContext,'/gear-quinn');await submit(inquiry,'a[href="/api/inquiry/gear-quinn"]');
@@ -153,6 +154,9 @@ try{
   pass('a public question and immediate follow-up stay private and create no booking; kid access does not expose inquiries or parent controls');
 
   await click(kid,'#mFlyers');await click(kid,'#previewBusinessGear');await kid.waitForSelector('dialog.hbgear[open]');
+  assert.ok(await kid.$('.hbgear-preview-hoodie'));
+  assert.match(await kid.$eval('.hbgear-coming-soon',el=>el.textContent),/Coming Soon/);
+  assert.equal(await kid.$('dialog.hbgear a[href],.hbgear-preview-cap'),null);
   assert.ok(await kid.$('.hbgear-draft-note'));assert.equal(await kid.$('.hbgear-handoff,[data-gear-email-opt-in],.hbgear-milestone'),null);await click(kid,'.hbgear-close');
   assert.equal(await kid.$eval('#previewBusinessGear',el=>document.activeElement===el),true);
   pass('draft preview offers free downloads, restores focus, and keeps parent shopping and email settings out of the child view');
