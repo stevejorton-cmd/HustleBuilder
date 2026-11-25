@@ -24,7 +24,18 @@ test('deletion removes customer data, cancellation capabilities and queued mail'
 test('maintenance sweeps old request and capability data without requiring the family to visit',async()=>{const p=await parent();await live(p);await call('/api/book',book('expiry'));const key='requests/'+p.id+'.json',rows=JSON.parse(await base.get(key));rows[0].createdAt='2020-01-01T00:00:00Z';if(rows[0].calJob)rows[0].calJob.start='2020-01-02T09:00';if(rows[0].invite)rows[0].invite.start='2020-01-02T09:00';await base.put(key,JSON.stringify(rows));const cron=await call('/api/cron/renewals',{},null,'GET',{authorization:'Bearer placeholder'});assert.equal(cron.status,200);assert.equal(JSON.parse(await base.get(key)).length,0);assert.equal(await base.get('jobact/'+rows[0].actionToken),null);assert.equal(await base.get('cancels/'+rows[0].cancelToken+'.json'),null);});
 test('request body limits apply while streaming rather than after buffering',async()=>{async function* tooBig(){yield Buffer.alloc(1_100_001);yield Buffer.alloc(1_100_001);throw Error('must not read beyond cap');}await assert.rejects(()=>readBody(tooBig()),e=>e.status===413);});
 test('unexpected storage failures return a bounded 503 without secret details',async()=>{setStore({async get(){throw Error('private-database-connection-string');}});const r=await call('/api/me',{},'0'.repeat(64),'GET');assert.equal(r.status,503);assert.ok(!r.body.includes('private-database'));});
-test('production refuses the dev-only file adapter and honors maintenance mode',async()=>{setStore(null);process.env.PUBLISH_TEST_MODE='0';const saved=process.env.DATABASE_URL,blob=process.env.BLOB_READ_WRITE_TOKEN;delete process.env.DATABASE_URL;delete process.env.BLOB_READ_WRITE_TOKEN;try{assert.equal((await call('/api/plans',{},null,'GET')).status,503);process.env.HB_MAINTENANCE_MODE='1';assert.equal((await call('/api/auth/start',{email:'parent@example.com'})).json.error,'maintenance');}finally{if(saved)process.env.DATABASE_URL=saved;if(blob)process.env.BLOB_READ_WRITE_TOKEN=blob;}});
+test('production refuses dev storage for persisted routes and honors maintenance even for guest reads',async()=>{
+ setStore(null); process.env.PUBLISH_TEST_MODE='0';
+ const saved=process.env.DATABASE_URL,blob=process.env.BLOB_READ_WRITE_TOKEN;
+ delete process.env.DATABASE_URL; delete process.env.BLOB_READ_WRITE_TOKEN;
+ try{
+  assert.equal((await call('/api/plans',{},null,'GET')).status,200);
+  assert.equal((await call('/api/auth/start',{email:'parent@example.com'})).status,503);
+  process.env.HB_MAINTENANCE_MODE='1';
+  assert.equal((await call('/api/plans',{},null,'GET')).json.error,'maintenance');
+  assert.equal((await call('/api/auth/start',{email:'parent@example.com'})).json.error,'maintenance');
+ }finally{if(saved)process.env.DATABASE_URL=saved;if(blob)process.env.BLOB_READ_WRITE_TOKEN=blob;}
+});
 test('a completed payment clears its pending checkout so a later renewal can start',async()=>{
  const p=await parent(),key='accounts/'+p.id+'.json';const a=JSON.parse(await base.get(key));
  a.checkoutSessionId='cs_renew';a.checkoutPlan='year';await base.put(key,JSON.stringify(a));process.env.STRIPE_WEBHOOK_SECRET='placeholder';
