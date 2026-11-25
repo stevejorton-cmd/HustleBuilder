@@ -2206,7 +2206,7 @@ test("each business type preloads starter jobs", async () => {
   if (start < 0 || end < 0) throw new Error("missing starter jobs");
   const api = runInNewContext(src.slice(start, end) + "({starterServices, svcSwitch})");
   const { starterServices, svcSwitch } = api;
-  for (const type of ["lawn", "snow", "pet", "prep", "wash", "odd", "help", "tutor", "both"]) {
+  for (const type of ["lawn", "snow", "pet", "wash", "odd", "help", "tutor", "both"]) {
     const jobs = starterServices(type, 1);
     assert.ok(jobs.length >= 4, type + " preloaded " + jobs.length);
     assert.equal(new Set(jobs.map((job) => job.n.toLowerCase())).size, jobs.length);
@@ -2217,12 +2217,10 @@ test("each business type preloads starter jobs", async () => {
   assert.ok(lawn.includes("Mow a small yard"));
   assert.ok(lawn.includes("Weeding"));
   const prep = starterServices("prep", 1);
-  assert.equal(prep.find((job) => job.n === "Yard cleanup, small").p, "15");
-  assert.equal(prep.find((job) => job.n === "Yard cleanup, medium").p, "25");
-  assert.equal(prep.find((job) => job.n === "Yard cleanup, large").p, "40");
-  assert.equal(prep.some((job) => /gutter/i.test(job.n)), false);
-  assert.ok(prep.some((job) => job.n === "Clear dead plants"));
-  assert.ok(prep.some((job) => job.n === "Cover outdoor faucets"));
+  assert.equal(prep.map((job) => job.n).join(" | "), "Leaf raking | Dead flower/plant removal");
+  assert.equal(prep[0].p, "12");
+  assert.equal(prep[1].p, "12");
+  assert.equal(prep.some((job) => /gutter|ladder|hedge|faucet|hose/i.test(job.n)), false);
   assert.equal(prep.some((job) => job.n === "Shovel walks and driveway"), false);
   assert.equal(starterServices("lawn", 1)[0].p, "10");
   assert.equal(starterServices("lawn", 5)[0].p, "15"); // softened curve (Steven, 2026-11-07): L5 = base x1.48

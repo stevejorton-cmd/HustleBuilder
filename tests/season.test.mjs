@@ -152,11 +152,14 @@ test("fall wording keeps snow strings for snow mode and hides the shovel starter
   };
   const fallJobs = run("fall");
   const snowJobs = run("snow");
-  assert.equal(fallJobs.some((job) => job.n === "Shovel walks and driveway"), false);
+  assert.equal(fallJobs.map((job) => job.n).join(" | "), "Leaf raking | Dead flower/plant removal");
+  assert.equal(fallJobs[0].p, "12");
+  assert.equal(fallJobs[1].p, "12");
+  assert.equal(fallJobs.some((job) => /hedge|faucet|hose|gutter|ladder|shovel/i.test(job.n)), false);
   const shovel = snowJobs.find((job) => job.n === "Shovel walks and driveway");
   assert.equal(shovel.p, "15");
-  assert.equal(fallJobs.find((job) => job.n === "Yard cleanup, small").p, "15");
   assert.equal(snowJobs.find((job) => job.n === "Yard cleanup, large").p, "40");
+  assert.equal(snowJobs.some((job) => job.n === "Trim small hedges" || job.n === "Cover outdoor faucets" || job.n === "Put away hoses and furniture"), false);
   const names = html.slice(html.indexOf("const PREP_FALL_NAMES="), html.indexOf("function prepIdea("));
   assert.match(names, /\{F\}’s Winter Prep/);
   assert.match(names, /\{F\}’s Yard Cleanup/);
