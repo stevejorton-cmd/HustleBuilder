@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-core';
-import {spawn} from 'node:child_process';import {mkdtemp,rm,writeFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import assert from 'node:assert/strict';
 const root=new URL('../',import.meta.url).pathname,dir=await mkdtemp(tmpdir()+'/hb-browser-'),port=18978,base='http://127.0.0.1:'+port;
 const child=spawn(process.execPath,['host/dev-server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),HB_STORE_DIR:dir,PUBLISH_TEST_MODE:'1',PAYWALL_MODE:'test',PUBLIC_ORIGIN:base},stdio:['ignore','pipe','pipe']});
 let browser;const results=[];
@@ -21,13 +21,28 @@ try{
  const booking=await site.evaluate(async base=>{const r=await fetch(base+'/api/book',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({requestId:'browser-probe-request',slug:'isolated-yard',name:'Neighbor',contact:'4025550199',service:'Mow',when:'Tomorrow',address:'123 Test Lane',t:5000})});return {status:r.status,body:await r.json()};},base);assert.equal(booking.status,200);assert.equal(booking.body.ok,true);results.push({name:'opaque-origin page successfully books through restricted CORS',pass:true});
  const ask=await post('/api/ask',{email:'other@example.com',first:'Sam',biz:'Sam’s Yard'});const parent=await browser.newPage();await parent.goto(base+'/?ask='+ask.token);await parent.waitForSelector('#askInviteNotice:not([hidden])');
  const state=await parent.evaluate(()=>({notice:document.querySelector('#askInviteNotice').textContent,hidden:document.querySelector('#pubBox').hidden}));assert.equal(state.hidden,true);assert.match(state.notice,/device where they built it/);results.push({name:'invitation on another device explains how to review the original draft',pass:true});
- // Each type is walked at phone width through every builder step. This is a functionality sweep, not a full design audit.
- const types=['lawn','snow','both','pet','odd','wash','help','tutor','other'];
- for(const type of types){
-  const p=await browser.newPage();await p.setViewport({width:390,height:844});const errors=[];p.on('pageerror',e=>errors.push(String(e)));
-  await p.goto(base);await dismissIntro(p);const selector='button.tile[data-type="'+type+'"]';assert.ok(await p.$(selector),'missing type: '+type);
-  await p.select('#stepJump','0');await p.click(selector);for(let step=0;step<7;step++){await p.click('#next');}
-  await p.waitForSelector('#pubEmail');assert.equal(errors.length,0,errors.join('\n'));const width=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));assert.ok(width.scroll<=width.client+2,type+' overflow');results.push({name:'phone builder step sweep: '+type,pass:true});await p.close();
+ // Sweep both supported seasonal pickers at phone width without changing the shipped season.
+ const seasonSource=await readFile(new URL('../config/season.js',import.meta.url),'utf8');
+ const shippedSeason=seasonSource.match(/^const SEASON = "(fall|snow)";$/m)?.[1];
+ assert.ok(shippedSeason,'unknown deployed season');
+ const seasonalTypes={fall:['prep','lawn','pet'],snow:['snow','lawn','both','pet','prep']};
+ const sharedTypes=['odd','wash','help','tutor','other'];
+ for(const [season,seasonal] of Object.entries(seasonalTypes)){
+  for(const type of [...seasonal,...sharedTypes]){
+   const p=await browser.newPage();await p.setViewport({width:390,height:844});const errors=[];p.on('pageerror',e=>errors.push(String(e)));
+   if(season!==shippedSeason){
+    await p.setBypassServiceWorker(true);
+    await p.setRequestInterception(true);
+    p.on('request',request=>request.url()===base+'/config/season.js'
+      ?request.respond({status:200,contentType:'application/javascript',body:seasonSource.replace(/^const SEASON = "(fall|snow)";$/m,'const SEASON = "'+season+'";')})
+      :request.continue());
+   }
+   await p.goto(base);await dismissIntro(p);await p.select('#stepJump','0');
+   assert.deepEqual(await p.$$eval('#tiles button.tile',tiles=>tiles.map(el=>el.dataset.type)),seasonal,season+' main picker');
+   const selector='button.tile[data-type="'+type+'"]';assert.ok(await p.$(selector),'missing '+season+' type: '+type);
+   await p.click(selector);for(let step=0;step<7;step++){await p.click('#next');}
+   await p.waitForSelector('#pubEmail');assert.equal(errors.length,0,errors.join('\n'));const width=await p.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));assert.ok(width.scroll<=width.client+2,type+' overflow');results.push({name:'phone builder step sweep: '+season+'/'+type,pass:true});await p.close();
+  }
  }
  const anonymousContext=await browser.createBrowserContext();
  const offline=await anonymousContext.newPage();const offlineErrors=[];offline.on('pageerror',e=>offlineErrors.push(String(e)));await offline.goto(base,{waitUntil:'networkidle0'});await dismissIntro(offline);
