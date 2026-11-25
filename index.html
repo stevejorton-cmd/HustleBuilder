@@ -334,6 +334,11 @@ body.soft .hours-quick button{border-radius:999px}
 .stage .bar .btn{color:var(--ink);border-color:var(--line)}
 .phone{flex:1;min-height:0;position:relative}
 .phone iframe{display:block;width:100%;height:100%;border:0;background:var(--bg)}
+/* Phones give a flex child no usable height, so a sandboxed preview frame stays blank. */
+@media(max-width:959px){
+  .shell.sheet .phone{flex:1 1 auto;height:0;min-height:0}
+  .shell.sheet .phone iframe{position:absolute;left:0;top:0;width:100%;height:100%;transform:translateZ(0)}
+}
 .caption{display:none}
 
 @media (min-width:960px){
@@ -770,7 +775,14 @@ html.hb-skip-parents #forParents,#forParents[hidden]{display:none}
 .parents-example p{color:#d7e0d4;margin:4px 0}
 #parentsKid{margin-top:18px}
 html.parents-only .shell,html.parents-only header.top,html.parents-only .nav,html.parents-only #boss,html.parents-only #flyers,html.parents-only #intro,html.parents-only #offlineNote{display:none !important}
-@media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}}
+@media(max-width:699px){.top .brand .word{font-size:22px}.top .modes button{font-size:16px;padding-left:12px;padding-right:12px}.step h2{font-size:clamp(40px,12vw,58px)}.step-tools{gap:8px}.step-jump select{max-width:195px;font-size:13px}.intro{padding:10px;align-items:center}.intro-card{border-radius:18px;padding:14px 18px 16px;max-height:calc(100dvh - 20px)}.intro-card #introTitle{font-size:31px;margin:8px 0}.intro-eyebrow{font-size:9px;letter-spacing:.08em}.intro #introSubtitle{font-size:14px;margin-bottom:14px}.example-tabs{display:flex;gap:5px;margin-bottom:12px}.example-tabs button{flex:1;border:1px solid #cdd3c7;border-radius:8px;background:#fff;color:#314334;min-height:44px;font:700 12px Barlow,system-ui;padding:7px 3px}.example-tabs button[aria-selected=true]{background:#173d2d;color:#fff;border-color:#173d2d}.example-grid{display:block}.example-card{display:none}.example-card.example-active{display:block}.example-label{font-size:15px;margin-bottom:8px}.example-site,.example-paper,.example-payment{height:276px}.example-art{height:50px}.example-site-body{padding:8px 16px}.example-site h3{font-size:24px}.example-site p{margin:5px 0}.example-rate{padding:3px 0;line-height:1.2}.example-payment{padding:10px 18px}.example-payment p{margin:5px 0}.example-payment .example-pay-note{margin:4px 0 6px}.example-pay-rule{padding-top:6px;font-size:10px;line-height:1.3}.example-pay-check{margin:6px 0 0;width:32px;height:32px;line-height:32px}.example-amount{font-size:38px}.example-caption{font-size:13px;margin-top:9px}.example-disclaimer{font-size:10px;margin:12px 0}.intro-footer{display:block;padding-top:12px}.intro-footer .btn{width:100%}.intro-footer p{text-align:center;font-size:10px}.intro-remember{justify-content:center;min-height:34px;margin-top:3px;font-size:11px}
+  .intro{padding:8px;align-items:stretch}
+  .intro-card{display:flex;flex-direction:column;height:calc(100dvh - 16px);max-height:calc(100dvh - 16px);overflow:hidden;padding:12px 14px 10px}
+  .intro-card .example-grid{flex:1 1 auto;min-height:0;overflow:auto}
+  .example-disclaimer{margin:8px 0}
+  .intro-footer{flex:none;padding-top:8px}
+  .example-site{height:210px}
+}
 #accountScreen:not([hidden])~#missing,#accountScreen:not([hidden])~#launchPitch,#accountScreen:not([hidden])~#pubBox #askCopy{display:none !important}
 /* Disclosure labels wrap while the caret keeps its own space. */
 details.help>summary,.lg>summary{display:flex;align-items:center;gap:12px;list-style:none;overflow-wrap:anywhere;min-height:44px}
@@ -2541,7 +2553,7 @@ const PRESETS={
   wash:[["Wash the outside",[10,11,12,14,15]],["Wash and vacuum",[15,17,19,20,22]],["Rims and windows",[8,9,10,11,12]],["Dry and shine",[6,7,7,8,9]],["Vacuum the inside",[8,9,10,11,12]]],
   help:[["Playtime helper, 1 hour",[10,11,12,14,15]],["Tidy toys",[6,7,7,8,9]],["Snack helper",[5,6,6,7,7]],["Reading together",[8,9,10,11,12]],["Set the table",[4,4,5,5,6]],["Bring in the mail",[3,3,4,4,4]]],
   tutor:[["Reading together, 30 minutes",[10,11,12,14,15]],["Homework helper, 30 minutes",[12,13,15,16,18]],["Practice spelling",[8,9,10,11,12]],["Read a chapter",[8,9,10,11,12]],["Flash cards",[6,7,7,8,9]]],
-  prep:[["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Leaf raking, whole yard",[15,17,19,20,22]],["Trim small hedges",[12,13,15,17,18]],["Clear dead plants",[12,13,15,17,18]],["Cover outdoor faucets",[8,9,10,11,12]],["Put away hoses and furniture",[10,11,12,14,15]],["Shovel walks and driveway",[15,17,19,21,22]]],
+  prep:[["Leaf raking",[12,13,15,16,18]],["Dead flower/plant removal",[12,13,15,17,18]],["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Leaf raking, whole yard",[15,17,19,20,22]],["Clear dead plants",[12,13,15,17,18]],["Shovel walks and driveway",[15,17,19,21,22]]],
   other:[["My service",[10,11,12,14,15]]]
 };
 PRESETS.both=PRESETS.lawn.concat(PRESETS.snow).filter((row,i,all)=>all.findIndex(x=>x[0].toLowerCase()===row[0].toLowerCase())===i);
@@ -2565,7 +2577,7 @@ function starterServices(picked, level){
     const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
     (PRESETS[id]||PRESETS.other).forEach(row=>{
       const key=String(row[0]).toLowerCase();
-      if(id==="prep"&&!snowSeason&&key==="shovel walks and driveway")return;
+      if(id==="prep"&&!snowSeason&&key!=="leaf raking"&&key!=="dead flower/plant removal")return;
       if(seen[key])return;
       seen[key]=1;
       const price=Array.isArray(row[1])?row[1][Math.min(L,row[1].length)-1]:row[1];
@@ -2922,7 +2934,7 @@ function syncTypeCopy(){
     prepFront.querySelectorAll("[data-prep-snow]").forEach(el=>{el.hidden=!snowSeason;});
   }
   const tip=$("#extrasTipText");
-  if(tip){const ex={lawn:"like bagging or edging",both:"like bagging, edging, or salting",snow:"like clearing the walk or salting",pet:"like a longer visit or an extra pet",prep:"like hedge trimming or a larger yard",wash:"like vacuuming the inside or a dry and shine"}[S.type];
+  if(tip){const ex={lawn:"like bagging or edging",both:"like bagging, edging, or salting",snow:"like clearing the walk or salting",pet:"like a longer visit or an extra pet",prep:"like a larger leaf pile or more dead plants",wash:"like vacuuming the inside or a dry and shine"}[S.type];
     tip.textContent="Price tip: agree on what the base job includes. Charge for an extra only when it adds work"+(ex?", "+ex:"")+".";}
   renderPetPicks();
 }
@@ -2964,8 +2976,15 @@ $("#next").onclick=()=>{
   go(step+1);
 };
 $("#back").onclick=()=>go(step-1);
-$("#peek").onclick=()=>{refresh();shell.classList.add("sheet");};
-$("#closeSheet").onclick=()=>shell.classList.remove("sheet");
+function sizePhonePreview(){
+  if(!frame)return;
+  if(!shell.classList.contains("sheet")||window.matchMedia("(min-width:960px)").matches){frame.style.height="";return;}
+  const h=frame.parentElement?frame.parentElement.clientHeight:0;
+  if(h>0)frame.style.height=h+"px";
+}
+$("#peek").onclick=()=>{shell.classList.add("sheet");sizePhonePreview();refresh();};
+window.addEventListener("resize",sizePhonePreview);
+$("#closeSheet").onclick=()=>{shell.classList.remove("sheet");sizePhonePreview();};
 
 let timer;
 function applySavedVenmo(name){
@@ -3011,6 +3030,7 @@ async function refresh(){
   const embedded=await Promise.all(sources.map(async src=>[src,await previewArtData(src)]));
   if(revision!==previewRevision)return;
   const images=new Map(embedded);
+  if(typeof shell!=="undefined"&&shell.classList.contains("sheet"))sizePhonePreview();
   frame.srcdoc=html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g,(_,before,src,after)=>before+(images.get(src)||src)+after);
 }
 
@@ -3134,7 +3154,7 @@ const JOBS=[
  {g:"Snow jobs",t:"snow",items:[["Clear front steps and porch",[4,4,5,5,6]],["Clear the end of the driveway (plow pile)",[5,6,6,7,7]],["Clear around the mailbox",[3,3,4,4,4]],["Clear the back door and patio",[5,6,6,7,7]],["Clear a path to the trash cans",[3,3,4,4,4]],["Brush off and clear the car",[4,4,5,5,6]]]},
  {g:"Car jobs",t:"wash",items:[["Wash the outside",[8,9,10,11,12]],["Wash and vacuum",[12,13,15,16,18]],["Rims and windows",[6,7,7,8,9]],["Dry and shine",[5,6,6,7,7]],["Vacuum the inside",[6,7,7,8,9]],["Wash the car",[6,7,7,8,9]]]},
  {g:"Reading jobs",t:"tutor",items:[["Reading together, 30 minutes",[8,9,10,11,12]],["Homework helper, 30 minutes",[10,11,12,14,15]],["Practice spelling",[6,7,7,8,9]],["Read a chapter",[6,7,7,8,9]],["Flash cards",[5,6,6,7,7]]]},
- {g:"Winter prep jobs",t:"prep",items:[["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Trim small hedges",[12,13,15,17,18]],["Clear dead plants",[12,13,15,17,18]],["Cover outdoor faucets",[8,9,10,11,12]],["Put away hoses and furniture",[10,11,12,14,15]],["Shovel walks and driveway",[15,17,19,21,22]]]},
+ {g:"Winter prep jobs",t:"prep",items:[["Leaf raking",[12,13,15,16,18]],["Dead flower/plant removal",[12,13,15,17,18]],["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Leaf raking, whole yard",[15,17,19,20,22]],["Clear dead plants",[12,13,15,17,18]],["Shovel walks and driveway",[15,17,19,21,22]]]},
  {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,2,2,3,3]],["Bring in mail and packages (per day)",[2,2,2,3,3]],["Playtime helper, 1 hour",[8,9,10,11,12]],["Tidy toys",[5,6,6,7,7]]]}];
 /* leftover sections stay in this order after the ones the kid picked */
 const JOB_SECTION_ORDER=["lawn","snow","prep","pet","wash","tutor","any"];
@@ -4510,7 +4530,7 @@ const TAG_IDEAS={
   snow:["Up before the sun. Your driveway’s clear before you are.","Snow cleared with care.","Snow doesn’t stop us.","Down to the pavement.","First one out. Last one done.","Cold work. Clean results.","Edge to edge. Curb to garage.","Shoveled like we mean it.","We beat the plow truck.","Dawn patrol. Driveways cleared.","Cleared. Salted. Done.","Wake up to a clear driveway.","Bring on the blizzard.","Zero snow. Zero stress.","Safe steps. Clean drive.","Weather happens. We handle it.","Cold hands. Warm customers.","Snow day for you. Work day for us.","We don’t wait for the thaw.","Be home. We’ve got the snow.","Nothing but pavement."],
   both:["Every season. Handled.","Mowing in the summer. Shoveling in the winter.","Sun or snow, we show.","Four seasons. One crew.","Rain, shine, or blizzard.","Year-round hustle.","Grass to glacier.","Your yard, all year.","Spring to snowfall.","No off-season.","Seasons change. Standards don’t.","Hot or cold, we’re on it.","All year. All in.","Cut it in June. Clear it in January.","Your yard never takes a day off. Neither do we.","Handled from thaw to freeze.","Boots on the ground, all year.","Work ethic that runs all year."],
   pet:["Walks, water, and a note when I’m done.","Gentle hands. On time.","A parent knows about every visit.","Pets I know. Care I mean.","Fed, walked, and checked on.","Home safe. Note sent.","Kind to the pet. Clear with the parent.","Every visit, a parent is in the loop."],
-  prep:["Leaves cleared. Yard refreshed.","Yard cleanup and winter prep.","Leaves, hedges, and a clear walk.","Ready before the first freeze.","A tidy yard, ready for the season.","Walks and driveways, cleared.","A parent says which tools are OK.","Seasonal yard work, done right."],
+  prep:["Leaves cleared. Yard refreshed.","Yard cleanup and winter prep.","Leaves raked. Dead plants cleared.","Ready before the first freeze.","A tidy yard, ready for the season.","Walks and driveways, cleared.","A parent says which tools are OK.","Seasonal yard work, done right."],
   odd:["Odd jobs. Done right.","You name the chore. I show up.","Small jobs. Serious effort.","Tidy when I leave.","The chore you asked for, finished.","Helpful hands. Clean finish."],
   wash:["Clean cars. Careful hands.","Soap, rinse, dry towel.","Shiny, not sloppy.","Your driveway. My bucket.","Clean glass. Soft towels.","A careful wash, every time."],
   help:["I help while a parent is home.","A parent is in charge. I help.","Little jobs, done carefully.","Extra hands when you need them.","Help at home. A parent nearby.","I show up. A parent stays in charge."],
