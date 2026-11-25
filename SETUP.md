@@ -196,19 +196,22 @@ Before real families:
 
 ## Background retries and database idle time
 
-`/api/cron/mail` runs once an hour, at the top of the hour (24 polls/day instead of 144).
-New mail still gets its first delivery attempt immediately after the originating
-request commits. The cron retries durable failed mail and resumes unfinished
-daily renewal passes; the daily renewal schedule remains 14:00 UTC.
+The mail retry job checks for failed delivery and resumes unfinished daily
+renewals every 10 minutes between 9:00 a.m. and 10:00 p.m. Central time (78
+checks per day, down from 144 with a round-the-clock 10-minute schedule).
+Vercel schedules in UTC; the endpoint checks America/Chicago before opening
+storage so the overnight quiet window follows daylight saving time. The
+daily renewal remains at 14:00 UTC; if it falls in quiet hours, it sends only
+the new notices it generated and does not scan the retry backlog.
 
-A retry that becomes due just after a poll can wait nearly an hour for the
-next poll, plus provider delays or further backoff. Sign-in codes expire after
-20 minutes, so a code that misses its immediate send is not retried before it
-expires. Expired codes are discarded, never sent.
-Renewal continuation batches may also wait up to an hour between runs.
+New emails still get an immediate delivery attempt after the originating
+request commits, including sign-in codes and booking updates overnight.
+If an overnight delivery fails, non-expiring mail stays queued for daytime
+retry. Sign-in codes expire after 20 minutes and expired codes are never
+sent; a parent can request a fresh code instead of waiting for the retry.
 
-The wider polling gap gives an idle Neon compute an opportunity to suspend.
-It does not guarantee a particular compute saving: normal traffic or other
-jobs can keep it active. After deployment, compare compute active time and
-CU-hours over a representative day and check mail failures/queue backlog.
-Rollback is restoring the mail schedule to `*/10 * * * *`.
+Fewer background checks give idle Neon compute a chance to suspend, but
+normal traffic or other jobs can keep it active. After deployment, compare
+compute active time, CU-hours, delivery failures and queue backlog over
+representative days. To fully roll back quiet hours, restore both the
+previous cron expression and remove the endpoint's quiet-hours guard.

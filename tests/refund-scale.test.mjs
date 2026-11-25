@@ -241,8 +241,14 @@ test("the daily job picks up where it ran out of time, and each family is handle
   // No time at all: nothing is processed, and the pass is left unfinished.
   const none = await runRenewals({ origin: "http://sites.test", dry: false, budgetMs: 0, resume: false });
   assert.deepEqual([none.done, none.processed, none.due.length], [false, 0, 0]);
-  // The ten-minute mail cron finishes it.
-  const mail = await call("GET", "/api/cron/mail", { headers: { authorization: "Bearer test-admin-secret" } });
+  // The ten-minute mail cron finishes it inside the local retry window.
+  const originalNow = Date.now;
+  const day = new Date().toISOString().slice(0, 10);
+  let mail;
+  try {
+    Date.now = () => Date.parse(day + "T17:00:00Z");
+    mail = await call("GET", "/api/cron/mail", { headers: { authorization: "Bearer test-admin-secret" } });
+  } finally { Date.now = originalNow; }
   assert.equal(mail.status, 200);
   for (const p of people) assert.equal((await outbox(p.email)).filter((m) => /plan ends in 2 days/.test(m.subject)).length, 1, p.email);
   assert.equal(JSON.parse(await readFile(path.join(dir, "cronstate", "renewals.json"), "utf8")).done, true);

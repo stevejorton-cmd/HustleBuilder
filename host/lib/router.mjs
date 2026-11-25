@@ -7,6 +7,7 @@ import { checkPage, checkSlug, pageOk, wordHits } from "./moderate.mjs";
 import { decoratePage, familyVenmo, hidePhone, stripParentContact, withSiteFavicon, withParentInquiry } from "./preview.mjs";
 import { store, transaction } from "./store.mjs";
 import {queueMail,flushMail,withMailBatch} from "./mail.mjs";
+import {mailRetriesOpen} from "./mail-schedule.mjs";
 import {bookingExpiry} from "./retention.mjs";
 import QRCode from "qrcode";
 import {taylorDemoHtml} from "./demo.mjs";
@@ -2773,6 +2774,7 @@ async function routeRequest(req) {
     account.verifyTries = (account.verifyTries || 0) + 1;
     if (account.verifyTries > 8) { account.verifyHash = ""; await saveAccount(account); return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin); }
     if (!safeEqual(account.verifyHash, sha(code + ":" + email))) { await saveAccount(account); return withCors(json(400, { ok: false, error: "code" }), req.headers && req.headers.origin); }
+    const firstVerification = !account.emailVerifiedAt;
     account.emailVerifiedAt = new Date().toISOString();
     await noteFunnel("parent_verified");
     account.sessionVersion=2;
@@ -2782,6 +2784,17 @@ async function routeRequest(req) {
     if (account.tokenHash) await (await store()).del("tokens/" + account.tokenHash);
     account.tokenHash = sha(token);
     await saveAccount(account);
+    if (firstVerification) {
+      await sendMail({
+        to: email,
+        ownerId: account.id,
+        replyTo: supportReply(),
+        forParent: true,
+        origin,
+        subject: "You’re in! Welcome to Hustle Builder",
+        text: "Your parent email is verified, and you’re signed in. Return to Hustle Builder to finish setting up your account and manage your family’s pages and bookings."
+      });
+    }
     return withCors(json(200, { ok: true, token, email, consent: consentReady(account), slug: account.slug || "", slugs: slugsOf(account), plan: account.plan || "", paid: paid(account) }, { "set-cookie": sessionCookieHeader(token) }), req.headers && req.headers.origin);
   }
 
@@ -4133,11 +4146,11 @@ export async function runRenewals({ origin, dry, budgetMs, resume }) {
   const base = await store();
   const deadline = Date.now() + budgetMs;
   const today = new Date().toISOString().slice(0, 10);
-  const due = [];
+  const due = [], mailIds = [];
   let state = null;
   if (resume) {
     try { state = JSON.parse((await base.get(CRON_STATE)) || "null"); } catch { state = null; }
-    if (!state || state.day !== today || state.done) return { due, done: true, processed: 0, skipped: true };
+    if (!state || state.day !== today || state.done) return { due, mailIds, done: true, processed: 0, skipped: true };
   } else state = { day: today, after: "", done: false, swept: false };
   const save = async () => { if (!dry) await base.put(CRON_STATE, JSON.stringify(state)); };
   if (!dry && !state.swept) { await sweepExpired(); state.swept = true; await save(); }
@@ -4146,14 +4159,15 @@ export async function runRenewals({ origin, dry, budgetMs, resume }) {
   for (const id of ids) {
     if (state.after && id <= state.after) continue;
     if (Date.now() >= deadline) { done = false; break; }
-    await withMailBatch(() => transaction(() => remindAccount(id, origin, dry, due), { keys: ["account:" + id] }));
+    const { ids: newMailIds } = await withMailBatch(() => transaction(() => remindAccount(id, origin, dry, due), { keys: ["account:" + id] }));
+    mailIds.push(...newMailIds);
     processed += 1;
     state.after = id;
     if (processed % 25 === 0) await save();
   }
   state.done = done;
   await save();
-  return { due, done, processed };
+  return { due, mailIds, done, processed };
 }
 
 function cronAuthed(req) {
@@ -4165,6 +4179,12 @@ function cronAuthed(req) {
 
 async function cronRequest(req, route) {
   if (!cronAuthed(req)) return json(401, { ok: false, error: "auth" });
+  const retriesOpen = mailRetriesOpen();
+  // Vercel schedules in UTC. Guard the one extra scheduled UTC hour and
+  // any late/manual invocation before even a configuration lookup can wake Neon.
+  if (route === "cron/mail" && !retriesOpen) {
+    return json(200, { ok: true, skipped: "outside_retry_hours" });
+  }
   const origin = await publicOrigin(req.origin);
   if (route === "cron/mail") {
     // Finish today's renewal pass first if the daily run ran out of time.
@@ -4174,7 +4194,12 @@ async function cronRequest(req, route) {
   }
   const dry = !!(req.query && req.query.get && req.query.get("dry") === "1");
   const out = await runRenewals({ origin, dry, budgetMs: 30000, resume: false });
-  if (!dry) await flushMail();
+  // This separate daily job is unchanged (14:00 UTC). When that lands at
+  // 8 a.m. Central, send its fresh notices only, not old failed mail.
+  if (!dry) {
+    if (retriesOpen) await flushMail();
+    else if (out.mailIds.length) await flushMail(out.mailIds);
+  }
   return json(200, { ok: true, dry, due: out.due, done: out.done, processed: out.processed });
 }
 

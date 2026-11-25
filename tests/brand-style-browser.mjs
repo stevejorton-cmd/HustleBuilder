@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtemp,rm,mkdir} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import puppeteer from 'puppeteer-core';
@@ -42,6 +42,17 @@ try{
   await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('server timeout')),10000);child.stdout.on('data',d=>{if(String(d).includes('listening')){clearTimeout(t);resolve();}});child.once('error',reject);});
   browser=await puppeteer.launch({executablePath:process.env.CHROME||'/usr/local/bin/google-chrome',headless:true,protocolTimeout:120000,args:['--no-sandbox','--disable-dev-shm-usage']});
   const p=await browser.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e)));
+  // The full design matrix includes snow and lawn+snow, which are intentionally
+  // hidden in Fall. Use the real Snow pack in this test page only; the separate
+  // legacy-draft browser below still uses the shipped season.
+  const seasonSource=await readFile(new URL('../config/season.js',import.meta.url),'utf8');
+  const seasonLine=/^const SEASON = "(fall|snow)";$/m;
+  assert.match(seasonSource,seasonLine);
+  await p.setBypassServiceWorker(true);
+  await p.setRequestInterception(true);
+  p.on('request',request=>request.url()===base+'/config/season.js'
+    ?request.respond({status:200,contentType:'application/javascript',body:seasonSource.replace(seasonLine,'const SEASON = "snow";')})
+    :request.continue());
   await p.setViewport({width:1366,height:900});await openBuilder(p);
   assert.equal(await p.$eval('#plabel',el=>el.textContent),'Step 1 of 8');
   assert.deepEqual(await p.$$eval('#themes .tn',els=>els.map(el=>el.textContent)),['Energy','Neighbor']);
