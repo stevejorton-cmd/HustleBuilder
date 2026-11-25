@@ -206,8 +206,10 @@ async function accountByEmail(email) {
   if (!id) return null;
   return readJson("accounts/" + id.trim() + ".json");
 }
+const SESSION_TOKEN = /^[a-f0-9]{64}$/i;
+const BEARER_TOKEN = /^Bearer\s+([a-f0-9]{64})$/i;
 async function accountByTokenValue(token) {
-  if (!/^[a-f0-9]{64}$/i.test(String(token || ""))) return null;
+  if (!SESSION_TOKEN.test(String(token || ""))) return null;
   const id = await (await store()).get("tokens/" + sha(token));
   if (!id) return null;
   const account = await readJson("accounts/" + id.trim() + ".json");
@@ -216,7 +218,7 @@ async function accountByTokenValue(token) {
   return account;
 }
 async function accountByToken(header) {
-  const m = String(header || "").match(/^Bearer\s+([a-f0-9]{64})$/i);
+  const m = String(header || "").match(BEARER_TOKEN);
   if (!m) return null;
   return accountByTokenValue(m[1]);
 }
@@ -1933,7 +1935,7 @@ async function serveSlugInner(slug, view) {
 
   if (meta.status !== "live") return missingPage(slug, false);
   const account = meta.accountId ? await readJson("accounts/" + meta.accountId + ".json") : null;
-  if (account && (onBreak(account) || trialOver(account, await trialCount(account.email)))) return breakPage();
+  if (account && (onBreak(account) || trialOver(account))) return breakPage();
   const stored = await (await store()).get("pages/" + slug + ".html");
   const kid = String((meta.names && meta.names.first) || "").trim().split(/\s+/)[0].slice(0, 40);
   const page = familyVenmo(stripParentContact(stored), account && account.venmo, kid);
@@ -4317,7 +4319,7 @@ async function requestLocks(req) {
   const accountIds=new Set();
   const email=emailOk(body.email);
   if(email){keys.push('email:'+sha(email));const id=await s.get('email/'+sha(email));if(id)accountIds.add(id.trim());}
-  const auth=String(req.headers?.authorization||req.headers?.Authorization||'').match(/^Bearer\s+([a-f0-9]{64})$/i);
+  const auth=String(req.headers?.authorization||req.headers?.Authorization||'').match(BEARER_TOKEN);
   if(auth){const id=await s.get('tokens/'+sha(auth[1]));if(id)accountIds.add(id.trim());}
   const cookieToken=cookieValue(req.headers?.cookie||req.headers?.Cookie,SESSION_COOKIE);
   if(cookieToken){const id=await s.get('tokens/'+sha(cookieToken));if(id)accountIds.add(id.trim());}
@@ -4361,6 +4363,38 @@ async function requestLocks(req) {
   return {keys,maintenance:false,readOnly};
 }
 
+// These exact public reads use configuration or static files only. Don't
+// start a PostgreSQL transaction for them: even a no-op wakes idle compute.
+// Real family pages, calendar links, lookups and all writes stay on storage.
+const STATIC_GET_PATHS = new Set([
+  "/api/plans", "/api/site/taylor-demo", "/api/site/privacy",
+  "/api/site/security", "/api/site/retention", "/api/site/terms",
+  "/favicon.svg", "/favicon.ico", "/apple-touch-icon.png",
+  "/api/site/favicon.svg", "/api/site/favicon.ico", "/api/site/apple-touch-icon.png",
+  "/robots.txt", "/api/site/robots.txt"
+]);
+
+function isStorageFreeRequest(req, method, pathname) {
+  if (method === "OPTIONS") return true;
+  if (method !== "GET") return false;
+  if (STATIC_GET_PATHS.has(pathname) || /^\/api\/qr\/[a-z0-9][a-z0-9-]{1,40}\.png$/.test(pathname)) return true;
+  if (pathname !== "/api/me" && pathname !== "/api/account") return false;
+  // The browser probes /api/me even for a first-time guest. Headers with
+  // possible credentials go through the normal locked authorization path.
+  const headers = req.headers || {};
+  return !SESSION_TOKEN.test(cookieValue(headers.cookie || headers.Cookie, SESSION_COOKIE))
+    && !BEARER_TOKEN.test(String(headers.authorization || headers.Authorization || ""));
+}
+
+function allowOpaqueBooking(result, req, pathname) {
+  if (req.headers?.origin === "null" && pathname === "/api/book") {
+    result.headers = {...result.headers, "access-control-allow-origin": "null",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "content-type", vary: "Origin"};
+  }
+  return result;
+}
+
 export async function handleRequest(req) {
   try {
     if(process.env.HB_MAINTENANCE_MODE==='1')return json(503,{ok:false,error:'maintenance'},{'retry-after':'60'});
@@ -4373,8 +4407,11 @@ export async function handleRequest(req) {
     const strippedOrigin = requestOrigin === "null" && (fetchSite === "same-origin" || fetchSite === "same-site" || fetchSite === "none");
     if(hasCookie&&!['GET','HEAD','OPTIONS'].includes(String(req.method).toUpperCase())&&requestOrigin&&requestOrigin!==await publicOrigin(req.origin)&&!strippedOrigin)return json(403,{ok:false,error:'origin'});
     if(Buffer.byteLength(String(req.body||''),'utf8')>2_200_000)return json(413,{ok:false,error:'big'});
-    const cronRoute=String(req.path||'').split('?')[0].replace(/^\/api\//,'');
-    if(String(req.method).toUpperCase()==='GET'&&(cronRoute==='cron/renewals'||cronRoute==='cron/mail'))return await cronRequest(req,cronRoute);
+    const method=String(req.method||'GET').toUpperCase();
+    const pathname=String(req.path||'/').split('?')[0];
+    const cronRoute=pathname.replace(/^\/api\//,'');
+    if(method==='GET'&&(cronRoute==='cron/renewals'||cronRoute==='cron/mail'))return await cronRequest(req,cronRoute);
+    if(isStorageFreeRequest(req,method,pathname))return allowOpaqueBooking(await routeRequest(req),req,pathname);
     let batch;
     for(let attempt=0;attempt<3;attempt++){
       const options=await requestLocks(req);
@@ -4397,10 +4434,7 @@ export async function handleRequest(req) {
     }
     // Mail is sent only after successful commit. Retryable failures remain durable.
     if(ids.length)await flushMail(ids);
-    if(req.headers?.origin==='null'&&String(req.path).split('?')[0]==='/api/book'){
-      result.headers={...result.headers,'access-control-allow-origin':'null','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','vary':'Origin'};
-    }
-    return result;
+    return allowOpaqueBooking(result,req,pathname);
   }catch(error){
     if(error instanceof URIError)return json(400,{ok:false,error:'path'});
     // Name and code only: never the message (it can quote a query or a host
