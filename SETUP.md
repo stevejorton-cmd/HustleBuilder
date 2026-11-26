@@ -196,12 +196,11 @@ Before real families:
 
 ## Background retries and database idle time
 
-The mail retry job checks for failed delivery and resumes unfinished daily
-renewals every 10 minutes between 9:00 a.m. and 10:00 p.m. Central time (78
-checks per day, down from 144 with a round-the-clock 10-minute schedule).
-Vercel schedules in UTC; the endpoint checks America/Chicago before opening
-storage so the overnight quiet window follows daylight saving time. The
-daily renewal remains at 14:00 UTC; if it falls in quiet hours, it sends only
+`/api/cron/mail` runs once an hour, at the top of the hour (`0 * * * *`).
+The endpoint still skips the overnight window, 10:00 p.m. to 9:00 a.m.
+America/Chicago, before it opens storage, so those hourly ticks do not wake
+Neon. Daylight saving time follows the Chicago clock, not a fixed UTC list.
+The daily renewal remains at 14:00 UTC; if it falls in quiet hours, it sends only
 the new notices it generated and does not scan the retry backlog.
 
 New emails still get an immediate delivery attempt after the originating
@@ -213,5 +212,5 @@ sent; a parent can request a fresh code instead of waiting for the retry.
 Fewer background checks give idle Neon compute a chance to suspend, but
 normal traffic or other jobs can keep it active. After deployment, compare
 compute active time, CU-hours, delivery failures and queue backlog over
-representative days. To fully roll back quiet hours, restore both the
-previous cron expression and remove the endpoint's quiet-hours guard.
+representative days. To fully roll back quiet hours, restore
+`*/10 0-3,14-23 * * *` and remove the endpoint's quiet-hours guard.
