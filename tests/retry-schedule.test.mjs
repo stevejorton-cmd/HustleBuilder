@@ -24,8 +24,8 @@ test.afterEach(async () => {
   for (const key of Object.keys(process.env)) if (!(key in env)) delete process.env[key];
   Object.assign(process.env, env); await rm(dir, { recursive: true, force: true });
 });
-test('mail cron retries before sign-in codes expire without changing daily renewals', () => {
-  assert.equal(config.crons.find(c => c.path === '/api/cron/mail').schedule, '*/10 0-3,14-23 * * *');
+test('mail cron runs once an hour and daily renewals stay at 14:00 UTC', () => {
+  assert.equal(config.crons.find(c => c.path === '/api/cron/mail').schedule, '0 * * * *');
   assert.equal(config.crons.find(c => c.path === '/api/cron/renewals').schedule, '0 14 * * *');
 });
 test('new sign-in mail sends in the originating request, without waiting for cron', async () => {
@@ -54,6 +54,23 @@ test('a prolonged outage never delivers an expired sign-in code', async () => {
   assert.equal(sends, 1); assert.deepEqual(await base.list('mailqueue/'), []);
 });
 
+
+test('the daily renewal cron logs counts only', async () => {
+  const lines = [];
+  const orig = console.log;
+  console.log = (...args) => lines.push(args.map(String).join(' '));
+  try {
+    assert.equal((await call('GET', '/api/cron/renewals', {}, 'Bearer test-cron')).status, 200);
+  } finally { console.log = orig; }
+  const line = lines.find((item) => item.includes('"cron":"renewals"'));
+  assert.ok(line);
+  const rec = JSON.parse(line);
+  assert.deepEqual(Object.keys(rec).sort(), ['cron', 'done', 'dry', 'notices', 'processed']);
+  assert.equal(rec.cron, 'renewals');
+  assert.equal(typeof rec.processed, 'number');
+  assert.equal(typeof rec.notices, 'number');
+  assert.equal(JSON.stringify(rec).includes('@'), false);
+});
 
 test('Chicago quiet hours stay 10 p.m.–9 a.m. across both daylight-saving offsets', () => {
   for (const z of [

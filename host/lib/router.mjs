@@ -4141,7 +4141,7 @@ async function remindAccount(id, origin, dry, due) {
 
 // The daily job, resumable. It walks the tracked accounts in id order within
 // a time budget and records how far it got; if it runs out of time, the
-// ten-minute mail cron picks it up from there until the day's pass is done.
+// hourly mail cron picks it up from there until the day's pass is done.
 // Reminders are keyed per account and window, so repeating a step is harmless.
 const CRON_STATE = "cronstate/renewals.json";
 export async function runRenewals({ origin, dry, budgetMs, resume }) {
@@ -4196,6 +4196,7 @@ async function cronRequest(req, route) {
   }
   const dry = !!(req.query && req.query.get && req.query.get("dry") === "1");
   const out = await runRenewals({ origin, dry, budgetMs: 30000, resume: false });
+  console.log(JSON.stringify({ cron: "renewals", dry, done: !!out.done, processed: out.processed || 0, notices: Array.isArray(out.due) ? out.due.length : 0 }));
   // This separate daily job is unchanged (14:00 UTC). When that lands at
   // 8 a.m. Central, send its fresh notices only, not old failed mail.
   if (!dry) {
