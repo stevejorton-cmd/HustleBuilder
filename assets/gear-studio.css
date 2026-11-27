@@ -220,3 +220,5 @@
 .hbgear .hbgear-coming-soon { display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; margin:4px 0 18px; padding:10px 14px; border:1px solid #cad9c4; border-radius:12px; background:#e9f0e3; color:#204232; font-size:14px; }
 .hbgear .hbgear-coming-soon strong { background:#275740; color:#fff; border-radius:100px; padding:4px 10px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
 .hbgear .hbgear-preview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media (max-width: 850px) and (min-width: 651px) { .hbgear .hbgear-preview-grid { grid-template-columns: 1fr; } }
+.hbgear .hbgear-swatch { width: 44px; height: 44px; }

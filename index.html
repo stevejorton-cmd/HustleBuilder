@@ -861,10 +861,56 @@ details.help{padding:14px 16px 14px 20px}
 .wk-stats b{display:block;font-family:var(--display);font-style:italic;font-weight:900;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
 .wk-stats span{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
 .wk-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
-.wk-switch{background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:36px;color:var(--ink);font-weight:700;font-size:13.5px;cursor:pointer}
+.wk-switch{background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;min-height:44px;color:var(--ink);font-weight:700;font-size:13.5px;cursor:pointer}
 .wk-total{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--accent) 12%,var(--bg));border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line))}
 .wk-total span{font-weight:700;font-size:14.5px}
 .wk-total b{font-family:var(--display);font-style:italic;font-weight:900;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.nav-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;margin-left:5px;border-radius:999px;background:var(--accent);color:var(--on-accent);font:800 12px/1 Barlow,system-ui,sans-serif;font-style:normal;vertical-align:middle}
+.modes button[aria-pressed="true"] .nav-badge{background:var(--bg);color:var(--ink)}
+.kidbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--line);font-size:14px}
+.kidbar[hidden]{display:none}
+.kidbar-lbl{font-weight:700;color:var(--muted);white-space:nowrap}
+.kidbar-pills{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.kidbar-pill,.kidbar button{min-height:36px;padding:6px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 13.5px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
+.kidbar-pill[aria-pressed="true"],.kidbar button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.earn-est{margin:16px 0 4px;padding:13px 16px;border-radius:12px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));font-size:15px;line-height:1.45}
+.earn-est b{color:var(--ink)}
+.earn-est small{display:block;margin-top:4px;color:var(--muted);font-size:13px}
+.story-wrap{margin-top:16px}
+.story-chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
+.story-chips button{min-height:40px;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 13.5px/1.25 Barlow,system-ui,sans-serif;cursor:pointer;text-align:left}
+.story-chips button:hover,.story-chips button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.pcheck-prog{margin-left:auto;font:700 13px/1 Barlow,system-ui,sans-serif;font-style:normal;text-transform:none;padding:4px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pcheck-prog.done{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.prep-box{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.prep-box summary{font-weight:700;font-size:14.5px;cursor:pointer;min-height:36px;display:flex;align-items:center;gap:8px}
+.prep-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.prep-list label{display:flex;align-items:flex-start;gap:9px;font-size:14.5px;line-height:1.35;cursor:pointer;margin:0}
+.prep-list input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent);flex:none}
+.jars-wrap{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.jars-wrap summary{font-weight:700;font-size:15px;cursor:pointer;min-height:38px;display:flex;align-items:center;gap:8px}
+.jar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.jar-box,.jar{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.jar-box b,.jar b{display:block;font-family:var(--display);font-style:italic;font-weight:900;font-size:24px;line-height:1.05;color:var(--accent);font-variant-numeric:tabular-nums}
+.jar-box span,.jar span{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-top:4px}
+.jar-box small,.jar small{display:block;font-size:12px;color:var(--muted)}
+.goal-jobs{margin:6px 0 10px;font-size:14.5px;font-weight:700;color:var(--ink)}
+.owed-box{margin-top:12px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 9%,var(--bg));border:1px solid var(--line)}
+.owed-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--line)}
+.owed-row:first-of-type{border-top:0}
+.owed-row .btn-mini,.owed-row .chip:not(.paid){min-height:38px;padding:6px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 13.5px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
+.reg-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.reg-chip{min-height:42px;padding:7px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 14px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
+.reg-chip:hover{border-color:var(--accent)}
+.pb-card{background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:13px 14px;margin:10px 0}
+.pb-card h4{margin:0 0 6px;font-size:16.5px;font-weight:800}
+.pb-script{margin:0 0 10px;font-size:15px;line-height:1.45;white-space:pre-line;color:var(--ink)}
+.pb-tip{margin:6px 0 0;font-size:13.5px;color:var(--muted);line-height:1.4}
+.bridge-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bridge-row button{min-height:40px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--bg));color:var(--ink);font:700 14px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
+.bridge-row .bridge-done{display:inline-flex;align-items:center;font-size:13.5px;font-weight:700;color:var(--muted);padding:4px 0}
+@media(max-width:380px){.top .modes button{min-height:42px}}
+.chip{min-height:42px}
 </style>
 </head>
 <body>
@@ -935,10 +981,11 @@ details.help{padding:14px 16px 14px 20px}
   <div class="modes" role="group" aria-label="Mode">
     <button type="button" id="mBuild" aria-pressed="true">Website</button>
     <button type="button" id="mFlyers" aria-pressed="false">Flyers</button>
-    <button type="button" id="mBoss" aria-pressed="false" aria-label="My jobs and earnings">My jobs</button>
+    <button type="button" id="mBoss" aria-pressed="false" aria-label="My jobs and earnings">My jobs<span id="navJobBadge" class="nav-badge" hidden></span></button>
   </div>
 </header>
 <p id="offlineNote" hidden role="status">You’re offline. You can keep editing here. Publishing and new booking requests need an internet connection.</p>
+<div id="kidBar" class="kidbar" hidden role="region" aria-label="Switch kid business"></div>
 
 <div class="shell" id="shell" data-type="prep">
   <main class="edit">
@@ -966,6 +1013,9 @@ details.help{padding:14px 16px 14px 20px}
       </details>
       <h3 class="h3">More ways to earn</h3>
       <div class="moretiles" id="moreTiles"></div>
+      <div id="otherBox" hidden style="margin-top:14px">
+        <label class="field" for="customJob"><span>What kind of work do you do?</span><input type="text" id="customJob" maxlength="50" autocomplete="off" placeholder="Like: Bike repair, trash bin cleaning, or baking"><small>This helps personalize your business name ideas and page.</small></label>
+      </div>
       <button type="button" class="btn ghost block" id="myJobsBtn" hidden style="margin-top:16px">My jobs</button>
       <details class="help builder-tools"><summary>Saved work &amp; app settings</summary>
       <button type="button" class="btn ghost block" id="otherDevice" style="margin-top:16px">Open on another device</button>
@@ -990,6 +1040,10 @@ details.help{padding:14px 16px 14px 20px}
       <details class="fold" id="funnyIdeas"><summary>Funny name ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleFunny">Shuffle</button></div><div id="funnyCats"></div></div></details>
       <label class="field"><span>Your short slogan (optional)</span><input type="text" data-k="tagline" id="tagline" maxlength="120" autocomplete="off"></label>
       <details class="fold" id="foldTags"><summary>Slogan ideas</summary><div class="fold-body"><div class="fold-tools"><button type="button" class="link" id="shuffleTags">Shuffle</button></div><div id="tagList"></div></div></details>
+      <div class="story-wrap">
+        <label class="field" for="aboutCustom"><span>Your story (optional)</span><textarea data-k="aboutCustom" id="aboutCustom" rows="3" maxlength="220" placeholder="Leave blank for our starter story, or tell neighbors what you’re saving for and why you work hard."></textarea><small>Neighbors love knowing what you’re working toward! Never share your last name, school, age, or street address.</small></label>
+        <div class="story-chips" id="storyChips" aria-label="Story starter ideas"></div>
+      </div>
     </section>
 
     <section class="step" data-step="2">
@@ -1014,6 +1068,7 @@ details.help{padding:14px 16px 14px 20px}
       <div id="svcList"></div>
       <p class="small2" style="margin:0 0 16px">Use the arrows to change the order. Your website uses this order. Flyers and posters show the services that fit.</p>
       <div class="mbtns"><button type="button" class="btn" id="moreJobs">Add more jobs</button><button type="button" class="btn ghost" id="addSvc">Add your own</button></div>
+      <div id="earnEst" class="earn-est" aria-live="polite" hidden></div>
       <div class="mf seasonbox" id="seasonBox" hidden style="margin-top:24px"><label>Snow service package (optional)</label><div class="chips" id="seasonChips"></div><div id="seasonField" hidden><label class="field"><span>Price for the whole winter ($)</span><input type="text" inputmode="decimal" id="seasonPrice" autocomplete="off"><small id="seasonHint"></small></label></div><small class="help2">This is what customers pay you for snow removal, separate from your Hustle Builder hosting plan.</small></div>
     </section>
 
@@ -1213,16 +1268,16 @@ details.help{padding:14px 16px 14px 20px}
       </ol>
 
       </details>
-      <details class="help"><summary>Parent review checklist</summary>
+      <details class="help" id="parentChecklist"><summary>Parent review checklist <span id="pcheckProg" class="pcheck-prog">0 of 6</span></summary>
       <h3 class="h3">Before you go live</h3>
       <p class="lead" style="margin-bottom:14px">Go through these with a parent.</p>
-      <label class="check"><input type="checkbox"><span>A parent read the whole site and said yes.</span></label>
-      <label class="check"><input type="checkbox"><span>A parent owns the publishing account and receives booking emails.</span></label>
-      <label class="check"><input type="checkbox"><span>There’s no last name, street address, school, or photo of my face.</span></label>
-      <label class="check"><input type="checkbox"><span>A parent knows where and when every job happens.</span></label>
-      <label class="check"><input type="checkbox"><span>I know how to use my equipment safely, and I take breaks in heat or cold.</span></label>
+      <label class="check"><input type="checkbox" data-pcheck="0"><span>A parent read the whole site and said yes.</span></label>
+      <label class="check"><input type="checkbox" data-pcheck="1"><span>A parent owns the publishing account and receives booking emails.</span></label>
+      <label class="check"><input type="checkbox" data-pcheck="2"><span>There’s no last name, street address, school, or photo of my face.</span></label>
+      <label class="check"><input type="checkbox" data-pcheck="3"><span>A parent knows where and when every job happens.</span></label>
+      <label class="check"><input type="checkbox" data-pcheck="4"><span>I know how to use my equipment safely, and I take breaks in heat or cold.</span></label>
 
-      <label class="check"><input type="checkbox"><span>A parent checked the rules for my age and approved the tools and equipment I will use.</span></label>
+      <label class="check"><input type="checkbox" data-pcheck="5"><span>A parent checked the rules for my age and approved the tools and equipment I will use.</span></label>
       </details>
       <details class="help"><summary>Backups &amp; downloads</summary>
       <p class="small2" style="margin-top:22px"><button type="button" class="link" data-about>About and legal</button> &nbsp;&nbsp; <button type="button" class="link" data-backup>Back up or load my business</button></p>
@@ -1260,7 +1315,7 @@ details.help{padding:14px 16px 14px 20px}
           <p class="small2" id="jobEmpty">Requests show up here: the job, the day, and a first name. A parent confirms changes and cancellations.</p>
           <div class="mbtns"><button type="button" class="btn ghost" id="refreshJobs">Refresh requests</button><button type="button" class="btn outline" id="myBusinessGear" hidden>My Business Gear</button><button type="button" class="btn outline" id="jobSignIn" hidden>Parent sign-in</button></div>
           <div id="familyJobsCode" hidden><p class="small2">Family jobs code: <b id="familyJobsCodeValue"></b>. Share this with your kids so they can view requests and ask you to cancel. It does not let them confirm or cancel bookings.</p><button type="button" class="btn ghost" id="copyFamilyJobsCode">Copy family jobs code</button><p class="small2">Copy the code, then sign out of your parent account before handing over this device.</p></div>
-          <details class="help" id="kidJobsEntry"><summary>Use a family jobs code</summary><p class="small2">Ask your parent for the 8-character family jobs code. This opens your family’s requests without signing in as a parent.</p><form id="kidJobsForm"><label for="kidJobsCodeInput">Family jobs code<input id="kidJobsCodeInput" name="jobsCode" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="8" maxlength="8" pattern="[A-Za-z0-9]{8}" required></label><div class="mbtns"><button type="submit" class="btn ghost" id="openKidJobs">View family requests</button><button type="button" class="btn outline" id="forgetKidJobs" hidden>Forget family jobs code</button></div></form><p class="status" id="kidJobsStatus" role="status" aria-live="polite"></p></details>
+          <details class="help" id="kidJobsEntry"><summary>Use a family jobs code</summary><p class="small2">Ask your parent for the 8-character family jobs code. This opens your family’s requests without signing in as a parent.</p><form id="kidJobsForm" novalidate><label for="kidJobsCodeInput">Family jobs code<input id="kidJobsCodeInput" name="jobsCode" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="16" required></label><div class="mbtns"><button type="submit" class="btn ghost" id="openKidJobs">View family requests</button><button type="button" class="btn outline" id="forgetKidJobs" hidden>Forget family jobs code</button></div></form><p class="status" id="kidJobsStatus" role="status" aria-live="polite"></p></details>
           <p class="status" id="jobStatus" role="status" aria-live="polite"></p>
           <div id="jobFilters" hidden><label for="jobKidFilter">Show bookings for</label><select id="jobKidFilter"><option value="">All kids</option></select><p class="small2" id="jobFilterSummary" role="status" aria-live="polite"></p></div>
           <div id="jobList"></div>
@@ -1610,7 +1665,7 @@ function siteMain(){
       var d=new Date(view.getFullYear(),view.getMonth(),n);
       var b=document.createElement("button");
       b.type="button"; b.className="day"; b.textContent=String(n);
-      var open=d>=earliest && d<=latest && C.days[d.getDay()], isFull=!!(open&&C.inbox&&slotsFor(d).length===0);
+      var open=d>=earliest && d<=latest && C.days[d.getDay()], isFull=!!(open&&(C.inbox||(C.publish&&busy.length))&&slotsFor(d).length===0);
       if(open)monthOpen=true;
       b.disabled=!open; if(isFull){b.className+=" full";}
       b.setAttribute("aria-pressed",(picked && d.getTime()===picked.getTime())?"true":"false");
@@ -1624,19 +1679,48 @@ function siteMain(){
   function t12(s){var p=s.split(":"),h=+p[0],m=+p[1];return (h%12||12)+":"+(m<10?"0":"")+m+" "+(h>=12?"PM":"AM");}
   function mins(s){var p=s.split(":");return (+p[0])*60+(+p[1]);}
   function hhmm(m){var h=Math.floor(m/60),mm=m%60;return (h<10?"0":"")+h+":"+(mm<10?"0":"")+mm;}
+  function syncAwayDates(){
+    var fr=$("freq"),af=$("awayFrom"),at=$("awayTo");
+    if(!fr||!af||fr.value!=="While I'm away")return;
+    if(picked&&(!af.value||af.dataset.auto==="1")){af.value=ymd(picked);af.dataset.auto="1";}
+    if(at&&af.value)at.min=af.value;
+  }
+  function updateSummary(){
+    var box=$("bookSummary"); if(!box)return;
+    var sName=sel?sel.value:"";
+    var sPrice="";
+    (C.services||[]).forEach(function(s){if(s&&s.n===sName)sPrice=s.p||"";});
+    var parts=[];
+    if(sName)parts.push(sName+(sPrice?" ("+sPrice+")":""));
+    if(picked){
+      var tmVal=(!$("timeWrap").hidden&&$("tm").value)?" at "+t12($("tm").value):"";
+      parts.push(longDate(picked)+tmVal);
+    }
+    var fr=$("freq");
+    if(fr&&fr.value&&!/^Just /i.test(fr.value))parts.push(fr.value);
+    if(!parts.length){box.hidden=true;return;}
+    box.hidden=false;
+    box.innerHTML="";
+    var b=document.createElement("b"); b.textContent="Your request: ";
+    var sp=document.createElement("span"); sp.textContent=parts.join(" · ");
+    var sm=document.createElement("small"); sm.textContent=picked?"A parent confirms the final price and time before anything is booked.":"Pick a day above to finish your request.";
+    box.appendChild(b); box.appendChild(sp); box.appendChild(sm);
+  }
   function showPicked(){
     var tw=$("timeWrap"),tm=$("tm");
-    if(!picked){$("picked").textContent=monthOpen?"Tap a day to pick it.":"No open days this month. Tap the next arrow.";tw.hidden=true;waiting=false;return;}
+    if(!picked){$("picked").textContent=monthOpen?"Tap a day to pick it.":"No open days this month. Tap the next arrow.";tw.hidden=true;waiting=false;updateSummary();return;}
     var sc=(C.sched&&C.sched[picked.getDay()])||null,txt="Selected: "+longDate(picked)+".";
     if(sc&&sc.from&&sc.to){
       txt+=" I’m free "+t12(sc.from)+" to "+t12(sc.to)+".";
       var keep=tm.value;tm.innerHTML="";var a=mins(sc.from),b=mins(sc.to),last=(b-a>=60)?b-60:a;
-      var sl=slotsFor(picked);for(var qi=0;qi<sl.length;qi++){var x=sl[qi];var o=document.createElement("option");o.value=hhmm(x);o.textContent=t12(hhmm(x));tm.appendChild(o);}waiting=!sl.length;if(waiting){txt="Selected: "+longDate(picked)+". That day is full. I can tell you if it opens up. Tap Join the waitlist, or pick another day.";}
+      var sl=slotsFor(picked);for(var qi=0;qi<sl.length;qi++){var x=sl[qi];var o=document.createElement("option");o.value=hhmm(x);o.textContent=t12(hhmm(x));tm.appendChild(o);}waiting=!sl.length;if(waiting){txt="Selected: "+longDate(picked)+". That day is full. "+(C.inbox?"I can tell you if it opens up. Tap Join the waitlist, or pick another day.":"Please pick another open day.");}
       if(keep){for(var k=0;k<tm.options.length;k++){if(tm.options[k].value===keep)tm.value=keep;}}
       tw.hidden=waiting;
     }else{tw.hidden=true;waiting=false;}
     $("picked").textContent=txt;
     var sb=$("sendInbox");if(sb)sb.textContent=waiting?"Join the waitlist":"Send my request";
+    syncAwayDates();
+    updateSummary();
   }
   $("prev").onclick=function(){view=new Date(view.getFullYear(),view.getMonth()-1,1);render();};
   $("next").onclick=function(){view=new Date(view.getFullYear(),view.getMonth()+1,1);render();};
@@ -1742,7 +1826,7 @@ function siteMain(){
     var m=build(true); if(!m)return;
     var ct=$("ct")?$("ct").value.trim():"";
     var st=pickedStart(),timeTxt=($("timeWrap").hidden||!$("tm").value)?"":" at "+t12($("tm").value);
-    var price="";(C.services||[]).forEach(function(s){if(s&&s.n===sel.value)price=String(s.p||"").replace(/[^0-9.]/g,"");});
+    var price="";(C.services||[]).forEach(function(s){if(s&&s.n===sel.value){var pm=String(s.p||"").match(/\d+(?:\.\d{1,2})?/);price=pm?pm[0]:"";}});
     var payload={slug:C.publish.slug,name:$("nm").value.trim(),contact:ct,service:sel.value,price:price,when:longDate(picked)+timeTxt,address:$("addr").value.trim(),note:$("note").value.trim(),size:($("sz")&&$("sz").value)||"",freq:$("freq").value,start:ymd(st)+"T"+pad2(st.getHours())+":"+pad2(st.getMinutes()),hp:($("hp")&&$("hp").value)||"",t:Date.now()-openedAt,petKind:val("petKind"),petCount:val("petCount"),petNames:val("petNames"),petSize:val("petSize"),dayPart:val("dayPart"),awayFrom:$("freq").value==="While I'm away"?val("awayFrom"):"",awayTo:$("freq").value==="While I'm away"?val("awayTo"):"",access:val("access")};
     var fingerprint=JSON.stringify(Object.assign({},payload,{t:0}));
     if(fingerprint!==bookingFingerprint){bookingFingerprint=fingerprint;bookingKey=Array.from(crypto.getRandomValues(new Uint8Array(16)),function(b){return b.toString(16).padStart(2,"0");}).join("");}
@@ -1751,7 +1835,28 @@ function siteMain(){
     fetch(C.publish.book,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(r){
       shost.disabled=false; shost.textContent="Send my request";
       var box=$("sentBox"); box.hidden=false;
-      if(r&&r.ok){box.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply."; var grow=document.createElement("a"); grow.href="https://hustlebuilder.org/?for=parents&ref="+encodeURIComponent((C.publish&&C.publish.slug)||""); grow.textContent="Make one for your kid, free for 14 days"; grow.style.display="block"; grow.style.marginTop="10px"; box.appendChild(grow); showCopy(true); $("outWrap").hidden=true;}
+      if(r&&r.ok){
+        box.innerHTML="";
+        var msgP=document.createElement("p"); msgP.style.margin="0";
+        msgP.textContent="Request saved! "+C.first+"’s parent will be notified and will confirm with you. Nothing is booked until they reply.";
+        box.appendChild(msgP);
+        var actRow=document.createElement("div"); actRow.className="sent-acts";
+        if(r.manageUrl){
+          var mg=document.createElement("a"); mg.className="btn"; mg.href=r.manageUrl; mg.target="_top"; mg.textContent="Open booking status & questions";
+          actRow.appendChild(mg);
+          var cp=document.createElement("button"); cp.type="button"; cp.className="btn alt"; cp.setAttribute("data-label","Copy booking link"); cp.textContent="Copy booking link";
+          cp.onclick=function(){copyPlain(r.manageUrl,cp);};
+          actRow.appendChild(cp);
+        }
+        var gcal=gcalLink(sel.value+" with "+C.biz,$("addr").value.trim(),"Requested via "+C.biz+". Not confirmed until "+C.first+"’s parent replies.");
+        if(gcal){
+          var ga=document.createElement("a"); ga.className="btn alt"; ga.href=gcal; ga.target="_blank"; ga.rel="noopener"; ga.textContent="Add to Google Calendar";
+          actRow.appendChild(ga);
+        }
+        if(actRow.childNodes.length)box.appendChild(actRow);
+        var grow=document.createElement("a"); grow.href="https://hustlebuilder.org/?for=parents&ref="+encodeURIComponent((C.publish&&C.publish.slug)||""); grow.textContent="Make one for your kid, free for 14 days"; grow.style.display="block"; grow.style.marginTop="12px"; box.appendChild(grow);
+        showCopy(true); $("outWrap").hidden=true;
+      }
       else if(r&&r.error==="fast"){box.textContent=r.message||"Wait a few seconds, then send it again.";}
       else if(r&&r.error==="limit"){box.textContent="Too many requests today. Try again tomorrow.";}
       else if(r&&r.message){box.textContent=r.message;}
@@ -1759,13 +1864,15 @@ function siteMain(){
       if(!(r&&r.ok)){showCopy(true);$("outWrap").hidden=false;}
     }).catch(function(){shost.disabled=false; shost.textContent="Send my request"; var box=$("sentBox"); box.hidden=false; box.textContent="I couldn’t confirm that your request arrived. Try again, or copy your request below to share with the family.";showCopy(true);$("outWrap").hidden=false;});
   };}
-  if($("freq")&&$("awayWrap")){$("freq").onchange=function(){$("awayWrap").hidden=$("freq").value!=="While I'm away";};}
+  if($("awayFrom")){$("awayFrom").addEventListener("input",function(){$("awayFrom").dataset.auto="0";if($("awayTo")&&$("awayFrom").value)$("awayTo").min=$("awayFrom").value;});}
+  if($("freq")){$("freq").addEventListener("change",function(){if($("awayWrap"))$("awayWrap").hidden=$("freq").value!=="While I'm away";syncAwayDates();updateSummary();});}
+  if($("tm")){$("tm").addEventListener("change",updateSummary);}
   function venmoHref(){
     var user=String(C.venmo||"").replace(/^@+/,"");
     if(!/^[A-Za-z0-9_-]{1,30}$/.test(user)||!/[A-Za-z]/.test(user))return "";
     var name=sel?sel.value:"";
     var price="";
-    (C.services||[]).forEach(function(s){if(s&&s.n===name)price=String(s.p||"").replace(/[^0-9.]/g,"");});
+    (C.services||[]).forEach(function(s){if(s&&s.n===name){var pm=String(s.p||"").match(/\d+(?:\.\d{1,2})?/);price=pm?pm[0]:"";}});
     var note=(C.first?C.first+": ":"")+name;
     var q="txn=pay";
     if(price&&Number(price)>0)q+="&amount="+encodeURIComponent(price);
@@ -1773,12 +1880,26 @@ function siteMain(){
     return "https://venmo.com/"+encodeURIComponent(user)+"?"+q;
   }
   function syncVenmoPay(){var a=document.getElementById("venmoPay");var href=venmoHref();if(a&&href)a.href=href;}
-  if(sel)sel.addEventListener("change",syncVenmoPay);
-  syncVenmoPay();
+  function syncRateHighlight(){
+    var cur=sel?sel.value:"";
+    document.querySelectorAll(".rates li[data-svc]").forEach(function(li){li.classList.toggle("is-picked",li.getAttribute("data-svc")===cur);});
+  }
+  if(sel){sel.addEventListener("change",function(){syncVenmoPay();syncRateHighlight();updateSummary();});}
+  document.querySelectorAll(".rates li[data-svc]").forEach(function(li){
+    function pickRate(){
+      var svc=li.getAttribute("data-svc");
+      if(sel&&svc){sel.value=svc;sel.dispatchEvent(new Event("change"));}
+      var bk=$("book");if(bk)bk.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+    li.addEventListener("click",pickRate);
+    li.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();pickRate();}});
+  });
+  syncVenmoPay(); syncRateHighlight();
   render(); showPicked();
   if(C.inbox){jsonp({action:"busy"},function(r){if(r&&r.busy){busy=[];for(var i=0;i<r.busy.length;i++){var a=parseLocal(r.busy[i][0]),b=parseLocal(r.busy[i][1]);if(a&&b)busy.push([a,b]);}render();showPicked();}},8000);}
+  else if(C.publish&&C.publish.book&&C.publish.slug){fetch(C.publish.book+"?busy="+encodeURIComponent(C.publish.slug)).then(function(r){return r.ok?r.json():null;}).then(function(r){if(r&&r.ok&&Array.isArray(r.busy)&&r.busy.length){busy=[];for(var i=0;i<r.busy.length;i++){var a=parseLocal(r.busy[i][0]),b=parseLocal(r.busy[i][1]);if(a&&b)busy.push([a,b]);}render();showPicked();}}).catch(function(){});}
   var sh=$("shareSite");
-  if(sh){sh.onclick=function(){var u=location.href.split("#")[0];if(C.publicUrl&&(location.protocol==="file:"||location.protocol==="blob:"||location.protocol==="data:"))u=C.publicUrl;if(navigator.share){navigator.share({title:C.biz,text:C.biz+". Book a day online.",url:u}).catch(function(){});}else if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(function(){sh.textContent="Link copied";},function(){window.prompt("Copy this link",u);});}else{window.prompt("Copy this link",u);}};}
+  if(sh){sh.setAttribute("data-label",sh.textContent||"Share this page");sh.onclick=function(){var u=location.href.split("#")[0];if(C.publicUrl&&(location.protocol==="file:"||location.protocol==="blob:"||location.protocol==="data:"||location.href==="about:srcdoc"))u=C.publicUrl;if(navigator.share){navigator.share({title:C.biz,text:C.biz+". Book a day online.",url:u}).catch(function(){});}else{copyPlain(u,sh);}};}
   document.querySelectorAll(".ba").forEach(function(ba){
     var r=ba.querySelector("input");
     function set(){ba.style.setProperty("--pos",r.value+"%");}
@@ -1837,7 +1958,7 @@ function siteMain(){
 
 /* ============ Helpers + palettes ============ */
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
-function priceNum(p){const t=String(p==null?"":p).trim(); return /^-?\d+(\.\d+)?$/.test(t)?parseFloat(t):null;}
+function priceNum(p){const t=String(p==null?"":p).trim().replace(/^\$\s*/,"").replace(/,/g,""); return /^-?\d+(\.\d+)?$/.test(t)?parseFloat(t):null;}
 function fmtPrice(p){p=String(p||"").trim(); const n=priceNum(p); if(n===null)return p; const v=Math.round(n*100)/100; return v>0?"$"+v:"";}
 function cleanPrice(p){p=String(p==null?"":p).trim(); const n=priceNum(p); if(n===null)return p; const v=Math.round(n*100)/100; return v>0?String(v):"";}
 function priceTooHigh(v){return v!==null&&v>999;}
@@ -2291,7 +2412,7 @@ function genSite(c){
   const cfg={first:c.first,biz:c.biz,venmo:c.venmo||"",phoneDigits:"",email:"",days:sched.map(x=>!!x.on),sched:sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),inbox:(c.inboxUrl?{url:c.inboxUrl,key:c.inboxKey}:null),publicUrl:c.publicUrl||"",publish:(c.publish&&c.publish.slug&&c.publish.book)?{slug:String(c.publish.slug),book:String(c.publish.book)}:null,pet:c.type==="pet",theme:th,services:c.services.map(s=>({n:s.n,p:fmtPrice(s.p)}))};
   const cfgJson=JSON.stringify(cfg).replace(/</g,"\\u003c");
   const hasContact=!!(c.phoneDigits||c.email);
-  const rows=c.services.map(s=>`<li><span class="n">${esc(s.n)}</span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
+  const rows=c.services.map(s=>`<li data-svc="${esc(s.n)}" role="button" tabindex="0"><span class="n">${esc(s.n)}<small class="rtap">Tap to select</small></span><span class="p">${esc(fmtPrice(s.p))}</span></li>`).join("");
   const dayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const workDays=dayNames.filter((d,i)=>c.days[i]).join(", ");
   const schedText=schedSummary(sched);
@@ -2401,9 +2522,18 @@ section h2{font-weight:900;font-size:clamp(38px,10.5vw,68px);line-height:.94;let
 .std p{margin:0;color:var(--mute);max-width:40ch;font-size:16px;line-height:1.45}
 @media (min-width:720px){.std{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}}
 .rates{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.rates li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.rates li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.1);transition:border-color .15s,transform .1s,box-shadow .15s}
+.rates li[data-svc]{cursor:pointer}
+.rates li[data-svc]:hover{border-color:var(--accent)}
+.rates li[data-svc]:active{transform:scale(.99)}
+.rates li.is-picked{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent),0 6px 18px rgba(0,0,0,.14)}
 .rates .n{font-size:18.5px;font-weight:700;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.rates .rtap{display:block;font-size:12.5px;font-weight:600;color:var(--mute);margin-top:3px}
 .rates .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:clamp(34px,9vw,42px);line-height:.9;color:var(--accent);text-align:right;white-space:nowrap;flex:none;font-variant-numeric:tabular-nums}
+.bsum{margin:0 0 14px;padding:13px 15px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);box-shadow:inset 4px 0 0 var(--accent);font-size:15px;line-height:1.45;color:var(--bone)}
+.bsum small{display:block;margin-top:4px;color:var(--mute);font-size:13.5px}
+.sent-acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.sent-acts .btn{min-height:46px;font-size:18px;padding:8px 18px}
 .small{font-size:14.5px;color:var(--mute);margin:14px 0 0;line-height:1.5}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 18px;position:relative;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.18)}
 .panel::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--accent)}
@@ -2471,6 +2601,7 @@ footer a{color:var(--bone);font-weight:800;text-decoration:underline;text-underl
 .season .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:40px;line-height:.9;color:var(--accent);overflow-wrap:anywhere;text-align:right;font-variant-numeric:tabular-nums}
 .day.full{border-style:dashed;color:var(--mute);opacity:.75}
 .sent{margin:14px 0 0;border:1px solid var(--line);border-radius:14px;box-shadow:inset 5px 0 0 var(--accent);background:var(--bg2);padding:14px 16px 14px 20px;font-size:16.5px;line-height:1.45;overflow:hidden}
+.sent a:not(.btn){color:var(--bone);text-decoration:underline;text-underline-offset:3px;font-weight:700}
 #copyBook{display:inline-flex;margin-top:12px;background:none;border:0;padding:8px 0;min-height:44px;color:var(--ink,var(--bone));font:inherit;font-weight:700;font-size:17px;text-decoration:underline;cursor:pointer}
 .btns a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .promise{margin:0;border:1px solid var(--line);border-radius:16px;box-shadow:inset 5px 0 0 var(--accent);background:var(--card);padding:18px 18px 18px 22px;font-size:18px;line-height:1.5;overflow:hidden}
@@ -2569,12 +2700,13 @@ ${promiseHTML}
       ${sizeField}
       <label>How often?<select id="freq">${freqOpts}</select></label>
       <label>Your first name<input id="nm" autocomplete="given-name"></label>
-      ${(inboxOn||hostOn)?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="tel"></label>`:""}
+      ${(inboxOn||hostOn)?`<label>Your phone or email, so my parent can confirm<input id="ct" autocomplete="email"></label><p class="small" style="margin:-10px 0 14px">Email unlocks instant confirmation, calendar invites, and a private status link. Phone works too.</p>`:""}
       <label>Address for the job<input id="addr" autocomplete="street-address"></label>
       ${noteField}
       <div class="hp" aria-hidden="true"><label>Company<input id="hp" name="company" tabindex="-1" autocomplete="off"></label></div>
       ${inboxOn?`<label>A photo of the ${target}, if you want (optional)<input type="file" id="ph" accept="image/*"></label><p class="small" id="phNote" style="margin:-6px 0 12px">Photos of your yard or driveway only, please. No people. It goes to my parent only.</p><img id="phPrev" alt="Your photo" hidden style="max-width:100%;max-height:180px;border-radius:8px;margin:0 0 12px">`:""}
       <div class="q"><b>3</b><span>Send it</span></div>
+      <div id="bookSummary" class="bsum" hidden aria-live="polite"></div>
       ${(inboxOn||hostOn)?`<div class="btns">${hostOn?`<button type="button" class="btn" id="sendHost">Send my request</button>`:`<button type="button" class="btn" id="sendInbox">Send my request</button>`}</div>`:`<p class="small">This is a draft preview. A parent publishes the website at Go live to enable booking requests.</p>${c.publicUrl?`<p><a class="btn" href="${esc(c.publicUrl)}" target="_blank" rel="noopener">Request on my live website</a></p>`:""}`}
       <p class="err" id="err" role="alert"></p>
       <div id="sentBox" class="sent" hidden role="status"></div>
@@ -2779,7 +2911,7 @@ function blankLawnDefault(raw){
 }
 function defaults(){
   const type=seasonDefaultType();
-  return {type:type,first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",services:starterServices(type,1),svcEdited:false,svcSets:{},
+  return {type:type,first:"",town:"",bizName:"",bizNameAuto:"",tagline:"",aboutCustom:"",customJob:"",parentChecks:[],services:starterServices(type,1),svcEdited:false,svcSets:{},
     palette:"mower",look:"night",theme:"hustle",sky:"dusk",art:"cine-dusk",siteFont:"",lvl:1,lvlApplied:1,snowTrigger:"2",inboxUrl:"",inboxKey:"",calName:"Hustle Jobs",parent2:"",phone2:"",email2:"",weekly:true,seasonOn:false,seasonPrice:"",promise:"If something isn’t right, tell my parent or me within 2 days and I’ll fix it.",venmo:"",parentName:"",phone:"",email:"",showPhone:false,days:[false,true,true,true,true,true,false],hours:"",sched:[0,1,2,3,4,5,6].map(i=>Object.assign({on:i>=1&&i<=5},defHours(i))),siteUrl:"",flyerFmt:"full",flyerStyle:"ink",flyerQr:"web",flyerPhone:false,proof:[],reviews:[]};
 }
 function draftBelongsTo(ownerEmail, sessionEmail){
@@ -2820,6 +2952,7 @@ function hydrateDraft(savedRaw){
   S.days=S.sched.map(x=>!!x.on);
   if(!Array.isArray(S.proof))S.proof=[];
   if(!Array.isArray(S.reviews))S.reviews=[];
+  if(!Array.isArray(S.parentChecks))S.parentChecks=[];
   if(typeof ensureStudio==="function")ensureStudio(true);
 }
 let S=defaults();
@@ -2865,7 +2998,9 @@ function resolve(preview, opt){
   const parentName=S.parentName.trim(), phone=S.phone.trim(), phoneDigits=phone.replace(/[^\d+]/g,""), email=S.email.trim();
   const venmo=S.venmo.trim().replace(/^@/,"");
   const target=typeInfo(S.type).target;
-  const about=`I’m ${first||"Taylor"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I check that you are happy with the work. ${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
+  const parentLine=`${parentName?parentName+", my parent, ":"A parent "}confirms every booking.`;
+  const customAbout=String(S.aboutCustom||"").replace(/\s+/g," ").trim().slice(0,220);
+  const about=customAbout?(customAbout+(/[.!?]$/.test(customAbout)?" ":". ")+parentLine):`I’m ${first||"Taylor"}. I started ${biz} because I’d rather earn it than ask for it. I show up when I say I will, I do the job right, and I check that you are happy with the work. ${parentLine}`;
   return {type:S.type,look:S.look==="day"?"day":"night",theme:siteTheme(S.theme),sky:skyMood(),art:artStyle(),font:S.siteFont||"",pets:petList(),snowTrigger:S.snowTrigger||"2",inboxUrl:(typeof inboxValid==="function"&&inboxValid(S.inboxUrl))?String(S.inboxUrl).trim():"",inboxKey:S.inboxKey||"",publicUrl:normUrl(S.siteUrl)||"",parent2:(S.parent2||"").trim(),phone2Digits:(S.showPhone?String(S.phone2||"").replace(/\D/g,""):""),email2:(S.email2||"").trim(),seasonOn:!!S.seasonOn&&S.type!=="lawn",seasonPrice:cleanPrice(S.seasonPrice),promise:(S.promise||"").trim(),first,town,biz,tagline,parentName,phone,phoneDigits:(S.showPhone?phoneDigits:""),showPhone:!!S.showPhone,email,venmo,about,
     services:S.services.filter(s=>s.n.trim()&&s.on!==false).map(s=>({n:s.n,p:cleanPrice(s.p)})),palette:S.palette,days:S.sched.map(x=>!!x.on),sched:S.sched.map(x=>({on:!!x.on,from:x.from,to:x.to})),hours:S.hours.trim(),
     proof:S.proof.filter(p=>p.a&&p.b).map(p=>({a:p.a,b:p.b,cap:p.cap||""})),reviews:S.reviews.filter(r=>r.n&&r.n.trim()&&r.q&&r.q.trim()).map(r=>({...r,n:r.n.trim().slice(0,40)})),publish:opt.publish||null};
@@ -3110,7 +3245,74 @@ function syncPlaceholders(){
   if(typeof renderIdeas==="function")renderIdeas();
   if(typeof renderSnowPlan==="function")renderSnowPlan();
   if(typeof renderSeason==="function")renderSeason();
+  if(typeof renderStoryChips==="function")renderStoryChips();
 }
+function storyStarters(){
+  const first=S.first.trim()||"Taylor", town=S.town.trim()||"my neighborhood", biz=S.bizName.trim()||autoBiz(S.type,first);
+  const workWord=S.type==="other"&&S.customJob&&S.customJob.trim()?S.customJob.trim().toLowerCase():({lawn:"lawn care",snow:"snow shoveling",both:"yard and snow care",prep:"yard cleanup",pet:"pet care",wash:"car washing",odd:"neighborhood odd jobs",help:"mother’s helper visits",tutor:"reading and homework help",other:"neighborhood help"}[S.type]||"neighborhood help");
+  return [
+    {label:"Saving for a goal",text:`I’m ${first}. I started ${biz} to save for my own goal and learn how to run a real business. I show up on time and check that you’re happy with the job.`},
+    {label:"Earning it myself",text:`I’m ${first}. I started ${biz} because I’d rather earn it than ask for it. I take pride in careful work and treating every neighbor’s home with respect.`},
+    {label:"Local & reliable",text:`I’m ${first} from ${town}. Neighbors count on me for dependable ${workWord}, clear prices, and friendly communication.`},
+    {label:"Hard worker",text:`Hi, I’m ${first}! I’m building ${biz} one happy neighbor at a time — showing up ready to work, doing it right, and leaving things tidy.`}
+  ];
+}
+function renderStoryChips(){
+  const wrap=$("#storyChips"); if(!wrap)return;
+  const cur=String(S.aboutCustom||"").trim();
+  wrap.innerHTML="";
+  storyStarters().forEach(st=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=st.label;
+    b.setAttribute("aria-pressed",String(cur===st.text));
+    b.onclick=()=>{S.aboutCustom=st.text;const ta=$("#aboutCustom");if(ta)ta.value=st.text;renderStoryChips();queue();};
+    wrap.appendChild(b);
+  });
+  if(cur){
+    const clr=document.createElement("button"); clr.type="button"; clr.textContent="Use starter story";
+    clr.onclick=()=>{S.aboutCustom="";const ta=$("#aboutCustom");if(ta)ta.value="";renderStoryChips();queue();};
+    wrap.appendChild(clr);
+  }
+}
+function renderEarnEst(){
+  const box=$("#earnEst"); if(!box)return;
+  const offered=(S.services||[]).filter(s=>s&&String(s.n||"").trim()&&s.on!==false);
+  let pick=null, price=0;
+  for(const s of offered){
+    const n=priceNum(s.p);
+    if(n!==null&&n>0){pick=s;price=n;break;}
+    const m=String(s.p||"").match(/\d+(?:\.\d{1,2})?/);
+    if(m&&Number(m[0])>0){pick=s;price=Number(m[0]);break;}
+  }
+  if(!pick||!(price>0)){box.hidden=true;box.innerHTML="";return;}
+  const fmt=v=>{const r=Math.round(v*100)/100;return "$"+r.toLocaleString("en-US",{minimumFractionDigits:r%1?2:0,maximumFractionDigits:2});};
+  box.hidden=false;
+  box.innerHTML=`<b style="display:block;margin-bottom:4px">What you could earn</b>With ${esc(pick.n.trim())} at ${esc(fmt(price))}: <strong>2 jobs/week = ${fmt(price*2)}/week</strong> (~${fmt(price*8)}/month), or <strong>4 jobs/week = ${fmt(price*4)}/week</strong>.<small>Example only — real earnings depend on bookings and supplies.</small>`;
+}
+function renderParentChecks(){
+  const boxes=Array.from(document.querySelectorAll("[data-pcheck]"));
+  if(!boxes.length)return;
+  const saved=new Set(Array.isArray(S.parentChecks)?S.parentChecks.map(String):[]);
+  let done=0;
+  boxes.forEach(cb=>{
+    const on=saved.has(String(cb.dataset.pcheck));
+    cb.checked=on;
+    if(on)done++;
+  });
+  const prog=$("#pcheckProg");
+  if(prog){
+    prog.textContent=done+" of "+boxes.length+(done===boxes.length?" ✓":"");
+    prog.classList.toggle("done",done===boxes.length);
+  }
+}
+document.querySelectorAll("[data-pcheck]").forEach(cb=>{
+  cb.addEventListener("change",()=>{
+    const set=new Set(Array.isArray(S.parentChecks)?S.parentChecks.map(String):[]);
+    if(cb.checked)set.add(String(cb.dataset.pcheck));else set.delete(String(cb.dataset.pcheck));
+    S.parentChecks=Array.from(set);
+    renderParentChecks();
+    save();
+  });
+});
 
 function renderServices(f){
   const list=$("#svcList"); list.innerHTML="";
@@ -3128,12 +3330,12 @@ function renderServices(f){
     const up=mk("mv-up","Move "+nm+" up",chev("up")), dn=mk("mv-down","Move "+nm+" down",chev("down")), x=mk("rm","Remove "+nm,"\u00d7");
     up.disabled=i===0; dn.disabled=i===S.services.length-1;
     const move=(d)=>{const j=i+d;if(j<0||j>=S.services.length)return;const t=S.services[i];S.services[i]=S.services[j];S.services[j]=t;S.svcEdited=true;renderServices({i:j,d:d});queue();};
-    n.oninput=()=>{s.n=n.value;S.svcEdited=true;queue();};
+    n.oninput=()=>{s.n=n.value;S.svcEdited=true;renderEarnEst();queue();};
     n.onblur=()=>queue();
     let previousPrice=s.p;
     p.onfocus=()=>{previousPrice=s.p;p.select();};
-    p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;queue();};
-    p.onblur=async()=>{const v=priceNum(p.value);if(v!==null&&v<0){s.p=previousPrice;p.value=s.p;S.svcEdited=true;toast("Enter a price of $0 or more. Your previous price was kept.");}else if(priceTooHigh(v)){s.p=previousPrice;p.value=s.p;S.svcEdited=true;toast("That price is over $999, so it was not kept.");}else if(priceNeedsConfirm(v)){const yes=await confirmModal('<h3>That price is over $200</h3><p class="small2">'+esc(s.n||"This job")+' would be listed at $'+v+'. Use that price?</p>',"Use this price");if(!yes){s.p=previousPrice;p.value=s.p;}queue();}else queue();};
+    p.oninput=()=>{s.p=p.value;s.t=1;S.svcEdited=true;renderEarnEst();queue();};
+    p.onblur=async()=>{const v=priceNum(p.value);if(v!==null&&v<0){s.p=previousPrice;p.value=s.p;S.svcEdited=true;renderEarnEst();toast("Enter a price of $0 or more. Your previous price was kept.");}else if(priceTooHigh(v)){s.p=previousPrice;p.value=s.p;S.svcEdited=true;renderEarnEst();toast("That price is over $999, so it was not kept.");}else if(priceNeedsConfirm(v)){const yes=await confirmModal('<h3>That price is over $200</h3><p class="small2">'+esc(s.n||"This job")+' would be listed at $'+v+'. Use that price?</p>',"Use this price");if(!yes){s.p=previousPrice;p.value=s.p;renderEarnEst();}queue();}else{renderEarnEst();queue();}};
     up.onclick=()=>move(-1); dn.onclick=()=>move(1);
     x.onclick=()=>{S.services.splice(i,1);S.svcEdited=true;renderServices();queue();};
     const offer=document.createElement("button"); offer.type="button"; offer.className="icon offer";
@@ -3144,6 +3346,7 @@ function renderServices(f){
     row.appendChild(n);row.appendChild(pw);row.appendChild(up);row.appendChild(dn);row.appendChild(x);list.appendChild(row);
   });
   if(f){const row=list.children[f.i];if(row){let b=row.querySelector(f.d<0?".mv-up":".mv-down");if(!b||b.disabled)b=row.querySelector(f.d<0?".mv-down":".mv-up");if(b&&!b.disabled)b.focus();}}
+  renderEarnEst();
 }
 $("#addSvc").onclick=()=>{
   S.services.push({n:"",p:""});S.svcEdited=true;renderServices();queue();
@@ -3166,6 +3369,7 @@ function renderLevel(){
   const L=Math.max(1,Math.min(5,S.lvl|0||1)),lv=LEVELS[L-1],rng=$("#lvl");
   rng.value=L;rng.style.setProperty("--pct",((L-1)/4*100)+"%");rng.setAttribute("aria-valuetext","Level "+L+": "+lv.n);
   $("#lvlName").textContent="Level "+L+": "+lv.n;$("#lvlSay").textContent=lv.say;
+  renderEarnEst();
 }
 /* Moving the slider reprices the list right away — there is no separate
    apply tap. A row still showing a suggestion follows the slider: a
@@ -3447,14 +3651,14 @@ $("#copyShare").onclick=async()=>{
   const hole=!normUrl(S.siteUrl)||ta.value.indexOf("[paste your link]")>=0;
   const ok=hole?"Copied, but it still says [paste your link]. Paste your website link above, then copy it again.":"Copied.";
   try{await navigator.clipboard.writeText(ta.value);st.textContent=ok;}
-  catch(e){ta.focus();ta.select();try{document.execCommand("copy");st.textContent=ok;}catch(_){st.textContent="Select the text and copy it.";}}
+  catch(e){ta.focus();ta.select();let copied=false;try{copied=!!document.execCommand("copy");}catch(_){}st.textContent=copied?ok:"Select the text and copy it.";}
 };
 
 
 /* ============ Boss mode ============ */
 const BK="hustle-boss-v1";
 let storageOK=true;
-function freshBoss(){return {goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};}
+function freshBoss(){return {goalAmount:1000,goalLabel:"My first $1,000",jarPreset:"balanced",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};}
 let B=freshBoss();
 let savedBoss=null;
 try{const r=localStorage.getItem(BK); if(r)savedBoss=JSON.parse(r); localStorage.setItem("hb-test","1");localStorage.removeItem("hb-test");}catch(e){storageOK=false;}
@@ -3648,6 +3852,65 @@ function chartSVG(weeks){
   return o+`</svg>`;
 }
 
+const PREP_ITEMS={
+  lawn:["Tell your parent the address and time","Closed-toe shoes, eye/ear protection, and water","Check mower gas or battery and yard bags","Walk the yard for toys, sticks, or rocks first"],
+  snow:["Tell your parent the address and time","Warm gloves, boots, layers, and water","Shovel and ice melt/salt if agreed","Take a break if you get cold or tired"],
+  both:["Tell your parent the address and time","Pack the right tools and safety gear for today’s job","Dress for the weather and bring water","Walk the area first and check for obstacles"],
+  prep:["Tell your parent the address and time","Gloves, closed-toe shoes, rake, and yard bags","Confirm with your parent which tools are approved","Clear walks and tidy up before you leave"],
+  pet:["Tell your parent the address and time","Leash, poop bags, and owner-approved treats","Check gate/door notes and refresh water","Wash hands after — a parent handles any medicine"],
+  wash:["Tell your parent the address and time","Bucket, car-safe soap, soft sponges, and towels","Ask where to connect the hose before starting","Dry glass and mirrors streak-free"],
+  odd:["Tell your parent the address and time","Confirm the exact job and price before starting","Bring gloves, water, and parent-approved tools","Check with the neighbor before wrapping up"],
+  help:["Confirm a parent will be home the whole visit","Tell your parent the address and pickup time","Bring a game, book, or activity idea","Tidy up toys and spaces before you leave"],
+  tutor:["Tell your parent the address and time","Bring books, flashcards, pencil, and timer","Start with a friendly warm-up","Share a quick win with the parent at the end"],
+  other:["Tell your parent the address and time","Pack all supplies and double-check what’s needed","Confirm the job and price before you start","Ask the customer to look over your work when done"]
+};
+function prepChecklistHTML(type){
+  const items=PREP_ITEMS[type]||PREP_ITEMS.other;
+  return `<details class="prep-box"><summary>Before you head out (${items.length} checks)</summary><ul class="prep-list">${items.map(it=>`<li><label><input type="checkbox"><span>${esc(it)}</span></label></li>`).join("")}</ul></details>`;
+}
+const JAR_PRESETS={
+  balanced:{label:"Balanced (50/30/10/10)",save:50,spend:30,reinvest:10,give:10},
+  saver:{label:"Super saver (60/20/10/10)",save:60,spend:20,reinvest:10,give:10},
+  grow:{label:"Gear builder (40/20/30/10)",save:40,spend:20,reinvest:30,give:10}
+};
+function calcJars(profit,presetKey){
+  const p=JAR_PRESETS[presetKey]||JAR_PRESETS.balanced;
+  const base=Math.max(0,r2(profit));
+  const saveA=r2(base*p.save/100), spendA=r2(base*p.spend/100), reinA=r2(base*p.reinvest/100);
+  const giveA=base>0?Math.max(0,r2(base-saveA-spendA-reinA)):0;
+  return {preset:p,base,jars:[
+    {name:"Save",pct:p.save,amt:saveA},
+    {name:"Spend",pct:p.spend,amt:spendA},
+    {name:"Reinvest",pct:p.reinvest,amt:reinA},
+    {name:"Give",pct:p.give,amt:giveA}
+  ]};
+}
+function moneyJarsHTML(profit){
+  const key=JAR_PRESETS[B.jarPreset]?B.jarPreset:"balanced";
+  const split=calcJars(profit,key);
+  const chips=Object.keys(JAR_PRESETS).map(k=>`<button type="button" data-act="jarPreset" data-id="${k}" aria-pressed="${k===key}">${esc(JAR_PRESETS[k].label)}</button>`).join("");
+  const grid=split.jars.map(j=>`<div class="jar"><b>${money(j.amt)}</b><span>${esc(j.name)} (${j.pct}%)</span></div>`).join("");
+  return `<details class="jars-wrap"><summary>Money jar split · ${esc(split.preset.label)}</summary>
+    <p class="small2" style="margin:8px 0 6px">${split.base>0?"Idea for how to split your "+money(split.base)+" profit into 4 jars.":"Log your first paid job to see how your profit splits into 4 jars (Save, Spend, Reinvest, Give)."}</p>
+    <div class="chips" style="margin:6px 0 8px">${chips}</div>
+    <div class="jar-grid">${grid}</div>
+  </details>`;
+}
+function goalJobsHTML(profit,goal,avg,services){
+  const rem=r2(goal-Math.max(0,profit));
+  if(rem<=0)return `<p class="goal-jobs">Goal reached! Ready to set a bigger goal?</p>`;
+  let typ=0, label="";
+  const offered=(services||[]).filter(s=>s&&String(s.n||"").trim()&&s.on!==false);
+  for(const s of offered){
+    const n=typeof priceNum==="function"?priceNum(s.p):num(s.p);
+    if(n&&n>0){typ=n;label=s.n.trim();break;}
+  }
+  if(!(typ>0)&&avg>0){typ=avg;label="average";}
+  if(!(typ>0))return "";
+  const left=Math.max(1,Math.ceil(rem/typ));
+  return `<p class="goal-jobs">About <b>${left} more ${esc(label)}</b> ${left===1?"job":"jobs"} to reach your goal!</p>`;
+}
+
 let lastProfit=0, showAll=false, showAllCosts=false, PJ={h:2,r:15,c:0};
 function renderBoss(){
   const newly=syncMissions();
@@ -3658,10 +3921,12 @@ function renderBoss(){
   const jobsSorted=B.jobs.slice().sort((a,b)=>{const ad=String(a.date||""),bd=String(b.date||"");return ad<bd?1:ad>bd?-1:(String(a.id||"")<String(b.id||"")?1:-1);});
   const shown=showAll?jobsSorted:jobsSorted.slice(0,8);
   const jobRows=shown.map(j=>`<div class="job" role="button" tabindex="0" data-act="editJob" data-id="${esc(j.id)}"><div class="who"><b>${esc(j.customer||"Customer")}</b><span>${esc(j.service||"Job")} / ${fmtDate(j.date)}${num(j.hours)?" / "+num(j.hours)+" hr":""}</span></div><div class="amt">${money(jobTotal(j))}</div><button type="button" class="chip ${j.paid?"paid":"owed"}" data-act="togglePaid" data-id="${esc(j.id)}" aria-label="${j.paid?"Paid. Tap to mark not paid":"Not paid. Tap to mark paid"}">${j.paid?"Paid":"Owed"}</button></div>`).join("");
+  const unpaid=jobsSorted.filter(j=>!j.paid);
+  const unpaidBox=unpaid.length?`<div class="owed-box"><p class="small2" style="margin:0 0 6px"><b>Waiting to be paid (${unpaid.length})</b></p>${unpaid.slice(0,4).map(j=>`<div class="owed-row"><span><b>${esc(j.customer||"Customer")}</b> · ${money(jobTotal(j))}</span><button type="button" class="chip" data-act="remindPay" data-id="${esc(j.id)}">Copy reminder</button><button type="button" class="chip paid" data-act="togglePaid" data-id="${esc(j.id)}">Mark paid</button></div>`).join("")}</div>`:"";
   const costsSorted=B.costs.slice().sort((a,b)=>{const ad=String(a.date||""),bd=String(b.date||"");return ad<bd?1:ad>bd?-1:0;});
   const shownCosts=showAllCosts?costsSorted:costsSorted.slice(0,5);
   const costRows=shownCosts.map(x=>`<div class="job" role="button" tabindex="0" data-act="editCost" data-id="${esc(x.id)}"><div class="who"><b>${esc(x.label||"Cost")}</b><span>${fmtDate(x.date)}</span></div><div class="amt">${money(-num(x.amount))}</div></div>`).join("");
-  const regulars=st.reps.slice(0,4).map(r=>`${esc(r.name)} (${r.n})`).join(", ");
+  const regChips=st.reps.slice(0,6).map(r=>`<button type="button" class="reg-chip" data-act="regMsg" data-name="${esc(r.name)}">${esc(r.name)} (${r.n})</button>`).join("");
   const sugg=Math.ceil(PJ.h*PJ.r+PJ.c);
   $("#bossBody").innerHTML=`
   ${storageOK?"":`<div class="notice">This browser could not save your records. Export them before leaving, or open Hustle Builder in a browser that allows storage.</div>`}
@@ -3686,6 +3951,7 @@ function renderBoss(){
       <div><b>${money(st.costs)}</b><span>Costs</span></div>
       <div><b>${money(st.owed)}</b><span>Owed to you</span></div>
     </div>
+    ${unpaidBox}
   </div>
 
   <div class="actions">
@@ -3695,9 +3961,11 @@ function renderBoss(){
 
   <div class="bcard">
     <h3>${esc(B.goalLabel||"My goal")}</h3>
-    <div class="gbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i id="gfill" style="width:0"></i></div>
+    <div class="gbar" role="progressbar" aria-label="Goal progress: ${pct} percent" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i id="gfill" style="width:0"></i></div>
     <div class="gline"><span>${money(Math.max(0,st.profit))} of ${money(goal)}</span><span>${pct}%</span></div>
+    ${goalJobsHTML(st.profit,goal,st.avg,S.services)}
     <button type="button" class="link" data-act="editGoal">Edit goal</button>
+    ${moneyJarsHTML(st.profit)}
   </div>
 
   <div class="bcard">
@@ -3715,7 +3983,13 @@ function renderBoss(){
       <div><b>${st.streak} wk</b><span>Job streak</span></div>
     </div>
     ${st.hourly===null?`<p class="small2">Add hours when you log a job and your real hourly rate shows up here.</p>`:""}
-    ${regulars?`<p class="small2"><b>Your regulars:</b> ${regulars}</p><button type="button" class="link" data-act="seasonMsg">Copy a customer check-in</button>`:""}
+    ${regChips?`<p class="small2" style="margin-bottom:4px"><b>Your regulars</b> — tap a name to copy a friendly check-in:</p><div class="reg-chips">${regChips}</div><button type="button" class="link" data-act="seasonMsg">Copy a general check-in</button>`:""}
+  </div>
+
+  <div class="bcard">
+    <h3>Business playbook &amp; scripts</h3>
+    <p class="sub">Word-for-word scripts for door-knocking, parent group posts, weather check-ins, and tricky customer questions — ready to copy.</p>
+    <button type="button" class="btn ghost block" data-act="playbook">Open scripts &amp; pitch guide</button>
   </div>
 
   <div class="bcard">
@@ -3764,8 +4038,8 @@ function renderBoss(){
 const modalEl=$("#modal"), mbody=$("#mbody");
 let modalDismiss=null;
 let modalReturnFocus=null;
-function openModal(html){const target=modalEl.classList.contains("open")?modalReturnFocus:document.activeElement;closeModal();modalReturnFocus=target;document.getElementById("toast").classList.remove("show");mbody.innerHTML=html;modalEl.classList.add("open");const f=mbody.querySelector("input,button");if(f&&window.matchMedia("(min-width:700px)").matches)f.focus();}
-function closeModal(){const dismiss=modalDismiss,target=modalReturnFocus;modalDismiss=null;modalReturnFocus=null;modalEl.classList.remove("open");mbody.innerHTML="";if(dismiss)dismiss();if(target&&target.isConnected)target.focus();}
+function openModal(html){const target=modalEl.classList.contains("open")?modalReturnFocus:document.activeElement;closeModal();modalReturnFocus=target;document.getElementById("toast").classList.remove("show");mbody.innerHTML=html;modalEl.classList.add("open");const h3=mbody.querySelector("h3");if(h3&&typeof h3.setAttribute==="function"){if(!h3.id)h3.id="modalHeading";if(modalEl.setAttribute)modalEl.setAttribute("aria-labelledby",h3.id);}const f=mbody.querySelector("input,button");if(f&&typeof f.focus==="function"){try{f.focus({preventScroll:true});}catch(_){f.focus();}}}
+function closeModal(){const dismiss=modalDismiss,target=modalReturnFocus;modalDismiss=null;modalReturnFocus=null;modalEl.classList.remove("open");if(modalEl.removeAttribute)modalEl.removeAttribute("aria-labelledby");mbody.innerHTML="";if(dismiss)dismiss();if(target&&target.isConnected&&typeof target.focus==="function")target.focus();}
 modalEl.addEventListener("click",e=>{if(e.target===modalEl)closeModal();});
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&modalEl.classList.contains("open")){closeModal();return;}
@@ -3787,7 +4061,7 @@ let toastT;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 async function copyText(text,ok){
   try{await navigator.clipboard.writeText(text);toast(ok);}
-  catch(e){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast(ok);}catch(_){toast("Couldn’t copy. Select the text and copy it.");}ta.remove();}
+  catch(e){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();let copied=false;try{copied=!!document.execCommand("copy");}catch(_){}ta.remove();toast(copied?ok:"Couldn’t copy. Select the text and copy it.");}
 }
 
 
@@ -3884,7 +4158,7 @@ function dayLabel(iso){const diff=Math.round((parseISO(iso)-parseISO(todayISO())
 function sortSched(a,b){return a.date<b.date?-1:a.date>b.date?1:((a.time||"99:99")<(b.time||"99:99")?-1:1);}
 function reviewMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", thanks again for choosing "+bz+"! If you were happy with the "+(j.service?j.service.toLowerCase():"job")+", would you reply with a quick review? I might share it on my website with your first name. - "+c.first;}
 function omwMsg(j){const c=resolve(true),bz=c.biz.replace(/\.$/,"");return "Hi "+j.customer+", it’s "+c.first+" from "+bz+". I’m on my way for "+(j.service||"your job")+". See you soon!";}
-function venmoPayHref(user,amount,note){const name=String(user||"").trim().replace(/^@+/,"");if(!/^[A-Za-z0-9_-]{1,30}$/.test(name)||!/[A-Za-z]/.test(name))return "";const parts=["txn=pay"];const raw=String(amount==null?"":amount).replace(/[^0-9.]/g,"");const num=Number(raw);if(raw&&isFinite(num)&&num>0&&num<=999)parts.push("amount="+encodeURIComponent(String(Math.round(num*100)/100)));const text=String(note||"").replace(/\s+/g," ").trim().slice(0,120);if(text)parts.push("note="+encodeURIComponent(text));return "https://venmo.com/"+encodeURIComponent(name)+"?"+parts.join("&");}
+function venmoPayHref(user,amount,note){const name=String(user||"").trim().replace(/^@+/,"");if(!/^[A-Za-z0-9_-]{1,30}$/.test(name)||!/[A-Za-z]/.test(name))return "";const parts=["txn=pay"];const pm=String(amount==null?"":amount).match(/\d+(?:\.\d{1,2})?/);const raw=pm?pm[0]:"";const num=Number(raw);if(raw&&isFinite(num)&&num>0&&num<=999)parts.push("amount="+encodeURIComponent(String(Math.round(num*100)/100)));const text=String(note||"").replace(/\s+/g," ").trim().slice(0,120);if(text)parts.push("note="+encodeURIComponent(text));return "https://venmo.com/"+encodeURIComponent(name)+"?"+parts.join("&");}
 function doneMsg(j,total,paid,photo){const c=resolve(true),bz=c.biz.replace(/\.$/,"");const link=!paid&&c.venmo?venmoPayHref(c.venmo,total,(c.first?c.first+": ":"")+(j.service||"Job")):"";return "Hi "+j.customer+", all finished! "+(j.service||"The job")+" comes to "+money(total)+"."+(paid?" Paid, thank you!":(link?" Pay with Venmo: "+link:"."))+(photo?" I’ll send a photo of the finished job too.":"")+" Thanks for choosing "+bz+". If you liked it, tell a neighbor!";}
 function icsEsc(t){return String(t||"").replace(/\\/g,"\\\\").replace(/\r?\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");}
 function icsLocal(d){const p=n=>String(n).padStart(2,"0");return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"T"+p(d.getHours())+p(d.getMinutes())+"00";}
@@ -3955,16 +4229,23 @@ function parseBooking(txt){
 function todayHTML(){
   const t=todayISO(), all=B.upcoming.slice().sort(sortSched);
   const today=all.filter(j=>j.date===t), later=all.filter(j=>j.date>t).slice(0,6), missed=all.filter(j=>j.date<t);
+  const prepBox=typeof prepChecklistHTML==="function"?prepChecklistHTML(typeof S!=="undefined"&&S?S.type:""):"";
   const card=j=>{
-    const working=j.status==="working";
-    const prim=working?'<button type="button" class="btn" data-act="finish" data-id="'+j.id+'">Finish job</button>'
+    const working=j.status==="working", paused=working&&!!j.pausedAt;
+    const prim=working?(paused
+      ?'<button type="button" class="btn" data-act="resumeJob" data-id="'+j.id+'">Resume</button><button type="button" class="btn ghost" data-act="finish" data-id="'+j.id+'">Finish job</button>'
+      :'<button type="button" class="btn" data-act="finish" data-id="'+j.id+'">Finish job</button><button type="button" class="btn ghost" data-act="pauseJob" data-id="'+j.id+'">Pause</button>')
       :(j.omw?'<button type="button" class="btn" data-act="start" data-id="'+j.id+'">Start job</button>'
       :'<button type="button" class="btn" data-act="omw" data-id="'+j.id+'">On my way</button><button type="button" class="btn ghost" data-act="start" data-id="'+j.id+'">Start job</button>');
-    const one=working||j.omw;
+    const one=!working&&!!j.omw;
+    const timerLine=working?(paused
+      ?'<p class="tjtime">Paused at <span>'+elapsed(j.pausedElapsed||0)+'</span></p>'
+      :'<p class="tjtime">Working: <b data-elapsed-start="'+j.startedAt+'">'+elapsed(Date.now()-j.startedAt)+'</b></p>'):"";
     return '<div class="tj"><div class="top2"><b>'+esc(j.customer)+'</b><span class="amt">'+(j.amount?money(j.amount):"Quote")+'</span></div>'
       +'<p class="sub2">'+esc(j.service||"Job")+(j.time?" at "+fmtTime(j.time):"")+(j.note?" / "+esc(j.note):"")+'</p>'
       +addrLink(j.address)
-      +(working?'<p class="tjtime">Working: <b data-elapsed-start="'+j.startedAt+'">'+elapsed(Date.now()-j.startedAt)+'</b></p>':"")
+      +timerLine
+      +(!working?prepBox:"")
       +'<div class="tjb'+(one?" one":"")+'">'+prim+'</div>'
       +'<div class="links">'+dirAnchor(j.address)
       +(j.phone?'<a href="tel:'+digitsOf(j.phone)+'">Call</a>':"")
@@ -3973,7 +4254,7 @@ function todayHTML(){
   const row=(j,miss)=>{
     const hit='<div class="who"><b>'+esc(j.customer)+'</b><span>'+dayLabel(j.date)+(j.time?" at "+fmtTime(j.time):"")+" / "+esc(j.service||"Job")+'</span></div><div class="amt">'+(j.amount?money(j.amount):"Quote")+'</div>'+(miss?'<span class="chip owed" aria-hidden="true">Missed</span>':(j.confirmed?'<span class="chip ok" aria-hidden="true">Confirmed</span>':""));
     const link=addrLink(j.address);
-    return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+(link||"")+dirAnchor(j.address)+'<button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button></div></div>';
+    return '<div class="job sched"><div class="jobhit" role="button" tabindex="0" data-act="editSched" data-id="'+j.id+'">'+hit+'</div><div class="maprow">'+(link||"")+dirAnchor(j.address)+'<button type="button" data-act="doToday" data-id="'+j.id+'">Move to today</button><button type="button" data-act="copyJob" data-id="'+j.id+'">Copy job</button></div></div>';
   };
   return '<div class="bcard"><div class="thead"><h3>Today</h3><span class="tdate">'+parseISO(t).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})+'</span></div>'
     +'<p class="small2">Your manual job log. Editing or removing a job here does not change a customer’s booking request or notify them. A parent manages online bookings above.</p>'
@@ -4037,7 +4318,7 @@ function openSched(id){
     if(!cust){err.textContent="Add the customer’s first name.";return;}
     if(!$m("#sf-d").value){err.textContent="Pick a date.";return;}
     const rec=Object.assign({},ex||{},{id:ex?ex.id:uid(),customer:cust,service:$m("#sf-s").value.trim(),amount:r2(num($m("#sf-a").value)),time:$m("#sf-t").value,date:$m("#sf-d").value,address:$m("#sf-ad").value.trim(),phone:$m("#sf-p").value.trim(),note:$m("#sf-n").value.trim(),status:ex?ex.status:"scheduled",omw:ex?!!ex.omw:false});
-    if(ex){B.upcoming[B.upcoming.findIndex(x=>x.id===ex.id)]=rec;}else{B.upcoming.push(rec);}
+    if(ex){const ix=B.upcoming.findIndex(x=>x.id===ex.id);if(ix>=0)B.upcoming[ix]=rec;else B.upcoming.push(rec);}else{B.upcoming.push(rec);}
     saveB();closeModal();renderBoss();toast(ex?"Job updated.":"Job scheduled.");syncCalJob(rec);
   };
   if(ex)$m("#sf-del").onclick=()=>{const b=$m("#sf-del");if(!delArmed){delArmed=true;b.textContent="Tap again to remove";b.classList.add("danger");return;}B.upcoming=B.upcoming.filter(x=>x.id!==ex.id);saveB();closeModal();renderBoss();toast("Removed from schedule.");unsyncCalJob(ex.id);};
@@ -4045,11 +4326,13 @@ function openSched(id){
 
 function openFinish(id){
   const j=B.upcoming.find(x=>x.id===id);if(!j)return;
-  const hrs=j.startedAt?Math.max(.25,Math.round((Date.now()-j.startedAt)/3600000*4)/4):"";
+  const elapsedMs=j.pausedAt?(Number(j.pausedElapsed)||0):(Number.isFinite(j.startedAt)?Math.max(0,Date.now()-j.startedAt):0);
+  const hrs=elapsedMs>0?Math.max(.25,Math.round(elapsedMs/3600000*4)/4):"";
   let paid=true;
   const where=addrLink(j.address), dirs=dirAnchor(j.address);
   openModal('<h3>Finish job</h3><p class="sub">'+esc(j.customer)+' / '+esc(j.service||"Job")+'</p>'
    +(where?'<div class="finishmap">'+where+(dirs?'<div class="links">'+dirs+'</div>':"")+'</div>':"")
+   +'<details class="prep-box" style="margin:0 0 12px"><summary>Before you leave (3 quick checks)</summary><ul class="prep-list"><li><label><input type="checkbox"><span>All tools, supplies, and trash packed up</span></label></li><li><label><input type="checkbox"><span>Gates, doors, hoses, or latches left how you found them</span></label></li><li><label><input type="checkbox"><span>Customer checked the work and is happy</span></label></li></ul></details>'
    +'<div class="mf"><div class="row3"><label>Amount ($)<input type="text" inputmode="decimal" id="ff-a" value="'+(j.amount||"")+'" autocomplete="off"></label><label>Tip ($)<input type="text" inputmode="decimal" id="ff-t" autocomplete="off"></label><label>Hours<input type="text" inputmode="decimal" id="ff-h" value="'+hrs+'" autocomplete="off"></label></div></div>'
    +'<div class="mf"><label>Payment</label><div class="chips" id="ff-p"><button type="button" data-p="1" aria-pressed="true">Paid</button><button type="button" data-p="0" aria-pressed="false">Not paid yet</button></div></div>'
    +'<label class="check"><input type="checkbox" id="ff-sms" checked><span>'+(j.phone?"Text them a done message":"Copy a done message")+'</span></label>'
@@ -4061,10 +4344,10 @@ function openFinish(id){
   $m("#ff-save").onclick=()=>{
     const amt=num($m("#ff-a").value),err=$m("#ff-e");
     if(!(amt>0)){err.textContent="Add the amount you charged.";return;}
-    const rec={id:uid(),date:todayISO(),customer:j.customer,service:j.service,phone:j.phone||"",amount:r2(amt),tip:r2(num($m("#ff-t").value)),hours:num($m("#ff-h").value),paid};
+    const rec={id:uid(),date:todayISO(),customer:j.customer,service:j.service,phone:j.phone||"",amount:r2(amt),tip:r2(num($m("#ff-t").value)),hours:num($m("#ff-h").value),paid,...(j.bookingId?{bookingId:j.bookingId}:{})};
     const sms=$m("#ff-sms").checked,ph=$m("#ff-photo").checked;
     const before=rankIndex(B.jobs.length);
-    B.jobs.push(rec);B.upcoming=B.upcoming.filter(x=>x.id!==j.id);saveB();unsyncCalJob(j.id);closeModal();renderBoss();
+    B.jobs.push(rec);B.upcoming=B.upcoming.filter(x=>x.id!==j.id);saveB();unsyncCalJob(j.id);closeModal();renderBoss();if(typeof renderFilteredJobs==="function")renderFilteredJobs();
     if(sms){sendSMS(j.phone,doneMsg(rec,r2(rec.amount+rec.tip),paid,ph));if(ph)setTimeout(()=>toast("Attach a photo of the finished work, with no people or identifying details."),1500);}
     const after=rankIndex(B.jobs.length);
     if(after>before)setTimeout(()=>openRankUp(after),sms?900:0);else if(!sms)toast("Job finished and logged.");
@@ -4074,15 +4357,16 @@ function openFinish(id){
 function docText(j){
   const c=resolve(true), tot=r2(j.amount+j.tip);
   if(j.paid)return `Receipt from ${c.biz}: ${j.service||"Yard work"} on ${fmtDate(j.date)}. Total ${money(tot)}${j.tip?` (includes ${money(j.tip)} tip)`:""}. Paid. Thanks ${j.customer}!`;
-  return `Hey ${j.customer}, thanks for choosing ${c.biz}! ${j.service||"The job"} on ${fmtDate(j.date)} comes to ${money(tot)}.${c.venmo?` You can pay on Venmo: @${c.venmo}.`:""} Appreciate you!`;
+  const vlink=c.venmo?venmoPayHref(c.venmo,tot,(c.first?c.first+": ":"")+(j.service||"Job")):"";
+  return `Hey ${j.customer}, thanks for choosing ${c.biz}! ${j.service||"The job"} on ${fmtDate(j.date)} comes to ${money(tot)}.${vlink?` Pay on Venmo: ${vlink}`:(c.venmo?` You can pay on Venmo: @${c.venmo}.`:"")} Appreciate you!`;
 }
 
-function openJob(id){
+function openJob(id,prefill){
   const ex=id?B.jobs.find(j=>j.id===id):null;
-  const j=ex?Object.assign({},ex):{date:todayISO(),customer:"",service:"",amount:"",tip:"",hours:"",paid:true};
+  const j=ex?Object.assign({},ex):Object.assign({date:todayISO(),customer:"",service:"",phone:"",amount:"",tip:"",hours:"",paid:true},prefill||{});
   const recent=[...new Set(B.jobs.slice().reverse().map(x=>x.customer.trim()).filter(Boolean))].slice(0,6);
   const svcs=S.services.filter(s=>s.n.trim());
-  let autoAmt=!ex, delArmed=false;
+  let autoAmt=!ex&&!j.amount, delArmed=false;
   openModal(`<h3>${ex?"Edit job":"Log a job"}</h3>
     <div class="mf"><label for="jf-c">Customer first name</label>
       <input type="text" id="jf-c" value="${esc(j.customer)}" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
@@ -4098,6 +4382,7 @@ function openJob(id){
       <label>Hours<input type="text" inputmode="decimal" id="jf-h" value="${j.hours?j.hours:""}" autocomplete="off"></label>
     </div></div>
     <div class="mf"><label for="jf-d">Date</label><input type="date" id="jf-d" value="${j.date}" style="width:100%;min-height:54px;padding:12px 15px;border:2px solid var(--line);border-radius:8px;background:var(--surface);font-size:17.5px"></div>
+    <div class="mf"><label for="jf-ph">Customer phone (optional)</label><input type="tel" inputmode="tel" id="jf-ph" value="${esc(j.phone||"")}" autocomplete="off"><small class="help2">Only used to text a receipt, review request, or referral. Ask a parent before texting.</small></div>
     <div class="mf"><label>Payment</label><div class="chips" id="jf-p"><button type="button" data-p="1" aria-pressed="${j.paid}">Paid</button><button type="button" data-p="0" aria-pressed="${!j.paid}">Not paid yet</button></div></div>
     ${ex?`<div class="mbtns" style="margin:0 0 6px"><button type="button" class="btn ghost" id="jf-rev">Ask for a review</button><button type="button" class="btn ghost" id="jf-ref">Ask for a referral</button><button type="button" class="btn ghost" id="jf-copy">${j.paid?"Copy receipt":"Copy invoice"}</button><button type="button" class="btn outline" id="jf-del">Delete job</button></div>`:""}
     <div class="mfoot"><p class="merr" id="jf-e" role="alert"></p><div class="mbtns"><button type="button" class="btn" id="jf-save">Save job</button><button type="button" class="btn outline" id="jf-cancel">Cancel</button></div></div>`);
@@ -4111,18 +4396,18 @@ function openJob(id){
     const cust=$m("#jf-c").value.trim(), amt=num($m("#jf-a").value), err=$m("#jf-e");
     if(!cust){err.textContent="Add the customer’s first name.";return;}
     if(!(amt>0)){err.textContent="Add the amount you charged.";return;}
-    const rec=Object.assign({},ex||{},{id:ex?ex.id:uid(),date:$m("#jf-d").value||todayISO(),customer:cust,service:$m("#jf-s").value.trim(),amount:r2(amt),tip:r2(num($m("#jf-t").value)),hours:num($m("#jf-h").value),paid:j.paid});
+    const rec=Object.assign({},ex||{},{id:ex?ex.id:uid(),date:$m("#jf-d").value||todayISO(),customer:cust,service:$m("#jf-s").value.trim(),phone:$m("#jf-ph").value.trim(),amount:r2(amt),tip:r2(num($m("#jf-t").value)),hours:num($m("#jf-h").value),paid:j.paid,...(j.bookingId?{bookingId:j.bookingId}:{})});
     const before=rankIndex(B.jobs.length);
-    if(ex){B.jobs[B.jobs.findIndex(x=>x.id===ex.id)]=rec;}else{B.jobs.push(rec);}
-    saveB(); closeModal(); renderBoss();
+    if(ex){const ix=B.jobs.findIndex(x=>x.id===ex.id);if(ix>=0)B.jobs[ix]=rec;else B.jobs.push(rec);}else{B.jobs.push(rec);}
+    saveB(); closeModal(); renderBoss(); if(typeof renderFilteredJobs==="function")renderFilteredJobs();
     const after=rankIndex(B.jobs.length);
     if(after>before)openRankUp(after);else toast(ex?"Job updated.":"Job logged.");
   };
   if(ex){
-    $m("#jf-rev").onclick=()=>sendSMS(ex.phone,reviewMsg(ex));
-    $m("#jf-ref").onclick=()=>sendSMS(ex.phone,referMsg(ex));
+    $m("#jf-rev").onclick=()=>sendSMS($m("#jf-ph").value.trim()||ex.phone,reviewMsg(ex));
+    $m("#jf-ref").onclick=()=>sendSMS($m("#jf-ph").value.trim()||ex.phone,referMsg(ex));
     $m("#jf-copy").onclick=()=>copyText(docText(Object.assign({},ex,{paid:j.paid})),j.paid?"Receipt copied.":"Invoice copied.");
-    $m("#jf-del").onclick=()=>{const b=$m("#jf-del");if(!delArmed){delArmed=true;b.textContent="Tap again to delete";b.classList.add("danger");return;}B.jobs=B.jobs.filter(x=>x.id!==ex.id);saveB();closeModal();renderBoss();toast("Job deleted.");};
+    $m("#jf-del").onclick=()=>{const b=$m("#jf-del");if(!delArmed){delArmed=true;b.textContent="Tap again to delete";b.classList.add("danger");return;}B.jobs=B.jobs.filter(x=>x.id!==ex.id);saveB();closeModal();renderBoss();if(typeof renderFilteredJobs==="function")renderFilteredJobs();toast("Job deleted.");};
   }
 }
 
@@ -4146,7 +4431,7 @@ function openCost(id){
     if(!label){err.textContent="Say what it was.";return;}
     if(!(amt>0)){err.textContent="Add the amount.";return;}
     const rec={id:ex?ex.id:uid(),date:$m("#cf-d").value||todayISO(),label,amount:r2(amt)};
-    if(ex){B.costs[B.costs.findIndex(y=>y.id===ex.id)]=rec;}else{B.costs.push(rec);}
+    if(ex){const ix=B.costs.findIndex(y=>y.id===ex.id);if(ix>=0)B.costs[ix]=rec;else B.costs.push(rec);}else{B.costs.push(rec);}
     saveB();closeModal();renderBoss();toast(ex?"Cost updated.":"Cost added.");
   };
   if(ex){$m("#cf-del").onclick=()=>{const b=$m("#cf-del");if(!delArmed){delArmed=true;b.textContent="Tap again to delete";b.classList.add("danger");return;}B.costs=B.costs.filter(y=>y.id!==ex.id);saveB();closeModal();renderBoss();toast("Cost deleted.");};}
@@ -4154,12 +4439,52 @@ function openCost(id){
 
 function openGoal(){
   openModal(`<h3>Set your goal</h3>
-    <div class="mf"><label for="gf-l">What are you working toward?</label><input type="text" id="gf-l" value="${esc(B.goalLabel)}" autocomplete="off"></div>
-    <div class="mf"><label for="gf-a">Goal amount ($)</label><input type="text" inputmode="decimal" id="gf-a" value="${B.goalAmount}" autocomplete="off"></div>
+    <div class="mf"><label for="gf-l">What are you working toward?</label><input type="text" id="gf-l" value="${esc(B.goalLabel)}" autocomplete="off">
+      <div class="chips" id="gf-lc">${["New bike","Sports gear","Summer camp","New equipment","Savings"].map(v=>`<button type="button" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>
+    </div>
+    <div class="mf"><label for="gf-a">Goal amount ($)</label><input type="text" inputmode="decimal" id="gf-a" value="${B.goalAmount}" autocomplete="off">
+      <div class="chips" id="gf-ac">${[50,100,250,500,1000].map(v=>`<button type="button" data-v="${v}">$${v.toLocaleString("en-US")}</button>`).join("")}</div>
+    </div>
     <div class="mfoot"><p class="merr" id="gf-e" role="alert"></p><div class="mbtns"><button type="button" class="btn" id="gf-save">Save goal</button><button type="button" class="btn outline" id="gf-cancel">Cancel</button></div></div>`);
   const $m=s=>mbody.querySelector(s);
+  mbody.querySelectorAll("#gf-lc button").forEach(b=>b.onclick=()=>{$m("#gf-l").value=b.dataset.v;});
+  mbody.querySelectorAll("#gf-ac button").forEach(b=>b.onclick=()=>{$m("#gf-a").value=b.dataset.v;});
   $m("#gf-cancel").onclick=closeModal;
   $m("#gf-save").onclick=()=>{const a=num($m("#gf-a").value);if(!(a>0)){$m("#gf-e").textContent="Add a goal amount.";return;}B.goalLabel=$m("#gf-l").value.trim()||"My goal";B.goalAmount=a;saveB();closeModal();renderBoss();toast("Goal saved.");};
+}
+
+function playbookScripts(){
+  const c=resolve(true), link=linkOrPlaceholder();
+  const svc=(c.services&&c.services[0])?c.services[0]:{n:typeInfo(S.type).label,p:""};
+  const priceBit=svc.p?(" starting at "+fmtPrice(svc.p)):"";
+  const workWord=S.type==="other"&&S.customJob&&S.customJob.trim()?S.customJob.trim().toLowerCase():({lawn:"lawn mowing and yard care",snow:"snow shoveling",both:"lawn and snow care",prep:"yard cleanup",pet:"dog walking and pet care",wash:"driveway car washing",odd:"neighborhood odd jobs",help:"mother’s helper visits",tutor:"reading buddy sessions",other:"neighborhood help"}[S.type]||"neighborhood help");
+  const seasonal={
+    snow:`Hi! Snow is in the forecast — it’s ${c.first} from ${c.biz}. I’m opening spots for shoveling walks and driveways. My parent confirms every booking here: ${link}`,
+    lawn:`Hi! It’s ${c.first} from ${c.biz}. Mowing season is rolling and I have open spots this week for ${svc.n.toLowerCase()}${priceBit}. Book a day here: ${link}`,
+    both:`Hi! It’s ${c.first} from ${c.biz}. I have open spots this week for ${svc.n.toLowerCase()}${priceBit}. You can request a day online here: ${link}`,
+    prep:`Hi! It’s ${c.first} from ${c.biz}. Need a hand getting the yard cleaned up? I have spots open this week — request a day here: ${link}`,
+    pet:`Hi! It’s ${c.first} from ${c.biz}. Traveling soon or need a midday walk? I have pet care spots open this week. My parent confirms every request here: ${link}`,
+    wash:`Hi! It’s ${c.first} from ${c.biz}. Nice weather coming up — I’m booking driveway car washes${priceBit} this week! Request a spot here: ${link}`,
+    tutor:`Hi! It’s ${c.first} from ${c.biz}. I have a few open spots for reading and practice sessions this week. My parent confirms every time here: ${link}`,
+    help:`Hi! It’s ${c.first} from ${c.biz}. Need a parent’s helper while you’re home getting things done? I have open spots this week: ${link}`
+  }[S.type]||`Hi! It’s ${c.first} from ${c.biz}. I have open spots this week for ${workWord}${priceBit}. You can request a day here: ${link}`;
+  return [
+    {id:"door",title:"15-second door pitch",script:`“Hi! I’m ${c.first}, I live right here in ${c.town}. I started ${c.biz} to earn my own money doing ${workWord}${priceBit}. Here’s my flyer — you can scan the code to pick a day, and my parent confirms every booking. Have a great day!”`,tip:"Safety rule: go with a parent or buddy, stay outside on the porch, and never go inside a house you don’t know."},
+    {id:"parent",title:"Parent’s neighborhood group post",script:`Hi neighbors! My kid ${c.first} started a small neighborhood business (${c.biz}) offering ${workWord}${priceBit} in ${c.town}. Every request comes to me first and I confirm every job. If you could use a hand, you can check open days and request a spot here: ${link}`,tip:"Written in a parent’s voice for Nextdoor, Facebook neighborhood groups, or family chats."},
+    {id:"season",title:"Weather & weekend check-in text",script:seasonal,tip:"Great to send to past customers or friends right before a busy weekend or storm."},
+    {id:"qa",title:"What to say when…",script:`• “Can you do it cheaper?” → “My prices cover my time and supplies, and I always check that you’re happy with the job. Want to start with a smaller job first?”\n• “Are you free right now?” → “Let me check with my parent first so they know where I am, and I’ll let you know right away!”\n• “How do I pay?” → “You pay after the job is done and you’re happy with it — cash${c.venmo?" or my parent’s Venmo (@"+c.venmo+")":""} works great.”`,tip:"Practice these out loud with a parent once — you’ll sound like a pro!"}
+  ];
+}
+function openPlaybook(){
+  const cards=playbookScripts();
+  openModal(`<h3>Business playbook &amp; scripts</h3>
+    <p class="small2" style="margin:0 0 10px">Personalized for <b>${esc(resolve(true).biz)}</b>. Tap Copy on any script to use it right away.</p>
+    ${cards.map((card,i)=>`<div class="pb-card"><h4>${esc(card.title)}</h4><p class="pb-script">${esc(card.script)}</p><button type="button" class="btn ghost" data-pb-copy="${i}">Copy script</button><p class="pb-tip">${esc(card.tip)}</p></div>`).join("")}
+    <div class="mfoot"><div class="mbtns"><button type="button" class="btn" id="pb-done">Done</button></div></div>`);
+  mbody.querySelectorAll("[data-pb-copy]").forEach(btn=>{
+    btn.onclick=()=>{const item=cards[Number(btn.dataset.pbCopy)];if(item)copyText(item.script,item.title+" copied.");};
+  });
+  mbody.querySelector("#pb-done").onclick=closeModal;
 }
 
 function openRankUp(i){
@@ -4168,12 +4493,12 @@ function openRankUp(i){
   mbody.querySelector("#ru-ok").onclick=closeModal;
 }
 
-function csvEsc(v){v=String(v==null?"":v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function csvEsc(v){v=String(v==null?"":v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 async function exportCSV(){
   const rows=[["Type","Date","Name","Detail","Amount","Tip","Hours","Paid"]];
-  B.jobs.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(j=>rows.push(["Job",j.date,j.customer,j.service,j.amount,j.tip,j.hours||"",j.paid?"Yes":"No"]));
+  B.jobs.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).forEach(j=>rows.push(["Job",j.date,j.customer,j.service,j.amount,j.tip,j.hours||"",j.paid?"Yes":"No"]));
   B.upcoming.slice().sort(sortSched).forEach(x=>rows.push(["Scheduled",x.date,x.customer,x.service,x.amount||"","","",""]));
-  B.costs.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(x=>rows.push(["Cost",x.date,"",x.label,x.amount,"","",""]));
+  B.costs.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).forEach(x=>rows.push(["Cost",x.date,"",x.label,x.amount,"","",""]));
   const csv=rows.map(r=>r.map(csvEsc).join(",")).join("\n");
   const st=$("#bstatus");
   const r=await saveFile("my-job-records.csv",csv,"text/csv");
@@ -4186,6 +4511,13 @@ $("#boss").addEventListener("click",e=>{
   const el=e.target.closest("[data-act]"); if(!el)return;
   const act=el.dataset.act, id=el.dataset.id;
   if(act==="switchKid"&&id){if(typeof openBuild==="function")openBuild(id).then(()=>{if(document.body.classList.contains("boss-on"))renderBoss();});return;}
+  if(act==="jarPreset"&&id&&JAR_PRESETS[id]){B.jarPreset=id;saveB();renderBoss();const d=$("#bossBody details.jars-wrap");if(d)d.open=true;return;}
+  if(act==="playbook"){openPlaybook();return;}
+  if(act==="remindPay"){e.stopPropagation();const j=B.jobs.find(x=>x.id===id);if(j)copyText(docText(Object.assign({},j,{paid:false})),"Payment reminder copied.");return;}
+  if(act==="regMsg"){const name=el.dataset.name||"there";const c=resolve(true);copyText(`Hi ${name}, it’s ${c.first} from ${c.biz}! I have open spots coming up for ${typeInfo(S.type).label.toLowerCase()}. Need a hand soon? Request a day here: ${linkOrPlaceholder()}`,"Check-in for "+name+" copied.");return;}
+  if(act==="doToday"){e.stopPropagation();const j=B.upcoming.find(x=>x.id===id);if(j){j.date=todayISO();saveB();renderBoss();toast("Moved to Today.");syncCalJob(j);}return;}
+  if(act==="pauseJob"){const j=B.upcoming.find(x=>x.id===id);if(j&&j.status==="working"&&!j.pausedAt){j.pausedElapsed=Number.isFinite(j.startedAt)?Math.max(0,Date.now()-j.startedAt):0;j.pausedAt=Date.now();saveB();renderBoss();toast("Timer paused.");}return;}
+  if(act==="resumeJob"){const j=B.upcoming.find(x=>x.id===id);if(j&&j.status==="working"&&j.pausedAt){j.startedAt=Date.now()-(Number(j.pausedElapsed)||0);j.pausedAt=0;j.pausedElapsed=0;saveB();renderBoss();toast("Timer resumed.");}return;}
   if(act==="copyJob"){e.stopPropagation();const j=B.upcoming.find(x=>x.id===id);if(j)copyText(jobPlain(j),"Copied!");return;}
   if(act==="togglePaid"){e.stopPropagation();const j=B.jobs.find(x=>x.id===id);if(j){j.paid=!j.paid;saveB();renderBoss();toast(j.paid?"Marked paid.":"Marked not paid.");}return;}
   if(act==="mbump"){bumpMission(id);return;}
@@ -4194,7 +4526,7 @@ $("#boss").addEventListener("click",e=>{
   if(act==="omw"){const j=B.upcoming.find(x=>x.id===id);if(j){j.omw=true;saveB();renderBoss();sendSMS(j.phone,omwMsg(j));}return;}
   if(act==="cal"){const j=B.upcoming.find(x=>x.id===id);if(j)saveFile("job-"+j.date+".ics",icsCalendar([j]),"text/calendar");return;}
   if(act==="confirm"){openJobConfirmation(id);return;}
-  if(act==="start"){const j=B.upcoming.find(x=>x.id===id);if(j){j.status="working";j.omw=true;j.startedAt=Date.now();saveB();renderBoss();toast("Timer started. Do it right.");}return;}
+  if(act==="start"){const j=B.upcoming.find(x=>x.id===id);if(j){j.status="working";j.omw=true;j.startedAt=Date.now();j.pausedAt=0;j.pausedElapsed=0;saveB();renderBoss();toast("Timer started. Do it right.");}return;}
   if(act==="finish"){openFinish(id);return;}
   if(act==="logJob")openJob();
   else if(act==="addCost")openCost();
@@ -4205,12 +4537,12 @@ $("#boss").addEventListener("click",e=>{
   else if(act==="moreCosts"){showAllCosts=!showAllCosts;renderBoss();}
   else if(act==="export")exportCSV();
   else if(act==="icsall"){const up=B.upcoming.slice().sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));if(!up.length){toast("No scheduled jobs yet.");}else saveFile("my-jobs-calendar.ics",icsCalendar(up),"text/calendar");}
-  else if(act==="seasonMsg"){const c=resolve(true),names=stats().reps.map(r=>r.name);copyText(`Hey ${names.join(", ")}, it’s ${c.first} from ${c.biz}. I’m taking new requests for ${typeInfo(S.type).label.toLowerCase()}. Need a hand? Request a job here: ${linkOrPlaceholder()}`,"Message copied.");}
+  else if(act==="seasonMsg"){const c=resolve(true);copyText(`Hi there, it’s ${c.first} from ${c.biz}. I’m taking new requests for ${typeInfo(S.type).label.toLowerCase()}. Need a hand? Request a job here: ${linkOrPlaceholder()}`,"Message copied.");}
   else if(act==="reset"){
     if(!resetArmed){resetArmed=true;el.textContent="Tap again to erase job records";el.classList.add("danger");clearTimeout(resetTimer);resetTimer=setTimeout(()=>{resetArmed=false;if(el.isConnected){el.textContent="Erase job records";el.classList.remove("danger");}},4000);return;}
     clearTimeout(resetTimer);
     const gone=(B.upcoming||[]).map(j=>j.id);
-    resetArmed=false;B={goalAmount:1000,goalLabel:"My first $1,000",jobs:[],costs:[],upcoming:[],missions:{},mdone:{},mweeks:{}};saveB();gone.forEach(unsyncCalJob);lastProfit=0;renderBoss();toast("Job and money records erased.");
+    resetArmed=false;B=freshBoss();saveB();gone.forEach(unsyncCalJob);lastProfit=0;renderBoss();toast("Job and money records erased.");
   }
 });
 $("#boss").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".job, .jobhit")){e.preventDefault();e.target.click();}});
@@ -4224,6 +4556,7 @@ function setMode(m){
   $("#mBoss").setAttribute("aria-pressed",String(boss));
   if(boss){lastProfit=0;renderBoss();loadMyJobs();}
   if(fl){const hadStyle=!!S.flyerStyle;if(!S.flyerStyle)S.flyerStyle="ink";const canSave=(typeof draftDirty!=="undefined"&&draftDirty)||(typeof savedRaw!=="undefined"&&savedRaw)||(typeof draftOwner!=="undefined"&&draftOwner)||(typeof anonymousDraft!=="undefined"&&anonymousDraft);if(!hadStyle&&canSave)save();syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
+  if(typeof renderKidBar==="function")renderKidBar();
   window.scrollTo(0,0);
 }
 $("#mBuild").onclick=()=>setMode("build");
@@ -4349,7 +4682,7 @@ function flyerFull(ctx,c,t){
     let ry=y+108;
     c.services.slice(0,rows).forEach(s=>{rateRow(ctx,M,ry,iw,s.n,fmtPrice(s.p),32,48,t.ink,t.pcol,t.line);ry+=58;});
   }
-  const std="SHOW UP.  DO IT RIGHT.  LEAVE IT BETTER.";
+  const std=(c.type==="pet"||c.type==="help"||c.type==="tutor")?"SHOW UP.  DO IT RIGHT.  KEEP YOU INFORMED.":"SHOW UP.  DO IT RIGHT.  LEAVE IT BETTER.";
   const ss=fitSize(ctx,std,iw,40,20,900,FFD,true);fnt(ctx,900,ss,FFD,true);ctx.fillStyle=t.ink;ctx.textAlign="center";ctx.fillText(std,W/2,stdBase);ctx.textAlign="left";
   ctx.fillStyle=t.line;ctx.fillRect(M,stdBase-ss-16,iw,3);
   drawQR(ctx,M,qy,qrS,c.qrText);
@@ -4473,7 +4806,8 @@ function flyerSocial(ctx,c,t,W,H,story){
   hazard(ctx,0,0,W,t.bold?(story?44:36):8,t.acc,t.hz2);hazard(ctx,0,H-(t.bold?(story?44:36):8),W,t.bold?(story?44:36):8,t.acc,t.hz2);
   const qs=story?340:250;
   const colW=story?W-2*M:W-2*M-qs-50;
-  const hl=headline(ctx,c.biz,W-2*M,story?4:3,story?220:190,story?90:76,story?520:story?0:340);
+  if(story&&c.type==="pet")paintPetRow(ctx,M,84,W-2*M,116,c.pets);
+  const hl=headline(ctx,c.biz,W-2*M,story?4:3,story?220:190,story?90:76,story?520:340);
   let y=drawHeadline(ctx,hl,M,story?240:92,t.ink)+(story?26:22);
   fnt(ctx,500,story?48:42,FFB,false);const tl=wrapText(ctx,c.tagline,W-2*M-30).slice(0,2),lh=story?58:50;
   ctx.fillStyle=t.acc;ctx.fillRect(M,y,9,tl.length*lh-8);ctx.fillStyle=t.ink;tl.forEach((l,i)=>ctx.fillText(l,M+28,y+(story?40:36)+i*lh));
@@ -4489,6 +4823,7 @@ function flyerSocial(ctx,c,t,W,H,story){
     const ls=fitSize(ctx,label,W-2*M,84,36,900,FFD,true);fnt(ctx,900,ls,FFD,true);ctx.fillStyle=t.ink;ctx.textAlign="center";ctx.fillText(label,W/2,qy+qs+ls*.9+8);
     const us=fitSize(ctx,u,W-2*M,40,18,700,FFB,false);fnt(ctx,700,us,FFB,false);ctx.fillText(u,W/2,qy+qs+ls*.9+us+30);ctx.textAlign="left";
   }else{
+    if(c.type==="pet"){paintPetRow(ctx,M,y,colW,84,c.pets);y+=94;}
     const rows=Math.max(0,Math.min(3,c.services.length,Math.floor((H-M-60-y-30)/80)));
     c.services.slice(0,rows).forEach(s=>{rateRow(ctx,M,y+54,colW,s.n,fmtPrice(s.p),34,64,t.ink,t.pcol,t.line);y+=80;});
     const qx=W-M-qs,qy=H-M-qs-70;
@@ -4515,10 +4850,6 @@ function drawFlyerStyled(ctx,c){
     else if(c.fmt==="post")flyerSocial(ctx,c,t,1080,1080,false);
     else if(c.fmt==="story")flyerSocial(ctx,c,t,1080,1920,true);
     else flyerFull(ctx,c,t);
-  }
-  if(c.type==="pet"&&c.fmt!=="full"){
-    const d=pageDims(c.fmt);
-    paintPetRow(ctx,24,d.h-120,Math.min(d.w-48,520),100,c.pets);
   }
 }
 
@@ -4553,7 +4884,8 @@ function drawFlyerPreview(){
 let fontsReady=false;
 function refreshFlyers(){
   const draw=()=>drawFlyerPreview();
-  Promise.all([ensureFonts(),ensurePetImages()]).then(()=>{fontsReady=true;draw();}).catch(draw);
+  const fFont=(typeof loadFont==="function"&&S.siteFont&&S.siteFont!=="workwear")?loadFont(S.siteFont).catch(()=>{}):Promise.resolve();
+  Promise.all([ensureFonts(),fFont,ensurePetImages()]).then(()=>{fontsReady=true;draw();}).catch(draw);
   draw();
 }
 
@@ -4593,6 +4925,7 @@ async function saveFlyer(kind){
   const st=$("#fStatus");st.textContent="";
   const c=flyerCfg();if(!c.ok){st.textContent=c.why;return;}
   await ensureFonts();
+  if(typeof loadFont==="function"&&c.font&&c.font!=="workwear")try{await loadFont(c.font);}catch(e){}
   await ensurePetImages();
   const d=pageDims(c.fmt);
   const names={full:"flyer",hanger:"door-hangers",tabs:"tear-off-flyer",cards:"business-cards",refer:"neighbor-cards",sign:"yard-sign",post:"social-post",story:"social-story"};
@@ -4611,14 +4944,16 @@ async function printFlyer(){
   const st=$("#fStatus");st.textContent="";
   const c=flyerCfg();if(!c.ok){st.textContent=c.why;return;}
   await ensureFonts();
+  if(typeof loadFont==="function"&&c.font&&c.font!=="workwear")try{await loadFont(c.font);}catch(e){}
   await ensurePetImages();
   const url=renderFlyer(2).toDataURL("image/png");
   const pa=$("#printArea");pa.innerHTML='<img alt="Flyer" src="'+url+'">';
   document.body.classList.add("printing");
-  const done=()=>{document.body.classList.remove("printing");pa.innerHTML="";window.removeEventListener("afterprint",done);};
+  let printT=0;
+  const done=()=>{clearTimeout(printT);document.body.classList.remove("printing");pa.innerHTML="";window.removeEventListener("afterprint",done);};
   window.addEventListener("afterprint",done);
   try{window.print();}catch(e){done();}
-  setTimeout(done,2500);
+  printT=setTimeout(done,60000);
   st.textContent="If your print screen didn’t open, tap Save PDF to print instead.";
 }
 
@@ -4690,7 +5025,7 @@ function loadHeicLib(){
 function heicToJpeg(file){
   return loadHeicLib().then(lib=>lib({blob:file,toType:"image/jpeg",quality:0.92})).then(out=>Array.isArray(out)?out[0]:out);
 }
-function processPhoto(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{try{const M=900;let w=img.naturalWidth,h=img.naturalHeight;const k=Math.min(1,M/Math.max(w,h));w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k));const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(cv.toDataURL("image/jpeg",.72));}catch(e){rej(e);}};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("bad image"));};img.src=url;});}
+function processPhoto(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{try{const M=900;let w=img.naturalWidth,h=img.naturalHeight;const k=Math.min(1,M/Math.max(w,h));w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k));const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(img,0,0,w,h);res(cv.toDataURL("image/jpeg",.72));}catch(e){rej(e);}finally{URL.revokeObjectURL(url);}};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("bad image"));};img.src=url;});}
 function saveStrict(){return save();}
 function renderProof(){
   const list=$("#proofList");list.innerHTML="";
@@ -4715,8 +5050,8 @@ function renderProof(){
           catch(e){err.textContent="That’s an iPhone HEIC photo, and this app couldn’t convert it. Open the photo, tap Share, then save it as a JPEG. Or a parent can set Settings, Camera, Formats, to Most Compatible. Then add the photo again.";inp.value="";return;}
         }
         else if((t&&t.indexOf("image/")!==0)||/\.(pdf|txt|doc|docx|zip|mov|mp4)$/.test(n)){err.textContent="That’s not a photo. Choose a picture from your camera roll.";inp.value="";return;}
-        try{const d=await processPhoto(file);const old=p[key];p[key]=d;if(!saveStrict()){p[key]=old;err.textContent="That photo is too big to save on this device. Remove a photo and try again.";renderProof();return;}renderProof();queue();}
-        catch(e){err.textContent="Couldn’t read that photo. Try a different picture. If it came from an iPhone, save it as a JPEG first.";}
+        try{const d=await processPhoto(file);const old=p[key];p[key]=d;if(!saveStrict()){p[key]=old;inp.value="";err.textContent="That photo is too big to save on this device. Remove a photo and try again.";renderProof();return;}renderProof();queue();}
+        catch(e){inp.value="";err.textContent="Couldn’t read that photo. Try a different picture. If it came from an iPhone, save it as a JPEG first.";}
       };
       row.appendChild(lab);
     });
@@ -4914,7 +5249,18 @@ document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[da
 /* ============ Poster Studio ============ */
 const PW=850,PH=1100,PM=56;
 const LAYOUT_NAMES=["Billboard","Worksite","Skyline","Split","Notice","Scoreboard","Sideline","Blueprint","Tape","Clean"];
-const HEADS={lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],snow:["Now booking.","Snow cleared with care.","Snow day? We’re on it.","Book your driveway.","Careful shoveling. Clear paths.","Winter, handled."],both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."],prep:["Now booking.","Yard cleanup and winter prep.","Yard cleanup, done right.","Walks and driveways.","A tidy yard, ready for the season.","Ready for winter."]};
+const HEADS={
+  lawn:["Now booking.","Mowing season is on.","Your lawn, dialed in.","Book your day.","Fresh cuts. Fair prices.","Lawns done right."],
+  snow:["Now booking.","Snow cleared with care.","Snow day? We’re on it.","Book your driveway.","Careful shoveling. Clear paths.","Winter, handled."],
+  both:["Now booking.","Every season. Handled.","Mow it. Shovel it.","Book your day.","All year. All in.","Your yard, all year."],
+  prep:["Now booking.","Yard cleanup and winter prep.","Yard cleanup, done right.","Walks and driveways.","A tidy yard, ready for the season.","Ready for winter."],
+  pet:["Now booking.","Happy pets. Clear updates.","Walks, food, and care.","Book your visits.","Kind neighborhood pet care.","Trusted with your pets."],
+  wash:["Now booking.","Clean car. Fair price.","Driveway wash, done right.","Book your wash.","Shine on your driveway.","Sparkling clean, right at home."],
+  odd:["Now booking.","Extra hands nearby.","Neighborhood help, handled.","Book your job.","Small jobs, done right.","Ready to help."],
+  help:["Now booking.","Parent’s helper nearby.","Extra help while you’re home.","Book a visit.","Kind, dependable help.","Here to help."],
+  tutor:["Now booking.","Reading together.","Practice made fun.","Book a session.","Friendly reading buddy.","Let’s read together."],
+  other:["Now booking.","Neighborhood help.","Dependable local help.","Book your day.","Done right. Fair price.","Ready to work."]
+};
 const BADGES=[["none","No sticker"],["owned","Kid-owned"],["quote","Free quotes"],["parent","Parent-backed"],["early","Book early"],["local","Local"],["fast","Fast and reliable"],["pay","Pay after the job"]];
 const BG_OPTS=[["ink","Ink saver"],["dark","Dark"],["light","Light"],["concrete","Concrete"],["accent","Color"]];
 const NS_OPTS=[["heavy","Heavy"],["bold","Bold"],["plain","Plain"]];
@@ -4949,7 +5295,8 @@ function pcfg(over){
   const type=(st.kind==="lawn"||st.kind==="snow"||st.kind==="both")?st.kind:(PRESETS[S.type]?S.type:"lawn"),same=type===S.type,hs=HEADS[type]||HEADS.lawn;
   const biz=(st.name||"").trim()||(same?c.biz:autoBiz(type,c.first));
   const tagline=(st.tagText||"").trim()||(same?c.tagline:TAGS[type]);
-  return {type,layout:st.layout,biz,tagline,town:c.town,first:c.first,services:same?c.services:svcFor(type),qrText:c.qrText,urlText:c.urlText,ok:c.ok,why:c.why,qrMode:c.qrMode,phone:c.phone,parentName:c.parentName,showPhone:!!(st.phone&&c.phone),accent:r.c,trim:st.trim||"stripes",font:(st.font||(typeof LOOK!=="undefined"&&LOOK.font)||"workwear"),art:(st.art&&st.art.indexOf("brand-")===0?st.art:ART.some(a=>a[0]===st.art)?st.art:artStyle()),nameStyle:st.nameStyle,bg:st.bg,sky:st.sky,flip:!!st.flip,rates:!!st.rates,pkg:pkgInfo(c.services,st.pkg||[]),tag:!!st.tag,badge:BADGES[st.badge]?BADGES[st.badge][0]:"none",headText:(st.custom||"").trim()||hs[st.head%hs.length],photo:st.photo?pPhoto():null};
+  const svcs=same?c.services:svcFor(type);
+  return {type,layout:st.layout,biz,tagline,town:c.town,first:c.first,services:svcs,qrText:c.qrText,urlText:c.urlText,ok:c.ok,why:c.why,qrMode:c.qrMode,phone:c.phone,parentName:c.parentName,showPhone:!!(st.phone&&c.phone),accent:r.c,trim:st.trim||"stripes",font:(st.font||(typeof LOOK!=="undefined"&&LOOK.font)||"workwear"),art:(st.art&&st.art.indexOf("brand-")===0?st.art:ART.some(a=>a[0]===st.art)?st.art:artStyle()),nameStyle:st.nameStyle,bg:st.bg,sky:st.sky,flip:!!st.flip,rates:!!st.rates,pkg:pkgInfo(svcs,st.pkg||[]),tag:!!st.tag,badge:BADGES[st.badge]?BADGES[st.badge][0]:"none",headText:(st.custom||"").trim()||hs[st.head%hs.length],photo:st.photo?pPhoto():null};
 }
 function pTheme(p){const a=p.accent;
   if(p.bg==="ink")return {bg:"#FFFFFF",ink:"#111111",mute:"#333333",line:"#111111",acc:"#111111",onAcc:"#111111",panel:"#FFFFFF",pInk:"#111111",price:"#111111",pPrice:"#111111",accText:"#111111",hz:["#111111","#FFFFFF"],dark:false,inkSaver:true};
@@ -4957,7 +5304,7 @@ function pTheme(p){const a=p.accent;
   if(p.bg==="concrete")return{bg:"#30353A",ink:"#F4F2EE",mute:"#BAC0C6",line:"#58606A",acc:a,onAcc:"#0B0C0D",panel:"#23272B",pInk:"#F4F2EE",price:a,pPrice:a,accText:a,hz:[a,"#0B0C0D"],dark:true,grit:true};
   if(p.bg==="accent")return{bg:a,ink:"#0B0C0D",mute:"rgba(11,12,13,.74)",line:"rgba(11,12,13,.35)",acc:"#0B0C0D",onAcc:a,panel:"#0B0C0D",pInk:"#F4F2EE",price:"#0B0C0D",pPrice:a,accText:"#0B0C0D",hz:["#0B0C0D",a],dark:false};
   return{bg:"#20262C",ink:"#F4F1EB",mute:"#BFC6CB",line:"#4B5863",acc:a,onAcc:"#11181F",panel:"#29323A",pInk:"#F4F1EB",price:a,pPrice:a,accText:a,hz:[a,"#29323A"],dark:true};}
-function pFlakes(ctx,p,t){if(p.bg==="ink"||p.type==='lawn')return;let s=3;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;},n=p.type==='snow'?70:34;for(let i=0;i<n;i++){const x=r()*PW,y=r()*PH,rad=2+r()*5,a=.1+r()*.2;ctx.fillStyle=t.dark?'rgba(255,255,255,'+a+')':(p.bg==='accent'?'rgba(255,255,255,'+(a+.12)+')':'rgba(110,150,205,'+(a+.12)+')');ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();}}
+function pFlakes(ctx,p,t){if(p.bg==="ink"||(p.type!=="snow"&&p.type!=="both"))return;let s=3;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;},n=p.type==='snow'?70:34;for(let i=0;i<n;i++){const x=r()*PW,y=r()*PH,rad=2+r()*5,a=.1+r()*.2;ctx.fillStyle=t.dark?'rgba(255,255,255,'+a+')':(p.bg==='accent'?'rgba(255,255,255,'+(a+.12)+')':'rgba(110,150,205,'+(a+.12)+')');ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();}}
 function pGrit(ctx){let s=7;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;};for(let i=0;i<1400;i++){ctx.fillStyle=r()>.5?"rgba(255,255,255,.035)":"rgba(0,0,0,.09)";const w=1+r()*3;ctx.fillRect(r()*PW,r()*PH,w,w);}}
 /* text helpers */
 function nameFont(ctx,size,ns){if(ns==="plain")ctx.font="700 "+size+"px "+FFB;else if(FFD!==FFD0)ctx.font=DF.w+" "+size+"px "+FFD;else ctx.font="italic "+(ns==="bold"?800:900)+" "+size+"px "+FFD;}
@@ -5084,9 +5431,9 @@ function L_scoreboard(ctx,p,t){
   let y=ty+(nR>2?2:nR>0?1:0)*(th+20)+6;
   if(p.pkg&&p.rates){rateRow(ctx,PM,y+28,W-2*PM,p.pkg.label,money(p.pkg.total),28,40,t.ink,t.price,t.line);y+=40;}
   if(p.tag){y=pTag(ctx,p,ax,Math.max(y,ty+30),W-2*PM,t.mute,28,al);}
-  const qs=190,qy=H-22-qs-70+((p.pkg&&p.rates)?40:0),qx=l?PM:W-PM-qs;pQR(ctx,p,t,qx,qy,qs);
-  const tx=l?PM+qs+40:PM,tw2=W-2*PM-qs-40;pCaption(ctx,p,t,l?tx:W-PM-qs-40,qy+60,tw2,l?"left":"right",t.ink,56);
-  pPhone(ctx,p,t.ink,l?tx:W-PM-qs-40,qy+130,tw2,al);pFooter(ctx,p,t.mute,W/2,H-22-18,W-2*PM,"center");
+  const qs=176,qy=Math.min(H-22-qs-54,Math.max(y+10,H-22-qs-68)),qx=l?PM:W-PM-qs;pQR(ctx,p,t,qx,qy,qs);
+  const tx=l?PM+qs+40:PM,tw2=W-2*PM-qs-40;pCaption(ctx,p,t,l?tx:W-PM-qs-40,qy+54,tw2,l?"left":"right",t.ink,52);
+  pPhone(ctx,p,t.ink,l?tx:W-PM-qs-40,qy+120,tw2,al);pFooter(ctx,p,t.mute,W/2,H-22-18,W-2*PM,"center");
   pTrim(ctx,p,t,0,H-22,W,22);pBadge(ctx,p,t,l?W-160:160,ty-20,l?-8:8);
 }
 function L_sideline(ctx,p,t){
@@ -5108,7 +5455,7 @@ function L_blueprint(ctx,p,t){
   fnt(ctx,700,20,FFB,false);ctx.fillStyle=t.mute;try{ctx.letterSpacing="3px";}catch(e){}ctx.fillText("SPEC SHEET  /  "+p.headText.toUpperCase(),64,80);try{ctx.letterSpacing="0px";}catch(e){}
   ctx.fillStyle=t.bg;ctx.fillRect(56,100,W-112,260);ctx.strokeStyle=t.acc;ctx.lineWidth=5;ctx.strokeRect(56,100,W-112,260);
   const nf=pName(ctx,p,W-176,2,150,52,200),nh=nf.lines.length*nf.lh;pDrawName(ctx,nf,W/2,100+(260-nh)/2,"center",t.ink,p);
-  let y=394;if(p.tag){fnt(ctx,600,26,FFB,false);ctx.fillStyle=t.mute;ctx.textAlign="center";ctx.fillText("NOTE: "+p.tagline,W/2,y);ctx.textAlign="left";}
+  let y=394;if(p.tag){const noteTxt="NOTE: "+p.tagline,ns=fitSize(ctx,noteTxt,W-140,26,13,600,FFB,false);fnt(ctx,600,ns,FFB,false);ctx.fillStyle=t.mute;ctx.textAlign="center";ctx.fillText(noteTxt,W/2,y);ctx.textAlign="left";}
   y+=30;const tx=56,tw=l?470:W-56-470-0;const tbx=l?56:W-56-470;
   if(nR){ctx.fillStyle=t.panel;ctx.fillRect(tbx,y,470,46+nR*56);ctx.strokeStyle=t.ink;ctx.lineWidth=3;ctx.strokeRect(tbx,y,470,46+nR*56);fnt(ctx,800,20,FFB,false);ctx.fillStyle=t.pInk;try{ctx.letterSpacing="3px";}catch(e){}ctx.fillText("ITEM",tbx+16,y+31);ctx.textAlign="right";ctx.fillText("PRICE",tbx+454,y+31);ctx.textAlign="left";try{ctx.letterSpacing="0px";}catch(e){}ctx.fillStyle=t.acc;ctx.fillRect(tbx,y+44,470,4);
     rateRowsFor(p).forEach((r,i)=>rateRow(ctx,tbx+16,y+48+34+i*56,438,r.n,r.p,24,40,t.pInk,t.pPrice,t.line));}
@@ -5127,15 +5474,15 @@ function L_tape(ctx,p,t){
   const nf=pName(ctx,Object.assign({},p),W-160,1,120,40,140);nameFont(ctx,nf.size,p.nameStyle);ctx.fillStyle=t.onAcc;ctx.textAlign="center";ctx.fillText(nf.lines[0],0,nf.size*.34);ctx.restore();
   const cy=640,cw=(W-2*PM-20)/2;
   p.services.slice(0,p.rates?4:0).forEach((s,i)=>{const x=PM+(i%2)*(cw+20),y=cy+Math.floor(i/2)*92;ctx.fillStyle=t.panel;ctx.fillRect(x,y,cw,80);ctx.fillStyle=t.acc;ctx.fillRect(x,y,10,80);const pr=fmtPrice(s.p);fnt(ctx,900,52,FFD,true);const pw=ctx.measureText(pr).width;ctx.fillStyle=t.pPrice;ctx.fillText(pr,x+cw-pw-16,y+56);const ns=fitSize(ctx,s.n,cw-pw-70,24,12,700,FFB,false);fnt(ctx,700,ns,FFB,false);ctx.fillStyle=t.pInk;ctx.fillText(s.n,x+26,y+47);});
-  if(p.pkg&&p.rates){rateRow(ctx,PM,cy+(nR>2?2:1)*92+28,W-2*PM,p.pkg.label,money(p.pkg.total),28,40,t.ink,t.price,t.line);}const qs=170,qy=cy+(nR>2?2:1)*92+26+((p.pkg&&p.rates)?40:0),qx=l?PM:W-PM-qs;pQR(ctx,p,t,qx,qy,qs);const tx=l?PM+qs+36:PM,tw=W-2*PM-qs-36,tal=l?"left":"left";
-  const e=pCaption(ctx,p,t,tx,qy+52,tw,"left",t.ink,52);pPhone(ctx,p,t.ink,tx,e+4,tw,"left");pFooter(ctx,p,t.mute,W/2,H-34,W-2*PM,"center");pBadge(ctx,p,t,l?W-170:170,584,l?-8:8);
+  if(p.pkg&&p.rates){rateRow(ctx,PM,cy+(nR>2?2:1)*92+28,W-2*PM,p.pkg.label,money(p.pkg.total),28,40,t.ink,t.price,t.line);}const qs=162,qy=Math.min(H-qs-60,cy+(nR>2?2:1)*92+24+((p.pkg&&p.rates)?36:0)),qx=l?PM:W-PM-qs;pQR(ctx,p,t,qx,qy,qs);const tx=l?PM+qs+36:PM,tw=W-2*PM-qs-36,tal=l?"left":"left";
+  const e=pCaption(ctx,p,t,tx,qy+50,tw,"left",t.ink,50);pPhone(ctx,p,t.ink,tx,e+4,tw,"left");pFooter(ctx,p,t.mute,W/2,H-34,W-2*PM,"center");pBadge(ctx,p,t,l?W-170:170,584,l?-8:8);
 }
 function L_clean(ctx,p,t){
   const W=PW,H=PH,l=!p.flip,ax=l?100:W-100,al=l?"left":"right",nR=rateRowsFor(p).length;
   ctx.fillStyle=t.acc;ctx.fillRect(l?100:W-100-34,110,34,34);pLabel(ctx,p,l?100+54:W-100-54,138,t.ink,26,al);
   const nf=pName(ctx,p,W-200,2,128,48,190);let y=pDrawName(ctx,nf,ax,196,al,t.ink,p)+12;
   ctx.fillStyle=t.ink;ctx.fillRect(100,y,W-200,3);y+=22;y=pTag(ctx,p,ax,y,W-260,t.mute,30,al);
-  if(nR){y+=18;rateRowsFor(p).forEach((r,i)=>{const yy=y+i*60;fnt(ctx,600,28,FFB,false);ctx.fillStyle=t.ink;ctx.textAlign="left";ctx.fillText(r.n,100,yy+30);const pr=r.p;fnt(ctx,900,40,FFD,true);ctx.fillStyle=t.price;ctx.textAlign="right";ctx.fillText(pr,W-100,yy+32);ctx.textAlign="left";ctx.fillStyle=t.line;ctx.fillRect(100,yy+46,W-200,2);});y+=nR*60;}
+  if(nR){y+=18;rateRowsFor(p).forEach((r,i)=>{const yy=y+i*60,pr=r.p;fnt(ctx,900,40,FFD,true);const pw=ctx.measureText(pr).width;fnt(ctx,600,28,FFB,false);let nm=r.n;while(ctx.measureText(nm).width>W-200-pw-28&&nm.length>4)nm=nm.slice(0,-2);if(nm!==r.n)nm=nm.trim()+"…";ctx.fillStyle=t.ink;ctx.textAlign="left";ctx.fillText(nm,100,yy+30);fnt(ctx,900,40,FFD,true);ctx.fillStyle=t.price;ctx.textAlign="right";ctx.fillText(pr,W-100,yy+32);ctx.textAlign="left";ctx.fillStyle=t.line;ctx.fillRect(100,yy+46,W-200,2);});y+=nR*60;}
   const qs=160,qy=Math.min(y+24,H-110-qs),qx=l?W-100-qs:100;pQR(ctx,p,t,qx,qy,qs);
   const tx=l?100:100+qs+40,tw=W-200-qs-40;const e=pCaption(ctx,p,t,tx,qy+40,tw,"left",t.ink,40);pPhone(ctx,p,t.mute,tx,e+4,tw,"left");pFooter(ctx,p,t.mute,100,H-60,W-200,"left");pBadge(ctx,p,t,l?W-190:190,150,l?-8:8);
 }
@@ -5162,7 +5509,9 @@ function renderPanel(){
     LAYOUT_NAMES.forEach((nm,i)=>{const b=document.createElement("button");b.type="button";b.className="lay";b.setAttribute("aria-pressed",String(st.layout===i));b.setAttribute("aria-label","Layout "+(i+1)+": "+nm);
       const cv=document.createElement("canvas");cv.width=200;cv.height=Math.round(200*PH/PW);const c2=cv.getContext("2d");c2.scale(200/PW,200/PW);try{drawPoster(c2,pcfg({layout:i}));}catch(e){}
       b.appendChild(cv);const s=document.createElement("b");s.textContent=(i+1)+". "+nm;b.appendChild(s);b.onclick=()=>stSet({layout:i});g.appendChild(b);});
-    mf("This poster is about",chips([["lawn","Lawn"],["snow","Snow"],["both","Lawn and snow"]],pKind(),v=>stSet({kind:v,head:0,custom:"",name:"",tagText:""})));
+    const baseKind=S.type==="lawn"||S.type==="snow"||S.type==="both";
+    const kindOpts=baseKind?[["lawn","Lawn"],["snow","Snow"],["both","Lawn and snow"]]:[[S.type,"My work ("+typeInfo(S.type).label+")"],["lawn","Lawn"],["snow","Snow"],["both","Lawn and snow"]];
+    mf("This poster is about",chips(kindOpts,pKind(),v=>stSet({kind:(v===S.type&&!baseKind)?null:v,head:0,custom:"",name:"",tagText:""})));
     mf("Pick a layout",g);
     mf("Make it yours",chips([["off","As designed"],["on","Flip it"]],st.flip?"on":"off",v=>stSet({flip:v==="on"})));
   }else if(stTab===1){
@@ -5180,12 +5529,12 @@ function renderPanel(){
     const inp=document.createElement("input");inp.type="text";inp.maxLength=24;inp.placeholder="Or write your own";inp.value=st.custom;inp.autocomplete="off";inp.setAttribute("aria-label","Write your own big words");
     inp.oninput=()=>{if(!inp._h){stHist.push(stSnapshot());inp._h=1;$("#stUndo").disabled=false;}S.studio.custom=inp.value;save();drawStudio();};inp.onchange=()=>{inp._h=0;renderPanel();};
     mf("",inp);
-    const nm=document.createElement("input");nm.type="text";nm.maxLength=40;nm.value=st.name;nm.placeholder=pcfg().biz;nm.autocomplete="off";nm.setAttribute("aria-label","Name on this poster");nm.oninput=()=>{S.studio.name=nm.value;save();drawStudio();};
+    const nm=document.createElement("input");nm.type="text";nm.maxLength=40;nm.value=st.name;nm.placeholder=pcfg().biz;nm.autocomplete="off";nm.setAttribute("aria-label","Name on this poster");nm.oninput=()=>{if(!nm._h){stHist.push(stSnapshot());nm._h=1;$("#stUndo").disabled=false;}S.studio.name=nm.value;save();drawStudio();};nm.onchange=()=>{nm._h=0;};
     const nd=mf("Name on this poster",nm);nd.appendChild(note("Only changes this poster. Your website name stays the same."));
     const names=shuffled(nameList(kind),ideaSeed),npg=Math.max(1,Math.ceil(names.length/6)),nshow=names.slice((stNamePg%npg)*6,(stNamePg%npg)*6+6);
     const nrow=mf("Name ideas",chips(nshow.map(n=>[n,n]),st.name,n=>stSet({name:n})));
     const nsh=document.createElement("button");nsh.type="button";nsh.className="link";nsh.textContent="Shuffle names";nsh.onclick=()=>{stNamePg++;renderPanel();};nrow.appendChild(nsh);foldify(nrow,"names");
-    const ti=document.createElement("input");ti.type="text";ti.maxLength=60;ti.value=st.tagText;ti.placeholder=pcfg().tagline;ti.autocomplete="off";ti.setAttribute("aria-label","Slogan for this poster");ti.oninput=()=>{S.studio.tagText=ti.value;save();drawStudio();};
+    const ti=document.createElement("input");ti.type="text";ti.maxLength=60;ti.value=st.tagText;ti.placeholder=pcfg().tagline;ti.autocomplete="off";ti.setAttribute("aria-label","Slogan for this poster");ti.oninput=()=>{if(!ti._h){stHist.push(stSnapshot());ti._h=1;$("#stUndo").disabled=false;}S.studio.tagText=ti.value;save();drawStudio();};ti.onchange=()=>{ti._h=0;};
     mf("Slogan for this poster",ti);
     const fd=mf("Funny name ideas",document.createElement("div"));
     funnyFor(kind).forEach(g=>{const h=document.createElement("small");h.className="help2";h.style.cssText="font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-top:12px";h.textContent=g.cat;fd.appendChild(h);fd.appendChild(chips(funnyShow(g.names,funnyPage,3).map(n=>[n,n]),st.name,n=>stSet({name:n})));});
@@ -5197,7 +5546,7 @@ function renderPanel(){
     onoff("Show my slogan","tag");onoff("Show my rates","rates");
     if(S.phone.trim())onoff("Show my parent’s phone","phone");else mf("Parent’s phone",note("Add a parent’s phone in Website, step 5, to put it on a poster."));
   }else{
-    {const svcs=resolve(true).services||[];const box=document.createElement("div");box.appendChild(note("Tap services to bundle them into one package price. It shows on your poster with your rates."));if(!svcs.length){box.appendChild(note("Add services in Website, step 3, to create a package."));}else{const cw=document.createElement("div");cw.className="chips";svcs.forEach(function(s){const b=document.createElement("button");b.type="button";b.textContent=s.n+" \u2014 "+(fmtPrice(s.p)||"$0");b.setAttribute("aria-pressed",String((S.studio.pkg||[]).includes(s.n)));b.onclick=function(){const pk=(S.studio.pkg||[]).slice();const ix=pk.indexOf(s.n);if(ix>=0)pk.splice(ix,1);else pk.push(s.n);stSet({pkg:pk});};cw.appendChild(b);});box.appendChild(cw);const pk=pkgInfo(svcs,S.studio.pkg||[]);box.appendChild(note(pk?("Package: "+pk.label+" = "+money(pk.total)):"No package yet \u2014 tap services above to build one."));}mf("Package price",box);}
+    {const svcs=pcfg().services||[];const box=document.createElement("div");box.appendChild(note("Tap services to bundle them into one package price. It shows on your poster with your rates."));if(!svcs.length){box.appendChild(note("Add services in Website, step 3, to create a package."));}else{const cw=document.createElement("div");cw.className="chips";svcs.forEach(function(s){const b=document.createElement("button");b.type="button";b.textContent=s.n+" \u2014 "+(fmtPrice(s.p)||"$0");b.setAttribute("aria-pressed",String((S.studio.pkg||[]).includes(s.n)));b.onclick=function(){const pk=(S.studio.pkg||[]).slice();const ix=pk.indexOf(s.n);if(ix>=0)pk.splice(ix,1);else pk.push(s.n);stSet({pkg:pk});};cw.appendChild(b);});box.appendChild(cw);const pk=pkgInfo(svcs,S.studio.pkg||[]);box.appendChild(note(pk?("Package: "+pk.label+" = "+money(pk.total)):"No package yet \u2014 tap services above to build one."));}mf("Package price",box);}
     if(pHasPhoto()){mf("Use my own photo",chips([["off","No photo"],["on","Use my photo"]],st.photo?"on":"off",v=>stSet({photo:v==="on"})));el.lastChild.appendChild(note("Shows up in Skyline and Split. Use a photo of your finished work, with no people or identifying details."));}
     else mf("Use my own photo",note("Add an After photo in Website, step 7, and you can put it on a Skyline or Split poster."));
     const u=document.createElement("input");u.type="text";u.value=S.siteUrl||"";u.placeholder="hustlebuilder.org/sam";u.autocomplete="off";u.autocapitalize="none";u.spellcheck=false;u.setAttribute("aria-label","Your website link");u.oninput=()=>{S.siteUrl=u.value;save();drawStudio();updateLaunch();};
@@ -5223,8 +5572,8 @@ async function printStudio(){
   if(!await allowBusinessExport($("#pStatus")))return;
   const st=$("#pStatus");st.textContent="";const p=pcfg();if(!p.ok){st.textContent=p.why;return;}
   await ensureFonts();await loadFont(pcfg().font);const url=renderPoster(2).toDataURL("image/png"),pa=$("#printArea");pa.innerHTML='<img alt="Poster" src="'+url+'">';
-  document.body.classList.add("printing");const done=()=>{document.body.classList.remove("printing");pa.innerHTML="";window.removeEventListener("afterprint",done);};
-  window.addEventListener("afterprint",done);try{window.print();}catch(e){done();}setTimeout(done,2500);
+  document.body.classList.add("printing");let printT=0;const done=()=>{clearTimeout(printT);document.body.classList.remove("printing");pa.innerHTML="";window.removeEventListener("afterprint",done);};
+  window.addEventListener("afterprint",done);try{window.print();}catch(e){done();}printT=setTimeout(done,60000);
   st.textContent="If your print screen didn’t open, tap Save PDF to print instead.";
 }
 $("#openStudio").onclick=openStudio;$("#stClose").onclick=closeStudio;
@@ -5293,7 +5642,7 @@ function bkApply(d,o){
   if(!preserveUnknownDraft())throw new Error("locked-draft");
   if(!sessionEmail)localStorage.setItem("hb-anonymous-draft","1");
   if(o.build&&d.build)localStorage.setItem(LS,JSON.stringify(d.build));
-  if(o.boss!=="skip"&&d.boss){const empty=!(B.jobs&&B.jobs.length)&&!(B.upcoming&&B.upcoming.length)&&!(B.costs&&B.costs.length);const nb=(o.boss==="combine"&&!empty)?bkMerge(B,d.boss):d.boss;localStorage.setItem(BK,JSON.stringify(nb));}
+  if(o.boss!=="skip"&&d.boss){const empty=!(B.jobs&&B.jobs.length)&&!(B.upcoming&&B.upcoming.length)&&!(B.costs&&B.costs.length);const nb=(o.boss==="combine"&&!empty)?bkMerge(B,d.boss):d.boss;localStorage.setItem(BK,JSON.stringify(nb));if(typeof currentDraftCode==="function"&&typeof bossKeyFor==="function"){const code=currentDraftCode();if(code)try{localStorage.setItem(bossKeyFor(code),JSON.stringify(nb));}catch(e){}}}
 }
 function bkStamp(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function workLabel(type){
@@ -5353,7 +5702,7 @@ function openBackup(){
       if(!o.build&&o.boss==="skip"){err.textContent="Pick at least one thing to load.";return;}
       const hasWork=(S.bizName||"").trim()||B.jobs.length||B.upcoming.length;
       if((o.build||o.boss==="replace")&&hasWork&&!armed){armed=true;go.textContent="Tap again to load";go.classList.add("danger");err.textContent="This will replace some of what is on this device.";return;}
-      try{bkApply(d,o);}catch(e){err.textContent="This device couldn’t save that backup. It may be too big. Try a backup without photos.";return;}
+      try{bkApply(d,o);}catch(e){err.textContent=(e&&e.message==="locked-draft")?"A saved family draft is locked on this device. Sign in with the parent email first, then load your backup.":"This device couldn’t save that backup. It may be too big. Try a backup without photos.";return;}
       toast("Loaded. Restarting.");setTimeout(()=>location.reload(),500);
     };
   };
@@ -5402,16 +5751,18 @@ function clearPrivateViews(){
   if(typeof jobsLoadPending!=="undefined"){jobsLoadPending=false;jobsLoadKey="";}
   if(typeof jobsActionPending!=="undefined")jobsActionPending=false;
   if(typeof resetJobFilters==="function")resetJobFilters();
+  if(typeof resetPubDown==="function")resetPubDown();
   const refresh=$("#refreshJobs");if(refresh)refresh.disabled=false;
   if(modalEl.classList.contains("open"))closeModal();
   ["#jobList","#accountSites","#buildsBox"].forEach(id=>{const el=$(id);if(el)el.innerHTML="";});
-  ["#jobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#webAddress","#accountVenmoField","#familyJobsCode","#myBusinessGear"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  ["#jobBadge","#navJobBadge","#jobCal","#calBox","#pubManage","#pubUrlWrap","#webAddress","#accountVenmoField","#familyJobsCode","#myBusinessGear"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
   ["#jobCalGoogle","#jobCalApple","#calGoogle","#calApple"].forEach(id=>{const el=$(id);if(el)el.removeAttribute("href");});
-  ["#calLink","#jobStatus","#venmoMsg","#familyJobsCodeValue"].forEach(id=>{const el=$(id);if(el)el.textContent="";});
+  ["#calLink","#jobStatus","#venmoMsg","#familyJobsCodeValue","#navJobBadge"].forEach(id=>{const el=$(id);if(el)el.textContent="";});
   const venmo=$("#acctVenmo");if(venmo)venmo.value="";
   const empty=$("#jobEmpty");if(empty){empty.hidden=false;empty.textContent="Sign in with the parent account to see booking requests. Your local job log is below.";}
   const signIn=$("#jobSignIn");if(signIn)signIn.hidden=false;
   clearParentVerified();
+  if(typeof renderKidBar==="function")renderKidBar();
 }
 function publishOrigin(){
   const custom=String(window.HB_PUBLISH_ORIGIN||"").trim().replace(/\/$/,"");
@@ -6282,20 +6633,22 @@ async function showAccount(message){
     card.appendChild(actions);
     box.appendChild(card);
   });
-  // Page views: one quiet line on the family's own card, above the buttons.
+  // Page views: one quiet line on each published card, above the buttons.
   // If the count cannot load, the card just stays as it was — no error.
   try{
     const v=await pubApi("/api/views",{method:"GET"});
     if(loadId!==accountLoadId||epoch!==privateViewEpoch)return;
-    if(v&&v.ok&&v.slug){
-      const hit=viewCards.find(c=>c.slug===v.slug);
-      if(hit){
+    if(v&&v.ok){
+      const bySlug=(v.bySlug&&typeof v.bySlug==="object")?v.bySlug:{};
+      viewCards.forEach(hit=>{
+        const rec=bySlug[hit.slug]||(hit.slug===v.slug?{total:v.total,last7:v.last7}:null);
+        if(!rec)return;
         const p=document.createElement("p");
-        p.textContent=v.total>0
-          ? "👁 "+v.total+(v.total===1?" view":" views")+" · "+v.last7+" this week"
+        p.textContent=rec.total>0
+          ? "👁 "+rec.total+(rec.total===1?" view":" views")+" · "+rec.last7+" this week"
           : "👁 No views yet — share your link to get your first views!";
         hit.card.insertBefore(p, hit.card.querySelector(".mbtns"));
-      }
+      });
     }
   }catch(e){}
 }
@@ -6417,7 +6770,8 @@ if(acctOutBtn)acctOutBtn.onclick=async()=>{
   }
   if(!await pubSignOut()){
     restoreArchivedDraft();restoreOwnedDraft();renderBoss();
-    if(message)message.textContent="Could not sign out. You are still signed in. Check your connection and try again.";
+    await showAccount("Could not sign out. You are still signed in. Check your connection and try again.");
+    initPublish();
     return;
   }
   sessionEmail="";
@@ -6432,12 +6786,15 @@ if(acctOutBtn)acctOutBtn.onclick=async()=>{
   const goBtn=$("#pubGo"); if(goBtn)goBtn.hidden=false;
   const ok=$("#pubOk"); if(ok)ok.textContent="Signed out on this device.";
   await showAccount("Signed out. Your saved work will restore when this parent signs back in.");
+  if(typeof renderKidBar==="function")renderKidBar();
   }finally{acctOutBtn.disabled=false;}
 };
 const shareBox=$("#shareStreet");
 if(shareBox)shareBox.onchange=async()=>{
-  const data=await pubApi("/api/share",{body:{on:!!shareBox.checked}});
-  if(!data.ok)pubErr("Could not save that setting.");
+  try{
+    const data=await pubApi("/api/share",{body:{on:!!shareBox.checked}});
+    if(!data.ok){shareBox.checked=!shareBox.checked;pubErr("Could not save that setting.");}
+  }catch(e){shareBox.checked=!shareBox.checked;pubErr("Could not save that setting. Check your connection and try again.");}
 };
 function jobLabel(status){return {new:"New",confirmed:"Confirmed",done:"Done",cancelled:"Cancelled",held:"Waiting",inquiry:"Question",closed:"Closed"}[status]||"New";}
 let jobsLoadKey="",jobsLoadPending=false,jobsActionPending=false;
@@ -6470,6 +6827,7 @@ function renderFilteredJobs(){
   const list=$("#jobList");if(!list)return;
   const visible=jobsKidFilter?jobsFilterRows.filter(j=>jobBusinessKey(j)===jobsKidFilter):jobsFilterRows;
   const choice=jobsFilterChoices.find(b=>b.key===jobsKidFilter),label=choice?choice.label:"All kids";
+  const canBridge=typeof B!=="undefined"&&B&&typeof renderBoss==="function"&&typeof draftWriteAllowed==="function"&&draftWriteAllowed();
   list.innerHTML=visible.map(j=>{
       const owner=[j.kid,j.business].filter(Boolean).join(" · ");
       const detailsUrl=j.action&&j.detailsUrl?(typeof publishOrigin==="function"?publishOrigin():"")+"/api/job/"+encodeURIComponent(j.action):"";
@@ -6484,7 +6842,7 @@ function renderFilteredJobs(){
       const acts=j.action&&!terminal?'<div class="mbtns">'+confirm+'<button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="done"'+quoteGate+'>Mark done</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancelled">Cancel request</button></div>':'';
       const ask=!j.action&&!terminal&&j.canAskCancel&&!j.cancelRequested?'<div class="mbtns"><button type="button" class="btn outline" data-ask-cancel="'+esc(j.id)+'">Ask my parent to cancel</button></div>':'';
       const cancelNote=!terminal&&j.cancelRequested?'<div class="job-change"><p>'+(j.action?'Your kid asked to cancel. Review this request and choose Cancel request if you agree.':'Your parent has been asked to cancel. This booking stays active until your parent cancels it.')+'</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="keep-booking">Keep booking</button></div>':'')+'</div>':'';
-      const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b>'+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
+      const proposed=!terminal&&j.reschedule?'<div class="job-change"><p><b>New time requested</b> '+esc(j.reschedule.when||j.reschedule.start||"")+'</p><p>The original time stays in place until a parent accepts.</p>'+(j.action?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="accept-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Accept new time</button><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="decline-reschedule" data-start="'+esc(j.reschedule.start||"")+'">Keep original time</button></div>':'')+'</div>':'';
       const seriesKind=j.series&&({weekly:"Weekly visits",biweekly:"Visits every other week",away:"Daily visits during the away dates"}[j.series.kind]||"Repeating visits");
       const series=j.series?'<p class="small2"><b>Visit '+esc(j.series.index)+' of '+esc(j.series.total)+'</b> · '+esc(seriesKind)+'</p>':'';
       const cancelSeries=j.series&&j.action?'<div class="mbtns"><button type="button" class="btn outline" data-job="'+esc(j.action)+'" data-st="cancel-series">Cancel remaining visits</button></div>':'';
@@ -6498,7 +6856,17 @@ function renderFilteredJobs(){
         repeating='<div class="job-change"><p><b>'+esc(hint.label||"Repeating visits requested")+'</b></p><p class="small2">This request is one appointment until a parent approves the repeating visits.</p>'+choice+((!counted||max>=2)?'<div class="mbtns"><button type="button" class="btn ghost" data-job="'+esc(j.action)+'" data-st="approve-series" data-start="'+esc(hint.start||"")+'" data-series-when="'+esc(j.when||hint.start||"")+'" data-series-label="'+esc(hint.label||"Repeating visits")+'" data-count-id="'+(counted?esc(countId):'')+'"'+quoteGate+'>Approve repeating visits</button></div>':'<p class="small2">No additional visits are available. Agree on a new schedule first.</p>')+'</div>';
       }
       const pay=j.action&&j.status==="done"&&j.venmoUrl?'<button type="button" class="link" data-pay-link="'+esc(j.venmoUrl)+'">Copy customer payment link</button>':'';
-      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+quote+details+series+cancelNote+proposed+repeating+acts+cancelSeries+ask+pay+'</div>';
+      let bridge="";
+      if(canBridge&&j.id&&(j.status==="confirmed"||j.status==="done")){
+        const inLog=(B.jobs||[]).some(x=>x&&x.bookingId===j.id);
+        const inSched=(B.upcoming||[]).some(x=>x&&x.bookingId===j.id);
+        if(j.status==="confirmed"){
+          bridge='<div class="bridge-row">'+(inLog?'<span class="bridge-done">Logged in earnings ✓</span>':inSched?'<span class="bridge-done">On Today’s schedule ✓</span>':'<button type="button" data-bridge-sched="'+esc(j.id)+'">+ Add to Today’s schedule</button>')+'</div>';
+        }else if(j.status==="done"){
+          bridge='<div class="bridge-row">'+(inLog?'<span class="bridge-done">Logged in earnings ✓</span>':'<button type="button" data-bridge-log="'+esc(j.id)+'">+ Log to earnings</button>')+'</div>';
+        }
+      }
+      return '<div class="kidjob">'+(owner?'<span class="job-owner">'+esc(owner)+'</span>':'')+'<b>'+esc(j.service)+'</b><span>'+esc(j.when||"")+'</span><span>'+esc(j.firstName)+' · '+esc(j.place)+'</span><span class="jobst">'+esc(jobLabel(j.status))+'</span>'+quote+details+series+cancelNote+proposed+repeating+acts+cancelSeries+ask+pay+bridge+'</div>';
     }).join("");
   const empty=$("#jobEmpty");if(empty){empty.hidden=visible.length>0;empty.textContent=jobsKidFilter?"No booking requests for "+label+" yet.":"No booking requests yet. Share your published website link so neighbors can request a job.";}
   const inquiries=visible.filter(j=>j.inquiry).length,bookings=visible.length-inquiries;
@@ -6545,6 +6913,31 @@ async function loadMyJobs(options){
       list.addEventListener("click",async function(ev){
         const pay=ev.target.closest("button[data-pay-link]");
         if(pay){copyText(pay.getAttribute("data-pay-link"),"Payment link copied. Share it with the customer.");return;}
+        const bSched=ev.target.closest("button[data-bridge-sched]");
+        if(bSched&&typeof B!=="undefined"&&typeof saveB==="function"){
+          const bid=bSched.getAttribute("data-bridge-sched"),row=jobsFilterRows.find(x=>x&&x.id===bid);
+          if(row&&!(B.upcoming||[]).some(x=>x&&x.bookingId===bid)){
+            const m=String(row.start||"").match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+            const d=m?m[1]:(typeof todayISO==="function"?todayISO():"");
+            const tm=m?m[2]:"";
+            const prm=String(row.price||"").match(/\d+(?:\.\d{1,2})?/);
+            const amt=prm?Number(prm[0]):0;
+            const addr=row.place&&row.place!=="In your neighborhood"?row.place:"";
+            B.upcoming.push({id:typeof uid==="function"?uid():("bk_"+Date.now()),bookingId:bid,customer:row.firstName||"Neighbor",service:row.service||"Job",date:d,time:tm,amount:amt,address:addr,phone:"",note:"",status:"scheduled",confirmed:true,omw:false});
+            saveB();if(typeof renderBoss==="function")renderBoss();renderFilteredJobs();if(typeof toast==="function")toast("Added to Today’s schedule.");
+          }
+          return;
+        }
+        const bLog=ev.target.closest("button[data-bridge-log]");
+        if(bLog&&typeof openJob==="function"){
+          const bid=bLog.getAttribute("data-bridge-log"),row=jobsFilterRows.find(x=>x&&x.id===bid);
+          if(row){
+            const m=String(row.start||"").match(/^(\d{4}-\d{2}-\d{2})/);
+            const prm=String(row.price||"").match(/\d+(?:\.\d{1,2})?/);
+            openJob(null,{bookingId:bid,customer:row.firstName||"Neighbor",service:row.service||"Job",date:m?m[1]:(typeof todayISO==="function"?todayISO():""),amount:prm?Number(prm[0]):"",paid:true});
+          }
+          return;
+        }
         const ask=ev.target.closest("button[data-ask-cancel]");
         if(ask){await askMyParentToCancel(ask);return;}
         const btn=ev.target.closest("button[data-job]");
@@ -6552,6 +6945,7 @@ async function loadMyJobs(options){
       });
     }
     const badge=$("#jobBadge");if(badge){badge.hidden=!data.fresh;if(data.fresh)badge.textContent=String(data.fresh);}
+    const navBadge=$("#navJobBadge");if(navBadge){navBadge.hidden=!data.fresh;navBadge.textContent=data.fresh?String(data.fresh):"";}
     const btn=$("#myJobsBtn");if(btn){btn.hidden=false;btn.textContent=data.fresh?("My jobs ("+data.fresh+" new)"):"My jobs";}
   }catch(e){if(epoch===privateViewEpoch&&key===privateViewKey()&&status)status.textContent="Could not refresh requests. Check your connection and tap Refresh requests.";}
   finally{if(jobsLoadKey===key){jobsLoadPending=false;if(refresh)refresh.disabled=false;}}
@@ -6632,7 +7026,7 @@ async function openKidJobs(event){
   if(event)event.preventDefault();
   const input=$("#kidJobsCodeInput"),button=$("#openKidJobs"),status=$("#kidJobsStatus");
   if(!input||!button||button.disabled)return;
-  const code=String(input.value||"").trim().toLowerCase();
+  const code=String(input.value||"").replace(/\s+/g,"").toLowerCase();
   if(!/^[a-z0-9]{8}$/.test(code)){if(status)status.textContent="Enter the 8-character family jobs code from your parent.";return;}
   const key=privateViewKey(),epoch=privateViewEpoch;
   button.disabled=true;if(status)status.textContent="Checking family jobs code…";
@@ -6690,10 +7084,13 @@ async function checkNewAddress(){
   }catch(e){if(status)status.textContent="Could not check that address.";}
 }
 async function saveNewAddress(){
+  const saveBtn=$("#saveNewSlug");
+  if(saveBtn&&saveBtn.disabled)return;
   const name=($("#newSlug").value||"").trim().toLowerCase();
   const status=$("#newSlugStatus");
   const from=ownSlug();
   if(!from){if(status)status.textContent="Publish this page first before changing its address."; return;}
+  if(saveBtn)saveBtn.disabled=true;
   try{
     const data=await pubApi("/api/slug",{body:{slug:name,from}});
     if(!data.ok){if(status)status.textContent=data.message||"Could not change the address."; return;}
@@ -6704,14 +7101,16 @@ async function saveNewAddress(){
     if(status)status.textContent=data.same?"That is already the address.":"Saved. The old link sends people to the new one for 90 days.";
     if($("#newSlug"))$("#newSlug").value="";
   }catch(e){if(status)status.textContent="Could not change the address.";}
+  finally{if(saveBtn)saveBtn.disabled=false;}
 }
 const checkNewBtn=$("#checkNewSlug"); if(checkNewBtn)checkNewBtn.onclick=checkNewAddress;
 const saveNewBtn=$("#saveNewSlug"); if(saveNewBtn)saveNewBtn.onclick=saveNewAddress;
-let pubDownArmed=false;
+let pubDownArmed=false, pubDownTimer=0;
+function resetPubDown(){clearTimeout(pubDownTimer);pubDownArmed=false;const b=$("#pubDown");if(b)b.textContent="Take the page offline";}
 $("#pubDown").onclick=async()=>{
   const b=$("#pubDown");
-  if(!pubDownArmed){pubDownArmed=true; b.textContent="Tap again to take it offline"; return;}
-  pubDownArmed=false; b.textContent="Take the page offline";
+  if(!pubDownArmed){pubDownArmed=true; b.textContent="Tap again to take it offline"; clearTimeout(pubDownTimer); pubDownTimer=setTimeout(resetPubDown,4000); return;}
+  resetPubDown();
   b.disabled=true;
   try{
     const data=await pubApi("/api/unpublish", {body:{slug:ownSlug()}});
@@ -6748,12 +7147,17 @@ const calCopyBtn=$("#calCopy");
 if(calCopyBtn)calCopyBtn.onclick=()=>{const t=$("#calLink")&&$("#calLink").textContent;if(t)copyText(t,"Link copied.");};
 const calNewBtn=$("#calNew");
 if(calNewBtn)calNewBtn.onclick=async()=>{
+  if(calNewBtn.disabled)return;
+  const yes=await confirmModal('<h3>Make a new calendar link?</h3><p class="small2">Your current calendar link will stop working in Google Calendar, Apple Calendar, and Skylight. You will need to subscribe again with the new link.</p>',"Make new link");
+  if(!yes||calNewBtn.disabled)return;
+  calNewBtn.disabled=true;
   try{
     const data=await pubApi("/api/cal/reset",{body:{}});
     if(!data.ok){pubErr("Could not make a new link.");return;}
     showCalendar(data); pubErr("");
     $("#pubOk").textContent="New calendar link. The old one stopped working.";
   }catch(e){pubErr("Could not make a new link.");}
+  finally{calNewBtn.disabled=false;}
 };
 const calSyncEl=$("#calSync");
 if(calSyncEl)calSyncEl.onchange=()=>{localStorage.setItem("hb-cal-sync",calSyncEl.checked?"1":"0");if(calSyncEl.checked)syncCalUpcoming();};
@@ -6784,13 +7188,15 @@ function applyDraft(d){
   S=normalizeBrandStyle(Object.assign(defaults(),d),d);
   if(!PRESETS[S.type])S.type="lawn";
   fixSvcRows();
+  if(!Array.isArray(S.parentChecks))S.parentChecks=[];
   if(typeof ensureStudio==="function")ensureStudio(true);
   if(typeof initSvcTouched==="function")initSvcTouched();
   document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
   const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
   const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";
   save();
-  renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();syncOther();refresh();
+  renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();if(typeof renderParentChecks==="function")renderParentChecks();syncPlaceholders();syncOther();refresh();
+  if(typeof renderKidBar==="function")renderKidBar();
 }
 async function loadDraft(code){
   try{
@@ -6831,7 +7237,7 @@ function buildsUpsert(list, entry){
   const base=buildsClean(list);
   if(!code)return base;
   const next=base.filter(x=>x.code!==code);
-  next.unshift({code,label:String((entry&&entry.label)||"").trim()||"Untitled page",updatedAt:Number(entry&&entry.updatedAt)||0});
+  next.unshift({code,label:String((entry&&entry.label)||"").trim()||"Untitled page",updatedAt:Number(entry.updatedAt)||0});
   return next.slice(0,10);
 }
 function buildsList(){if(!draftWriteAllowed())return [];try{return buildsClean(JSON.parse(localStorage.getItem(BUILDS_KEY)||"[]"));}catch(e){return [];}}
@@ -6894,7 +7300,8 @@ function paintCurrentBuild(){
   document.querySelectorAll("[data-k]").forEach(el=>{el.value=S[el.dataset.k]||"";});
   const sp=$("#showPhone"); if(sp)sp.checked=!!S.showPhone;
   const cj=$("#customJob"); if(cj)cj.value=S.customJob||"";
-  renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();syncOther();refresh();
+  renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();if(typeof renderParentChecks==="function")renderParentChecks();syncPlaceholders();syncOther();refresh();
+  if(typeof renderKidBar==="function")renderKidBar();
 }
 function confirmStartNew(){
   const label=buildLabelOf(S);
@@ -6918,6 +7325,7 @@ async function startNewPage(){
 }
 async function openBuild(code){
   const msg=$("#accountMsg");
+  const notify=t=>{if(msg)msg.textContent=t;if(typeof toast==="function")toast(t);};
   if(code===currentDraftCode()){if(msg)msg.textContent="That build is already open."; return;}
   let target=localDrafts()[code]||null;
   if(!target&&consentOn()){
@@ -6926,17 +7334,21 @@ async function openBuild(code){
       if(data.ok&&data.draft)target=data.draft;
     }catch(e){}
   }
-  if(!target){if(msg)msg.textContent="That saved build could not be opened. Its 90 days may be up. The build you have open was not changed."; return;}
+  if(!target){notify("That saved build could not be opened. Its 90 days may be up. The build you have open was not changed."); return;}
   const ok=await stashCurrentBuild();
-  if(!ok){if(msg)msg.textContent="Could not save the current build, so nothing was changed. Check your connection and try again."; return;}
+  if(!ok){notify("Could not save the current build, so nothing was changed. Check your connection and try again."); return;}
   clearBuildLeftovers();
   try{localStorage.setItem("hb-draft",code);}catch(e){}
   applyDraft(target);
   restoreBoss(code);
   noteCurrentBuild();
   await initPublish();
-  showAccount();
-  toast("Opened your saved page.");
+  const acctScreen=$("#accountScreen");
+  if(acctScreen&&!acctScreen.hidden)showAccount();
+  if(document.body.classList.contains("flyers-on")){syncLiveUrlFields();renderFlyerChips();refreshFlyers();}
+  if(document.body.classList.contains("boss-on"))loadMyJobs({quiet:true});
+  renderKidBar();
+  toast("Switched to "+buildLabelOf(S)+".");
 }
 function renderBuildsBox(){
   const box=$("#buildsBox"); if(!box)return;
@@ -6974,6 +7386,25 @@ function renderBuildsBox(){
     });
     box.appendChild(wrap);
   }
+  renderKidBar();
+}
+function renderKidBar(){
+  const bar=$("#kidBar"); if(!bar)return;
+  const list=buildsList(), cur=currentDraftCode();
+  if(!draftWriteAllowed()||list.length<2){bar.hidden=true;bar.innerHTML="";return;}
+  const draftsMap=localDrafts();
+  bar.hidden=false;
+  bar.innerHTML="";
+  const lbl=document.createElement("span"); lbl.className="kidbar-lbl"; lbl.textContent="Kids:"; bar.appendChild(lbl);
+  list.forEach(entry=>{
+    const b=document.createElement("button"); b.type="button";
+    const active=entry.code===cur;
+    b.setAttribute("aria-pressed",String(active));
+    const draft=active?S:(draftsMap[entry.code]||null);
+    b.textContent=typeof kidSummaryName==="function"?kidSummaryName(draft,entry.label):entry.label;
+    b.onclick=()=>{if(!active)openBuild(entry.code);};
+    bar.appendChild(b);
+  });
 }
 function drawQr(canvas,text){
   const mods=qrMods(text); if(!mods||!canvas)return;
@@ -7217,7 +7648,7 @@ function selectExample(n,focus){
 function drawExamples(){
   const view=currentSeasonView();
   const art=$("#exampleArt");if(art&&!art.childNodes.length)art.innerHTML=sceneArt(exampleScene(view?view.sampleType:"lawn"),"cine-dusk");
-  if(art&&view&&view.sampleType==="prep"&&typeof document!=="undefined"){
+  if(art&&view&&view.sampleType==="prep"&&typeof document!=="undefined"&&!document.getElementById("introMotion")){
     art.innerHTML='<video class="intro-motion" id="introMotion" muted playsinline preload="none" poster="/assets/refresh/prep.webp" aria-label="Five-second yard cleanup scene"><source src="/assets/refresh/yard-preview.mp4" type="video/mp4"></video>';
     if(!document.getElementById("introMotionToggle")){
       const button=document.createElement("button");button.type="button";button.id="introMotionToggle";button.className="intro-motion-toggle";button.textContent="Play 5-second preview";
@@ -7229,6 +7660,8 @@ function drawExamples(){
   const rates=view&&view.rates?view.rates:EXAMPLE_RATES;
   const example={fmt:"full",style:"ink",qrMode:"web",type:view?view.sampleType:"lawn",pets:[],biz:view?view.biz:"Taylor’s Yard Crew",tagline:view?view.tagline:"Fresh cuts. Happy neighbors.",town:"Your neighborhood",first:"Taylor",services:rates.map(r=>({n:r.n,p:r.p})),accent:"#111111",qrText:"https://hustlebuilder.org/taylor-demo",urlText:"hustlebuilder.org/taylor-demo",ok:true,why:"",showPhone:false,phone:"",parentName:""};
   const draw=()=>drawFlyer(cv.getContext("2d"),example);draw();ensureFonts().then(draw);
+  if(typeof document!=="undefined"&&document.body&&document.body.classList&&document.body.classList.contains("flyers-on")&&typeof refreshFlyers==="function")refreshFlyers();
+  if(typeof stOpen!=="undefined"&&stOpen&&typeof drawStudio==="function"){drawStudio();renderPanel();}
 }
 if(typeof window!=="undefined")window.hbPrintLibsReady=drawExamples;
 function openIntro(){
@@ -7260,7 +7693,7 @@ document.addEventListener("keydown",e=>{
   if(introBox.hidden)return;
   if(e.key==="Escape"){e.preventDefault();closeIntro();return;}
   if(e.key!=="Tab")return;
-  const focusable=Array.from(introBox.querySelectorAll('button,input,[tabindex="0"]')).filter(el=>el.getClientRects().length);
+  const focusable=Array.from(introBox.querySelectorAll('a[href],button,input,[tabindex="0"]')).filter(el=>el.getClientRects().length);
   const first=focusable[0],last=focusable[focusable.length-1];
   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
@@ -7279,9 +7712,10 @@ const draftQ=startQ.get("draft");
 const accountQ=startQ.get("account");
 const gearQ=startQ.get("gear");
 if(gearQ)pendingGearRequest={businessId:startQ.get("business")||""};
+let savedAskToken=""; try{savedAskToken=localStorage.getItem("hb-ask")||"";}catch(e){}
 if(askQ&&publishOrigin()&&hostQ!=="paid")openAsk(askQ);
 else if(draftQ&&publishOrigin())loadDraft(draftQ);
-else if(localStorage.getItem("hb-ask"))startAskPoll();
+else if(savedAskToken)startAskPoll();
 async function resumeConsent(kind){
   try{history.replaceState({},"",location.pathname);}catch(e){}
   go(7);
@@ -7308,16 +7742,18 @@ async function resumeConsent(kind){
 const consentQ=startQ.get("consent");
 if(consentQ==="paid"||consentQ==="cancel")resumeConsent(consentQ);
 else if(hostQ==="paid"||hostQ==="cancel")resumeHosting(hostQ);
-else if(accountQ||gearQ){go(7); showAccount();}
+else if(accountQ||gearQ){
+  go(7); showAccount();
+  if(accountQ){const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}
+}
 else if(startQ.get("jobs"))setMode("boss");
 else if(!askQ)go(Number.isInteger(S.builderStep)?S.builderStep:0);
-if(startQ.get("account")){go(7); const addr=$("#webAddress"); if(addr&&pubSession()&&pubSession().slug){addr.hidden=false; setTimeout(()=>addr.scrollIntoView({block:"start"}), 60);}}
 syncLiveUrlFields();
 paintExampleRates();
 shell.dataset.type=S.type;
 syncTypeCopy();
 renderPetGallery();
-renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();syncPlaceholders();refresh();
+renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();renderParentChecks();renderKidBar();syncPlaceholders();refresh();
 })();
 </script>
 <script src="/assets/print-libs.js" onload="loadAllFonts();if(window.hbPrintLibsReady)window.hbPrintLibsReady()"></script>

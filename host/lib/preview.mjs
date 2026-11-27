@@ -15,7 +15,7 @@ function escAttr(value) {
 export function withParentInquiry(html,slug) {
   const out=String(html||'');
   if(!/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(slug||''))||out.includes('id="hb-parent-inquiry"'))return out;
-  const block='<aside id="hb-parent-inquiry" style="font:16px/1.5 system-ui,sans-serif;margin:2rem;padding:1.25rem;border:1px solid currentColor;border-radius:16px"><b>A question before booking?</b><p>Ask the parent about the work, supplies, price, or timing. Asking a question does not book a job.</p><a href="/api/inquiry/'+escAttr(slug)+'" target="_top">Ask the parent</a></aside>';
+  const block='<aside id="hb-parent-inquiry" style="font:15.5px/1.45 inherit;margin:0 0 18px;padding:16px 18px;background:var(--card,transparent);color:var(--bone,inherit);border:1px solid var(--line,currentColor);border-radius:16px;box-shadow:inset 4px 0 0 var(--accent,currentColor)"><b style="display:block;font-size:17px;margin-bottom:4px">A question before booking?</b><p style="margin:0 0 10px;color:var(--mute,inherit)">Ask the parent about the work, supplies, price, or timing. Asking a question does not book a job.</p><a href="/api/inquiry/'+escAttr(slug)+'" target="_top" style="display:inline-flex;align-items:center;min-height:42px;padding:8px 16px;border-radius:10px;border:1.5px solid var(--accent,currentColor);color:var(--bone,inherit);font-weight:700;text-decoration:none">Ask the parent</a></aside>';
   if(/<section\b[^>]*id=["']book["']/i.test(out))return out.replace(/(<section\b[^>]*id=["']book["'][^>]*>)/i,tag=>tag+block);
   return /<\/body>/i.test(out)?out.replace(/<\/body>/i,()=>block+'</body>'):out+block;
 }
@@ -56,7 +56,8 @@ function firstPricedService(html) {
   const re = /"n"\s*:\s*"([^"]+)"\s*,\s*"p"\s*:\s*"([^"]*)"/g;
   let match;
   while ((match = re.exec(String(html || "")))) {
-    const price = match[2].replace(/[^0-9.]/g, "");
+    const pm = String(match[2] || "").match(/\d+(?:\.\d{1,2})?/);
+    const price = pm ? pm[0] : "";
     if (price && Number(price) > 0) return { name: match[1], price };
   }
   return { name: "", price: "" };
@@ -87,7 +88,7 @@ export function familyVenmo(html, username, kid) {
     else if (out.includes("</body>")) out = out.replace("</body>", () => link + "</body>");
     else out += link;
   }
-  const boot = `<script id="hb-venmo">(function(){var user=${JSON.stringify(user)};var kid=${JSON.stringify(who)};function price(){var sel=document.getElementById("svc");var name=sel?sel.value:"";var list=(window.__C&&window.__C.services)||[];var p="";for(var i=0;i<list.length;i++){if(list[i]&&list[i].n===name)p=String(list[i].p||"").replace(/[^0-9.]/g,"");}return p;}function href(){var parts=["txn=pay"];var raw=price();var num=Number(raw);if(raw&&isFinite(num)&&num>0&&num<=999)parts.push("amount="+encodeURIComponent(String(Math.round(num*100)/100)));var sel=document.getElementById("svc");var job=sel&&sel.value?sel.value:"";var note=[kid?kid+":":"",job].filter(Boolean).join(" ").replace(/\\s+/g," ").trim().slice(0,120);if(note)parts.push("note="+encodeURIComponent(note));return "https://venmo.com/"+encodeURIComponent(user)+"?"+parts.join("&");}function paint(){var a=document.getElementById("venmoPay");if(!a)return;a.href=href();}var sel=document.getElementById("svc");if(sel)sel.addEventListener("change",paint);paint();})();</script>`;
+  const boot = `<script id="hb-venmo">(function(){var user=${JSON.stringify(user)};var kid=${JSON.stringify(who)};function price(){var sel=document.getElementById("svc");var name=sel?sel.value:"";var list=(window.__C&&window.__C.services)||[];var p="";for(var i=0;i<list.length;i++){if(list[i]&&list[i].n===name){var m=String(list[i].p||"").match(/\\d+(?:\\.\\d{1,2})?/);p=m?m[0]:"";}}return p;}function href(){var parts=["txn=pay"];var raw=price();var num=Number(raw);if(raw&&isFinite(num)&&num>0&&num<=999)parts.push("amount="+encodeURIComponent(String(Math.round(num*100)/100)));var sel=document.getElementById("svc");var job=sel&&sel.value?sel.value:"";var note=[kid?kid+":":"",job].filter(Boolean).join(" ").replace(/\\s+/g," ").trim().slice(0,120);if(note)parts.push("note="+encodeURIComponent(note));return "https://venmo.com/"+encodeURIComponent(user)+"?"+parts.join("&");}function paint(){var a=document.getElementById("venmoPay");if(!a)return;a.href=href();}var sel=document.getElementById("svc");if(sel)sel.addEventListener("change",paint);paint();})();</script>`;
   return out.includes("</body>") ? out.replace("</body>", () => boot + "</body>") : out + boot;
 }
 
