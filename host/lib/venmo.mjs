@@ -21,7 +21,8 @@ export function venmoPayUrl(username, { amount, note } = {}) {
   const user = cleanVenmo(username);
   if (!user) return "";
   const parts = ["txn=pay"];
-  const raw = String(amount == null ? "" : amount).replace(/[^0-9.]/g, "");
+  const m = String(amount == null ? "" : amount).match(/\d+(?:\.\d{1,2})?/);
+  const raw = m ? m[0] : "";
   const num = Number(raw);
   if (raw && Number.isFinite(num) && num > 0 && num <= 999) parts.push("amount=" + encodeURIComponent(String(Math.round(num * 100) / 100)));
   const text = String(note || "").replace(/\s+/g, " ").trim().slice(0, 120);

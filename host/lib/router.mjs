@@ -602,6 +602,7 @@ function kidJob(row, account) {
     business: row.business || "",
     service: row.service || "A job",
     when: row.when || "",
+    start: !held && row.invite && row.invite.start ? String(row.invite.start) : "",
     firstName: row.firstName || "Neighbor",
     status: row.status || "new",
     ...(held ? { held: true } : {}),
@@ -2571,7 +2572,9 @@ async function routeRequest(req) {
   if (method === "GET" && eventFile) {
     const rec = await readJson("events/" + eventFile[1].toLowerCase() + ".json");
     if (!rec || !rec.start) return json(404, { ok: false, error: "missing" });
-    const body = addEventIcs({ ...rec, id: rec.id || "event", description: rec.details || (rec.confirmed ? "Confirmed." : "Requested. Not confirmed yet."), url:rec.manageUrl||"", location: publicText(rec.location || "") });
+    const expAt = typeof rec.expiresAt === "number" ? rec.expiresAt : Date.parse(rec.expiresAt);
+    if (rec.expiresAt != null && Number.isFinite(expAt) && expAt <= Date.now()) return json(404, { ok: false, error: "missing" });
+    const body = addEventIcs({ ...rec, id: rec.id || "event0", description: rec.details || (rec.confirmed ? "Confirmed." : "Requested. Not confirmed yet."), url:rec.manageUrl||"", location: publicText(rec.location || "") });
     if (!body) return json(404, { ok: false, error: "missing" });
     return {
       status: 200,
@@ -2635,7 +2638,11 @@ async function routeRequest(req) {
     if(!hit)return bookingPage(bookingGet[1],null,null,origin);
     if(bookingGet[2]){
       if(hit.row.status!=="confirmed")return json(409,{ok:false,error:"status"});
-      const ics=bookingInvitation(hit.row,hit.account,origin,true);
+      let ics=bookingInvitation(hit.row,hit.account,origin,true);
+      if(!ics&&hit.row.invite&&hit.row.invite.start){
+        const url=bookingUrl(hit.row,origin);
+        ics=addEventIcs({id:String(hit.row.invite.uid||hit.row.id||"event").replace(/@hustlebuilder\.org$/,""),start:hit.row.invite.start,tz:hit.row.invite.tz||tzOf(hit.account),summary:inviteSummary(hit.row.kid,hit.row.service,hit.row.firstName),location:publicText(hit.row.address||""),description:"Confirmed.\nManage booking: "+url,url,confirmed:true,sequence:Number(hit.row.invite.sequence||0)});
+      }
       if(!ics)return json(404,{ok:false,error:"missing"});
       return {...calendarResponse(200,ics),headers:{...calendarResponse(200,ics).headers,"content-disposition":'inline; filename="booking.ics"'}};
     }
@@ -2734,6 +2741,8 @@ async function routeRequest(req) {
       }
     }
     await writeJson("pages/" + from + ".json", { slug: from, accountId: account.id, status: "redirect", to: next, until, updatedAt: new Date(now).toISOString() });
+    const oldViews = await readJson("views/" + from + ".json");
+    if (oldViews && !(await readJson("views/" + next + ".json"))) await writeJson("views/" + next + ".json", oldViews);
     await renameGearBusiness(account,from,next);
     account.formerSlugs.push(from);
     swapAccountSlug(account, from, next);
@@ -3474,9 +3483,10 @@ async function routeRequest(req) {
         updateMessage=result.message;
       }else{
       const next=String(body.status||"");
-      if(row.kind==='inquiry')return json(409,{ok:false,error:'inquiry',message:'A question is not a booking. Reply or close the question; no calendar or completion is created.'});
-      if(!["confirmed","done","cancelled","accept-reschedule","decline-reschedule","keep-booking","approve-series","cancel-series"].includes(next))return json(400,{ok:false,error:"status"});
-      if(["cancelled","done"].includes(row.status)&&next!==row.status&&next!=="cancel-series")return json(409,{ok:false,error:"terminal",message:"This booking is already finished. Create a new request for another job."});
+      const jobFail=(st,err,msg)=>body.json===true?json(st,{ok:false,error:err,...(msg?{message:msg}:{})}):shell(st,"Review booking",'<h1>Review booking</h1><p role="alert">'+mailEscape(msg||"Could not save that change. Go back and refresh the booking.")+'</p><p><a href="/api/job/'+row.actionToken+'">Back to booking</a></p>');
+      if(row.kind==='inquiry')return jobFail(409,'inquiry','A question is not a booking. Reply or close the question; no calendar or completion is created.');
+      if(!["confirmed","done","cancelled","accept-reschedule","decline-reschedule","keep-booking","approve-series","cancel-series"].includes(next))return jobFail(400,"status","Choose a valid booking action.");
+      if(["cancelled","done"].includes(row.status)&&next!==row.status&&next!=="cancel-series")return jobFail(409,"terminal","This booking is already finished. Create a new request for another job.");
       if(['confirmed','done','approve-series','accept-reschedule'].includes(next)&&row.quote&&!quoteAccepted(row))return body.json===true?json(409,{ok:false,error:'quote',message:'The customer must accept the current quote revision first.'}):shell(409,'Quote needs acceptance','<h1>Quote needs acceptance</h1><p>The customer must accept the current quote revision before you confirm or finish this job.</p><p><a href="/api/job/'+row.actionToken+'">Review quote and questions</a></p>');
       await ensureBookingLink(row,account);
       if(next==="approve-series"||next==="cancel-series"){
@@ -3484,10 +3494,10 @@ async function routeRequest(req) {
         if(result.error)return body.json===true?json(result.status,{ok:false,error:result.error,message:result.message}):shell(result.status,"Review repeating visits",'<h1>Review repeating visits</h1><p>'+mailEscape(result.message)+'</p><p><a href="/api/job/'+row.actionToken+'">Back to booking</a></p>');
         updateMessage=next==="approve-series"?(result.repeated?"This repeating schedule is already approved.":"Approved "+result.total+" visits. Confirmation notices are queued for each visit."):(result.cancelled?"Cancelled "+result.cancelled+" future visits. Cancellation notices are queued.":"There are no future, uncompleted visits left to cancel.");
       }else if(next==="accept-reschedule"||next==="decline-reschedule"){
-        if(!row.reschedule||body.start!==row.reschedule.start)return json(409,{ok:false,error:"reschedule",message:"The requested time has changed. Refresh and review it again."});
+        if(!row.reschedule||body.start!==row.reschedule.start)return jobFail(409,"reschedule","The requested time has changed. Refresh and review it again.");
         if(next==="accept-reschedule"){
           const start=row.reschedule.start;
-          if(jobInstant(start,tzOf(account))<=Date.now())return json(409,{ok:false,error:"date",message:"That requested time has passed. Ask the customer for another time."});
+          if(jobInstant(start,tzOf(account))<=Date.now())return jobFail(409,"date","That requested time has passed. Ask the customer for another time.");
           row.when=row.reschedule.when;row.fields||={};row.fields.when=row.when;
           if(row.invite)row.invite.start=start;
           else {
@@ -3518,7 +3528,7 @@ async function routeRequest(req) {
     if(method==='GET'&&parentUnread(row)){
       row.parentReadMessageId=row.thread.at(-1).id;await saveRequests(account.id,rows);
     }
-    if(row.kind==='inquiry')return shell(200,'Neighbor question',`<p><a href="/?jobs=1">View all family requests</a></p><h1>Question for ${mailEscape(row.business||'the parent')}</h1><p>From ${mailEscape(row.firstName||'a neighbor')}. No job or calendar appointment was created.</p><p>Status: ${row.status==='closed'?'Closed':'Open question'}</p>${threadMarkup(row,{parent:true,requestId:rand(16)})}${row.status!=='closed'?'<form method="post"><button name="action" value="close-inquiry" class="alt">Close this question</button></form>':''}<p role="status">${mailEscape(updateMessage)}</p>`);
+    if(row.kind==='inquiry')return shell(200,'Neighbor question',`<p><a href="/?jobs=1">View all family requests</a></p><h1>Question for ${mailEscape(row.business||'the parent')}</h1>${updateMessage?`<p role="status"><b>${mailEscape(updateMessage)}</b></p>`:""}<p>From ${mailEscape(row.firstName||'a neighbor')}. No job or calendar appointment was created.</p><p>Status: ${row.status==='closed'?'Closed':'Open question'}</p>${threadMarkup(row,{parent:true,requestId:rand(16)})}${row.status!=='closed'?'<form method="post"><button name="action" value="close-inquiry" class="alt">Close this question</button></form>':''}`);
     const title=row.status==="new"?"New request":row.status;
     const terminal=["cancelled","done"].includes(row.status);
     const repeat=repeatOffer(row);
@@ -3526,6 +3536,7 @@ async function routeRequest(req) {
     const quotePending=!!row.quote&&!quoteAccepted(row);
     return shell(200,title,`<p><a href="/?jobs=1">View all family bookings</a></p>
 <h1>${mailEscape(row.service||"A job")}</h1>
+${updateMessage?`<p role="status"><b>${mailEscape(updateMessage)}</b></p>`:""}
 <p>${mailEscape([row.kid,row.business].filter(Boolean).join(" · "))}</p>
 <p>${mailEscape(row.firstName||"Neighbor")} · ${mailEscape(row.when||"")}</p>
 <p>Status: <b>${mailEscape(row.status)}</b></p>
@@ -3539,8 +3550,7 @@ ${row.reschedule&&!terminal?`<h2>Time change requested</h2><p>${mailEscape(row.r
 <form method="post"><input type="hidden" name="start" value="${mailEscape(row.reschedule.start)}"><button name="status" value="accept-reschedule"${quotePending?' disabled':''}>Accept new time</button><button name="status" value="decline-reschedule" class="alt">Keep original time</button></form>`:""}
 ${repeat&&!row.reschedule?`<h2>Approve repeating visits</h2><form method="post"><input type="hidden" name="start" value="${mailEscape(row.invite.start)}"><p>${mailEscape(repeat.label)}. Nothing repeats until you approve. The selected schedule includes this first visit at ${mailEscape(row.when)} (${mailEscape(tzOf(account))}).</p>${repeat.requiresCount?`<label>Total visits, including this first one<select name="count">${Array.from({length:7},(_,i)=>i+2).map(n=>'<option value="'+n+'"'+(n===4?' selected':'')+'>'+n+' visits</option>').join("")}</select></label>`:`<p>One visit each day from ${mailEscape(row.fields?.awayFrom||"")} through ${mailEscape(row.fields?.awayTo||"")}, at the selected time. Approve 2–14 days at once.</p>`}<p>Each visit gets its own calendar entry and confirmation notice. You or the customer can cancel one visit or the remaining visits.</p><button name="status" value="approve-series"${quotePending?' disabled':''}>Approve repeating visits</button></form>`:""}
 ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for email customers. Contact phone-only customers directly by call or text.</p>
-<form method="post">${row.status!=="confirmed"?'<button name="status" value="confirmed"'+(quotePending?' disabled':'')+'>Confirm booking</button>':""}<button name="status" value="done"${quotePending?' disabled':''}>Mark done</button><button name="status" value="cancelled" class="alt">Cancel request</button>${row.cancelRequestedAt?'<button name="status" value="keep-booking" class="alt">Keep booking</button>':""}</form>`:"<p>This booking is finished. No further changes can be made.</p>"}
-<p role="status">${mailEscape(updateMessage)}</p>`);
+<form method="post">${row.status!=="confirmed"?'<button name="status" value="confirmed"'+(quotePending?' disabled':'')+'>Confirm booking</button>':""}<button name="status" value="done"${quotePending?' disabled':''}>Mark done</button><button name="status" value="cancelled" class="alt">Cancel request</button>${row.cancelRequestedAt?'<button name="status" value="keep-booking" class="alt">Keep booking</button>':""}</form>`:"<p>This booking is finished. No further changes can be made.</p>"}`);
   }
 
   const renewGet = route.match(/^renew\/([a-f0-9]{16,80})$/i);
@@ -3556,6 +3566,36 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
     // the parent signs in if needed and taps Pay there.
     const planId = (req.query && req.query.get && req.query.get("plan")) === "year" ? "year" : "season";
     return redirect((origin || "") + "/?account=1&plan=" + planId);
+  }
+
+  if (method === "GET" && route === "book") {
+    let slug = String((req.query && req.query.get && req.query.get("busy")) || "").trim().toLowerCase();
+    if (!slug || checkSlug(slug)) return withCors(json(200, { ok: true, busy: [] }), req.headers && req.headers.origin);
+    let meta = await readJson("pages/" + slug + ".json");
+    const owner = meta?.accountId, seen = new Set([slug]);
+    for (let hops = 0; meta?.status === "redirect" && hops < 8; hops++) {
+      if (Date.parse(meta.until || "") <= Date.now() || checkSlug(meta.to) || seen.has(meta.to)) { meta = null; break; }
+      slug = meta.to; seen.add(slug); meta = await readJson("pages/" + slug + ".json");
+      if (meta?.accountId !== owner) { meta = null; break; }
+    }
+    if (!meta || meta.status !== "live" || !meta.accountId) return withCors(json(200, { ok: true, busy: [] }), req.headers && req.headers.origin);
+    const rows = await loadRequests(meta.accountId);
+    const nowDay = new Date().toISOString().slice(0, 10);
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const busy = [];
+    for (const row of rows) {
+      if (!row || row.kind === "inquiry" || row.status !== "confirmed") continue;
+      const sameBiz = row.slug === slug || (meta.gearBusinessId && row.gearBusinessId === meta.gearBusinessId);
+      if (!sameBiz) continue;
+      const start = String((row.invite && row.invite.start) || "");
+      const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(start);
+      if (!m || start.slice(0, 10) < nowDay) continue;
+      const mins = (+m[4]) * 60 + (+m[5]) + 60;
+      const endH = Math.floor(mins / 60), endM = mins % 60;
+      const end = endH < 24 ? `${m[1]}-${m[2]}-${m[3]}T${pad2(endH)}:${pad2(endM)}` : `${m[1]}-${m[2]}-${m[3]}T23:59`;
+      busy.push([start.slice(0, 16), end]);
+    }
+    return withCors(json(200, { ok: true, busy }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && route === "book") {
@@ -4062,12 +4102,15 @@ ${!terminal?`<p>Confirm, finish, or cancel here. Email notices are queued for em
   if (method === "GET" && route === "views") {
     const account = await me();
     if (!account) return withCors(json(401, { ok: false, error: "auth" }), req.headers && req.headers.origin);
-    // Only ever the caller's own page: the slug comes from their account,
+    // Only ever the caller's own pages: the slugs come from their account,
     // never from the request, so nobody can read another family's count.
     const slug = String(account.slug || "").trim().toLowerCase();
-    if (!slug) return withCors(json(200, { ok: true, slug: "", total: 0, last7: 0 }), req.headers && req.headers.origin);
-    const counts = await viewCounts(slug);
-    return withCors(json(200, { ok: true, slug, total: counts.total, last7: counts.last7 }), req.headers && req.headers.origin);
+    const owned = slugsOf(account).slice(0, MAX_PAGES_PER_ACCOUNT);
+    const bySlug = {};
+    for (const s of owned) bySlug[s] = await viewCounts(s);
+    if (!slug) return withCors(json(200, { ok: true, slug: "", total: 0, last7: 0, bySlug }), req.headers && req.headers.origin);
+    const counts = bySlug[slug] || await viewCounts(slug);
+    return withCors(json(200, { ok: true, slug, total: counts.total, last7: counts.last7, bySlug }), req.headers && req.headers.origin);
   }
 
   if (method === "POST" && (route === "account/pause" || route === "account/resume")) {
@@ -4387,7 +4430,7 @@ async function requestLocks(req) {
   const code=String(body.code||req.query?.get?.('code')||'').trim().toLowerCase();
   if(/^[a-z0-9]{8}$/.test(code))keys.push('draft:'+code);
   if(route.startsWith('ask/'))keys.push('ask:'+route.split('/')[1]);
-  if(route==='book'||route==='ask'||route==='draft'||route.startsWith('auth/'))keys.push('quota:'+route.split('/')[0]+':'+sha(clientIp(req)));
+  if((route==='book'&&req.method!=='GET')||route==='ask'||route==='draft'||route.startsWith('auth/'))keys.push('quota:'+route.split('/')[0]+':'+sha(clientIp(req)));
   if(route.startsWith('inquiry/'))keys.push('quota:inquiry:'+sha(clientIp(req)));
   if(/^(job|booking)\//i.test(route))keys.push('quota:thread:'+sha(clientIp(req)));
   if((route==='my-jobs'||route==='my-jobs/cancel-request')&&code){const id=await s.get('jobcode/'+code);if(id)accountIds.add(id);else{const d=await read('drafts/'+code+'.json');if(d?.accountId)accountIds.add(d.accountId);}}
@@ -4397,7 +4440,7 @@ async function requestLocks(req) {
   if(route==='report')keys.push('quota:report:'+sha(clientIp(req)));
   if(route==='my-jobs/cancel-request')keys.push('quota:kidcancel:'+sha(clientIp(req)));
   keys.push(...[...accountIds].map(id=>'account:'+id));
-  const readOnly=String(req.method).toUpperCase()==='GET'&&(/^(site\/|card\/|qr\/|slug$|plans$|test\/outbox$)/.test(route));
+  const readOnly=String(req.method).toUpperCase()==='GET'&&(/^(site\/|card\/|qr\/|slug$|plans$|test\/outbox$|book$)/.test(route));
   // Each of these used to take the site-wide exclusive lock (pausing every
   // other write while it ran). Deletion now locks only its own account and
   // pages, the dashboard only reads, and the cron runs per account.

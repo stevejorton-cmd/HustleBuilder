@@ -6,7 +6,7 @@
 // never end up as cache keys. Only good same-origin responses are stored, so
 // an error page can never replace the working offline copy.
 const CACHE = "hustle-shell-5";
-const SHELL = ["/", "/config/season.js", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-192.png", "/icons/maskable-512.png"];
+const SHELL = ["/", "/config/season.js", "/manifest.webmanifest", "/assets/barlow.css", "/assets/print-libs.js", "/assets/gear-studio.css", "/assets/gear-studio.mjs", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-192.png", "/icons/maskable-512.png"];
 
 // Only bundled public artwork is cached. Uploaded photos and all API data stay out.
 const ARTWORK = [
@@ -79,20 +79,19 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
-  const isBuilder = url.pathname === "/" || url.pathname === "/index.html";
+  const isBuilder = url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/parents";
   const isImage = imagePaths.has(url.pathname);
   if (!isBuilder && !isImage && SHELL.indexOf(url.pathname) < 0) return;
   const key = isBuilder ? "/" : url.pathname;
   event.respondWith(
     fetch(event.request).then((res) => {
-      if (isImage ? usableImage(res) : res.ok && res.type === "basic") {
+      const good = isImage ? usableImage(res) : res.ok && res.type === "basic";
+      if (good) {
         const copy = res.clone();
         event.waitUntil(caches.open(CACHE).then((cache) => cache.put(key, copy)));
+        return res;
       }
-      if (isImage && !usableImage(res)) {
-        return caches.open(CACHE).then((cache) => cache.match(key)).then((hit) => hit || res);
-      }
-      return res;
+      return caches.open(CACHE).then((cache) => cache.match(key)).then((hit) => hit || res);
     }).catch(() => caches.open(CACHE).then((cache) => cache.match(key)).then((hit) => hit || Response.error()))
   );
 });
