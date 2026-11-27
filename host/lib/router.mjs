@@ -492,14 +492,18 @@ function onBreak(account, now = Date.now()) {
   return now > end + GRACE_DAYS * 864e5;
 }
 
+function hasRefundedReceipt(account) {
+  return Array.isArray(account && account.receipts) && account.receipts.some((r) => r && r.refundedAt);
+}
+
 function trialClockOpen(account, now = Date.now()) {
   const end = Date.parse(account && account.trialEndsAt || "");
-  if (!Number.isFinite(end)) return true;
+  if (!Number.isFinite(end)) return !hasRefundedReceipt(account);
   return end > now;
 }
 
 function trialDaysLeft(account, now = Date.now()) {
-  if (!account || !account.trialEndsAt) return trialLengthDays();
+  if (!account || !account.trialEndsAt) return hasRefundedReceipt(account) ? 0 : trialLengthDays();
   const days = daysUntil(account.trialEndsAt, now);
   if (days == null) return 0;
   return Math.max(0, days);
@@ -507,7 +511,7 @@ function trialDaysLeft(account, now = Date.now()) {
 
 function trialOver(account, used, now = Date.now()) {
   if (!account || paid(account, now) || inGrace(account, now)) return false;
-  if (!account.trialEndsAt && slugsOf(account).length === 0) return false;
+  if (!account.trialEndsAt && slugsOf(account).length === 0 && !hasRefundedReceipt(account)) return false;
   return !trialClockOpen(account, now);
 }
 
@@ -584,9 +588,10 @@ async function activeCancel(token){
 }
 
 function kidJob(row, account) {
-  const place = account && account.shareStreet ? (streetOnly(row.address) || "In your neighborhood") : "In your neighborhood";
+  const held = row && row.status === "held";
+  const place = !held && account && account.shareStreet ? (streetOnly(row.address) || "In your neighborhood") : "In your neighborhood";
   const price = agreedPrice(row);
-  const venmoUrl = venmoPayUrl(account && account.venmo, {
+  const venmoUrl = held ? "" : venmoPayUrl(account && account.venmo, {
     amount: price,
     note: venmoNote({ kid: row.kid || (row.calJob && row.calJob.kid) || "", service: row.service, when: row.when })
   });
@@ -599,6 +604,7 @@ function kidJob(row, account) {
     when: row.when || "",
     firstName: row.firstName || "Neighbor",
     status: row.status || "new",
+    ...(held ? { held: true } : {}),
     place,
     price,
     venmoUrl,
@@ -2282,6 +2288,7 @@ async function acceptJobQuote(account,row,body,origin) {
   return {ok:true,message:'Quote accepted. The parent still confirms the appointment or repeating schedule separately.'};
 }
 async function appendPrivateMessage(account,row,body,origin,author,ip) {
+  if(row.status==='held')return {status:402,error:'held',message:'This request is waiting for the parent to unlock it before messages can be exchanged.'};
   if(row.kind==='inquiry'&&row.status==='closed')return {status:409,error:'closed',message:'This question is closed. Start a new request from the business page.'};
   const parsed=parseMessage(body);if(parsed.error)return {status:400,...parsed};
   const thread=row.thread||[],previous=thread.find(message=>message.id===parsed.id);
@@ -2313,7 +2320,7 @@ ${row.series?`<p>Visit ${Number(row.series.index)} of ${Number(row.series.total)
 ${message?`<p role="status"><b>${mailEscape(message)}</b></p>`:""}
 ${row.status==="cancelled"?"<p>This booking will not go ahead. The cancellation has been recorded.</p>":""}
 ${quoteMarkup(row)}
-${threadMarkup(row,{requestId:rand(16)})}
+${row.status==="held"?"":threadMarkup(row,{requestId:rand(16)})}
 ${row.reschedule?`<p>A change to <b>${mailEscape(row.reschedule.when)}</b> is waiting for the parent’s approval. Your current appointment stays in place until they approve.</p>`:""}
 ${row.status==="confirmed"&&row.invite?`<p><a class="hb-btn" href="${base}/calendar.ics">Open calendar invitation</a></p><p>Use the invitation in your confirmation email to keep calendar updates connected. A separately imported copy may need manual cleanup.</p>`:""}
 ${!terminal?`${!row.reschedule?`<h2>Request another time</h2><form method="post" action="${base}"><input type="hidden" name="action" value="reschedule"><label>New date and time (${mailEscape(tzOf(account))})<input type="datetime-local" name="start" min="${min}" max="${max}" required></label><p>The parent must approve. Your current appointment stays in place until then.</p><button type="submit">Request new time</button></form>`:""}
@@ -3099,9 +3106,31 @@ async function routeRequest(req) {
     // or a card that already had a trial) is left as it is.
     if (!paid(account)) beginTrial(account);
     await rememberAccount(account);
-    const jobCode = String(body.draftCode || account.jobCode || account.draftCode || "").toLowerCase();
-    account.jobCode = /^[a-z0-9]{8}$/.test(jobCode) ? jobCode : account.jobCode || rand(4).slice(0, 8);
-    await (await store()).put("jobcode/" + account.jobCode, account.id);
+    const storeInst = await store();
+    const candidateCode = String(body.draftCode || "").trim().toLowerCase();
+    let jobCode = "";
+    if (/^[a-z0-9]{8}$/.test(candidateCode)) {
+      const draftRec = await readJson("drafts/" + candidateCode + ".json");
+      const existingOwner = String((await storeInst.get("jobcode/" + candidateCode)) || "").trim();
+      if ((!draftRec || draftOwnedBy(draftRec, account, candidateCode)) && (!existingOwner || existingOwner === account.id)) {
+        jobCode = candidateCode;
+      }
+    }
+    if (!jobCode) {
+      for (const fallback of [account.jobCode, account.draftCode]) {
+        const cleanCode = String(fallback || "").trim().toLowerCase();
+        if (!/^[a-z0-9]{8}$/.test(cleanCode)) continue;
+        const existingOwner = String((await storeInst.get("jobcode/" + cleanCode)) || "").trim();
+        if (!existingOwner || existingOwner === account.id) { jobCode = cleanCode; break; }
+      }
+    }
+    while (!jobCode) {
+      const nextCode = rand(4).slice(0, 8);
+      const existingOwner = String((await storeInst.get("jobcode/" + nextCode)) || "").trim();
+      if (!existingOwner || existingOwner === account.id) jobCode = nextCode;
+    }
+    account.jobCode = jobCode;
+    await storeInst.put("jobcode/" + account.jobCode, account.id);
     // "renamed" is when the page at the primary address is not the one the
     // last live note announced — the address moved and this publish is the
     // first at the new one. (sendLiveNote's mailed set suppresses the note
@@ -3377,7 +3406,7 @@ async function routeRequest(req) {
     const jobs = rows.filter(row=>parentSession||row.kind!=='inquiry').map((row) => {
       const job = kidJob(row, account);
       job.canAskCancel = !parentSession && ["new","confirmed"].includes(row.status);
-      if (parentSession && parentSession.id === account.id && row.actionToken) {
+      if (parentSession && parentSession.id === account.id && row.actionToken && row.status !== "held") {
         job.action = row.actionToken;
         job.detailsUrl=siteOrigin(origin)+'/api/job/'+row.actionToken;
         job.inquiry=row.kind==='inquiry';
@@ -3416,6 +3445,17 @@ async function routeRequest(req) {
     const rows = account ? await loadRequests(account.id) : [];
     const row = rows.find((item) => item.id === parts[1]);
     if (!account || !row) return finishedPage("This request is no longer stored. Requests are deleted about 30 days after the scheduled job, or arrival if undated.");
+    if (row.status === "held") {
+      const heldMsg = "Pick a plan in your parent account to unlock this booking request.";
+      if (method === "POST" && String(body.status || "") === "approve-series") {
+        return body.json === true
+          ? json(409, { ok: false, error: "held", message: heldMsg })
+          : shell(409, "Unlock booking request", `<h1>Unlock this booking request</h1><p>${mailEscape(heldMsg)}</p><p><a class="hb-btn" href="${mailEscape(accountUrl(origin))}">Open parent account</a></p>`);
+      }
+      const wantsJson = body.json === true || (method === "POST" && !String(req.headers && req.headers["content-type"] || "").includes("application/x-www-form-urlencoded"));
+      if (wantsJson) return json(402, { ok: false, error: "plan_required", message: heldMsg });
+      return shell(402, "Unlock booking request", `<h1>Unlock this booking request</h1><p>This request for ${mailEscape(row.service || "a job")} (${mailEscape(row.when || "requested time")}) is being held because your free trial ended. The neighbor’s contact details and address stay hidden until you pick a plan.</p><p><a class="hb-btn" href="${mailEscape(accountUrl(origin))}">Open parent account</a></p>`);
+    }
     let updateMessage="";
     if (method === "POST") {
       if(['send-quote','reply','close-inquiry'].includes(body.action)){
