@@ -871,8 +871,8 @@ details.help{padding:14px 16px 14px 20px}
 .kidbar[hidden]{display:none}
 .kidbar-lbl{font-weight:700;color:var(--muted);white-space:nowrap}
 .kidbar-pills{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
-.kidbar-pill{min-height:36px;padding:5px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 13.5px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
-.kidbar-pill[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.kidbar-pill,.kidbar button{min-height:36px;padding:6px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 13.5px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
+.kidbar-pill[aria-pressed="true"],.kidbar button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .earn-est{margin:16px 0 4px;padding:13px 16px;border-radius:12px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));font-size:15px;line-height:1.45}
 .earn-est b{color:var(--ink)}
 .earn-est small{display:block;margin-top:4px;color:var(--muted);font-size:13px}
@@ -890,15 +890,15 @@ details.help{padding:14px 16px 14px 20px}
 .jars-wrap{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .jars-wrap summary{font-weight:700;font-size:15px;cursor:pointer;min-height:38px;display:flex;align-items:center;gap:8px}
 .jar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
-.jar-box{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.jar-box b{display:block;font-family:var(--display);font-style:italic;font-weight:900;font-size:24px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
-.jar-box span{display:block;font-size:13px;font-weight:700;margin-top:3px}
-.jar-box small{display:block;font-size:12px;color:var(--muted)}
+.jar-box,.jar{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.jar-box b,.jar b{display:block;font-family:var(--display);font-style:italic;font-weight:900;font-size:24px;line-height:1.05;color:var(--accent);font-variant-numeric:tabular-nums}
+.jar-box span,.jar span{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-top:4px}
+.jar-box small,.jar small{display:block;font-size:12px;color:var(--muted)}
 .goal-jobs{margin:6px 0 10px;font-size:14.5px;font-weight:700;color:var(--ink)}
 .owed-box{margin-top:12px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 9%,var(--bg));border:1px solid var(--line)}
 .owed-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--line)}
 .owed-row:first-of-type{border-top:0}
-.owed-row .btn-mini{min-height:38px;padding:6px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 13.5px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
+.owed-row .btn-mini,.owed-row .chip:not(.paid){min-height:38px;padding:6px 11px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 13.5px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
 .reg-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .reg-chip{min-height:42px;padding:7px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 14px/1.2 Barlow,system-ui,sans-serif;cursor:pointer}
 .reg-chip:hover{border-color:var(--accent)}
@@ -2601,6 +2601,7 @@ footer a{color:var(--bone);font-weight:800;text-decoration:underline;text-underl
 .season .p{font-family:var(--display);font-style:italic;font-weight:900;font-size:40px;line-height:.9;color:var(--accent);overflow-wrap:anywhere;text-align:right;font-variant-numeric:tabular-nums}
 .day.full{border-style:dashed;color:var(--mute);opacity:.75}
 .sent{margin:14px 0 0;border:1px solid var(--line);border-radius:14px;box-shadow:inset 5px 0 0 var(--accent);background:var(--bg2);padding:14px 16px 14px 20px;font-size:16.5px;line-height:1.45;overflow:hidden}
+.sent a:not(.btn){color:var(--bone);text-decoration:underline;text-underline-offset:3px;font-weight:700}
 #copyBook{display:inline-flex;margin-top:12px;background:none;border:0;padding:8px 0;min-height:44px;color:var(--ink,var(--bone));font:inherit;font-weight:700;font-size:17px;text-decoration:underline;cursor:pointer}
 .btns a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .promise{margin:0;border:1px solid var(--line);border-radius:16px;box-shadow:inset 5px 0 0 var(--accent);background:var(--card);padding:18px 18px 18px 22px;font-size:18px;line-height:1.5;overflow:hidden}
@@ -3285,7 +3286,7 @@ function renderEarnEst(){
   if(!pick||!(price>0)){box.hidden=true;box.innerHTML="";return;}
   const fmt=v=>{const r=Math.round(v*100)/100;return "$"+r.toLocaleString("en-US",{minimumFractionDigits:r%1?2:0,maximumFractionDigits:2});};
   box.hidden=false;
-  box.innerHTML=`<b>What you could earn</b>With ${esc(pick.n.trim())} at ${esc(fmt(price))}: <strong>2 jobs/week = ${fmt(price*2)}/week</strong> (~${fmt(price*8)}/month), or <strong>4 jobs/week = ${fmt(price*4)}/week</strong>. Example only — real earnings depend on bookings and supplies.`;
+  box.innerHTML=`<b style="display:block;margin-bottom:4px">What you could earn</b>With ${esc(pick.n.trim())} at ${esc(fmt(price))}: <strong>2 jobs/week = ${fmt(price*2)}/week</strong> (~${fmt(price*8)}/month), or <strong>4 jobs/week = ${fmt(price*4)}/week</strong>.<small>Example only — real earnings depend on bookings and supplies.</small>`;
 }
 function renderParentChecks(){
   const boxes=Array.from(document.querySelectorAll("[data-pcheck]"));
