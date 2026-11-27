@@ -156,13 +156,17 @@ const server = createServer(async (req, res) => {
   const body=await readBody(req);
   let reqPath = url.pathname;
   if (req.method === "GET" && /^\/[a-z0-9][a-z0-9-]{1,40}$/.test(reqPath) && reqPath !== "/admin") reqPath = "/api/site" + reqPath;
+  const reqHost = String(req.headers.host || "").trim().toLowerCase();
+  const reqOrigin = reqHost === "localhost:" + port || reqHost === "127.0.0.1:" + port
+    ? "http://" + reqHost
+    : "http://127.0.0.1:" + port;
   const result = await handleRequest({
     method: req.method,
     path: reqPath,
     query: url.searchParams,
     headers: req.headers,
     body,
-    origin: "http://127.0.0.1:" + port
+    origin: reqOrigin
   });
   res.writeHead(result.status, result.headers || {});
   res.end(result.body || "");
