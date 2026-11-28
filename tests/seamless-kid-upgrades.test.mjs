@@ -6,7 +6,9 @@ import path from "node:path";
 import { brotliCompressSync } from "node:zlib";
 import vm from "node:vm";
 import { fileStore, setStore, store } from "../host/lib/store.mjs";
-import { handleRequest } from "../host/lib/router.mjs";
+import { handleRequest, runRenewals } from "../host/lib/router.mjs";
+import { flushMail } from "../host/lib/mail.mjs";
+import { coachingBucket } from "../host/lib/trial-coaching.mjs";
 import { venmoPayUrl } from "../host/lib/venmo.mjs";
 import { withParentInquiry, familyVenmo } from "../host/lib/preview.mjs";
 import { extractBuilderParts, demoCfg } from "./site-fixture.mjs";
@@ -389,3 +391,84 @@ test("Kid features: custom story keeps parent confirmation, Money Jars & Goal Jo
   // Brotli size stays well under 300 KB
   assert.ok(brotliCompressSync(indexSource).length < 300000);
 });
+
+test("Quick Shield: robots.txt blocks AI crawlers, vercel.json sets noai headers, and /terms includes IP & anti-AI clauses", async () => {
+  const robots = await call("GET", "/robots.txt");
+  assert.equal(robots.status, 200);
+  for (const bot of ["GPTBot", "ClaudeBot", "CCBot", "Google-Extended", "Bytespider", "PerplexityBot", "Meta-ExternalAgent"]) {
+    assert.match(robots.body, new RegExp(`User-agent: ${bot}\\nDisallow: /`));
+  }
+  assert.match(robots.body, /User-agent: \*\nAllow: \/\nDisallow: \/api\//);
+  assert.match(robots.body, /Sitemap: http:\/\/sites\.test\/sitemap\.xml/);
+
+  const terms = await call("GET", "/api/site/terms");
+  assert.equal(terms.status, 200);
+  assert.match(terms.body, /© 2026 Hustle Builder\. All rights reserved\./);
+  assert.match(terms.body, /Our intellectual property and prohibited use/);
+  assert.match(terms.body, /artificial intelligence or machine-learning training datasets/i);
+  assert.match(terms.body, /State of Nebraska/);
+  assert.match(terms.body, /Lancaster County, Nebraska/);
+
+  for (const src of ["/", "/index.html", "/parents", "/assets/(.*)"]) {
+    const rule = vercelConfig.headers.find((h) => h.source === src);
+    assert.ok(rule, `vercel.json missing header rule for ${src}`);
+    const noai = rule.headers.find((h) => h.key === "X-Robots-Tag");
+    assert.ok(noai && /noai/.test(noai.value) && /noimageai/.test(noai.value), `${src} missing noai/noimageai X-Robots-Tag`);
+  }
+});
+
+test("Trial coaching emails: opt-in Day 1 & Day 4 nudges fire once per window and skip paid accounts", async () => {
+  const now = Date.now();
+  assert.equal(coachingBucket(new Date(now - 0.5 * 864e5).toISOString(), now), null);
+  assert.equal(coachingBucket(new Date(now - 1.5 * 864e5).toISOString(), now), "day1");
+  assert.equal(coachingBucket(new Date(now - 3.2 * 864e5).toISOString(), now), null);
+  assert.equal(coachingBucket(new Date(now - 5 * 864e5).toISOString(), now), "day4");
+  assert.equal(coachingBucket(new Date(now - 10 * 864e5).toISOString(), now), null);
+
+  const parent = await makeParent("coach-parent@example.com");
+  const pub = await json(await call("POST", "/api/publish", {
+    token: parent.token,
+    body: { slug: "owen-snow", html: samplePage("Owen's Snow Crew", "Owen"), consent: true, meta: { biz: "Owen's Snow Crew", first: "Owen" } }
+  }));
+  assert.equal(pub.status, 200);
+
+  // Backdate trialStartedAt by 1.5 days so Day 1 coaching is due
+  const s = await store();
+  const acctKeys = await s.list("accounts/");
+  const acctKey = acctKeys.find((k) => k.endsWith(".json"));
+  const acct = JSON.parse(await s.get(acctKey));
+  acct.trialStartedAt = new Date(Date.now() - 1.5 * 864e5).toISOString();
+  acct.trialEndsAt = new Date(Date.now() + 12.5 * 864e5).toISOString();
+  await s.put(acctKey, JSON.stringify(acct));
+
+  // Off by default -> zero coaching emails queued
+  delete process.env.TRIAL_COACHING_EMAILS;
+  const offRun = await runRenewals({ origin: "http://sites.test", dry: false, budgetMs: 5000 });
+  assert.equal(offRun.due.some((d) => d.kind.startsWith("coach-")), false);
+
+  // Enabled -> Day 1 coaching fires once, then deduplicates on repeat run
+  process.env.TRIAL_COACHING_EMAILS = "1";
+  try {
+    const day1Run = await runRenewals({ origin: "http://sites.test", dry: false, budgetMs: 5000 });
+    assert.equal(day1Run.due.some((d) => d.kind === "coach-day1"), true);
+    await flushMail(day1Run.mailIds);
+    const repeatRun = await runRenewals({ origin: "http://sites.test", dry: false, budgetMs: 5000 });
+    assert.equal(repeatRun.due.some((d) => d.kind === "coach-day1"), false);
+
+    // Advance elapsed time to Day 5 -> Day 4 flyer coaching fires once
+    const acct2 = JSON.parse(await s.get(acctKey));
+    acct2.trialStartedAt = new Date(Date.now() - 5 * 864e5).toISOString();
+    await s.put(acctKey, JSON.stringify(acct2));
+    const day4Run = await runRenewals({ origin: "http://sites.test", dry: false, budgetMs: 5000 });
+    assert.equal(day4Run.due.some((d) => d.kind === "coach-day4"), true);
+    await flushMail(day4Run.mailIds);
+
+    const outbox = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("coach-parent@example.com")));
+    const subjects = outbox.body.messages.map((m) => m.subject).join("\n");
+    assert.match(subjects, /first neighbor request/i);
+    assert.match(subjects, /don’t own a printer/i);
+  } finally {
+    delete process.env.TRIAL_COACHING_EMAILS;
+  }
+});
+
