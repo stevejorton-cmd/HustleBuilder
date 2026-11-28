@@ -6653,7 +6653,51 @@ async function showAccount(message){
   }catch(e){}
 }
 /* Gear uses the selected business returned by the parent API. It never loads
-   that child's draft into the builder or borrows the most recent sibling. */
+   that child's draft into the builder or borrows the most recent sibling.
+   A page belongs to the kid named on it. Saved gear for anyone else is not
+   listed, even when this parent account also owns those pages. */
+function gearKidKey(business){
+  const kid=String(business&&business.kid||"").trim().toLocaleLowerCase();
+  return kid||(business&&business.id?("id:"+business.id):"");
+}
+function currentGearScope(){
+  const slug=typeof ownSlug==="function"?ownSlug():"";
+  if(slug)return {slug};
+  const kid=typeof S!=="undefined"&&S?String(S.first||"").trim():"";
+  return kid?{kid}:{};
+}
+function gearSelection(options){
+  const selection={};
+  if(options.businessId)selection.businessId=String(options.businessId);
+  if(options.slug)selection.slug=String(options.slug);
+  if(options.kid)selection.kid=String(options.kid);
+  return selection;
+}
+function gearBusinessesForScope(rows, selection, selectedId){
+  const list=Array.isArray(rows)?rows.filter(b=>b&&b.id):[];
+  if(selection.businessId&&selection.slug){
+    const byId=list.find(b=>b.id===selection.businessId);
+    const bySlug=list.find(b=>b.slug===selection.slug||b.id===selectedId);
+    if(!byId||!bySlug||byId.id!==bySlug.id||gearKidKey(byId)!==gearKidKey(bySlug))return null;
+  }
+  if(selection.kid){
+    const want=String(selection.kid).trim().toLocaleLowerCase();
+    return list.filter(b=>gearKidKey(b)===want);
+  }
+  const anchor=selection.businessId?list.find(b=>b.id===selection.businessId):selection.slug?list.find(b=>b.id===selectedId||b.slug===selection.slug):null;
+  if(anchor){const key=gearKidKey(anchor);return list.filter(b=>gearKidKey(b)===key);}
+  const keys=new Set(list.map(gearKidKey).filter(Boolean));
+  if(keys.size>1)return null;
+  return list;
+}
+function showOwnGearPage(returnFocus){
+  pendingGearRequest=null;modalDismiss=null;
+  const draft=typeof draftWriteAllowed==="function"&&draftWriteAllowed();
+  openModal('<h3>Your business gear</h3><p class="small2">Designs and completed jobs stay on the kid’s own page. Open that page, then use My Business Gear. This does not list anyone else’s businesses.</p>'+(draft?'<div class="mbtns"><button type="button" class="btn" id="gearDraft">Preview this draft</button><button type="button" class="btn outline" id="gearDismiss">Close</button></div>':'<button type="button" class="btn outline" id="gearDismiss">Close</button>'));
+  const preview=mbody.querySelector("#gearDraft");
+  if(preview)preview.onclick=()=>openDraftGear(returnFocus);
+  mbody.querySelector("#gearDismiss").onclick=closeModal;
+}
 function gearLoading(title,request){
   openModal('<h3>'+esc(title)+'</h3><p class="small2" role="status">Loading your design…</p><button type="button" class="btn outline" id="gearDismiss">Cancel</button>');
   modalDismiss=()=>{if(request===gearOpenId){gearOpenId++;pendingGearRequest=null;}};
@@ -6703,7 +6747,7 @@ async function openDraftGear(returnFocus){
 async function openBusinessGear(options){
   options=options||{};
   const request=++gearOpenId,epoch=privateViewEpoch;
-  const selection=options.businessId?{businessId:String(options.businessId)}:options.slug?{slug:String(options.slug)}:{};
+  const selection=gearSelection(options);
   if(gearHandle){gearHandle.close();gearHandle=null;}
   gearLoading("My Business Gear",request);
   try{
@@ -6715,22 +6759,28 @@ async function openBusinessGear(options){
         modalDismiss=null;pendingGearRequest=selection;closeModal();setMode("build");go(7);
         await showAccount("Sign in with the parent email to open saved business gear and milestones.");return;
       }
+      if(data.error==="owner"&&!selection.businessId&&!selection.slug){showOwnGearPage(options.returnFocus);return;}
       throw new Error(data.message||"That saved business is not available in this parent account.");
     }
-    const businesses=Array.isArray(data.businesses)?data.businesses:[];
-    if(!businesses.length){
+    const returned=Array.isArray(data.businesses)?data.businesses:[];
+    if(!returned.length){
       pendingGearRequest=null;modalDismiss=null;
       openModal('<h3>Start with your business design</h3><p class="small2">Your published businesses will appear here with saved job milestones. You can preview and download artwork from the draft on this device for free.</p><div class="mbtns"><button type="button" class="btn" id="gearDraft">Preview this draft</button><button type="button" class="btn outline" id="gearDismiss">Close</button></div>');
       mbody.querySelector("#gearDraft").onclick=()=>openDraftGear(options.returnFocus);
       mbody.querySelector("#gearDismiss").onclick=closeModal;return;
     }
-    const selected=selection.businessId?businesses.find(b=>b.id===selection.businessId):selection.slug?businesses.find(b=>b.id===data.selectedBusinessId):businesses.length===1?businesses[0]:null;
+    const businesses=gearBusinessesForScope(returned, selection, data.selectedBusinessId);
+    if(businesses===null||((selection.businessId||selection.slug||selection.kid)&&!businesses.length)){
+      if(!selection.businessId&&!selection.slug){showOwnGearPage(options.returnFocus);return;}
+      throw new Error("That business is not available in this parent account. Open My Business Gear from the correct saved page.");
+    }
+    const selected=selection.businessId?businesses.find(b=>b.id===selection.businessId):selection.slug?businesses.find(b=>b.id===data.selectedBusinessId||b.slug===selection.slug):businesses.length===1?businesses[0]:null;
     if((selection.businessId||selection.slug)&&!selected)throw new Error("That business is not available in this parent account. Open My Business Gear from the correct saved page.");
     if(!selected){
       pendingGearRequest=null;modalDismiss=null;
-      openModal('<h3>Whose business gear?</h3><p class="small2">Each child’s designs and completed jobs stay with their own business.</p><div id="gearBusinesses"></div><button type="button" class="btn outline" id="gearDismiss">Close</button>');
+      openModal('<h3>Whose business gear?</h3><p class="small2">Only this kid’s businesses are listed. Another kid’s designs stay on their page.</p><div id="gearBusinesses"></div><button type="button" class="btn outline" id="gearDismiss">Close</button>');
       const list=mbody.querySelector("#gearBusinesses");
-      businesses.forEach(b=>{const button=document.createElement("button");button.type="button";button.className="btn ghost block";button.dataset.gearBusiness=b.id;button.textContent=[b.kid,b.business||b.slug].filter(Boolean).join(" · ");button.onclick=()=>openBusinessGear({businessId:b.id,returnFocus:options.returnFocus});list.appendChild(button);});
+      businesses.forEach(b=>{const button=document.createElement("button");button.type="button";button.className="btn ghost block";button.dataset.gearBusiness=b.id;button.textContent=[b.kid,b.business||b.slug].filter(Boolean).join(" · ");button.onclick=()=>openBusinessGear({businessId:b.id,kid:b.kid,returnFocus:options.returnFocus});list.appendChild(button);});
       mbody.querySelector("#gearDismiss").onclick=closeModal;return;
     }
     const brand=selected.brand||{},font=FONT_META[brand.font]?brand.font:"workwear";
@@ -6755,7 +6805,7 @@ function resumeGearLink(){
 const previewGearBtn=$("#previewBusinessGear");
 if(previewGearBtn)previewGearBtn.onclick=()=>openDraftGear(previewGearBtn);
 const parentGearBtn=$("#myBusinessGear");
-if(parentGearBtn)parentGearBtn.onclick=()=>openBusinessGear({returnFocus:parentGearBtn});
+if(parentGearBtn)parentGearBtn.onclick=()=>openBusinessGear({...currentGearScope(),returnFocus:parentGearBtn});
 const openAccountBtn=$("#openAccount");
 if(openAccountBtn)openAccountBtn.onclick=()=>{go(7); showAccount(); const screen=$("#accountScreen"); if(screen)setTimeout(()=>screen.scrollIntoView({block:"start"}), 40);};
 const acctOutBtn=$("#acctSignOut");

@@ -2662,7 +2662,7 @@ async function routeRequest(req) {
   if(route==='gear'&&(method==='GET'||method==='POST')){
     const account=await me();
     if(!account?.emailVerifiedAt)return json(401,{ok:false,error:'auth',message:'A verified parent must sign in to manage business gear.'});
-    const options={origin,slug:method==='GET'?req.query?.get?.('slug'):body.slug,businessId:method==='GET'?(req.query?.get?.('businessId')||req.query?.get?.('business')):body.businessId};
+    const options={origin,slug:method==='GET'?req.query?.get?.('slug'):body.slug,businessId:method==='GET'?(req.query?.get?.('businessId')||req.query?.get?.('business')):body.businessId,kid:method==='GET'?req.query?.get?.('kid'):body.kid};
     const result=method==='GET'?await getGear(account,options):await updateGearPreferences(account,{...options,milestoneEmails:body.milestoneEmails});
     return json(result.ok?200:result.status||400,result);
   }
