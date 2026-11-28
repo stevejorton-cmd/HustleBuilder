@@ -1689,12 +1689,12 @@ test("a public calendar file leaves out a gate note and disappears when the job 
   await call("POST", "/api/publish", { token, body: { slug: "gate-yard", html: page("Will").replace("</body>", "<script>window.__C={\"first\":\"Will\"};</script></body>") } });
   const booked = await json(await call("POST", "/api/book", { body: {
     slug: "gate-yard", name: "Riley", contact: "riley.gate@example.com", service: "Mow a small yard",
-    when: "Saturday morning", address: "12 Oak parent@gmail.com 402-555-0199", note: "gate code 4481",
+    when: "Saturday morning", address: "12 Oak parent@gmail.com 402-555-0199", note: "gate code side door",
     start: futureDay(12) + "T10:00", t: 4000
   } }));
   assert.equal(booked.body.ok, true);
   const parentMail = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent(email)));
-  assert.match(parentMail.body.messages.at(-1).text, /gate code 4481/);
+  assert.match(parentMail.body.messages.at(-1).text, /gate code side door/);
   const neighbor = await json(await call("GET", "/api/test/outbox?email=" + encodeURIComponent("riley.gate@example.com")));
   const stored=await requestForSlug("gate-yard");
   const apple=["/api/event/"+stored.eventToken+".ics"];
@@ -1702,11 +1702,11 @@ test("a public calendar file leaves out a gate note and disappears when the job 
   assert.match(neighbor.body.messages[0].text,new RegExp("/api/booking/"+stored.cancelToken));
   const file = await call("GET", apple[0]);
   assert.equal(file.status, 200);
-  assert.equal(file.body.includes("4481"), false);
+  assert.equal(file.body.includes("side door"), false);
   assert.equal(file.body.includes("parent@gmail.com"), false);
   assert.equal(file.body.includes("402-555-0199"), false);
   assert.match(file.body, /LOCATION:12 Oak/);
-  const feed = jobsToIcs([{ id: "b12345678", start: futureDay(12) + "T10:00", service: "Mow", customer: "Riley", address: "12 Oak parent@gmail.com 402-555-0199", note: "gate code 4481" }], Date.parse("2026-11-10"));
+  const feed = jobsToIcs([{ id: "b12345678", start: futureDay(12) + "T10:00", service: "Mow", customer: "Riley", address: "12 Oak parent@gmail.com 402-555-0199", note: "gate code side door" }], Date.parse("2026-11-10"));
   assert.equal(feed.includes("parent@gmail.com"), false);
   assert.equal(feed.includes("402-555-0199"), false);
   const list = await json(await call("GET", "/api/my-jobs", { token }));
