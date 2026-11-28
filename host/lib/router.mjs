@@ -14,6 +14,7 @@ import {taylorDemoHtml} from "./demo.mjs";
 import {recurrenceHint,recurrencePlan} from "./recurrence.mjs";
 import {agreedPrice,quoteAccepted,quoteStatus,parseQuote,parseMessage,operationId,quoteMarkup,threadMarkup,money} from "./neighbor.mjs";
 import {getGear,updateGearPreferences,recordGearCompletion,renameGearBusiness,deleteGearAccount,syncGearBusiness} from "./gear.mjs";
+import {coachingBucket,buildTrialCoachingMail} from "./trial-coaching.mjs";
 
 export const PLANS = {
   season: { id: "season", amount: 999, label: "$9.99" },
@@ -182,7 +183,7 @@ function shell(status, title, inner, opts = {}) {
     return html(status, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${mailEscape(title)}</title><style>${SHELL_CSS}</style></head><body>
 <div class="hb-top"><a href="/">Hustle Builder</a></div>
 <main${opts.wide ? ' class="wide"' : ""}>${inner}</main>
-<p class="hb-foot"><a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/retention">Retention</a> · <a href="/terms">Terms</a> · <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
+<p class="hb-foot">© 2026 Hustle Builder · <a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/retention">Retention</a> · <a href="/terms">Terms</a> · <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
 </body></html>`);
 }
 const SUPPORT_EMAIL = "support@hustlebuilder.org";
@@ -1470,11 +1471,18 @@ function termsPage() {
 <h2>Your content</h2>
 <p>The words and photos a family adds stay theirs. Publishing gives us permission to store and show them on the page until it is taken offline or the account is deleted.</p>
 
+<h2>Our intellectual property and prohibited use</h2>
+<p>© 2026 Hustle Builder. All rights reserved. The Hustle Builder software, source code, page layouts, visual artwork, logos, flyer and poster templates, and playbook scripts belong to Hustle Builder and are protected by United States copyright and trademark law. We grant parents and families a limited, personal, non-transferable license to use Hustle Builder solely to build and run their own children’s neighborhood businesses.</p>
+<p>You may not copy, scrape, crawl, bulk-download, reverse engineer, decompile, resell, or create a competing service from any part of Hustle Builder. You may not feed our code, artwork, templates, layouts, or copy into artificial intelligence or machine-learning training datasets, automated site-cloning tools, or data-mining pipelines. We may block access or close accounts that violate these rules without notice.</p>
+
 <h2>Ending</h2>
 <p>A parent can take a page offline or delete the account at any time from the account screen. Deleting the account removes the data described in the <a href="/privacy">Privacy</a> notice.</p>
 
 <h2>No guarantees</h2>
 <p>We work to keep pages and booking emails running, but the service is provided as it is. Email can be delayed or land in spam, and a page can be briefly unavailable, so do not rely on Hustle Builder alone for anything urgent. Hustle Builder does not give legal, tax, or safety advice; local rules about kids working, permits, and taxes are the family’s to check.</p>
+
+<h2>Governing law</h2>
+<p>These terms are governed by the laws of the State of Nebraska, without regard to conflict-of-law rules. Any dispute arising from these terms or Hustle Builder will be handled in the state or federal courts located in Lancaster County, Nebraska.</p>
 
 <h2>Changes</h2>
 <p>If these terms change, we will update the date above. Using the service after a change means you accept the new terms.</p>
@@ -2150,9 +2158,18 @@ const HOME_ORIGIN = "https://hustlebuilder.org";
 function siteOrigin(origin) {
   return String(origin || HOME_ORIGIN).replace(/\/$/, "") || HOME_ORIGIN;
 }
+const AI_CRAWLERS = [
+  "GPTBot", "ChatGPT-User", "OAI-SearchBot",
+  "ClaudeBot", "Claude-Web", "anthropic-ai",
+  "CCBot", "Google-Extended", "Bytespider",
+  "PerplexityBot", "Amazonbot", "Applebot-Extended",
+  "Meta-ExternalAgent", "Meta-ExternalFetcher",
+  "Diffbot", "Omgilibot", "cohere-ai"
+];
 function robotsTxt(origin) {
   const base = siteOrigin(origin);
-  return "User-agent: *\nAllow: /\n\nSitemap: " + base + "/sitemap.xml\n";
+  const blocks = AI_CRAWLERS.map((bot) => `User-agent: ${bot}\nDisallow: /\n`).join("\n");
+  return blocks + "\nUser-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\n\nSitemap: " + base + "/sitemap.xml\n";
 }
 async function sitemapXml(origin) {
   const base = siteOrigin(origin);
@@ -4215,6 +4232,41 @@ async function remindAccount(id, origin, dry, due) {
           subject,
           text,
           html: "<div style=\"font:18px/1.45 system-ui,sans-serif\"><p>Your free trial ends <b>" + when + "</b>, on " + mailEscape(niceDate(account.trialEndsAt)) + ".</p><p>The website and booking requests pause, and new flyer downloads and printing require a plan. Your saved work stays available. Pick a plan to bring it back.</p><p><a href=\"" + mailEscape(links.season) + "\">Pay " + PLANS.season.label + " for the season</a><br><a href=\"" + mailEscape(links.year) + "\">Pay " + PLANS.year.label + " for the year</a></p></div>"
+        });
+        account.sentReminders[key] = new Date().toISOString();
+        await saveAccount(account);
+      }
+      }
+  coaching: {
+      if (process.env.TRIAL_COACHING_EMAILS !== "1") break coaching;
+      if (comped(account) || !account.trialStartedAt || !account.trialEndsAt || paid(account) || inGrace(account) || trialOver(account)) break coaching;
+      const bucket = coachingBucket(account.trialStartedAt);
+      if (!bucket) break coaching;
+      const key = "coach-" + bucket + ":" + String(account.trialStartedAt).slice(0, 10);
+      account.sentReminders = account.sentReminders || {};
+      if (account.sentReminders[key]) break coaching;
+      let liveSlug = "", liveBiz = "";
+      for (const s of slugsOf(account)) {
+        const meta = await readJson("pages/" + s + ".json");
+        if (meta && meta.accountId === account.id && meta.status === "live") {
+          liveSlug = s;
+          liveBiz = String(meta.business || meta.title || "").trim();
+          break;
+        }
+      }
+      if (!liveSlug) break coaching;
+      const mail = buildTrialCoachingMail({ bucket, biz: liveBiz, slug: liveSlug, origin, seasonLabel: PLANS.season.label, yearLabel: PLANS.year.label });
+      if (!mail) break coaching;
+      due.push({ email: account.email, kind: "coach-" + bucket });
+      if (!dry) {
+        await sendMail({
+          to: account.email,
+          replyTo: supportReply(),
+          forParent: true,
+          origin,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html
         });
         account.sentReminders[key] = new Date().toISOString();
         await saveAccount(account);
