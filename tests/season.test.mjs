@@ -16,14 +16,17 @@ function loadSeason() {
 
 const { SEASON, LAWN_SNAPSHOT, seasonView } = loadSeason();
 
-test("the season file is the one switch and ships fall", () => {
-  assert.equal(SEASON, "fall");
+test("the season file follows the calendar and is not an env var", () => {
+  assert.equal(SEASON, "auto");
   assert.equal(seasonSrc.match(/const SEASON = /g).length, 1);
-  assert.match(seasonSrc, /const SEASON = "fall"/);
+  assert.match(seasonSrc, /const SEASON = "auto"/);
   assert.equal(html.includes("process.env"), false);
   assert.match(html, /src="\/config\/season\.js"/);
   assert.match(html, /function seasonDefaultType\(/);
-  assert.match(html, /const TYPES=seasonPicker\(\)/);
+  assert.match(html, /function hbSeason\(/);
+  assert.match(html, /hb-season-mode/);
+  assert.match(html, /const LS="hustle-builder-v3"/);
+  assert.match(html, /seasonPicker\(\)/);
   assert.match(html, /if\(blankLawnDefault\(savedRaw\)\)S\.type=seasonDefaultType\(\)/);
   assert.match(html, /applySeasonCopy\(\);\nfunction shouldOpenIntro/);
   assert.match(html, /Object\.assign\(defaults\(\),savedRaw/);
@@ -34,12 +37,12 @@ test("the season file is the one switch and ships fall", () => {
   assert.equal(html.includes("student owned"), false);
 });
 
-test("fall leads with yard cleanup and hides snow tiles", () => {
+test("fall leads with snow shoveling and still keeps yard cleanup", () => {
   const fall = seasonView("fall");
   assert.equal(fall.defaultType, "prep");
-  assert.equal(fall.picker.join(","), "prep,lawn,pet");
-  assert.equal(fall.picker.includes("snow") || fall.picker.includes("both"), false);
-  assert.equal(fall.picker[0], "prep");
+  assert.equal(fall.picker[0], "snow");
+  assert.equal(fall.picker.join(","), "snow,prep,lawn,pet,both");
+  assert.equal(fall.picker.includes("lawn"), true);
   assert.equal(fall.prepCard.name, "Yard cleanup");
   assert.equal(fall.prepCard.blurb, "Leaf raking. Dead plant cleanup.");
   assert.equal(fall.prepCard.blurb.toLowerCase().includes("snow"), false);
@@ -56,7 +59,7 @@ test("fall leads with yard cleanup and hides snow tiles", () => {
   assert.equal(fall.tagline.toLowerCase().includes("winter"), false);
   assert.match(fall.payNote, /yard cleanup/);
   assert.equal(fall.payAmount, "+$15.00");
-  assert.equal(JSON.stringify(fall).includes("student"), false);
+  assert.equal(JSON.stringify(fall.rates).includes("student"), false);
 });
 
 test("snow leads with shoveling and keeps every other job", () => {
@@ -169,11 +172,103 @@ test("fall wording keeps snow strings for snow mode and hides the shovel starter
   assert.match(html, /\{F\}’s Winter Prep/);
 });
 
-test("the season doc tells Steve to change one line and merge", async () => {
+test("the season doc tells Steve the calendar is automatic and a forced season still merges", async () => {
   const doc = await readFile(new URL("../docs/season-switch.md", import.meta.url), "utf8");
-  assert.match(doc, /const SEASON = "fall"/);
+  assert.match(doc, /const SEASON = "auto"/);
   assert.match(doc, /"snow"/);
+  assert.match(doc, /September, October, and November/);
+  assert.match(doc, /December, January, and February/);
+  assert.match(doc, /March through August/);
   assert.match(doc, /merge to main/i);
   assert.match(doc, /env var/i);
   assert.match(doc, /LAWN_SNAPSHOT/);
+  assert.match(doc, /hb-season-mode/);
+});
+
+test("the calendar maps fall, winter, and spring/summer without dropping summer jobs", () => {
+  const nov = new Date(2026, 10, 28);
+  const sep = new Date(2026, 8, 1);
+  const dec = new Date(2026, 11, 1);
+  const feb = new Date(2027, 1, 28);
+  const mar = new Date(2027, 2, 1);
+  const aug = new Date(2026, 7, 31);
+  const { seasonForDate, resolveSeason, activeSeason } = loadSeason();
+  assert.equal(seasonForDate(sep), "fall");
+  assert.equal(seasonForDate(nov), "fall");
+  assert.equal(seasonForDate(dec), "winter");
+  assert.equal(seasonForDate(feb), "winter");
+  assert.equal(seasonForDate(mar), "summer");
+  assert.equal(seasonForDate(aug), "summer");
+  assert.equal(resolveSeason("auto", nov), "fall");
+  assert.equal(resolveSeason("snow", aug), "winter");
+  assert.equal(resolveSeason("winter", aug), "winter");
+  assert.equal(resolveSeason("summer", dec), "summer");
+  assert.equal(resolveSeason("fall", dec), "fall");
+  assert.equal(activeSeason(nov), "fall");
+  assert.equal(activeSeason(dec), "winter");
+  assert.equal(activeSeason(mar), "summer");
+  const summer = seasonView("summer");
+  assert.equal(summer.defaultType, "lawn");
+  assert.equal(summer.picker[0], "lawn");
+  assert.equal(summer.picker.includes("snow"), true);
+  assert.equal(summer.picker.includes("prep"), true);
+  assert.equal(summer.parentsBiz, "Sam's Lawn Co.");
+  assert.match(summer.kicker, /LAWN CARE/);
+  const winter = seasonView("winter");
+  assert.equal(winter.defaultType, "snow");
+  assert.equal(winter.picker[0], "snow");
+  assert.equal(winter.biz, seasonView("snow").biz);
+});
+
+test("snow shoveling is a first-class fall idea with a price and a duration", () => {
+  const fall = seasonView("fall");
+  const snow = fall.ideas.find((idea) => idea.name === "Snow shoveling");
+  assert.equal(snow.type, "snow");
+  assert.equal(snow.emoji, "❄️");
+  assert.match(snow.blurb, /Driveways, sidewalks, and steps/);
+  assert.equal(snow.price, "12");
+  assert.equal(snow.minutes, 45);
+  assert.equal(snow.service, "Snow shoveling, about 45 minutes");
+  const names = fall.ideas.map((idea) => idea.name);
+  for (const name of ["Leaf raking", "Yard and gutter cleanup", "De-ice and salt the walks", "Holiday light help", "Gift wrapping", "Pet sitting over the holidays", "Stack firewood", "Brush snow off the car", "Indoor tutoring", "Babysitting help"]) {
+    assert.equal(names.includes(name), true, name);
+  }
+  assert.match(fall.safety, /on the ground/);
+  assert.match(fall.ideas.find((idea) => idea.name === "Yard and gutter cleanup").blurb, /from the ground/);
+  assert.equal(/ladder/i.test(fall.safety), false);
+  assert.match(html, /name:"Snow shoveling"/);
+  assert.match(html, /\["Snow shoveling, about 45 minutes",\[12,13,15,16,18\]\]/);
+  assert.match(html, /Yard and gutter cleanup/);
+  assert.equal(/ladder/i.test(html), false);
+  const summerNames = seasonView("summer").ideas.map((idea) => idea.name);
+  assert.equal(summerNames.includes("Lawn mowing"), true);
+  assert.equal(summerNames.includes("Snow shoveling"), true);
+});
+
+test("a saved season override changes the picker and leaves the draft key alone", () => {
+  const start = html.indexOf("function hbSeason(");
+  const end = html.indexOf("function blankLawnDefault(", start);
+  assert.ok(start > 0 && end > start);
+  const store = new Map();
+  const sandbox = {
+    PRESETS: { lawn: 1, snow: 1, prep: 1 },
+    HB_SEASON_FILE: loadSeason(),
+    localStorage: {
+      getItem: (key) => store.get(key) || "",
+      setItem: (key, value) => store.set(key, String(value)),
+      removeItem: (key) => store.delete(key)
+    }
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(html.slice(start, end) + "\nthis.hbSeason=hbSeason;this.seasonDefaultType=seasonDefaultType;", sandbox);
+  assert.equal(sandbox.hbSeason(), sandbox.HB_SEASON_FILE.activeSeason());
+  store.set("hb-season-mode", "winter");
+  assert.equal(sandbox.hbSeason(), "winter");
+  assert.equal(sandbox.seasonDefaultType(), "snow");
+  store.set("hb-season-mode", "summer");
+  assert.equal(sandbox.seasonDefaultType(), "lawn");
+  store.set("hb-season-mode", "snow");
+  assert.equal(sandbox.hbSeason(), "winter");
+  assert.equal(store.has("hustle-builder-v3"), false);
 });

@@ -436,6 +436,8 @@ a.link{display:inline;padding:0;font:inherit;font-weight:700}
 .mf .row3 input{margin-top:6px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .chips button{padding:8px 14px;border:2px solid var(--line);background:var(--surface);border-radius:8px;font-weight:700;cursor:pointer;min-height:40px}
+#seasonIdeas{margin:0 0 8px}
+#seasonIdeas button,#seasonMode button{max-width:100%;white-space:normal;text-align:left}
 .chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .merr{color:var(--danger);font-weight:700;min-height:24px;margin:0 0 8px}
 .mbtns{display:flex;gap:12px;flex-wrap:wrap}
@@ -997,7 +999,11 @@ details.help{padding:14px 16px 14px 20px}
 
     <section class="step on" data-step="0">
       <h2>Pick your work.</h2>
-<p class="lead">Choose your main type of work, then add individual services on the Prices step. Kids can build a draft without an account. A parent signs in to approve and publish it.</p>      <div class="tiles" id="tiles"></div>
+<p class="lead">Choose your main type of work, then add individual services on the Prices step. Kids can build a draft without an account. A parent signs in to approve and publish it.</p>
+      <div class="tiles" id="tiles"></div>
+      <p id="seasonLead" style="margin:16px 0 8px;font-size:16px;font-weight:700"></p>
+      <div class="chips" id="seasonIdeas" aria-label="Seasonal job ideas"></div>
+      <p class="small2" id="seasonSafety"></p>
       <details class="petfront" id="petFront" hidden><summary>Tips for pet care jobs</summary>
         <div class="petart" id="petGallery"></div>
         <div class="callout">
@@ -1008,7 +1014,7 @@ details.help{padding:14px 16px 14px 20px}
       <details class="petfront" id="prepFront" hidden><summary>Tips for yard cleanup</summary>
         <div class="callout">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
-          <div><b>Safety for kids.</b><br>A parent approves the tools for each job. <span data-prep-snow hidden>Snow removal is walks and driveways.</span></div>
+          <div><b>Safety for kids.</b><br>A parent approves the tools for each job. <span data-prep-snow hidden>Snow shoveling is driveways, sidewalks, and steps.</span></div>
         </div>
       </details>
       <h3 class="h3">More ways to earn</h3>
@@ -1020,6 +1026,8 @@ details.help{padding:14px 16px 14px 20px}
       <details class="help builder-tools"><summary>Saved work &amp; app settings</summary>
       <button type="button" class="btn ghost block" id="otherDevice" style="margin-top:16px">Open on another device</button>
       <p class="status" id="draftStatus" role="status"></p>
+      <p class="small2" id="seasonModeNote" style="margin-top:10px"></p>
+      <div class="chips" id="seasonMode" role="group" aria-label="Season ideas"></div>
       <p class="small2 looklink"><button type="button" class="link" data-look>Change how the app looks</button></p>
       <p class="small2" style="margin-top:6px"><button type="button" class="link" data-art>Change the pictures</button></p>
       <p class="small2" style="margin-top:6px"><button type="button" class="link" data-backup>Back up or load my business</button></p>
@@ -2302,7 +2310,7 @@ input,select,textarea{border-radius:4px;background:#FFF9EA}
 function typeInfo(type){
   const all={
     lawn:{label:"Lawn care",target:"yard",right:"Straight lines. Clean edges. No shortcuts.",emoji:"🌿",color:"#1F6B3A",biz:"Lawn Co.",tag:"Straight lines. Clean edges. Done right."},
-    snow:{label:"Snow removal",target:"driveway",right:"Cleared edge to edge. No shortcuts.",emoji:"❄️",color:"#1C3D5A",biz:"Snow Removal",tag:"Up before the sun. Your driveway’s clear before you are."},
+    snow:{label:"Snow shoveling",target:"driveway",right:"Driveways, sidewalks, and steps. Cleared edge to edge.",emoji:"❄️",color:"#1C3D5A",biz:"Snow Removal",tag:"Up before the sun. Your driveway’s clear before you are."},
     both:{label:"Lawn care and snow removal",target:"property",right:"Straight lines and clean edges, any season.",emoji:"🌦️",color:"#243044",biz:"Yard and Snow Co.",tag:"Every season. Handled."},
     pet:{label:"Pet care",target:"pet",right:"Gentle, on time, and I tell a parent how it went.",emoji:"🐶",color:"#0F6E6A",biz:"Pet Care",tag:"Walks, water, and a note when I’m done."},
     odd:{label:"Yard help",target:"yard",right:"I do the chore you asked for, and I leave it tidy.",emoji:"🧰",color:"#8A5A12",biz:"Yard Help",tag:"Odd jobs. Done right."},
@@ -2313,7 +2321,7 @@ function typeInfo(type){
     other:{label:"Neighborhood help",target:"job",right:"I show up, do the job, and a parent confirms it.",emoji:"✨",color:"#3D6B16",biz:"Help",tag:"Tell me the job. I’ll show up."}
   };
   const info=all[type]||all.other;
-  if(type==="prep"&&!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow"))return Object.assign({},info,{label:"Yard cleanup"});
+  if(type==="prep"&&!(typeof snowSeasonNow==="function"&&snowSeasonNow()))return Object.assign({},info,{label:"Yard cleanup"});
   return info;
 }
 const PET_ART={
@@ -2385,7 +2393,7 @@ function bannerArt(type, art, pets, publicUrl, mode){
   if(type==="pet")return petHero(publicUrl);
   if(type==="prep"){
     const file=globalThis.HB_SEASON_FILE;
-    if(!file||file.SEASON!=="snow")return `<img class="scene" src="${esc(jobSrc("prep.webp", publicUrl))}" alt="Fallen autumn leaves and a rake on a lawn at sunset" width="1280" height="720" decoding="async">`;
+    if(!file||!(typeof snowSeasonNow==="function"&&snowSeasonNow()))return `<img class="scene" src="${esc(jobSrc("prep.webp", publicUrl))}" alt="Fallen autumn leaves and a rake on a lawn at sunset" width="1280" height="720" decoding="async">`;
     return sceneArt("both", art);
   }
   if(type==="lawn"||type==="snow"||type==="both")return sceneArt(type, art);
@@ -2417,7 +2425,7 @@ function genSite(c){
   const workDays=dayNames.filter((d,i)=>c.days[i]).join(", ");
   const schedText=schedSummary(sched);
   const nTrig=c.snowTrigger==="any"?0:parseInt(c.snowTrigger,10)||2;
-  const snowPlan=(c.type==="snow"||c.type==="both")?`<p class="small"><b>Snow plan:</b> ${nTrig?"I shovel when there is "+nTrig+" inch"+(nTrig>1?"es":"")+" or more of snow.":"I shovel after any snow."} I clear the driveway and a path to your door. Please move cars first, and tell me about anything that could get buried, like lights or edging.</p>`:"";
+  const snowPlan=(c.type==="snow"||c.type==="both")?`<p class="small"><b>Snow plan:</b> ${nTrig?"I shovel when there is "+nTrig+" inch"+(nTrig>1?"es":"")+" or more of snow.":"I shovel after any snow."} I clear the driveway, the sidewalk, and the steps. A typical visit is about 45 minutes. Please move cars first, and tell me about anything that could get buried, like lights or edging.</p>`:"";
   const howHTML=`<section id="how">
   <h2>How it works</h2>
   <ol class="how">
@@ -2430,12 +2438,12 @@ function genSite(c){
   <h2>My promise</h2>
   <p class="promise">${esc(c.promise)}</p>
 </section>`:"";
-  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"||(c.type==="prep"&&globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
+  const freqList=c.type==="snow"?["Just this snowfall","Every snowfall this winter"]:c.type==="both"||(c.type==="prep"&&typeof snowSeasonNow==="function"&&snowSeasonNow())?["Just this time","Every week","Every other week","Every snowfall this winter"]:c.type==="pet"?["Just this visit","Every day","Weekdays","Weekly poop scoop","While I'm away"]:c.type==="tutor"?["Just this time","Once a week","A few days a week"]:["Just this time","Every week","Every other week"];
   const petLabels={dog:"Dog",cat:"Cat",fish:"Fish",bird:"Bird",small:"Small animal"};
   const petRoot=(c.publish&&c.publish.url)||c.publicUrl||"";
   const petSafe=c.type==="pet"?`<section id="petsafe"><h2>Pets I can help</h2><div class="petrow">${(c.pets&&c.pets.length?c.pets:["dog","cat","fish","bird"]).map(k=>petPortrait(k,petLabels[k]||"Pet",{lazy:true,root:petRoot})).join("")}</div><h2>How pet visits work</h2><p class="promise">A parent knows about every visit. We meet the pet with you first. I start with pets I know. I do not walk aggressive dogs. I wash my hands when I am done. Medicine stays with a parent.</p></section>`:"";
   const offersPrep=c.type==="prep"||(c.services||[]).some(s=>/yard cleanup|trim (?:hedges, hand clippers|small hedges)|clear dead plants/i.test(s.n||""));
-  const prepTitle=(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")?"Yard cleanup and winter prep":"Yard cleanup";
+  const prepTitle=(typeof snowSeasonNow==="function"&&snowSeasonNow())?"Yard cleanup and winter prep":"Yard cleanup";
   const prepSafe=offersPrep?`<section id="prepsafe"><h2>${prepTitle}</h2><p class="promise">Leaf cleanup, weeding, and seasonal yard work. My parent confirms the tasks before we start.</p></section>`:"";
   const petFields=c.type==="pet"?`<label>What kind of pet?<select id="petKind"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>How many pets?<input id="petCount" inputmode="numeric" value="1" autocomplete="off"></label><label>Pet name or names<input id="petNames" autocomplete="off"></label><label>Dog size, if it is a dog<select id="petSize"><option value="">Not a dog</option><option>Small</option><option>Medium</option><option>Large</option></select></label><label>Preferred time of day<select id="dayPart"><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><div id="awayWrap" hidden><label>First day you are away<input id="awayFrom" type="date"></label><label>Last day you are away<input id="awayTo" type="date"></label></div>`:"";
   const sizeField=["pet","tutor","help","other"].includes(c.type)?"":`<label>How big is the ${esc(typeInfo(c.type).target)}?<select id="sz"><option value="">Not sure</option><option>Small</option><option>Medium</option><option>Large</option></select></label>`;
@@ -2769,7 +2777,7 @@ function starterServices(picked, level){
   const seen={}, out=[];
   types.forEach(id=>{
     if(id==="other"&&!onlyOther)return;
-    const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
+    const snowSeason=(typeof snowSeasonNow==="function")?snowSeasonNow():!!(globalThis.HB_SEASON_FILE&&(globalThis.HB_SEASON_FILE.SEASON==="snow"||globalThis.HB_SEASON_FILE.SEASON==="winter"));
     (PRESETS[id]||PRESETS.other).forEach(row=>{
       const key=String(row[0]).toLowerCase();
       if(id==="prep"&&!snowSeason&&key!=="leaf raking"&&key!=="dead flower/plant removal")return;
@@ -2896,9 +2904,28 @@ function switchedBizName(name,auto,oldType,first){
 }
 const DEF_HOURS="Weekdays after 4 pm and all weekend.";
 function defHours(i){return (i===0||i===6)?{from:"09:00",to:"17:00"}:{from:"16:00",to:"20:00"};}
+function hbSeason(){
+  const file=globalThis.HB_SEASON_FILE;
+  let choice="";
+  try{choice=localStorage.getItem("hb-season-mode")||"";}catch(e){}
+  if(choice==="snow")choice="winter";
+  if(file&&typeof file.resolveSeason==="function"){
+    if(choice==="fall"||choice==="winter"||choice==="summer")return file.resolveSeason(choice);
+    return file.resolveSeason(file.SEASON);
+  }
+  if(choice==="winter"||choice==="summer"||choice==="fall")return choice;
+  if(file&&(file.SEASON==="snow"||file.SEASON==="winter"))return "winter";
+  if(file&&file.SEASON==="summer")return "summer";
+  return "fall";
+}
+function snowSeasonNow(){
+  const id=hbSeason();
+  return id==="winter"||id==="snow";
+}
 function seasonDefaultType(){
   const file=globalThis.HB_SEASON_FILE;
-  const id=file&&file.seasonView?file.seasonView(file.SEASON).defaultType:"lawn";
+  const picked=typeof hbSeason==="function"?hbSeason():(file&&file.SEASON);
+  const id=file&&file.seasonView?file.seasonView(picked).defaultType:"lawn";
   return PRESETS[id]?id:"lawn";
 }
 function blankLawnDefault(raw){
@@ -3015,14 +3042,15 @@ const seg=$("#seg"); for(let i=0;i<STEPS;i++){seg.appendChild(document.createEle
 
 const TYPE_BY_ID={
   lawn:{id:"lawn",name:"Lawn",blurb:"Mow. Trim. Edge."},
-  snow:{id:"snow",name:"Snow",blurb:"Shovel. Salt. Clear."},
+  snow:{id:"snow",name:"Snow shoveling",blurb:"Driveways, sidewalks, and steps.",emoji:"❄️",showEmoji:true,color:"#1C3D5A"},
   both:{id:"both",name:"Both",blurb:"Lawn + snow"},
   pet:{id:"pet",name:"Pet care",blurb:"Walks, food, and cleanup"},
   prep:{id:"prep",name:"Winter prep",blurb:"Yard cleanup and snow"}
 };
 function seasonPicker(){
   const file=globalThis.HB_SEASON_FILE;
-  const view=file&&file.seasonView?file.seasonView(file.SEASON):null;
+  const picked=typeof hbSeason==="function"?hbSeason():(file&&file.SEASON);
+  const view=file&&file.seasonView?file.seasonView(picked):null;
   const ids=view&&view.picker?view.picker:["lawn","snow","both","pet","prep"];
   const tiles=ids.map(id=>{
     const base=TYPE_BY_ID[id];
@@ -3062,7 +3090,8 @@ function tileHtml(t){
   const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.id==="prep"?"assets/refresh/prep.webp":t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
   const art=t.id==="pet"?`<img class="scene pthero" src="assets/refresh/pet.webp" alt="" width="1280" height="720">`:scene;
   const fit=String(t.name||"").length>10?" fit":"";
-  return (brandArt(t.id,S.theme,"")||art)+`<span class="cap"><strong class="${fit.trim()}">${t.name}</strong><span>${t.blurb}</span></span>`+tick;
+  const title=(t.showEmoji&&t.emoji?t.emoji+" ":"")+t.name;
+  return (brandArt(t.id,S.theme,"")||art)+`<span class="cap"><strong class="${fit.trim()}">${title}</strong><span>${t.blurb}</span></span>`+tick;
 }
 function renderTiles(){
   const fill=(box,list)=>{
@@ -3070,12 +3099,14 @@ function renderTiles(){
     list.forEach(t=>{
       const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji&&!t.img?" emoji":""); b.setAttribute("aria-pressed",String(S.type===t.id));
       b.innerHTML=tileHtml(t);
+      b.setAttribute("aria-label", (t.emoji?t.emoji+" ":"")+t.name+". "+(t.blurb||""));
       b.onclick=()=>pickType(t.id);
       w.appendChild(b);
     });
   };
-  fill("#tiles",TYPES);
+  fill("#tiles",seasonPicker());
   fill("#moreTiles",MORE_TYPES);
+  renderSeasonIdeas();
   syncOther();
   const petFront=$("#petFront");
   if(petFront)petFront.hidden=S.type!=="pet";
@@ -3124,7 +3155,7 @@ function renderPetPicks(){
 }
 function syncTypeCopy(){
   const lead=$("#rateLead");
-  const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
+  const snowSeason=typeof snowSeasonNow==="function"?snowSeasonNow():!!(globalThis.HB_SEASON_FILE&&(globalThis.HB_SEASON_FILE.SEASON==="snow"||globalThis.HB_SEASON_FILE.SEASON==="winter"));
   if(lead)lead.textContent=S.type==="pet"?"Starter prices for pet care. Turn a job off if you do not offer it. You can change any price.":S.type==="prep"?(snowSeason?"Starter prices for yard cleanup and winter prep. Agree on the yard size and tasks with a parent before setting your price.":"Starter prices for yard cleanup. Agree on the yard size and tasks with a parent before setting your price."):"Starter prices to work from. Change them for the jobs you offer.";
   const prepFront=$("#prepFront");
   if(prepFront){
@@ -3140,6 +3171,64 @@ function syncTypeCopy(){
 function syncOther(){
   const box=$("#otherBox"); if(!box)return;
   box.hidden=S.type!=="other";
+}
+function renderSeasonIdeas(){
+  const lead=$("#seasonLead"), box=$("#seasonIdeas"), safety=$("#seasonSafety");
+  const view=typeof currentSeasonView==="function"?currentSeasonView():null;
+  const ideas=view&&Array.isArray(view.ideas)?view.ideas:[];
+  if(lead)lead.textContent=view&&view.ideaLead?view.ideaLead:"";
+  if(safety)safety.textContent=view&&view.safety?view.safety:"";
+  if(!box)return;
+  box.innerHTML="";
+  box.hidden=!ideas.length;
+  ideas.forEach(idea=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.textContent=(idea.emoji?idea.emoji+" ":"")+idea.name+" · $"+idea.price;
+    const selected=S.type===idea.type;
+    b.setAttribute("aria-pressed",String(selected));
+    const minutes=idea.minutes?idea.minutes+" minutes. ":"";
+    b.setAttribute("aria-label", idea.name+". "+(idea.blurb||"")+" "+minutes+"$"+idea.price+" to start.");
+    b.onclick=()=>pickSeasonIdea(idea);
+    box.appendChild(b);
+  });
+}
+function pickSeasonIdea(idea){
+  if(!idea||!PRESETS[idea.type])return;
+  pickType(idea.type);
+  const name=String(idea.service||idea.name||"").trim();
+  if(!name)return;
+  if(!S.services.some(s=>String(s.n||"").trim().toLowerCase()===name.toLowerCase())){
+    S.services.unshift({n:name,p:String(idea.price==null?"":idea.price)});
+    S.svcEdited=true;
+    renderServices();
+    queue();
+  }
+  renderSeasonIdeas();
+}
+function renderSeasonMode(){
+  const note=$("#seasonModeNote"), box=$("#seasonMode");
+  if(!box)return;
+  let choice="auto";
+  try{choice=localStorage.getItem("hb-season-mode")||"auto";}catch(e){}
+  if(choice==="snow")choice="winter";
+  const id=hbSeason();
+  const label={fall:"fall",winter:"winter",summer:"spring and summer"}[id]||"fall";
+  if(note)note.textContent="Season ideas follow the date ("+label+" right now). You can override that on this device.";
+  box.innerHTML="";
+  [["auto","Auto"],["fall","Fall"],["winter","Winter"],["summer","Spring and summer"]].forEach(it=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.textContent=it[1];
+    b.setAttribute("aria-pressed",String(choice===it[0]||(choice===""&&it[0]==="auto")));
+    b.onclick=()=>{
+      try{if(it[0]==="auto")localStorage.removeItem("hb-season-mode");else localStorage.setItem("hb-season-mode",it[0]);}catch(e){}
+      renderSeasonMode();
+      renderTiles();
+      if(typeof applySeasonCopy==="function")applySeasonCopy();
+    };
+    box.appendChild(b);
+  });
 }
 
 function go(n){
@@ -3423,9 +3512,10 @@ const JOBS=[
  {g:"Car jobs",t:"wash",items:[["Wash the outside",[8,9,10,11,12]],["Wash and vacuum",[12,13,15,16,18]],["Rims and windows",[6,7,7,8,9]],["Dry and shine",[5,6,6,7,7]],["Vacuum the inside",[6,7,7,8,9]],["Wash the car",[6,7,7,8,9]]]},
  {g:"Reading jobs",t:"tutor",items:[["Reading together, 30 minutes",[8,9,10,11,12]],["Homework helper, 30 minutes",[10,11,12,14,15]],["Practice spelling",[6,7,7,8,9]],["Read a chapter",[6,7,7,8,9]],["Flash cards",[5,6,6,7,7]]]},
  {g:"Winter prep jobs",t:"prep",items:[["Leaf raking",[12,13,15,16,18]],["Dead flower/plant removal",[12,13,15,17,18]],["Yard cleanup, small",[15,17,18,21,22]],["Yard cleanup, medium",[25,28,30,35,38]],["Yard cleanup, large",[40,44,48,56,60]],["Leaf raking, whole yard",[15,17,19,20,22]],["Clear dead plants",[12,13,15,17,18]],["Shovel walks and driveway",[15,17,19,21,22]]]},
- {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,2,2,3,3]],["Bring in mail and packages (per day)",[2,2,2,3,3]],["Playtime helper, 1 hour",[8,9,10,11,12]],["Tidy toys",[5,6,6,7,7]]]}];
+ {g:"Helpful extras",t:"any",items:[["Trash cans to the curb and back (per week)",[2,2,2,3,3]],["Bring in mail and packages (per day)",[2,2,2,3,3]],["Playtime helper, 1 hour",[8,9,10,11,12]],["Tidy toys",[5,6,6,7,7]]]},
+ {g:"Fall and winter jobs",t:"seasonal",items:[["Snow shoveling, about 45 minutes",[12,13,15,16,18]],["Leaf raking",[12,13,15,16,18]],["Yard and gutter cleanup",[15,17,19,20,22]],["De-ice and salt the walks",[4,4,5,5,6]],["Holiday light help, 1 hour",[10,11,12,14,15]],["Gift wrapping, 30 minutes",[8,9,10,11,12]],["Pet sitting over the holidays",[10,11,12,14,15]],["Stack firewood",[8,9,10,11,12]],["Brush snow off the car",[4,4,5,5,6]],["Indoor tutoring, 30 minutes",[12,13,15,16,18]],["Babysitting help, 1 hour",[10,11,12,14,15]]]}];
 /* leftover sections stay in this order after the ones the kid picked */
-const JOB_SECTION_ORDER=["lawn","snow","prep","pet","wash","tutor","any"];
+const JOB_SECTION_ORDER=["lawn","snow","prep","pet","wash","tutor","any","seasonal"];
 const TYPE_JOB_SECTIONS={lawn:["lawn"],snow:["snow"],both:["lawn","snow"],prep:["prep"],pet:["pet"],odd:["lawn"],wash:["wash"],help:["any"],tutor:["tutor"],other:[]};
 function orderedJobGroups(picked){
   const list=Array.isArray(picked)?picked:(picked?[picked]:["lawn"]);
@@ -3434,6 +3524,12 @@ function orderedJobGroups(picked){
     (TYPE_JOB_SECTIONS[id]||[]).forEach(key=>{if(first.indexOf(key)<0)first.push(key);});
   });
   const order=first.concat(JOB_SECTION_ORDER.filter(key=>first.indexOf(key)<0));
+  let seasonal=false;
+  try{
+    const id=typeof hbSeason==="function"?hbSeason():"";
+    seasonal=id==="fall"||id==="winter"||id==="snow";
+  }catch(e){}
+  if(seasonal&&order.indexOf("seasonal")>0){order.splice(order.indexOf("seasonal"),1);order.unshift("seasonal");}
   const by={};
   JOBS.forEach(g=>{by[g.t]=g;});
   return order.map(key=>by[key]).filter(Boolean);
@@ -5165,7 +5261,7 @@ function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=
 function shuffled(arr,seed){const a=arr.slice(),r=rng(seed);for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
 const PREP_FALL_NAMES={"{F}’s Winter Prep":"{F}’s Yard Cleanup","{T} Winter Prep":"{T} Leaf Crew","Curb Ready Winter Prep":"Curb Ready Yard Care","Porch Light Winter Prep":"Porch Light Yard Care","Fairway Winter Prep":"Fairway Yard Care"};
 function prepIdea(name){
-  if(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow")return name;
+  if(typeof snowSeasonNow==="function"?snowSeasonNow():!!(globalThis.HB_SEASON_FILE&&(globalThis.HB_SEASON_FILE.SEASON==="snow"||globalThis.HB_SEASON_FILE.SEASON==="winter")))return name;
   return PREP_FALL_NAMES[name]||name;
 }
 function nameList(type){
@@ -5510,7 +5606,7 @@ function renderPanel(){
       const cv=document.createElement("canvas");cv.width=200;cv.height=Math.round(200*PH/PW);const c2=cv.getContext("2d");c2.scale(200/PW,200/PW);try{drawPoster(c2,pcfg({layout:i}));}catch(e){}
       b.appendChild(cv);const s=document.createElement("b");s.textContent=(i+1)+". "+nm;b.appendChild(s);b.onclick=()=>stSet({layout:i});g.appendChild(b);});
     const baseKind=S.type==="lawn"||S.type==="snow"||S.type==="both";
-    const kindOpts=baseKind?[["lawn","Lawn"],["snow","Snow"],["both","Lawn and snow"]]:[[S.type,"My work ("+typeInfo(S.type).label+")"],["lawn","Lawn"],["snow","Snow"],["both","Lawn and snow"]];
+    const kindOpts=baseKind?[["lawn","Lawn"],["snow","Snow shoveling"],["both","Lawn and snow"]]:[[S.type,"My work ("+typeInfo(S.type).label+")"],["lawn","Lawn"],["snow","Snow shoveling"],["both","Lawn and snow"]];
     mf("This poster is about",chips(kindOpts,pKind(),v=>stSet({kind:(v===S.type&&!baseKind)?null:v,head:0,custom:"",name:"",tagText:""})));
     mf("Pick a layout",g);
     mf("Make it yours",chips([["off","As designed"],["on","Flip it"]],st.flip?"on":"off",v=>stSet({flip:v==="on"})));
@@ -6032,7 +6128,7 @@ async function pubPlans(){
     if(data.ok&&Array.isArray(data.plans))plans=data.plans;
     const pitch=$("#trialPitch"); if(pitch&&data.free)pitch.textContent=data.free;
   }catch(e){}
-  const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
+  const snowSeason=typeof snowSeasonNow==="function"?snowSeasonNow():!!(globalThis.HB_SEASON_FILE&&(globalThis.HB_SEASON_FILE.SEASON==="snow"||globalThis.HB_SEASON_FILE.SEASON==="winter"));
   plans.forEach((it,i)=>{
     const b=document.createElement("button"); b.type="button"; b.dataset.plan=it.id;
     const label=it.id==="season"?hostingSeasonLabel(it.name, snowSeason):it.name;
@@ -7635,7 +7731,9 @@ async function resumeHosting(kind){
 const EXAMPLE_RATES=[{n:"Mow a small yard",p:"20"},{n:"Leaf cleanup",p:"15"}];
 function currentSeasonView(){
   const file=globalThis.HB_SEASON_FILE;
-  return file&&typeof file.seasonView==="function"?file.seasonView(file.SEASON):null;
+  if(!file||typeof file.seasonView!=="function")return null;
+  const picked=typeof hbSeason==="function"?hbSeason():file.SEASON;
+  return file.seasonView(picked);
 }
 function exampleScene(type){
   if(type==="prep")return "prep";
@@ -7670,7 +7768,7 @@ function applySeasonCopy(){
     }catch(e){}
   }
   paintExampleRates();
-  const snowSeason=!!(globalThis.HB_SEASON_FILE&&globalThis.HB_SEASON_FILE.SEASON==="snow");
+  const snowSeason=typeof snowSeasonNow==="function"?snowSeasonNow():!!(globalThis.HB_SEASON_FILE&&(globalThis.HB_SEASON_FILE.SEASON==="snow"||globalThis.HB_SEASON_FILE.SEASON==="winter"));
   const buy=$("#buySeason");
   const lead=document.querySelector("#planFirst .lead");
   if(buy) buy.textContent=snowSeason?"Buy the winter season, $9.99":"Buy the season, $9.99";
@@ -7803,7 +7901,7 @@ paintExampleRates();
 shell.dataset.type=S.type;
 syncTypeCopy();
 renderPetGallery();
-renderTiles();renderServices();renderDays();renderRigs();renderProof();renderRevs();renderParentChecks();renderKidBar();syncPlaceholders();refresh();
+renderTiles();renderSeasonMode();renderServices();renderDays();renderRigs();renderProof();renderRevs();renderParentChecks();renderKidBar();syncPlaceholders();refresh();
 })();
 </script>
 <script src="/assets/print-libs.js" onload="loadAllFonts();if(window.hbPrintLibsReady)window.hbPrintLibsReady()"></script>

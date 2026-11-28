@@ -10,7 +10,9 @@ const templates={
 };
 const loaded=new Map();
 export async function taylorDemoHtml() {
-  const template=globalThis.HB_SEASON_FILE?.SEASON==='snow'?'snow':'fall';
+  const file=globalThis.HB_SEASON_FILE;
+  const active=file&&typeof file.activeSeason==='function'?file.activeSeason():(file?.SEASON==='snow'?'winter':'fall');
+  const template=active==='winter'?'snow':'fall';
   if(!loaded.has(template))loaded.set(template,readFile(templates[template],'utf8'));
   return loaded.get(template);
 }

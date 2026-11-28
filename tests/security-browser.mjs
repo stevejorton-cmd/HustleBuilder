@@ -23,9 +23,10 @@ try{
  const state=await parent.evaluate(()=>({notice:document.querySelector('#askInviteNotice').textContent,hidden:document.querySelector('#pubBox').hidden}));assert.equal(state.hidden,true);assert.match(state.notice,/device where they built it/);results.push({name:'invitation on another device explains how to review the original draft',pass:true});
  // Sweep both supported seasonal pickers at phone width without changing the shipped season.
  const seasonSource=await readFile(new URL('../config/season.js',import.meta.url),'utf8');
- const shippedSeason=seasonSource.match(/^const SEASON = "(fall|snow)";$/m)?.[1];
+ const seasonLine=/^const SEASON = "(auto|fall|winter|snow|summer)";$/m;
+ const shippedSeason=seasonSource.match(seasonLine)?.[1];
  assert.ok(shippedSeason,'unknown deployed season');
- const seasonalTypes={fall:['prep','lawn','pet'],snow:['snow','lawn','both','pet','prep']};
+ const seasonalTypes={fall:['snow','prep','lawn','pet','both'],snow:['snow','lawn','both','pet','prep']};
  const sharedTypes=['odd','wash','help','tutor','other'];
  for(const [season,seasonal] of Object.entries(seasonalTypes)){
   for(const type of [...seasonal,...sharedTypes]){
@@ -34,7 +35,7 @@ try{
     await p.setBypassServiceWorker(true);
     await p.setRequestInterception(true);
     p.on('request',request=>request.url()===base+'/config/season.js'
-      ?request.respond({status:200,contentType:'application/javascript',body:seasonSource.replace(/^const SEASON = "(fall|snow)";$/m,'const SEASON = "'+season+'";')})
+      ?request.respond({status:200,contentType:'application/javascript',body:seasonSource.replace(seasonLine,'const SEASON = "'+season+'";')})
       :request.continue());
    }
    await p.goto(base);await dismissIntro(p);await p.select('#stepJump','0');

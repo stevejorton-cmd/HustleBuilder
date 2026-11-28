@@ -42,11 +42,11 @@ try{
   await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('server timeout')),10000);child.stdout.on('data',d=>{if(String(d).includes('listening')){clearTimeout(t);resolve();}});child.once('error',reject);});
   browser=await puppeteer.launch({executablePath:process.env.CHROME||'/usr/local/bin/google-chrome',headless:true,protocolTimeout:120000,args:['--no-sandbox','--disable-dev-shm-usage']});
   const p=await browser.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e)));
-  // The full design matrix includes snow and lawn+snow, which are intentionally
-  // hidden in Fall. Use the real Snow pack in this test page only; the separate
-  // legacy-draft browser below still uses the shipped season.
+  // The full design matrix includes snow and lawn+snow. Force the winter pack
+  // in this test page only; the separate legacy-draft browser below still uses
+  // the shipped season.
   const seasonSource=await readFile(new URL('../config/season.js',import.meta.url),'utf8');
-  const seasonLine=/^const SEASON = "(fall|snow)";$/m;
+  const seasonLine=/^const SEASON = "(auto|fall|winter|snow|summer)";$/m;
   assert.match(seasonSource,seasonLine);
   await p.setBypassServiceWorker(true);
   await p.setRequestInterception(true);
