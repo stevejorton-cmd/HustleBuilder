@@ -1889,7 +1889,7 @@ function siteMain(){
     function pickRate(){
       var svc=li.getAttribute("data-svc");
       if(sel&&svc){sel.value=svc;sel.dispatchEvent(new Event("change"));}
-      var bk=$("book");if(bk)bk.scrollIntoView({behavior:"smooth",block:"start"});
+      var bk=$("book");if(bk){var top=bk.getBoundingClientRect().top+(window.pageYOffset||0);window.scrollTo({top:top,behavior:"smooth"});}
     }
     li.addEventListener("click",pickRate);
     li.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();pickRate();}});
@@ -3223,6 +3223,100 @@ function previewArtData(src){
   );
   return previewArtCache.get(url.href);
 }
+// A srcdoc preview uses the builder page as its base URL. href="#book" therefore
+// navigates the phone frame to /#book. The builder refuses to be framed
+// (X-Frame-Options: DENY and frame-ancestors 'none'), so the phone goes blank.
+// Hash links stay inside the preview. Every other navigation is cancelled.
+// Published pages are unchanged: this guard is injected only into the phone srcdoc.
+function previewLinkAction(href, target){
+  const where=String(target||"").replace(/\s+/g,"").toLowerCase();
+  if(where==="_blank"||where==="_top"||where==="_parent")return {type:"stay"};
+  const raw=String(href==null?"":href).trim();
+  if(raw.charAt(0)==="#"&&raw.length>1){
+    let id=raw.slice(1);
+    try{id=decodeURIComponent(id);}catch(e){}
+    if(id)return {type:"scroll",id};
+  }
+  return {type:"stay"};
+}
+function previewNavScript(){
+  return "(function(){"+
+    "function action(href,target){"+
+      "var where=String(target||\"\").replace(/\\s+/g,\"\").toLowerCase();"+
+      "if(where===\"_blank\"||where===\"_top\"||where===\"_parent\")return {type:\"stay\"};"+
+      "var raw=String(href==null?\"\":href).trim();"+
+      "if(raw.charAt(0)===\"#\"&&raw.length>1){"+
+        "var id=raw.slice(1);try{id=decodeURIComponent(id);}catch(e){}"+
+        "if(id)return {type:\"scroll\",id:id};"+
+      "}"+
+      "return {type:\"stay\"};"+
+    "}"+
+    "function fromNode(node){if(node&&node.nodeType!==1)node=node.parentElement;return node;}"+
+    "document.addEventListener(\"click\",function(e){"+
+      "var node=fromNode(e.target);"+
+      "var link=node&&node.closest?node.closest(\"a\"):null;"+
+      "if(link){"+
+        "var act=action(link.getAttribute(\"href\"),link.getAttribute(\"target\"));"+
+        "e.preventDefault();"+
+        "if(act.type===\"scroll\"){"+
+          "var el=document.getElementById(act.id);"+
+          "if(el){"+
+            "var top=el.getBoundingClientRect().top+(window.pageYOffset||0);"+
+            "window.scrollTo({top:top,behavior:\"smooth\"});"+
+          "}"+
+        "}"+
+        "return;"+
+      "}"+
+      "var send=node&&node.closest?node.closest(\"#sendHost,#sendInbox,#sendText,#sendRvText\"):null;"+
+      "if(!send)return;"+
+      "e.preventDefault();"+
+      "if(e.stopImmediatePropagation)e.stopImmediatePropagation();"+
+      "var err=document.getElementById(\"err\")||document.getElementById(\"rvErr\");"+
+      "if(err)err.textContent=\"Preview requests are not sent.\";"+
+    "},true);"+
+    "document.addEventListener(\"auxclick\",function(e){var node=fromNode(e.target);if(node&&node.closest&&node.closest(\"a\"))e.preventDefault();},true);"+
+    "document.addEventListener(\"submit\",function(e){e.preventDefault();},true);"+
+    "function draftBooking(){"+
+      "[\"sendHost\",\"sendInbox\"].forEach(function(id){"+
+        "var btn=document.getElementById(id);if(!btn||!btn.parentNode)return;"+
+        "var note=document.createElement(\"p\");note.className=\"small\";"+
+        "note.textContent=\"This is a draft preview. A parent publishes the website at Go live to enable booking requests.\";"+
+        "var box=btn.parentNode;"+
+        "if(box.classList&&box.classList.contains(\"btns\")&&box.parentNode)box.parentNode.replaceChild(note,box);"+
+        "else btn.parentNode.replaceChild(note,btn);"+
+      "});"+
+    "}"+
+    "if(document.readyState===\"loading\")document.addEventListener(\"DOMContentLoaded\",draftBooking);"+
+    "else draftBooking();"+
+  "})();";
+}
+function guardPreviewDocument(html){
+  const marker="<!-- hb-preview-nav -->";
+  if(!html||html.indexOf(marker)!==-1||html.indexOf("<head>")===-1)return html;
+  return html.replace("<head>","<head>"+marker+"<script>"+previewNavScript()+"</"+"script>");
+}
+let previewHtml="";
+let suppressPreviewLoad=0;
+function armPreviewFrame(){
+  if(!frame||frame._hbNavGuard||typeof frame.addEventListener!=="function")return;
+  frame._hbNavGuard=1;
+  frame.addEventListener("load",()=>{
+    if(suppressPreviewLoad>0){suppressPreviewLoad--;return;}
+    if(!previewHtml)return;
+    const live="<!-- hb-preview-live -->";
+    const next=previewHtml.includes(live)?previewHtml.replace(live,""):previewHtml.replace("<!-- hb-preview-nav -->","<!-- hb-preview-nav -->"+live);
+    if(!next||next===frame.srcdoc)return;
+    suppressPreviewLoad=1;
+    previewHtml=next;
+    frame.srcdoc=next;
+  });
+}
+function assignPreview(html){
+  previewHtml=html;
+  armPreviewFrame();
+  suppressPreviewLoad++;
+  frame.srcdoc=html;
+}
 async function refresh(){
   const revision=++previewRevision,html=genSite(resolve(true));
   const sources=[...new Set([...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map(m=>m[1]))];
@@ -3230,7 +3324,7 @@ async function refresh(){
   if(revision!==previewRevision)return;
   const images=new Map(embedded);
   if(typeof shell!=="undefined"&&shell.classList.contains("sheet"))sizePhonePreview();
-  frame.srcdoc=html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g,(_,before,src,after)=>before+(images.get(src)||src)+after);
+  assignPreview(guardPreviewDocument(html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g,(_,before,src,after)=>before+(images.get(src)||src)+after)));
 }
 
 document.querySelectorAll("[data-k]").forEach(el=>{
