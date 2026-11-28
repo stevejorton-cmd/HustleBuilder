@@ -245,6 +245,50 @@ test("snow shoveling is a first-class fall idea with a price and a duration", ()
   assert.equal(summerNames.includes("Snow shoveling"), true);
 });
 
+test("a job tile selects only itself and the seasonal chip row is gone", () => {
+  assert.equal(html.includes('id="seasonIdeas"'), false);
+  assert.equal(html.includes('id="seasonLead"'), false);
+  assert.equal(html.includes('id="seasonSafety"'), false);
+  assert.equal(html.includes("function renderSeasonIdeas"), false);
+  assert.equal(html.includes("Fall and winter ideas. Snow shoveling is for"), false);
+  assert.equal(html.includes("showEmoji"), false);
+  const tiles = html.slice(html.indexOf("const TYPE_BY_ID="), html.indexOf("function seasonPicker("));
+  assert.match(tiles, /snow:\{id:"snow",name:"Snow shoveling",blurb:"Driveways, sidewalks, and steps\."\}/);
+  assert.equal(tiles.includes("❄️"), false);
+  assert.equal(html.includes("t.showEmoji"), false);
+  const start = html.indexOf("function markSelectedTile(");
+  const end = html.indexOf("function renderTiles(", start);
+  assert.ok(start > 0 && end > start);
+  const sandbox = {};
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(html.slice(start, end) + "\nthis.markSelectedTile=markSelectedTile;", sandbox);
+  const ids = ["snow", "prep", "lawn", "pet", "both", "odd", "wash", "help", "tutor", "other"];
+  const buttons = () => ids.map((id) => {
+    const attrs = {};
+    return { dataset: { type: id }, setAttribute(key, value) { attrs[key] = value; }, getAttribute(key) { return attrs[key]; } };
+  });
+  for (const id of ["snow", "lawn", "prep", "pet", "other"]) {
+    const list = buttons();
+    assert.equal(sandbox.markSelectedTile(list, id), 1);
+    assert.deepEqual(list.filter((button) => button.getAttribute("aria-pressed") === "true").map((button) => button.dataset.type), [id]);
+    assert.equal(list.filter((button) => button.getAttribute("aria-pressed") !== "true").length, ids.length - 1);
+  }
+  assert.equal(sandbox.markSelectedTile(buttons(), "missing"), 0);
+  const presetStart = html.indexOf("const PRESETS=");
+  const presetEnd = html.indexOf("const TAGS=", presetStart);
+  const prices = {};
+  prices.globalThis = prices;
+  vm.createContext(prices);
+  vm.runInContext(html.slice(presetStart, presetEnd) + "\nthis.starterServices=starterServices;", prices);
+  const snowJobs = prices.starterServices("snow", 1);
+  const shovel = snowJobs.find((job) => job.n === "Snow shoveling, about 45 minutes");
+  assert.equal(shovel.p, "12");
+  assert.equal(snowJobs.filter((job) => job.n === "Snow shoveling, about 45 minutes").length, 1);
+  assert.equal(prices.starterServices("lawn", 1).some((job) => job.n === "Snow shoveling, about 45 minutes"), false);
+  assert.equal(prices.starterServices("both", 1).some((job) => job.n === "Snow shoveling, about 45 minutes"), false);
+});
+
 test("a saved season override changes the picker and leaves the draft key alone", () => {
   const start = html.indexOf("function hbSeason(");
   const end = html.indexOf("function blankLawnDefault(", start);
