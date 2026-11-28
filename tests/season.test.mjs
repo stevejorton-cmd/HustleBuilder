@@ -251,6 +251,11 @@ test("a job tile selects only itself and the seasonal chip row is gone", () => {
   assert.equal(html.includes('id="seasonSafety"'), false);
   assert.equal(html.includes("function renderSeasonIdeas"), false);
   assert.equal(html.includes("Fall and winter ideas. Snow shoveling is for"), false);
+  assert.equal(html.includes("showEmoji"), false);
+  const tiles = html.slice(html.indexOf("const TYPE_BY_ID="), html.indexOf("function seasonPicker("));
+  assert.match(tiles, /snow:\{id:"snow",name:"Snow shoveling",blurb:"Driveways, sidewalks, and steps\."\}/);
+  assert.equal(tiles.includes("❄️"), false);
+  assert.equal(html.includes("t.showEmoji"), false);
   const start = html.indexOf("function markSelectedTile(");
   const end = html.indexOf("function renderTiles(", start);
   assert.ok(start > 0 && end > start);

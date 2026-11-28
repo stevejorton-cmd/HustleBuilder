@@ -3042,7 +3042,7 @@ const seg=$("#seg"); for(let i=0;i<STEPS;i++){seg.appendChild(document.createEle
 
 const TYPE_BY_ID={
   lawn:{id:"lawn",name:"Lawn",blurb:"Mow. Trim. Edge."},
-  snow:{id:"snow",name:"Snow shoveling",blurb:"Driveways, sidewalks, and steps.",emoji:"❄️",showEmoji:true,color:"#1C3D5A"},
+  snow:{id:"snow",name:"Snow shoveling",blurb:"Driveways, sidewalks, and steps."},
   both:{id:"both",name:"Both",blurb:"Lawn + snow"},
   pet:{id:"pet",name:"Pet care",blurb:"Walks, food, and cleanup"},
   prep:{id:"prep",name:"Winter prep",blurb:"Yard cleanup and snow"}
@@ -3090,8 +3090,7 @@ function tileHtml(t){
   const scene=t.id==="prep"&&!t.img?sceneArt("both",artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid"):t.img?`<img class="scene" src="${t.id==="prep"?"assets/refresh/prep.webp":t.img}" alt="" width="1280" height="720">`:t.emoji?`<span class="emo" style="background:${t.color}">${t.emoji}</span>`:sceneArt(t.id,artStyle()).replace(/<circle class="flake"[^>]*\/>/g,"").replace("xMidYMax","xMidYMid");
   const art=t.id==="pet"?`<img class="scene pthero" src="assets/refresh/pet.webp" alt="" width="1280" height="720">`:scene;
   const fit=String(t.name||"").length>10?" fit":"";
-  const title=(t.showEmoji&&t.emoji?t.emoji+" ":"")+t.name;
-  return (brandArt(t.id,S.theme,"")||art)+`<span class="cap"><strong class="${fit.trim()}">${title}</strong><span>${t.blurb}</span></span>`+tick;
+  return (brandArt(t.id,S.theme,"")||art)+`<span class="cap"><strong class="${fit.trim()}">${t.name}</strong><span>${t.blurb}</span></span>`+tick;
 }
 function markSelectedTile(buttons, selectedId){
   let count=0;
@@ -3108,7 +3107,7 @@ function renderTiles(){
     list.forEach(t=>{
       const b=document.createElement("button"); b.type="button"; b.dataset.type=t.id; b.className="tile"+(t.emoji&&!t.img?" emoji":"");
       b.innerHTML=tileHtml(t);
-      b.setAttribute("aria-label", (t.emoji?t.emoji+" ":"")+t.name+". "+(t.blurb||""));
+      b.setAttribute("aria-label", t.name+". "+(t.blurb||""));
       b.onclick=()=>pickType(t.id);
       w.appendChild(b);
     });
