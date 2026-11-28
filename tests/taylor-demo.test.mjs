@@ -20,7 +20,8 @@ test('fictional Taylor website opens from a fresh store and matches the front-pa
  const response=await call('GET','/api/site/taylor-demo');
  assert.equal(response.status,200);assert.match(response.headers['content-type'],/text\/html/);
  assert.match(response.headers['content-security-policy'],/connect-src 'none'/);assert.equal(response.headers['referrer-policy'],'no-referrer');
- const view=globalThis.HB_SEASON_FILE.seasonView(),data=cfg(response.body);
+ const active=globalThis.HB_SEASON_FILE.activeSeason();
+ const view=globalThis.HB_SEASON_FILE.seasonView(active==='winter'?'snow':'fall'),data=cfg(response.body);
  assert.equal(data.first,'Taylor');assert.equal(data.biz,view.biz);assert.deepEqual(data.services,view.rates.map(r=>({n:r.n,p:'$'+r.p})));
  assert.match(response.body,/Example business/);assert.match(response.body,/No real bookings/);assert.match(response.body,/href="\/\?build=1">Build your own/);
  assert.match(response.body,/name="robots" content="noindex, nofollow"/);

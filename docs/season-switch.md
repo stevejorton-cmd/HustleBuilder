@@ -1,15 +1,17 @@
 # Season switch
 
-Hustle Builder leads with one season at a time. The switch is a single line in `config/season.js`:
+Hustle Builder follows the calendar unless a season is forced. The line in `config/season.js` is:
 
 ```js
-const SEASON = "fall";
+const SEASON = "auto";
 ```
 
-Change that line to `"snow"` when snow arrives, or back to `"fall"` for yard cleanup. Then merge to main. Do not add a Vercel env var. The page reads this file when it loads.
+`auto` uses the date on the device:
 
-`fall` puts Yard cleanup first in the job picker and makes it the default for a new draft that has not been filled in. Lawn and pet care come next. Snow and Both stay off the picker until `SEASON` is `"snow"`. The home page, the welcome sample, and `/parents` lead with yard cleanup and leaves.
+- September, October, and November are fall. Fall and winter job ideas lead, and snow shoveling is on the main picker.
+- December, January, and February are winter (the same pack as `"snow"`). Snow shoveling is the default for a new draft.
+- March through August use the summer ideas. Lawn care leads. Snow shoveling, yard cleanup, and the other jobs stay on the picker.
 
-`snow` puts snow shoveling first and makes it the default for a new draft. The welcome sample and `/parents` lead with snow shoveling.
+Set that line to `"fall"`, `"winter"` (or `"snow"`), or `"summer"` to force a season, then merge to main. Do not add a Vercel env var. The page reads this file when it loads.
 
-A draft already saved on a phone, and a page already published, stay as they are. The lawn-first wording from before this switch is stored in the same file as `LAWN_SNAPSHOT`.
+Saved work and app settings can remember `hb-season-mode` on one device (`auto`, `fall`, `winter`, or `summer`). That does not change the draft save key. A draft already saved on a phone, and a page already published, stay as they are. The lawn-first wording from before the first season switch is stored in the same file as `LAWN_SNAPSHOT`.

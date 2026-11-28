@@ -2173,7 +2173,7 @@ test("add more jobs lists the selected business type first", async () => {
   const end = src.indexOf("JOBS.forEach(g=>g.items", start);
   if (start < 0 || end < 0) throw new Error("missing job catalog");
   const names = (picked) => runInNewContext(src.slice(start, end) + `orderedJobGroups(${JSON.stringify(picked)}).map(g=>g.g).join("|")`);
-  const all = ["Yard jobs", "Snow jobs", "Winter prep jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"];
+  const all = ["Yard jobs", "Snow jobs", "Winter prep jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras", "Fall and winter jobs"];
   const expectOrder = (picked, first) => {
     const got = names(picked).split("|");
     assert.deepEqual(got.slice(0, first.length), first);
@@ -2189,7 +2189,7 @@ test("add more jobs lists the selected business type first", async () => {
   expectOrder("wash", ["Car jobs"]);
   expectOrder("help", ["Helpful extras"]);
   expectOrder("tutor", ["Reading jobs"]);
-  expectOrder("other", ["Yard jobs", "Snow jobs", "Winter prep jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras"]);
+  expectOrder("other", ["Yard jobs", "Snow jobs", "Winter prep jobs", "Pet jobs", "Car jobs", "Reading jobs", "Helpful extras", "Fall and winter jobs"]);
   expectOrder(["pet", "snow"], ["Pet jobs", "Snow jobs"]);
   expectOrder(["snow", "lawn"], ["Snow jobs", "Yard jobs"]);
   expectOrder(["both", "pet"], ["Yard jobs", "Snow jobs", "Pet jobs"]);
@@ -3344,7 +3344,7 @@ test("yard cleanup and winter prep is a bookable job with parent-approved tools"
   assert.match(src, /\{id:"prep",name:"Winter prep"/);
   assert.match(src, /A parent approves the tools for each job\./);
   assert.doesNotMatch(src, /hand tools only/i);
-  assert.equal(/gutter/i.test(src), false);
+  assert.match(src, /Yard and gutter cleanup/);
   assert.equal(/ladder/i.test(src), false);
   assert.match(src, /flyerStyle:"ink"/);
   const { genSite } = extractBuilderParts(src);
