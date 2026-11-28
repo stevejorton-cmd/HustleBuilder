@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source=await readFile(new URL('../index.html',import.meta.url),'utf8');
-const start=source.indexOf('function gearLoading('),end=source.indexOf('const previewGearBtn=',start);
+const start=source.indexOf('function gearKidKey('),end=source.indexOf('const previewGearBtn=',start);
 assert.ok(start>0&&end>start);
 const deferred=()=>{let resolve;const promise=new Promise(yes=>resolve=yes);return {promise,resolve};};
 const business=(id,extra={})=>({id,slug:id,kid:id,business:id+' Crew',brand:{businessName:id+' Crew',kidName:id,font:'bungee',accent:'#245B45',theme:'neighbor',tagline:'Ready to help'},completedJobs:3,operator:{earned:true},milestoneEmails:false,...extra});
@@ -145,4 +145,34 @@ test('account links still refresh after verification without opening gear',async
 test('ordinary publishing verification does not add an unrelated account or gear load',async()=>{
   const h=verificationDevice({search:'',pending:null});await h.verify();
   assert.deepEqual(h.events,[]);assert.equal(h.launched.length,0);
+});
+
+test('the booking gear entry does not list every child when no page is open',async()=>{
+  const h=device();await h.c.openBusinessGear();
+  assert.equal(h.launched.length,0);
+  assert.match(h.messages.at(-1),/own page/);
+  assert.doesNotMatch(h.messages.at(-1),/Whose business gear|riley|quinn/i);
+});
+
+test('a kid with two businesses is listed alone, and a sibling id is refused',async()=>{
+  const h=device(),labels=[];
+  h.c.pubApi=async(path)=>{
+    if(String(path).includes('businessId=quinn')&&String(path).includes('kid=Riley'))return {ok:false,status:404,error:'business',message:'That business is not available in this parent account.'};
+    return {ok:true,selectedBusinessId:'',businesses:[business('riley',{kid:'Riley',business:'Riley Yard'}),business('riley-snow',{id:'riley-snow',kid:'Riley',business:'Riley Snow'}),business('quinn',{kid:'Quinn',business:'Quinn Pets'})]};
+  };
+  h.c.document.createElement=()=>{const el={dataset:{},className:'',onclick:null};let text='';Object.defineProperty(el,'textContent',{get(){return text;},set(v){text=String(v);labels.push(text);}});return el;};
+  await h.c.openBusinessGear({kid:'Riley'});
+  assert.equal(h.launched.length,0);
+  assert.match(h.messages.at(-1),/Whose business gear/);
+  assert.doesNotMatch(h.messages.at(-1),/Quinn/);
+  assert.deepEqual(labels.filter(Boolean),['Riley · Riley Yard','Riley · Riley Snow']);
+  await h.c.openBusinessGear({businessId:'quinn',kid:'Riley'});
+  assert.equal(h.launched.length,0);
+  assert.match(h.messages.at(-1),/not available in this parent account/);
+  assert.doesNotMatch(h.messages.at(-1),/Quinn Pets|Riley Yard/);
+});
+
+test('a page slug still opens that business when a sibling is present in a bad payload',async()=>{
+  const h=device();await h.c.openBusinessGear({slug:'quinn'});
+  assert.equal(h.launched.length,1);assert.equal(h.launched[0].businessName,'quinn Crew');
 });

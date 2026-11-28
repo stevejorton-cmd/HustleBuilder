@@ -71,7 +71,13 @@ try{
     const draft=await api('/api/draft',{token,body:{draft:{first:spec.first,bizName:spec.biz,siteFont:spec.font,theme:spec.theme,palette:spec.palette,type:spec.type||'lawn',tagline:'Neighbors can count on us',siteUrl:base+'/'+spec.slug}}});
     const published=await api('/api/publish',{token,body:{slug:spec.slug,draftCode:draft.code,tz:'America/Chicago',html:genSite(demoCfg({...spec,publish:{slug:spec.slug,book:base+'/api/book'}}))}});jobCode=published.jobCode||jobCode;
   }
-  const saved=await api('/api/gear',{token}),riley=saved.businesses.find(b=>b.slug==='gear-riley'),quinn=saved.businesses.find(b=>b.slug==='gear-quinn');
+  const rileyGear=await api('/api/gear?slug=gear-riley',{token}),quinnGear=await api('/api/gear?slug=gear-quinn',{token});
+  const riley=rileyGear.businesses.find(b=>b.slug==='gear-riley'),quinn=quinnGear.businesses.find(b=>b.slug==='gear-quinn');
+  assert.equal(rileyGear.businesses.some(b=>b.slug==='gear-quinn'),false);assert.equal(quinnGear.businesses.some(b=>b.slug==='gear-riley'),false);
+  const roster=await fetch(base+'/api/gear',{headers:{authorization:'Bearer '+token,origin:base}});
+  assert.equal(roster.status,404);const rosterBody=await roster.json();assert.equal(rosterBody.error,'owner');assert.equal(JSON.stringify(rosterBody).includes('Riley'),false);assert.equal(JSON.stringify(rosterBody).includes('Quinn'),false);
+  const swapped=await fetch(base+'/api/gear?slug=gear-quinn&businessId='+encodeURIComponent(riley.id),{headers:{authorization:'Bearer '+token,origin:base}});
+  assert.equal(swapped.status,404);assert.equal(JSON.stringify(await swapped.json()).includes('Riley'),false);
   assert.equal(riley.brand.font,'anton');assert.equal(quinn.brand.font,'fredoka');
   const parent=await pageFor(browser.defaultBrowserContext(),'/?gear=1&business='+riley.id);
   assert.equal(await parent.$('dialog.hbgear'),null);await login(parent,email);
@@ -97,7 +103,8 @@ try{
   pass('phone gear controls work and real downloads preserve the selected font, correct business, high resolution and transparency');
 
   await click(parent,'[data-gear-email-opt-in]');await parent.waitForFunction(()=>document.querySelector('.hbgear-preference-status')?.textContent.includes('on for this business'));
-  let gear=await sessionApi(parent,'/api/gear');assert.equal(gear.businesses.find(b=>b.id===riley.id).milestoneEmails,true);assert.equal(gear.businesses.find(b=>b.id===quinn.id).milestoneEmails,false);
+  let gear=await sessionApi(parent,'/api/gear?slug=gear-riley');assert.equal(gear.businesses.find(b=>b.id===riley.id).milestoneEmails,true);assert.equal(gear.businesses.some(b=>b.id===quinn.id),false);
+  const quinnPref=await sessionApi(parent,'/api/gear?slug=gear-quinn');assert.equal(quinnPref.businesses.find(b=>b.id===quinn.id).milestoneEmails,false);assert.equal(quinnPref.businesses.some(b=>b.id===riley.id),false);
   await click(parent,'.hbgear-close');await click(parent,'[data-gear-slug="gear-quinn"]');
   await parent.waitForSelector('dialog.hbgear[open]');assert.equal(await parent.$eval('.hbgear-business',el=>el.textContent),'Quinn Pet Club');assert.equal(await parent.$eval('[data-gear-email-opt-in]',el=>el.checked),false);await click(parent,'.hbgear-close');
   pass('parent milestone email preference is saved only for the selected child and account gear switches siblings correctly');
@@ -129,12 +136,19 @@ try{
     jobs=await sessionApi(parent,'/api/my-jobs');job=jobs.jobs.filter(j=>j.businessKey==='gear-riley'&&j.status!=='done'&&!j.inquiry).at(-1);
     await api('/api/job/'+job.action,{body:{status:'done',json:true}});
   }
-  gear=await sessionApi(parent,'/api/gear');assert.equal(gear.businesses.find(b=>b.id===riley.id).completedJobs,3);assert.equal(gear.businesses.find(b=>b.id===quinn.id).completedJobs,0);
+  gear=await sessionApi(parent,'/api/gear?slug=gear-riley');assert.equal(gear.businesses.find(b=>b.id===riley.id).completedJobs,3);assert.equal(gear.businesses.some(b=>b.id===quinn.id),false);
+  const quinnProgress=await sessionApi(parent,'/api/gear?slug=gear-quinn');assert.equal(quinnProgress.businesses.find(b=>b.id===quinn.id).completedJobs,0);
   const mail=await api('/api/test/outbox?email='+encodeURIComponent(email));
   assert.equal(mail.messages.filter(m=>/earned Operator/.test(m.subject)).length,1);
   await api('/api/job/'+job.action,{body:{status:'done',json:true}});
   const afterReplay=await api('/api/test/outbox?email='+encodeURIComponent(email));assert.equal(afterReplay.messages.filter(m=>/earned Operator/.test(m.subject)).length,1);
-  await click(parent,'#myBusinessGear');await parent.waitForSelector('[data-gear-business="'+riley.id+'"]');await click(parent,'[data-gear-business="'+riley.id+'"]');await parent.waitForSelector('[data-gear-download="badge-svg"]:not([disabled])');
+  await parent.evaluate(origin=>{localStorage.setItem('hb-draft-owner','gear-neighbor-parent@example.com');localStorage.setItem('hustle-builder-v3',JSON.stringify({first:'Riley',bizName:'Riley Yard Crew',siteUrl:origin+'/gear-riley',type:'lawn'}));},base);
+  await parent.goto(base+'/?jobs=1',{waitUntil:'networkidle0'});await parent.waitForSelector('#myBusinessGear:not([hidden])');
+  await click(parent,'#myBusinessGear');await parent.waitForSelector('dialog.hbgear[open]');
+  assert.equal(await parent.$eval('.hbgear-business',el=>el.textContent),'Riley Yard Crew');
+  assert.equal(await parent.$('[data-gear-business]'),null);
+  assert.doesNotMatch(await parent.$eval('dialog.hbgear',el=>el.textContent),/Quinn/);
+  await parent.waitForSelector('[data-gear-download="badge-svg"]:not([disabled])');
   assert.match(await parent.$eval('.hbgear-milestone',el=>el.textContent),/Operator unlocked/);
   assert.match(await parent.$eval('.hbgear-coming-soon',el=>el.textContent),/Coming Soon/);
   assert.equal(await parent.$('dialog.hbgear a[href],.hbgear-preview-cap,[data-gear-download^="cap-"]'),null);
@@ -151,6 +165,8 @@ try{
   await click(parent,'.hbgear-close');await click(parent,'#refreshJobs');await parent.waitForSelector('#jobList [data-inquiry="true"]');assert.equal(await parent.$('#jobList [data-inquiry="true"] button[data-job]'),null);
   const kid=await pageFor(await browser.createBrowserContext(),'/?jobs=1');
   const kidData=await api('/api/my-jobs?code='+encodeURIComponent(jobCode));assert.ok(kidData.jobs.every(j=>!j.inquiry&&!j.action&&!j.detailsUrl));assert.equal(kidData.jobs.length,3);
+  const kidGear=await kid.evaluate(async id=>{const r=await fetch('/api/gear?businessId='+encodeURIComponent(id)+'&slug=gear-riley');return {status:r.status,text:JSON.stringify(await r.json())};},riley.id);
+  assert.equal(kidGear.status,401);assert.equal(kidGear.text.includes('Riley'),false);assert.equal(kidGear.text.includes(riley.id),false);
   pass('a public question and immediate follow-up stay private and create no booking; kid access does not expose inquiries or parent controls');
 
   await click(kid,'#mFlyers');await click(kid,'#previewBusinessGear');await kid.waitForSelector('dialog.hbgear[open]');
@@ -161,7 +177,9 @@ try{
   assert.equal(await kid.$eval('#previewBusinessGear',el=>document.activeElement===el),true);
   pass('draft preview offers free downloads, restores focus, and keeps parent shopping and email settings out of the child view');
 
-  await click(parent,'#myBusinessGear');await click(parent,'[data-gear-business="'+riley.id+'"]');await parent.waitForSelector('dialog.hbgear[open]');
+  await click(parent,'#myBusinessGear');await parent.waitForSelector('dialog.hbgear[open]');
+  assert.equal(await parent.$eval('.hbgear-business',el=>el.textContent),'Riley Yard Crew');
+  assert.doesNotMatch(await parent.$eval('dialog.hbgear',el=>el.textContent),/Quinn/);
   const otherParent=await pageFor(browser.defaultBrowserContext(),'/?account=1');await otherParent.waitForSelector('#acctSignOut:not([hidden])');await click(otherParent,'#acctSignOut');
   await parent.waitForFunction(()=>!document.querySelector('dialog.hbgear'),{polling:100,timeout:5000});
   assert.equal(await parent.$eval('#myBusinessGear',el=>el.hidden),true);

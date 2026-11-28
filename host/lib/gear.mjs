@@ -25,6 +25,8 @@ const object = value => value && typeof value === 'object' && !Array.isArray(val
 const validAccount = account => object(account) && /^[a-z0-9_-]{1,100}$/i.test(String(account.id || '')) && account.emailVerifiedAt && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(account.email || ''));
 const authError = () => ({ok:false,status:401,error:'auth',message:'Sign in with the verified parent email to open My Business Gear.'});
 const businessError = () => ({ok:false,status:404,error:'business',message:'That business is not available in this parent account.'});
+// A multi-kid account has no family gear catalog. This error names nobody.
+const ownerError = () => ({ok:false,status:404,error:'owner',message:'Open My Business Gear from your own page.'});
 const accountSlugs = account => [...new Set([account.slug, ...(Array.isArray(account.slugs) ? account.slugs : [])].map(slugOf).filter(Boolean))];
 const ledgerKey = account => 'gear/' + account.id + '.json';
 const completionKey = (account, row) => createHash('sha256').update(account.id + ':' + row.id).digest('hex');
@@ -217,23 +219,49 @@ async function migrateRetainedCompletions(state) {
     if (entry) addCompletion(state,entry,row,{historical:true});
   }
 }
-function responseFor(state, {businessId,slug,origin} = {}) {
-  const contexts = state.contexts;
-  let selected = contexts[0];
-  if (businessId || slug) {
-    selected = contexts.find(({entry}) => (!businessId || entry.id === businessId) && (!slug || entry.aliases.includes(slugOf(slug))));
-    if (!selected) return businessError();
-  }
+// Gear belongs to the kid named on the page. There is no separate kid login.
+// An empty name does not join unrelated pages into one visible group.
+function ownerKey(entry) {
+  const name = clean(entry?.brand?.kidName || '', 40).toLocaleLowerCase();
+  return name || ('id:' + String(entry?.id || ''));
+}
+function businessView(entry, meta, origin) {
   const base = originOf(origin);
-  const businesses = contexts.map(({entry,meta}) => ({
+  return {
     id:entry.id,slug:entry.slug,kid:entry.brand?.kidName || '',business:entry.brand?.businessName || entry.slug,
     brand:entry.brand || brandFor(entry,meta || {},null),completedJobs:entry.completedJobs,
     operator:{threshold:OPERATOR_JOBS,earned:!!entry.earnedAt,earnedAt:entry.earnedAt || ''},
     milestoneEmails:entry.milestoneEmails === true,
     gearUrl:base + '/?gear=1&business=' + entry.id,
     previewUrl:meta ? base + '/api/card/' + entry.slug + '.png' : ''
-  }));
-  return {ok:true,businesses,selectedBusinessId:selected?.entry.id || '',downloadsFree:true,physicalPurchaseOptional:true};
+  };
+}
+function responseFor(state, {businessId,slug,kid,origin} = {}) {
+  const contexts = state.contexts;
+  const requestedKid = clean(kid, 40).toLocaleLowerCase();
+  let pool = contexts;
+  if (requestedKid) {
+    pool = contexts.filter(({entry}) => ownerKey(entry) === requestedKid);
+    if (!pool.length) return businessError();
+  }
+  let selected = null;
+  if (businessId || slug) {
+    selected = pool.find(({entry}) => (!businessId || entry.id === businessId) && (!slug || entry.aliases.includes(slugOf(slug))));
+    if (!selected) return businessError();
+    const key = ownerKey(selected.entry);
+    pool = pool.filter(({entry}) => ownerKey(entry) === key);
+  } else if (!requestedKid) {
+    if (!contexts.length) return {ok:true,businesses:[],selectedBusinessId:'',downloadsFree:true,physicalPurchaseOptional:true};
+    const keys = new Set(contexts.map(({entry}) => ownerKey(entry)));
+    // The parent session may open one kid at a time. It may not download
+    // every sibling's designs by asking for the account with no page.
+    if (keys.size > 1) return ownerError();
+    pool = contexts;
+    selected = contexts.length === 1 ? contexts[0] : null;
+  }
+  const businesses = pool.map(({entry,meta}) => businessView(entry,meta,origin));
+  const selectedBusinessId = selected ? selected.entry.id : businesses.length === 1 ? businesses[0].id : '';
+  return {ok:true,businesses,selectedBusinessId,downloadsFree:true,physicalPurchaseOptional:true};
 }
 async function prepare(account) {
   const state = await stateFor(account);
@@ -242,7 +270,10 @@ async function prepare(account) {
   return state;
 }
 
-/** Parent-only read, including offline businesses and expired plans. */
+/** Parent-session read, including offline businesses and expired plans.
+    The verified parent is a separate role and can open one owned business
+    (its page, or the gear link mailed for that business). The payload never
+    includes a different kid. A family jobs code is not a gear credential. */
 export async function getGear(account, options = {}) {
   if (!validAccount(account)) return authError();
   return transaction(async () => {

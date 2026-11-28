@@ -15,7 +15,7 @@ const page = (slug, name, kid, owner = account.id) => ({slug,accountId:owner,sta
 const get = options => getGear(account,{origin:ORIGIN,...options});
 const prefer = (businessId, milestoneEmails) => updateGearPreferences(account,{businessId,milestoneEmails,origin:ORIGIN});
 const done = (id, extra = {}, options = {}) => recordGearCompletion(account,{id,slug:'alex-lawn',status:'done',...extra},{parentAuthorized:true,previousStatus:'confirmed',origin:ORIGIN,...options});
-async function business(slug = 'alex-lawn') { return (await get()).businesses.find(item => item.slug === slug); }
+async function business(slug = 'alex-lawn') { return (await get({slug})).businesses.find(item => item.slug === slug); }
 async function mails() { return Promise.all((await db.list('mailqueue/')).map(asJson)); }
 async function draft(code, value, owner = account.id) {
   await putJson('drafts/' + code + '.json',{accountId:owner,draft:value,updatedAt:new Date().toISOString()});
@@ -47,8 +47,11 @@ test('gear is parent-only and is available before any jobs, offline and after a 
   assert.equal((await getGear({...account,emailVerifiedAt:null})).status,401);
   assert.equal((await getGear({...account,id:'../../another'})).status,401);
   const meta = await asJson('pages/alex-lawn.json'); meta.status = 'offline'; await putJson('pages/alex-lawn.json',meta);
-  const result = await get();
-  assert.equal(result.ok,true); assert.equal(result.businesses.length,2);
+  const roster = await get();
+  assert.equal(roster.ok,false); assert.equal(roster.status,404); assert.equal(roster.error,'owner');
+  assert.equal(JSON.stringify(roster).includes('Alex'),false); assert.equal(JSON.stringify(roster).includes('Sam'),false);
+  const result = await get({slug:'alex-lawn'});
+  assert.equal(result.ok,true); assert.equal(result.businesses.length,1); assert.equal(result.businesses[0].slug,'alex-lawn');
   assert.equal(result.downloadsFree,true); assert.equal(result.physicalPurchaseOptional,true);
   const alex = result.businesses[0];
   assert.equal(alex.completedJobs,0); assert.equal(alex.milestoneEmails,false);
@@ -67,12 +70,43 @@ test('business selectors and preferences cannot access another family or overwri
   for (const milestoneEmails of ['true',1,null,{},undefined]) assert.equal((await updateGearPreferences(account,{businessId:alex.id,milestoneEmails})).status,400);
   assert.equal((await updateGearPreferences(account,{milestoneEmails:true})).status,400);
   const changed = await updateGearPreferences(account,{businessId:alex.id,milestoneEmails:true,completedJobs:500,operator:{earned:true}});
+  assert.equal(changed.businesses.length,1); assert.equal(changed.businesses[0].id,alex.id);
   assert.equal(changed.businesses[0].completedJobs,0); assert.equal(changed.businesses[0].operator.earned,false);
-  assert.equal(changed.businesses[0].milestoneEmails,true); assert.equal(changed.businesses.find(item => item.id === sam.id).milestoneEmails,false);
+  assert.equal(changed.businesses[0].milestoneEmails,true); assert.equal((await get({slug:'sam-pets'})).businesses[0].milestoneEmails,false);
+  assert.equal(JSON.stringify(changed).includes('Sam'),false);
   const stolen = await asJson('pages/sam-pets.json'); stolen.accountId = 'another-parent'; await putJson('pages/sam-pets.json',stolen);
   assert.equal((await get()).businesses.length,1);
   assert.equal((await get({businessId:sam.id})).status,404);
   assert.equal((await prefer(sam.id,true)).status,404);
+});
+
+test('saved gear is visible only to the kid who owns that business', async () => {
+  await putJson('pages/alex-snow.json', page('alex-snow','Alex Snow Co.','Alex'));
+  account.slugs = [...account.slugs, 'alex-snow'];
+  const roster = await get();
+  assert.equal(roster.status,404); assert.equal(roster.error,'owner');
+  for (const secret of ['Alex','Sam','Snow','Pet']) assert.equal(JSON.stringify(roster).includes(secret),false,secret);
+  const alex = await get({slug:'alex-lawn'});
+  assert.deepEqual(alex.businesses.map(item => item.slug).sort(), ['alex-lawn','alex-snow']);
+  assert.equal(alex.businesses.every(item => item.kid === 'Alex'),true);
+  assert.equal(alex.selectedBusinessId, alex.businesses.find(item => item.slug === 'alex-lawn').id);
+  assert.equal(JSON.stringify(alex).includes('Sam'),false);
+  const samId = (await business('sam-pets')).id;
+  const sam = await get({businessId:samId});
+  assert.deepEqual(sam.businesses.map(item => item.slug), ['sam-pets']);
+  assert.equal(JSON.stringify(sam).includes('Alex'),false);
+  assert.equal(JSON.stringify(sam).includes(alex.businesses[0].id),false);
+  const crossed = await get({slug:'sam-pets',businessId:alex.selectedBusinessId,kid:'Sam'});
+  assert.equal(crossed.status,404); assert.equal(JSON.stringify(crossed).includes('Alex'),false); assert.equal(JSON.stringify(crossed).includes('Sam'),false);
+  const byName = await get({kid:'Alex'});
+  assert.deepEqual(byName.businesses.map(item => item.slug).sort(), ['alex-lawn','alex-snow']);
+  assert.equal(byName.selectedBusinessId,'');
+  assert.equal((await get({kid:'Alex',businessId:samId})).status,404);
+  assert.equal((await get({kid:'alex'})).businesses.length,2);
+  assert.equal((await get({businessId:samId,slug:'alex-lawn'})).status,404);
+  const preferAlex = await prefer(alex.selectedBusinessId,true);
+  assert.equal(preferAlex.businesses.every(item => item.kid === 'Alex'),true);
+  assert.equal((await business('sam-pets')).milestoneEmails,false);
 });
 
 test('only a trusted parent transition of a booking into Done counts', async () => {
@@ -125,7 +159,8 @@ test('sibling progress and email choices stay separate, even with a family-wide 
   const alex = await business(), sam = await business('sam-pets');
   assert.equal(alex.brand.font,'pacifico'); assert.equal(alex.brand.accent,'#A78BFA'); assert.equal(alex.brand.businessName,'Alex & Co.');
   assert.equal(sam.brand.font,'bungee'); assert.equal(sam.brand.accent,'#14B8A6');
-  assert.equal(JSON.stringify(await get()).includes('alex0001'),false); assert.equal(JSON.stringify(await get()).includes('sam00001'),false);
+  assert.equal(JSON.stringify(await get({slug:'alex-lawn'})).includes('alex0001'),false); assert.equal(JSON.stringify(await get({slug:'sam-pets'})).includes('sam00001'),false);
+  assert.equal(JSON.stringify(await get()).includes('alex0001'),false); assert.equal(JSON.stringify(await get()).includes('Sam'),false);
   await prefer(alex.id,true);
   for (let i = 0; i < 3; i++) await done('sam-' + i,{slug:'sam-pets',gearBusinessId:sam.id});
   assert.equal((await business()).completedJobs,0); assert.equal((await business('sam-pets')).operator.earned,true);
@@ -338,6 +373,8 @@ test('parent API integrates publish branding, first Done, retained progress, ren
   assert.ok(owner);
   assert.equal((await call('GET','/api/gear')).status,401);
   assert.equal((await call('GET','/api/gear?code=' + published.body.jobCode)).status,401);
+  assert.equal((await call('GET','/api/gear?business=gb_' + 'ab'.repeat(12) + '&code=' + published.body.jobCode)).status,401);
+  assert.equal(JSON.stringify((await call('GET','/api/gear?business=gb_' + 'cd'.repeat(12))).body).includes('Rae'),false);
   assert.equal((await call('POST','/api/gear',{code:published.body.jobCode,milestoneEmails:true})).status,401);
   const gear = await call('GET','/api/gear',null,token), business = gear.body.businesses[0];
   assert.equal(gear.status,200); assert.equal(business.brand.font,'gochi'); assert.equal(business.brand.accent,'#3E8BFF');
